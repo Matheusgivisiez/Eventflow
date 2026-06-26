@@ -1,0 +1,68 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: eventhub-api
+  namespace: eventhub
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: eventhub-api
+  template:
+    metadata:
+      labels:
+        app: eventhub-api
+    spec:
+      containers:
+        - name: api
+          image: ghcr.io/your-org/eventhub/api:latest
+          ports:
+            - containerPort: 3001
+          envFrom:
+            - secretRef:
+                name: eventhub-api-secrets
+          resources:
+            requests:
+              cpu: 250m
+              memory: 512Mi
+            limits:
+              cpu: "1"
+              memory: 1Gi
+          readinessProbe:
+            httpGet:
+              path: /api/health
+              port: 3001
+            initialDelaySeconds: 15
+            periodSeconds: 10
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: eventhub-api
+  namespace: eventhub
+spec:
+  selector:
+    app: eventhub-api
+  ports:
+    - port: 80
+      targetPort: 3001
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: eventhub-api
+  namespace: eventhub
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: eventhub-api
+  minReplicas: 3
+  maxReplicas: 30
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 65

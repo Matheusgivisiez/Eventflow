@@ -1,0 +1,1148 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─── Enums ──────────────────────────────────────────────────────
+
+enum UserRole {
+  ADMIN
+  ORGANIZER
+  TEAM
+  CHECKIN
+  CUSTOMER
+}
+
+enum EventStatus {
+  DRAFT
+  PUBLISHED
+  CLOSED
+}
+
+enum EventFormat {
+  ONLINE
+  IN_PERSON
+}
+
+enum PaymentMethod {
+  PIX
+  CREDIT_CARD
+  GOOGLE_PAY
+  APPLE_PAY
+  BOLETO
+}
+
+enum PaymentStatus {
+  PENDING
+  PAID
+  CANCELED
+  REFUNDED
+}
+
+enum TicketStatus {
+  AVAILABLE
+  USED
+  CANCELED
+}
+
+enum CheckInStatus {
+  ENTERED
+  REFUSED
+  DUPLICATED
+}
+
+enum WithdrawalStatus {
+  REQUESTED
+  APPROVED
+  PAID
+  CANCELED
+}
+
+enum TeamPermission {
+  CHECK_IN
+  FINANCE
+  EDIT_EVENT
+  VIEW_SALES
+  MANAGE_WHITE_LABEL
+  MANAGE_AFFILIATES
+  MANAGE_CRM
+  MANAGE_MARKETING
+  VIEW_ANALYTICS
+  MANAGE_PUBLIC_API
+  MANAGE_SEAT_MAPS
+  MANAGE_SECURITY
+}
+
+enum SubscriptionPlan {
+  FREE
+  STARTER
+  PRO
+  ENTERPRISE
+}
+
+enum NotificationType {
+  EMAIL
+  WHATSAPP
+  SMS
+}
+
+enum NotificationEvent {
+  PURCHASE_CONFIRMED
+  PAYMENT_APPROVED
+  PAYMENT_REFUSED
+  EVENT_TOMORROW
+  EVENT_TODAY
+  CANCELLATION
+  TICKET_CANCELED
+}
+
+enum CampaignChannel {
+  EMAIL
+  WHATSAPP
+  PUSH
+  SMS
+}
+
+enum CampaignStatus {
+  DRAFT
+  SCHEDULED
+  RUNNING
+  PAUSED
+  COMPLETED
+}
+
+enum AffiliateCommissionStatus {
+  PENDING
+  APPROVED
+  PAYABLE
+  PAID
+  CANCELED
+}
+
+enum SeatStatus {
+  AVAILABLE
+  HELD
+  RESERVED
+  SOLD
+  BLOCKED
+}
+
+enum ApiCredentialStatus {
+  ACTIVE
+  REVOKED
+}
+
+enum MarketplaceVerificationStatus {
+  PENDING
+  VERIFIED
+  REJECTED
+}
+
+enum FraudRiskLevel {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+enum AutomationTrigger {
+  PURCHASE_CONFIRMED
+  ABANDONED_CART
+  EVENT_DATE
+  CUSTOMER_SEGMENT
+  LOW_SALES
+}
+
+enum IntegrationProvider {
+  GOOGLE_ANALYTICS
+  META_PIXEL
+  WEBHOOK
+  AWS_S3
+  CLOUDFRONT
+  PROMETHEUS
+  GRAFANA
+  RABBITMQ
+}
+
+// ─── Core Models ────────────────────────────────────────────────
+
+model Tenant {
+  id           String         @id @default(cuid())
+  name         String
+  legalName    String?
+  document     String?
+  logoUrl      String?
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+  users        User[]
+  events       Event[]
+  ledger       LedgerEntry[]
+  teamMembers  TeamMember[]
+  coupons      Coupon[]
+  subscription Subscription?
+  planMRRCents Int            @default(0)
+  churnRisk    Int            @default(0)
+}
+
+model User {
+  id           String         @id @default(cuid())
+  tenantId     String?
+  name         String
+  email        String         @unique
+  passwordHash String
+  phone        String?
+  role         UserRole       @default(ORGANIZER)
+  avatarUrl    String?
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+  tenant       Tenant?        @relation(fields: [tenantId], references: [id])
+  refreshes    RefreshToken[]
+  resets       PasswordResetToken[]
+  events       Event[]        @relation("EventOwner")
+  orders       Order[]
+  checkIns     CheckInLog[]
+  teamMembers  TeamMember[]
+  twoFactorEnabled Boolean    @default(false)
+}
+
+model RefreshToken {
+  id           String   @id @default(cuid())
+  userId       String
+  tokenHash    String
+  revokedAt    DateTime?
+  expiresAt    DateTime
+  createdAt    DateTime @default(now())
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model PasswordResetToken {
+  id        String   @id @default(cuid())
+  userId    String
+  tokenHash String
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+// ─── Team ───────────────────────────────────────────────────────
+
+model TeamMember {
+  id          String           @id @default(cuid())
+  tenantId    String
+  userId      String
+  permissions TeamPermission[]
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+  tenant      Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  user        User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, userId])
+}
+
+// ─── Events ─────────────────────────────────────────────────────
+
+model Event {
+  id                     String       @id @default(cuid())
+  tenantId               String
+  ownerId                String
+  title                  String
+  slug                   String       @unique
+  description            String
+  category               String
+  bannerUrl              String?
+  galleryUrls            String[]     @default([])
+  startsAt               DateTime
+  endsAt                 DateTime?
+  city                   String?
+  state                  String?
+  zipCode                String?
+  address                String?
+  mapUrl                 String?
+  onlineUrl              String?
+  format                 EventFormat
+  status                 EventStatus  @default(DRAFT)
+  seoTitle               String?
+  seoDescription         String?
+  faqJson                Json?
+  agendaJson             Json?
+  salesStartsAt          DateTime?
+  salesEndsAt            DateTime?
+  limitPerCpf            Int?
+  feeAbsorbedByOrganizer Boolean      @default(false)
+  isSponsored            Boolean      @default(false)
+  marketplaceRank        Int          @default(0)
+  analyticsJson          Json?
+  seatMapEnabled         Boolean      @default(false)
+  createdAt              DateTime     @default(now())
+  updatedAt              DateTime     @updatedAt
+  tenant                 Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  owner                  User         @relation("EventOwner", fields: [ownerId], references: [id])
+  ticketTypes            TicketType[]
+  orders                 Order[]
+  payments               Payment[]
+  tickets                Ticket[]
+
+  @@index([tenantId, status])
+  @@index([startsAt])
+  @@index([category, status])
+  @@index([slug, status])
+}
+
+model TicketType {
+  id          String      @id @default(cuid())
+  eventId     String
+  name        String
+  description String?
+  quantity    Int
+  sold        Int         @default(0)
+  priceCents  Int
+  startsAt    DateTime
+  endsAt      DateTime
+  limitPerBuy Int         @default(5)
+  isActive    Boolean     @default(true)
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+  event       Event       @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  orderItems  OrderItem[]
+  tickets     Ticket[]
+
+  @@index([eventId, isActive])
+  @@index([eventId, startsAt, endsAt])
+}
+
+// ─── Orders & Payments ──────────────────────────────────────────
+
+model Order {
+  id             String        @id @default(cuid())
+  eventId        String
+  userId         String?
+  buyerProfileId String?
+  couponId       String?
+  buyerName      String
+  buyerEmail     String
+  buyerDocument  String?
+  buyerPhone     String?
+  affiliateLinkId String?
+  source          String?
+  device          String?
+  campaign        String?
+  subtotalCents  Int
+  discountCents  Int           @default(0)
+  feeCents       Int
+  totalCents     Int
+  status         PaymentStatus @default(PENDING)
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+  event          Event         @relation(fields: [eventId], references: [id])
+  user           User?         @relation(fields: [userId], references: [id])
+  buyerProfile   BuyerProfile? @relation(fields: [buyerProfileId], references: [id])
+  coupon         Coupon?       @relation(fields: [couponId], references: [id])
+  items          OrderItem[]
+  payment        Payment?
+  tickets        Ticket[]
+
+  @@index([eventId, status])
+  @@index([buyerEmail])
+  @@index([buyerDocument])
+  @@index([affiliateLinkId])
+  @@index([status, createdAt])
+  @@index([buyerDocument, eventId, status])
+}
+
+model OrderItem {
+  id            String     @id @default(cuid())
+  orderId       String
+  ticketTypeId  String
+  quantity      Int
+  unitCents     Int
+  totalCents    Int
+  order         Order      @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  ticketType    TicketType @relation(fields: [ticketTypeId], references: [id])
+}
+
+model Payment {
+  id             String        @id @default(cuid())
+  orderId        String        @unique
+  eventId        String
+  method         PaymentMethod
+  status         PaymentStatus @default(PENDING)
+  provider       String        @default("mercado_pago")
+  providerRef    String?
+  qrCodePayload  String?
+  cardLast4      String?
+  amountCents    Int
+  paidAt         DateTime?
+  canceledAt     DateTime?
+  refundedAt     DateTime?
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+  order          Order         @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  event          Event         @relation(fields: [eventId], references: [id])
+
+  @@index([eventId, status])
+  @@index([status, createdAt])
+}
+
+// ─── Tickets & Check-in ────────────────────────────────────────
+
+model Ticket {
+  id            String       @id @default(cuid())
+  uuid          String       @unique
+  hash          String       @unique
+  signature     String?
+  orderId       String
+  eventId       String
+  ticketTypeId  String
+  attendeeName  String
+  attendeeEmail String
+  qrCodeDataUrl String?
+  seatId        String?
+  status        TicketStatus @default(AVAILABLE)
+  usedAt        DateTime?
+  createdAt     DateTime     @default(now())
+  order         Order        @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  event         Event        @relation(fields: [eventId], references: [id])
+  ticketType    TicketType   @relation(fields: [ticketTypeId], references: [id])
+  checkIns      CheckInLog[]
+
+  @@index([eventId, status])
+  @@index([seatId])
+  @@index([eventId, uuid])
+  @@index([uuid, status])
+}
+
+model CheckInLog {
+  id        String        @id @default(cuid())
+  ticketId  String
+  userId    String?
+  status    CheckInStatus
+  reason    String?
+  createdAt DateTime      @default(now())
+  ticket    Ticket        @relation(fields: [ticketId], references: [id])
+  user      User?         @relation(fields: [userId], references: [id])
+
+  @@index([ticketId, createdAt])
+  @@index([status, createdAt])
+}
+
+// ─── Finance ────────────────────────────────────────────────────
+
+model LedgerEntry {
+  id          String   @id @default(cuid())
+  tenantId    String
+  description String
+  amountCents Int
+  feeCents    Int      @default(0)
+  reference   String?
+  createdAt   DateTime @default(now())
+  tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, createdAt])
+}
+
+model Withdrawal {
+  id          String           @id @default(cuid())
+  tenantId    String
+  amountCents Int
+  status      WithdrawalStatus @default(REQUESTED)
+  pixKey      String?
+  bankName    String?
+  bankAgency  String?
+  bankAccount String?
+  requestedAt DateTime         @default(now())
+  paidAt      DateTime?
+
+  @@index([tenantId, status])
+}
+
+// ─── Coupons ────────────────────────────────────────────────────
+
+model Coupon {
+  id              String   @id @default(cuid())
+  tenantId        String?
+  code            String   @unique
+  discountPercent Int      @default(0)
+  discountFixedCents Int   @default(0)
+  maxUses         Int      @default(0)
+  usedCount       Int      @default(0)
+  validFrom       DateTime
+  validUntil      DateTime
+  isActive        Boolean  @default(true)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  tenant          Tenant?  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  orders          Order[]
+
+  @@index([code, isActive])
+  @@index([tenantId, isActive])
+}
+
+// ─── Subscription ───────────────────────────────────────────────
+
+model Subscription {
+  id       String           @id @default(cuid())
+  tenantId String           @unique
+  plan     SubscriptionPlan @default(FREE)
+  startsAt DateTime         @default(now())
+  endsAt   DateTime?
+  tenant   Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+}
+
+// ─── Buyer Profiles ─────────────────────────────────────────────
+
+model BuyerProfile {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  name      String
+  document  String?
+  phone     String?
+  createdAt DateTime @default(now())
+  orders    Order[]
+}
+
+// ─── Notifications ──────────────────────────────────────────────
+
+model NotificationLog {
+  id        String            @id @default(cuid())
+  userId    String?
+  type      NotificationType
+  event     NotificationEvent
+  recipient String
+  payload   Json
+  sentAt    DateTime          @default(now())
+
+  @@index([userId, event])
+}
+
+// ─── Audit ──────────────────────────────────────────────────────
+
+model AuditLog {
+  id        String   @id @default(cuid())
+  userId    String?
+  action    String
+  entity    String
+  entityId  String?
+  metadata  Json?
+  createdAt DateTime @default(now())
+
+  @@index([entity, createdAt])
+  @@index([userId, createdAt])
+}
+
+// Enterprise platform expansion
+
+model WhiteLabelSetting {
+  id                 String   @id @default(cuid())
+  tenantId           String   @unique
+  customDomain       String?  @unique
+  domainVerifiedAt   DateTime?
+  logoUrl            String?
+  faviconUrl         String?
+  primaryColor       String   @default("#111827")
+  secondaryColor     String   @default("#2563eb")
+  themeJson          Json?
+  senderName         String?
+  senderEmail        String?
+  emailTemplateJson  Json?
+  dnsInstructions    Json?
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+}
+
+model MobileDevice {
+  id             String   @id @default(cuid())
+  tenantId       String
+  userId         String
+  platform       String
+  deviceName     String?
+  appVersion     String?
+  lastSyncAt     DateTime?
+  publicKey      String?
+  isTrusted      Boolean  @default(false)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@index([tenantId, userId])
+}
+
+model OfflineCheckinBatch {
+  id             String   @id @default(cuid())
+  tenantId       String
+  eventId        String
+  deviceId       String?
+  userId         String
+  startedAt      DateTime?
+  finishedAt     DateTime?
+  syncedAt       DateTime @default(now())
+  totalScans     Int      @default(0)
+  acceptedScans  Int      @default(0)
+  rejectedScans  Int      @default(0)
+  conflictScans  Int      @default(0)
+  checksum       String?
+  entries        OfflineCheckinEntry[]
+
+  @@index([tenantId, eventId, syncedAt])
+}
+
+model OfflineCheckinEntry {
+  id             String   @id @default(cuid())
+  batchId        String
+  ticketUuid     String
+  scannedAt      DateTime
+  status         CheckInStatus
+  reason         String?
+  rawPayload     Json?
+  batch          OfflineCheckinBatch @relation(fields: [batchId], references: [id], onDelete: Cascade)
+
+  @@index([ticketUuid])
+}
+
+model AffiliateProgram {
+  id                     String   @id @default(cuid())
+  tenantId               String   @unique
+  name                   String
+  defaultCommissionBps   Int      @default(1000)
+  cookieWindowDays       Int      @default(30)
+  minPayoutCents         Int      @default(5000)
+  isActive               Boolean  @default(true)
+  termsUrl               String?
+  createdAt              DateTime @default(now())
+  updatedAt              DateTime @updatedAt
+
+  @@index([tenantId, isActive])
+}
+
+model AffiliateLink {
+  id             String   @id @default(cuid())
+  tenantId       String
+  eventId        String?
+  affiliateName  String
+  affiliateEmail String?
+  code           String   @unique
+  commissionBps  Int
+  clicks         Int      @default(0)
+  conversions    Int      @default(0)
+  revenueCents   Int      @default(0)
+  isActive       Boolean  @default(true)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@index([tenantId, eventId])
+  @@index([code, isActive])
+}
+
+model AffiliateCommission {
+  id              String                    @id @default(cuid())
+  tenantId        String
+  affiliateLinkId String
+  orderId         String?
+  amountCents     Int
+  status          AffiliateCommissionStatus @default(PENDING)
+  payableAt       DateTime?
+  paidAt          DateTime?
+  createdAt       DateTime                  @default(now())
+
+  @@index([tenantId, status])
+  @@index([affiliateLinkId])
+}
+
+model AffiliatePayout {
+  id              String                    @id @default(cuid())
+  tenantId        String
+  affiliateEmail  String
+  amountCents     Int
+  status          AffiliateCommissionStatus @default(PAYABLE)
+  providerRef     String?
+  paidAt          DateTime?
+  createdAt       DateTime                  @default(now())
+
+  @@index([tenantId, status])
+}
+
+model CrmCustomer {
+  id             String   @id @default(cuid())
+  tenantId       String
+  email          String
+  name           String
+  document       String?
+  phone          String?
+  lifetimeValueCents Int  @default(0)
+  ordersCount    Int      @default(0)
+  tags           String[] @default([])
+  consentEmail   Boolean  @default(false)
+  consentWhatsApp Boolean @default(false)
+  consentPush    Boolean  @default(false)
+  lastPurchaseAt DateTime?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@unique([tenantId, email])
+  @@index([tenantId, lastPurchaseAt])
+}
+
+model CrmSegment {
+  id          String   @id @default(cuid())
+  tenantId    String
+  name        String
+  rulesJson   Json
+  size        Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([tenantId, name])
+}
+
+model CrmCampaign {
+  id            String         @id @default(cuid())
+  tenantId      String
+  segmentId     String?
+  name          String
+  channel       CampaignChannel
+  status        CampaignStatus @default(DRAFT)
+  subject       String?
+  content       String
+  scheduledAt   DateTime?
+  sentAt        DateTime?
+  metricsJson   Json?
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+
+  @@index([tenantId, status])
+}
+
+model CrmAutomation {
+  id            String            @id @default(cuid())
+  tenantId      String
+  name          String
+  trigger       AutomationTrigger
+  channel       CampaignChannel
+  isActive      Boolean           @default(true)
+  rulesJson     Json
+  stepsJson     Json
+  lastRunAt     DateTime?
+  createdAt     DateTime          @default(now())
+  updatedAt     DateTime          @updatedAt
+
+  @@index([tenantId, isActive])
+}
+
+model CustomerTimelineEvent {
+  id          String   @id @default(cuid())
+  tenantId    String
+  customerId  String
+  type        String
+  description String
+  metadata    Json?
+  createdAt   DateTime @default(now())
+
+  @@index([tenantId, customerId, createdAt])
+}
+
+model MarketingMessage {
+  id          String          @id @default(cuid())
+  tenantId    String
+  campaignId  String?
+  channel     CampaignChannel
+  recipient   String
+  status      String          @default("queued")
+  providerRef String?
+  payload     Json
+  sentAt      DateTime?
+  createdAt   DateTime        @default(now())
+
+  @@index([tenantId, channel, status])
+}
+
+model AnalyticsEvent {
+  id          String   @id @default(cuid())
+  tenantId    String?
+  eventId     String?
+  sessionId   String?
+  type        String
+  source      String?
+  medium      String?
+  campaign    String?
+  device      String?
+  path        String?
+  metadata    Json?
+  createdAt   DateTime @default(now())
+
+  @@index([tenantId, eventId, type])
+  @@index([sessionId, createdAt])
+}
+
+model AnalyticsIntegration {
+  id          String              @id @default(cuid())
+  tenantId    String
+  provider    IntegrationProvider
+  externalId  String
+  configJson  Json?
+  isActive    Boolean             @default(true)
+  createdAt   DateTime            @default(now())
+  updatedAt   DateTime            @updatedAt
+
+  @@index([tenantId, provider, isActive])
+}
+
+model HeatmapSnapshot {
+  id          String   @id @default(cuid())
+  tenantId    String
+  eventId     String?
+  page        String
+  pointsJson  Json
+  sampleSize  Int      @default(0)
+  createdAt   DateTime @default(now())
+
+  @@index([tenantId, eventId, createdAt])
+}
+
+model ConversionFunnel {
+  id          String   @id @default(cuid())
+  tenantId    String
+  eventId     String?
+  name        String
+  stepsJson   Json
+  createdAt   DateTime @default(now())
+
+  @@index([tenantId, eventId])
+}
+
+model PublicApiClient {
+  id          String              @id @default(cuid())
+  tenantId    String
+  name        String
+  clientId    String              @unique
+  clientSecretHash String?
+  redirectUris String[]           @default([])
+  scopes      String[]            @default([])
+  status      ApiCredentialStatus @default(ACTIVE)
+  createdAt   DateTime            @default(now())
+  updatedAt   DateTime            @updatedAt
+
+  @@index([tenantId, status])
+}
+
+model ApiKey {
+  id          String              @id @default(cuid())
+  tenantId    String
+  name        String
+  keyHash     String              @unique
+  prefix      String
+  scopes      String[]            @default([])
+  status      ApiCredentialStatus @default(ACTIVE)
+  lastUsedAt  DateTime?
+  expiresAt   DateTime?
+  createdAt   DateTime            @default(now())
+
+  @@index([tenantId, status])
+}
+
+model OAuthAuthorizationCode {
+  id          String   @id @default(cuid())
+  clientId    String
+  userId      String
+  codeHash    String   @unique
+  scopes      String[] @default([])
+  redirectUri String
+  expiresAt   DateTime
+  usedAt      DateTime?
+  createdAt   DateTime @default(now())
+}
+
+model OAuthAccessToken {
+  id          String   @id @default(cuid())
+  clientId    String
+  userId      String?
+  tokenHash   String   @unique
+  scopes      String[] @default([])
+  expiresAt   DateTime
+  revokedAt   DateTime?
+  createdAt   DateTime @default(now())
+}
+
+model SdkRelease {
+  id          String   @id @default(cuid())
+  language    String
+  version     String
+  packageName String
+  docsUrl     String
+  createdAt   DateTime @default(now())
+
+  @@unique([language, version])
+}
+
+model SeatMap {
+  id          String   @id @default(cuid())
+  tenantId    String
+  eventId     String
+  name        String
+  layoutJson  Json
+  version     Int      @default(1)
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([tenantId, eventId, isActive])
+}
+
+model SeatSection {
+  id          String   @id @default(cuid())
+  seatMapId   String
+  name        String
+  color       String?
+  priceCents  Int?
+  metadata    Json?
+
+  @@index([seatMapId])
+}
+
+model Seat {
+  id          String     @id @default(cuid())
+  seatMapId   String
+  sectionId   String?
+  label       String
+  row         String?
+  number      String?
+  x           Float      @default(0)
+  y           Float      @default(0)
+  status      SeatStatus @default(AVAILABLE)
+  metadata    Json?
+
+  @@unique([seatMapId, label])
+  @@index([seatMapId, status])
+}
+
+model SeatHold {
+  id          String   @id @default(cuid())
+  tenantId    String
+  eventId     String
+  seatId      String
+  sessionId   String
+  expiresAt   DateTime
+  createdAt   DateTime @default(now())
+
+  @@unique([seatId, sessionId])
+  @@index([tenantId, eventId, expiresAt])
+}
+
+model SeatReservation {
+  id          String   @id @default(cuid())
+  tenantId    String
+  eventId     String
+  seatId      String
+  orderId     String?
+  status      SeatStatus @default(RESERVED)
+  expiresAt   DateTime?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([tenantId, eventId, status])
+  @@index([seatId])
+}
+
+model MarketplaceProfile {
+  id              String                        @id @default(cuid())
+  tenantId        String                        @unique
+  displayName     String
+  slug            String                        @unique
+  description     String?
+  logoUrl         String?
+  verification    MarketplaceVerificationStatus @default(PENDING)
+  ratingAverage   Float                         @default(0)
+  ratingCount     Int                           @default(0)
+  categories      String[]                      @default([])
+  createdAt       DateTime                      @default(now())
+  updatedAt       DateTime                      @updatedAt
+}
+
+model EventSponsorship {
+  id          String   @id @default(cuid())
+  tenantId    String
+  eventId     String
+  startsAt    DateTime
+  endsAt      DateTime
+  budgetCents Int
+  impressions Int      @default(0)
+  clicks      Int      @default(0)
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+
+  @@index([tenantId, eventId, isActive])
+}
+
+model FavoriteEvent {
+  id        String   @id @default(cuid())
+  userId    String
+  eventId   String
+  createdAt DateTime @default(now())
+
+  @@unique([userId, eventId])
+}
+
+model EventReview {
+  id        String   @id @default(cuid())
+  eventId   String
+  userId    String?
+  rating    Int
+  comment   String?
+  isPublic  Boolean  @default(true)
+  createdAt DateTime @default(now())
+
+  @@index([eventId, isPublic])
+}
+
+model EventCategory {
+  id        String   @id @default(cuid())
+  name      String
+  slug      String   @unique
+  icon      String?
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+}
+
+model AiForecast {
+  id          String   @id @default(cuid())
+  tenantId    String
+  eventId     String?
+  type        String
+  horizonDays Int      @default(30)
+  inputJson   Json
+  outputJson  Json
+  confidence  Float    @default(0)
+  createdAt   DateTime @default(now())
+
+  @@index([tenantId, eventId, type])
+}
+
+model AiInsight {
+  id          String   @id @default(cuid())
+  tenantId    String
+  eventId     String?
+  title       String
+  summary     String
+  severity    String   @default("info")
+  metadata    Json?
+  createdAt   DateTime @default(now())
+
+  @@index([tenantId, eventId, createdAt])
+}
+
+model FraudSignal {
+  id          String         @id @default(cuid())
+  tenantId    String?
+  orderId     String?
+  userId      String?
+  riskLevel   FraudRiskLevel @default(LOW)
+  score       Int            @default(0)
+  reasons     String[]       @default([])
+  metadata    Json?
+  reviewedAt  DateTime?
+  createdAt   DateTime       @default(now())
+
+  @@index([tenantId, riskLevel])
+  @@index([orderId])
+}
+
+model ExecutiveMetricSnapshot {
+  id                String   @id @default(cuid())
+  tenantId          String?
+  period            String
+  mrrCents          Int      @default(0)
+  arrCents          Int      @default(0)
+  ltvCents          Int      @default(0)
+  cacCents          Int      @default(0)
+  churnRateBps      Int      @default(0)
+  revenueCents      Int      @default(0)
+  profitCents       Int      @default(0)
+  organizersCount   Int      @default(0)
+  createdAt         DateTime @default(now())
+
+  @@index([tenantId, period])
+}
+
+model TwoFactorSecret {
+  id          String   @id @default(cuid())
+  userId      String   @unique
+  secretHash  String
+  recoveryCodesHash String[] @default([])
+  enabledAt   DateTime?
+  createdAt   DateTime @default(now())
+}
+
+model ConsentRecord {
+  id          String   @id @default(cuid())
+  tenantId    String?
+  userId      String?
+  email       String?
+  purpose     String
+  granted     Boolean
+  ipAddress   String?
+  userAgent   String?
+  createdAt   DateTime @default(now())
+
+  @@index([tenantId, email, purpose])
+}
+
+model BackupJob {
+  id          String   @id @default(cuid())
+  tenantId    String?
+  scope       String
+  status      String   @default("scheduled")
+  storageUrl  String?
+  checksum    String?
+  startedAt   DateTime?
+  finishedAt  DateTime?
+  createdAt   DateTime @default(now())
+
+  @@index([tenantId, status])
+}
+
+model EncryptionKeyRecord {
+  id          String   @id @default(cuid())
+  tenantId    String?
+  alias       String
+  provider    String   @default("aws-kms")
+  keyRef      String
+  rotatedAt   DateTime?
+  createdAt   DateTime @default(now())
+
+  @@index([tenantId, alias])
+}
+
+model PermissionPolicy {
+  id          String   @id @default(cuid())
+  tenantId    String
+  name        String
+  rulesJson   Json
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([tenantId, name])
+}
+
+model DeploymentTarget {
+  id          String   @id @default(cuid())
+  name        String
+  provider    String
+  region      String
+  configJson  Json
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model ObservabilitySignal {
+  id          String   @id @default(cuid())
+  service     String
+  level       String
+  message     String
+  metadata    Json?
+  createdAt   DateTime @default(now())
+
+  @@index([service, level, createdAt])
+}

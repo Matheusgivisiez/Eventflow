@@ -1,0 +1,13 @@
+{
+  "name": "@eventhub/config",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "exports": {
+    "./tailwind": "./tailwind.ts"
+  },
+  "devDependencies": {
+    "tailwindcss": "^3.4.13",
+    "typescript": "^5.6.3"
+  }
+}

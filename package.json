@@ -1,0 +1,23 @@
+{
+  "name": "eventhub",
+  "private": true,
+  "version": "0.1.0",
+  "description": "EventHub MVP - plataforma SaaS para venda de ingressos online.",
+  "scripts": {
+    "dev": "pnpm --parallel dev",
+    "build": "pnpm --recursive build",
+    "lint": "pnpm --recursive lint",
+    "format": "prettier --write .",
+    "db:migrate": "pnpm --filter @eventhub/api prisma:migrate",
+    "db:seed": "pnpm --filter @eventhub/api prisma:seed"
+  },
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "devDependencies": {
+    "prettier": "^3.3.3",
+    "typescript": "^5.6.3"
+  },
+  "packageManager": "pnpm@9.12.3"
+}

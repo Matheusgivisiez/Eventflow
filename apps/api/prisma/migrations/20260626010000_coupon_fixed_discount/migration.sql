@@ -1,0 +1,8 @@
+ALTER TYPE "NotificationEvent" ADD VALUE IF NOT EXISTS 'PAYMENT_REFUSED';
+ALTER TYPE "NotificationEvent" ADD VALUE IF NOT EXISTS 'CANCELLATION';
+
+ALTER TABLE "Coupon"
+  ALTER COLUMN "discountPercent" SET DEFAULT 0,
+  ADD COLUMN IF NOT EXISTS "discountFixedCents" INTEGER NOT NULL DEFAULT 0;
+
+CREATE INDEX IF NOT EXISTS "Coupon_tenantId_isActive_idx" ON "Coupon"("tenantId", "isActive");

@@ -1,0 +1,42 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: eventhub-web
+  namespace: eventhub
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: eventhub-web
+  template:
+    metadata:
+      labels:
+        app: eventhub-web
+    spec:
+      containers:
+        - name: web
+          image: ghcr.io/your-org/eventhub/web:latest
+          ports:
+            - containerPort: 3000
+          envFrom:
+            - configMapRef:
+                name: eventhub-web-config
+          resources:
+            requests:
+              cpu: 200m
+              memory: 384Mi
+            limits:
+              cpu: "1"
+              memory: 1Gi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: eventhub-web
+  namespace: eventhub
+spec:
+  selector:
+    app: eventhub-web
+  ports:
+    - port: 80
+      targetPort: 3000
