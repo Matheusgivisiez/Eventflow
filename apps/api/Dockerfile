@@ -1,28 +1,29 @@
 FROM node:22-alpine AS base
-RUN apk add --no-cache openssl
-RUN corepack enable && corepack prepare pnpm@9.12.3 --activate
 WORKDIR /app
+RUN corepack enable && \
+    addgroup --system --gid 1001 nodejs && \
+    adduser --system --uid 1001 nestjs
 
 FROM base AS deps
-COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
+COPY package.json pnpm-workspace.yaml ./
 COPY apps/api/package.json apps/api/package.json
-COPY packages/domain/package.json packages/domain/package.json
-COPY packages/sdk/package.json packages/sdk/package.json
-COPY packages/config/package.json packages/config/package.json
-RUN pnpm install --frozen-lockfile
+RUN pnpm install --frozen-lockfile=false
 
 FROM deps AS build
 COPY apps/api apps/api
 WORKDIR /app/apps/api
-RUN pnpm build
+RUN pnpm prisma:generate && pnpm build
 
 FROM base AS runner
 ENV NODE_ENV=production \
     PORT=3001
-COPY --from=build /app/node_modules /app/node_modules
+COPY --from=deps /app/node_modules /app/node_modules
+COPY --from=deps /app/apps/api/node_modules /app/apps/api/node_modules
 COPY --from=build /app/apps/api/dist /app/apps/api/dist
 COPY --from=build /app/apps/api/prisma /app/apps/api/prisma
-COPY --from=build /app/apps/api/package.json /app/apps/api/package.json
 WORKDIR /app/apps/api
 EXPOSE 3001
-CMD ["sh", "-c", "npx prisma migrate deploy && node dist/main.js"]
+USER nestjs
+HEALTHCHECK --interval=30s --timeout=5s --start-period=30s --retries=3 \
+    CMD wget --no-verbose --tries=1 --spider http://localhost:3001/api/health || exit 1
+CMD ["node", "dist/main.js"]
