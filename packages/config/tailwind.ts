@@ -1,4 +1,3 @@
-// @ts-expect-error - Tailwind types might not resolve correctly in the monorepo context
 import type { Config } from "tailwindcss";
 
 export const eventhubPreset: Partial<Config> = {
