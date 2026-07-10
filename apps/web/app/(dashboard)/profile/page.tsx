@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { ImageUpload } from "@/components/image-upload";
 import { api } from "@/lib/api";
 import { useAuthStore } from "@/stores/auth-store";
 
@@ -41,7 +42,9 @@ export default function ProfilePage() {
           </CardHeader>
           <CardContent className="grid gap-4">
             <Field label="Nome da empresa"><Input {...form.register("companyName")} /></Field>
-            <Field label="Logo"><Input placeholder="https://..." {...form.register("logoUrl")} /></Field>
+            <Field label="Logo">
+              <ImageUpload value={form.watch("logoUrl")} onChange={(url) => form.setValue("logoUrl", url ?? "")} />
+            </Field>
             <Button>Salvar perfil</Button>
             {mutation.error && <p className="text-sm text-destructive">{mutation.error.message}</p>}
             {mutation.isSuccess && <p className="text-sm text-primary">Perfil atualizado.</p>}

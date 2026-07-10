@@ -14,6 +14,7 @@ enum UserRole {
   ORGANIZER
   TEAM
   CHECKIN
+  PROMOTER
   CUSTOMER
 }
 
@@ -186,6 +187,7 @@ model Tenant {
   subscription Subscription?
   planMRRCents Int            @default(0)
   churnRisk    Int            @default(0)
+  promoters    Promoter[]
 }
 
 model User {
@@ -207,6 +209,7 @@ model User {
   checkIns     CheckInLog[]
   teamMembers  TeamMember[]
   twoFactorEnabled Boolean    @default(false)
+  promoterProfile Promoter?
 }
 
 model RefreshToken {
@@ -286,6 +289,7 @@ model Event {
   orders                 Order[]
   payments               Payment[]
   tickets                Ticket[]
+  promoterLinks          PromoterLink[]
 
   @@index([tenantId, status])
   @@index([startsAt])
@@ -335,6 +339,8 @@ model Order {
   discountCents  Int           @default(0)
   feeCents       Int
   totalCents     Int
+  promoterLinkId String?
+  promoterCommissionCents Int @default(0)
   status         PaymentStatus @default(PENDING)
   createdAt      DateTime      @default(now())
   updatedAt      DateTime      @updatedAt
@@ -342,6 +348,7 @@ model Order {
   user           User?         @relation(fields: [userId], references: [id])
   buyerProfile   BuyerProfile? @relation(fields: [buyerProfileId], references: [id])
   coupon         Coupon?       @relation(fields: [couponId], references: [id])
+  promoterLink   PromoterLink? @relation(fields: [promoterLinkId], references: [id])
   items          OrderItem[]
   payment        Payment?
   tickets        Ticket[]
@@ -1145,4 +1152,75 @@ model ObservabilitySignal {
   createdAt   DateTime @default(now())
 
   @@index([service, level, createdAt])
+}
+
+// --- Promoters --------------------------------------------------
+
+enum PromoterStatus {
+  PENDING
+  ACTIVE
+  SUSPENDED
+  BLOCKED
+}
+
+enum PromoterWithdrawalStatus {
+  PENDING
+  APPROVED
+  PAID
+  REJECTED
+  CANCELED
+}
+
+model Promoter {
+  id           String         @id @default(cuid())
+  userId       String         @unique
+  tenantId     String
+  document     String?        // CPF
+  city         String?
+  state        String?
+  instagram    String?
+  pixKey       String?
+  status       PromoterStatus @default(PENDING)
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+  user         User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tenant       Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  eventLinks   PromoterLink[]
+  withdrawals  PromoterWithdrawal[]
+
+  @@index([tenantId, status])
+}
+
+model PromoterLink {
+  id             String       @id @default(cuid())
+  promoterId     String
+  eventId        String
+  code           String       @unique // e.g. abc123xyz
+  commissionType String       @default("PERCENTAGE") // "PERCENTAGE", "FIXED", "TIERED"
+  commissionValue Int         @default(1000) // 1000 = 10% or R,00
+  clicks         Int          @default(0)
+  conversions    Int          @default(0)
+  revenueCents   Int          @default(0)
+  commissionAcumCents Int     @default(0)
+  isActive       Boolean      @default(true)
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+  promoter       Promoter     @relation(fields: [promoterId], references: [id], onDelete: Cascade)
+  event          Event        @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  orders         Order[]
+
+  @@index([eventId, promoterId])
+  @@index([code])
+}
+
+model PromoterWithdrawal {
+  id          String                   @id @default(cuid())
+  promoterId  String
+  amountCents Int
+  status      PromoterWithdrawalStatus @default(PENDING)
+  requestedAt DateTime                 @default(now())
+  paidAt      DateTime?
+  promoter    Promoter                 @relation(fields: [promoterId], references: [id], onDelete: Cascade)
+
+  @@index([promoterId, status])
 }

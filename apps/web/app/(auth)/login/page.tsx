@@ -35,7 +35,13 @@ export default function LoginPage() {
       }),
     onSuccess: (session) => {
       setSession(session);
-      router.push("/me/ingressos");
+      if (session.user?.role === "PROMOTER") {
+        router.push("/portal/dashboard");
+      } else if (session.user?.role === "ORGANIZER" || session.user?.role === "ADMIN") {
+        router.push("/dashboard");
+      } else {
+        router.push("/me/ingressos");
+      }
     }
   });
 

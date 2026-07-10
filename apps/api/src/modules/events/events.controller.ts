@@ -67,4 +67,20 @@ export class EventsController {
   remove(@CurrentUser() user: RequestUser, @Param("id") id: string) {
     return this.events.remove(id, user.tenantId!);
   }
+
+  @Post(":id/duplicate")
+  @ApiBearerAuth()
+  @ApiOperation({ summary: "Duplicar evento", description: "Cria um rascunho baseado em um evento existente." })
+  @UseGuards(JwtAuthGuard)
+  duplicate(@CurrentUser() user: RequestUser, @Param("id") id: string) {
+    return this.events.duplicate(id, user.tenantId!, user.id);
+  }
+
+  @Patch(":id/cancel")
+  @ApiBearerAuth()
+  @ApiOperation({ summary: "Cancelar evento", description: "Encerra (cancela) um evento publicado." })
+  @UseGuards(JwtAuthGuard)
+  cancel(@CurrentUser() user: RequestUser, @Param("id") id: string) {
+    return this.events.cancel(id, user.tenantId!);
+  }
 }

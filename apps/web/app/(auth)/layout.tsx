@@ -1,4 +1,6 @@
 import { ThemeToggle } from "@/components/theme-toggle";
+import { BrandLogo } from "@/components/brand-logo";
+import { PageAnimation } from "@/components/page-animation";
 import { Ticket } from "lucide-react";
 
 export default function AuthLayout({ children }: { children: React.ReactNode }) {
@@ -15,10 +17,7 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
         {/* Logo */}
         <div className="relative z-10 p-10">
           <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-white/20 backdrop-blur-sm">
-              <Ticket className="h-6 w-6 text-white" />
-            </div>
-            <span className="text-2xl font-extrabold text-white tracking-tight">EventFlow</span>
+            <BrandLogo inverted />
           </div>
         </div>
 
@@ -51,17 +50,14 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
         <div className="flex justify-between items-center p-4">
           {/* Mobile logo */}
           <div className="flex items-center gap-2 lg:hidden">
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary">
-              <Ticket className="h-4 w-4 text-white" />
-            </div>
-            <span className="font-bold text-lg">Event<span className="text-primary">Flow</span></span>
+            <BrandLogo />
           </div>
           <div className="ml-auto">
             <ThemeToggle />
           </div>
         </div>
         <div className="flex flex-1 items-center justify-center p-6">
-          {children}
+          <PageAnimation className="w-full">{children}</PageAnimation>
         </div>
       </section>
     </main>

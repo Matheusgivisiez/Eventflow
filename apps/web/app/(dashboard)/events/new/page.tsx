@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { ImageUpload } from "@/components/image-upload";
 import { api } from "@/lib/api";
 
 const schema = z.object({
@@ -18,7 +19,7 @@ const schema = z.object({
   category: z.string().min(2, "Informe a categoria."),
   startsAt: z.string().min(1, "Informe data e horario."),
   endsAt: z.string().optional(),
-  bannerUrl: z.string().url("Informe uma URL valida.").optional().or(z.literal("")),
+  bannerUrl: z.string().optional(),
   city: z.string().optional(),
   state: z.string().optional(),
   zipCode: z.string().optional(),
@@ -69,9 +70,14 @@ export default function NewEventPage() {
               <Field label="Categoria" error={form.formState.errors.category?.message}>
                 <Input {...form.register("category")} />
               </Field>
-              <Field label="Banner" error={form.formState.errors.bannerUrl?.message}>
-                <Input placeholder="https://..." {...form.register("bannerUrl")} />
-              </Field>
+              <div className="sm:col-span-2">
+                <Field label="Banner" error={form.formState.errors.bannerUrl?.message}>
+                  <ImageUpload
+                    value={form.watch("bannerUrl")}
+                    onChange={(url) => form.setValue("bannerUrl", url)}
+                  />
+                </Field>
+              </div>
             </div>
             <div className="grid gap-4 sm:grid-cols-2">
               <Field label="Inicio" error={form.formState.errors.startsAt?.message}>

@@ -25,4 +25,16 @@ export class UsersService {
       select: { id: true, name: true, email: true, phone: true, role: true, updatedAt: true }
     });
   }
+
+  async updateMe(userId: string, dto: UpdateUserDto) {
+    return this.prisma.user.update({
+      where: { id: userId },
+      data: {
+        name: dto.name,
+        email: dto.email?.toLowerCase(),
+        phone: dto.phone
+      },
+      select: { id: true, name: true, email: true, phone: true, role: true, updatedAt: true }
+    });
+  }
 }

@@ -2,7 +2,9 @@ import { ValidationPipe } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { NestFactory } from "@nestjs/core";
 import { DocumentBuilder, SwaggerModule } from "@nestjs/swagger";
+import { NestExpressApplication } from "@nestjs/platform-express";
 import helmet from "helmet";
+import { join } from "path";
 import { AppModule } from "./app.module";
 import { HttpExceptionFilter } from "./common/filters/http-exception.filter";
 import { initTelemetry } from "./opentelemetry";
@@ -12,10 +14,11 @@ async function bootstrap() {
     await initTelemetry();
   }
 
-  const app = await NestFactory.create(AppModule);
+  const app = await NestFactory.create<NestExpressApplication>(AppModule);
   const config = app.get(ConfigService);
 
   app.setGlobalPrefix("api");
+  app.useStaticAssets(join(process.cwd(), "uploads"), { prefix: "/uploads" });
   app.enableCors({
     origin: [config.get<string>("APP_URL") ?? "http://localhost:3000"],
     credentials: true,
@@ -29,7 +32,7 @@ async function bootstrap() {
         defaultSrc: ["'self'"],
         scriptSrc: ["'self'", "'unsafe-inline'"],
         styleSrc: ["'self'", "'unsafe-inline'"],
-        imgSrc: ["'self'", "data:", "https:"],
+        imgSrc: ["'self'", "data:", "https:", `${config.get<string>("API_URL") ?? "http://localhost:3001"}`],
         connectSrc: ["'self'", config.get<string>("API_URL") ?? "http://localhost:3001"]
       }
     },

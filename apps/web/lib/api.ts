@@ -22,3 +22,21 @@ export async function api<T>(path: string, options: ApiOptions = {}): Promise<T>
 
   return response.json();
 }
+
+export async function uploadFile(file: File): Promise<{ url: string }> {
+  const token = useAuthStore.getState().accessToken;
+  const form = new FormData();
+  form.append("file", file);
+  const response = await fetch(`${API_URL}/upload`, {
+    method: "POST",
+    headers: {
+      ...(token ? { Authorization: `Bearer ${token}` } : {})
+    },
+    body: form
+  });
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({ message: "Erro no upload." }));
+    throw new Error(error.message ?? "Erro no upload.");
+  }
+  return response.json();
+}

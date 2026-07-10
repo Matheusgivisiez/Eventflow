@@ -3,7 +3,7 @@
 import { useParams, useRouter } from "next/navigation";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ArrowLeft, Loader2, Save, Ticket, Trash2 } from "lucide-react";
+import { ArrowLeft, Loader2, Save, Ticket, Trash2, Megaphone } from "lucide-react";
 import Link from "next/link";
 import { useEffect } from "react";
 import { useForm } from "react-hook-form";
@@ -14,6 +14,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
+import { ImageUpload } from "@/components/image-upload";
 import { api } from "@/lib/api";
 import type { EventHubEvent } from "@/types/eventhub";
 
@@ -23,7 +24,7 @@ const schema = z.object({
   category: z.string().min(2, "Informe a categoria."),
   startsAt: z.string().min(1, "Informe data e horario."),
   endsAt: z.string().optional(),
-  bannerUrl: z.string().url("Informe uma URL valida.").optional().or(z.literal("")),
+  bannerUrl: z.string().optional(),
   city: z.string().optional(),
   state: z.string().optional(),
   zipCode: z.string().optional(),
@@ -157,6 +158,12 @@ export default function EditEventPage() {
               Lotes de ingresso
             </Link>
           </Button>
+          <Button variant="outline" asChild>
+            <Link href={`/events/${id}/promoters`}>
+              <Megaphone className="h-4 w-4 mr-2" />
+              Promoters
+            </Link>
+          </Button>
           <Button
             variant="destructive"
             size="icon"
@@ -200,9 +207,14 @@ export default function EditEventPage() {
                 <Field label="Categoria" error={form.formState.errors.category?.message}>
                   <Input {...form.register("category")} />
                 </Field>
-                <Field label="Banner (URL)" error={form.formState.errors.bannerUrl?.message}>
-                  <Input placeholder="https://..." {...form.register("bannerUrl")} />
-                </Field>
+                <div className="sm:col-span-2">
+                  <Field label="Banner" error={form.formState.errors.bannerUrl?.message}>
+                    <ImageUpload
+                      value={form.watch("bannerUrl")}
+                      onChange={(url) => form.setValue("bannerUrl", url)}
+                    />
+                  </Field>
+                </div>
               </div>
               <div className="grid gap-4 sm:grid-cols-2">
                 <Field label="Início" error={form.formState.errors.startsAt?.message}>

@@ -3,9 +3,10 @@
 import { useEffect } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { Ticket, LogOut, Compass, LayoutDashboard, UserCheck2, Home, QrCode } from "lucide-react";
+import { Ticket, LogOut, Compass, LayoutDashboard, UserCheck2, Home, QrCode, User } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ThemeToggle } from "@/components/theme-toggle";
+import { BrandLogo } from "@/components/brand-logo";
 import { useAuthStore } from "@/stores/auth-store";
 import { cn } from "@/lib/utils";
 
@@ -28,7 +29,7 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
 
   const navItems = [
     { href: "/", icon: Compass, label: "Explorar" },
-    { href: "/me/ingressos", icon: Ticket, label: "Meus Ingressos" },
+    { href: "/me", icon: User, label: "Perfil" },
     ...(isOrganizerOrAdmin
       ? [{ href: "/dashboard", icon: LayoutDashboard, label: "Painel" }]
       : [{ href: "/me/organizador", icon: UserCheck2, label: "Organizar" }]
@@ -40,13 +41,8 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
       {/* Header */}
       <header className="sticky top-0 z-30 w-full border-b bg-white/95 dark:bg-card/95 backdrop-blur shadow-sm">
         <div className="mx-auto max-w-5xl px-4 h-16 flex items-center justify-between">
-          <Link href="/" className="flex items-center gap-2 group">
-            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary shadow-md group-hover:shadow-primary/40 transition-shadow">
-              <Ticket className="h-5 w-5 text-white" />
-            </div>
-            <span className="text-xl font-bold tracking-tight">
-              Event<span className="text-primary">Flow</span>
-            </span>
+          <Link href="/" className="group hover:opacity-90 transition-opacity">
+            <BrandLogo />
           </Link>
 
           {/* Nav desktop */}

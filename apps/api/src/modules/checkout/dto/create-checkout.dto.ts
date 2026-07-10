@@ -50,6 +50,11 @@ export class CreateCheckoutDto {
   @IsString()
   affiliateCode?: string;
 
+  @ApiPropertyOptional({ description: "Código do link de promoter" })
+  @IsOptional()
+  @IsString()
+  promoterCode?: string;
+
   @ApiPropertyOptional({ description: "Fonte de tráfego" })
   @IsOptional()
   @IsString()

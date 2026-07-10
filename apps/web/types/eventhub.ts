@@ -58,3 +58,16 @@ export type Paginated<T> = {
   data: T[];
   meta: { page: number; perPage: number; total: number; totalPages: number };
 };
+
+export type CouponType = {
+  id: string;
+  code: string;
+  discountPercent?: number;
+  discountFixedCents?: number;
+  validFrom: string;
+  validUntil: string;
+  maxUses: number;
+  usedCount: number;
+  isActive: boolean;
+  createdAt: string;
+};

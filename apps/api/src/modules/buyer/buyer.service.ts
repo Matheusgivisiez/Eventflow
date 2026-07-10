@@ -1,13 +1,15 @@
 import { BadRequestException, Injectable, NotFoundException } from "@nestjs/common";
-import { TicketStatus } from "@prisma/client";
+import { PaymentStatus, TicketStatus } from "@prisma/client";
 import { AuditService } from "../audit/audit.service";
+import { PaymentsService } from "../payments/payments.service";
 import { PrismaService } from "../../prisma/prisma.service";
 
 @Injectable()
 export class BuyerService {
   constructor(
     private readonly prisma: PrismaService,
-    private readonly audit: AuditService
+    private readonly audit: AuditService,
+    private readonly payments: PaymentsService
   ) {}
 
   listTickets(email: string, scope?: "future" | "past") {
@@ -31,14 +33,28 @@ export class BuyerService {
     if (ticket.status !== TicketStatus.AVAILABLE) {
       throw new BadRequestException("Somente ingressos disponiveis podem solicitar reembolso.");
     }
+
+    const payment = await this.prisma.payment.findFirst({
+      where: { orderId: ticket.orderId },
+      include: { event: true }
+    });
+
+    if (!payment) {
+      throw new NotFoundException("Pagamento do pedido nao encontrado.");
+    }
+
+    if (payment.status === PaymentStatus.PAID) {
+      await this.payments.updateStatus(payment.id, payment.event.tenantId, { status: PaymentStatus.REFUNDED });
+    }
+
     await this.audit.log({
       userId,
       action: "refund.requested",
       entity: "ticket",
       entityId: ticket.id,
-      metadata: { orderId: ticket.orderId, eventId: ticket.eventId }
+      metadata: { orderId: ticket.orderId, eventId: ticket.eventId, paymentId: payment.id }
     });
-    return { message: "Solicitacao de reembolso registrada.", status: "REQUESTED" };
+    return { message: "Reembolso processado.", status: "REFUNDED" };
   }
 
   async ticketPdf(email: string, ticketId: string) {
@@ -84,15 +100,23 @@ export class BuyerService {
   }
 
   private simplePdf(text: string) {
-    const safe = text.replace(/[()\\]/g, "");
-    const stream = `BT /F1 12 Tf 40 780 Td (${safe.replace(/\n/g, ") Tj 0 -18 Td (")}) Tj ET`;
+    const safe = text.replace(/[()\\]/g, "").replace(/\\n/g, "\n");
+    const lines = safe.split("\n");
+    const contentLines = lines.map((line, i) => {
+      const y = 780 - i * 18;
+      return y >= 40 ? `BT /F1 12 Tf 40 ${y} Td (${line}) Tj ET` : "";
+    }).filter(Boolean).join("\n");
+    const streamLength = Buffer.byteLength(contentLines, "utf8");
     const objects = [
-      "1 0 obj << /Type /Catalog /Pages 2 0 R >> endobj",
-      "2 0 obj << /Type /Pages /Kids [3 0 R] /Count 1 >> endobj",
-      "3 0 obj << /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 4 0 R >> >> /Contents 5 0 R >> endobj",
-      "4 0 obj << /Type /Font /Subtype /Type1 /BaseFont /Helvetica >> endobj",
-      `5 0 obj << /Length ${Buffer.byteLength(stream)} >> stream\n${stream}\nendstream endobj`
+      "1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj",
+      "2 0 obj\n<< /Type /Pages /Kids [3 0 R] /Count 1 >>\nendobj",
+      "3 0 obj\n<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 4 0 R >> >> /Contents 5 0 R >>\nendobj",
+      "4 0 obj\n<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>\nendobj",
+      `5 0 obj\n<< /Length ${streamLength} >>\nstream\n${contentLines}\nendstream\nendobj`
     ];
-    return Buffer.from(`%PDF-1.4\n${objects.join("\n")}\ntrailer << /Root 1 0 R >>\n%%EOF`, "utf8");
+    const body = objects.join("\n");
+    const xrefOffset = `%PDF-1.4\n${body}\n`.length;
+    const xref = `xref\n0 6\n0000000000 65535 f \n0000000009 00000 n \n0000000058 00000 n \n0000000115 00000 n \n0000000261 00000 n \n0000000320 00000 n \ntrailer\n<< /Size 6 /Root 1 0 R >>\nstartxref\n${xrefOffset}\n%%EOF`;
+    return Buffer.from(`%PDF-1.4\n${body}\n${xref}`, "utf8");
   }
 }

@@ -129,9 +129,9 @@ export class AuthService {
       }
     });
 
+    // TODO: Enviar token por email/SMS em vez de retornar na resposta
     return {
-      message: "Token de recuperacao gerado.",
-      resetToken: token
+      message: "Se o e-mail existir, enviaremos instrucoes de recuperacao."
     };
   }
 

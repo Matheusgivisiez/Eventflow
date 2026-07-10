@@ -48,6 +48,7 @@
     "@nestjs/testing": "^10.4.7",
     "@types/bcryptjs": "^2.4.6",
     "@types/express": "^5.0.0",
+    "@types/multer": "^2.1.0",
     "@types/node": "^22.7.4",
     "@types/passport-jwt": "^4.0.1",
     "@types/qrcode": "^1.5.5",

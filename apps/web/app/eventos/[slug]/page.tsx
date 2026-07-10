@@ -5,8 +5,8 @@ import { PhotoGallery } from "@/components/event-page/photo-gallery";
 import { LocationMap } from "@/components/event-page/location-map";
 import { EventAgenda } from "@/components/event-page/event-agenda";
 import { EventFaq } from "@/components/event-page/event-faq";
-import { TicketSelector } from "@/components/event-page/ticket-selector";
 import { OrganizerInfo } from "@/components/event-page/organizer-info";
+import { EventDetailClient } from "./event-detail-client";
 import type { EventHubEvent } from "@/types/eventhub";
 
 // Helper function to fetch the event from the API directly.
@@ -34,12 +34,12 @@ export async function generateMetadata(
 
   if (!event) {
     return {
-      title: "Evento nao encontrado | EventHub",
+      title: "Evento nao encontrado | EventFlow",
       description: "O evento procurado nao existe ou nao esta mais disponivel."
     };
   }
 
-  const title = event.seoTitle || `${event.title} | EventHub`;
+  const title = event.seoTitle || `${event.title} | EventFlow`;
   const description = event.seoDescription || event.description.substring(0, 160);
 
   return {
@@ -67,10 +67,6 @@ export default async function PublicEventPage({ params }: { params: Promise<{ sl
     notFound();
   }
 
-  const minPrice = event.ticketTypes.length 
-    ? Math.min(...event.ticketTypes.map((ticket) => ticket.priceCents)) 
-    : 0;
-
   const organizerName = event.tenant?.name || "Organizador do Evento";
 
   const jsonLd = {
@@ -95,13 +91,13 @@ export default async function PublicEventPage({ params }: { params: Promise<{ sl
       "@type": "VirtualLocation",
       url: event.onlineUrl
     },
-    offers: {
+    offers: event.ticketTypes.length > 0 ? {
       "@type": "Offer",
-      price: (minPrice / 100).toFixed(2),
+      price: (Math.min(...event.ticketTypes.map((t) => t.priceCents)) / 100).toFixed(2),
       priceCurrency: "BRL",
       availability: "https://schema.org/InStock",
       url: `${process.env.NEXT_PUBLIC_API_URL?.replace("/api", "") ?? "http://localhost:3000"}/eventos/${slug}`
-    },
+    } : undefined,
     organizer: {
       "@type": "Organization",
       name: organizerName
@@ -109,35 +105,53 @@ export default async function PublicEventPage({ params }: { params: Promise<{ sl
   };
 
   return (
-    <main className="min-h-screen bg-background">
+    <main className="min-h-screen bg-background pb-24">
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
       />
-      <HeroBanner event={event} minPrice={minPrice} />
-      
-      <section className="mx-auto grid max-w-7xl gap-12 px-5 py-12 lg:grid-cols-[1fr_400px] lg:px-8">
-        <div className="space-y-16">
-          <div className="space-y-4">
-            <h2 className="text-2xl font-semibold tracking-tight">Sobre o Evento</h2>
-            <p className="whitespace-pre-line text-lg leading-relaxed text-muted-foreground">{event.description}</p>
+
+      {/* Hero: nav + banner + título */}
+      <HeroBanner event={event} />
+
+      {/* Conteúdo principal: detalhes + ingressos (client-side) */}
+      <div className="mx-auto max-w-7xl px-5 lg:px-8">
+        <div className="grid gap-12 lg:grid-cols-[1fr_420px]">
+          {/* Coluna esquerda: informações */}
+          <div className="space-y-12">
+            {/* Sobre o evento */}
+            <section className="space-y-4 animate-fade-in">
+              <h2 className="text-xl font-bold tracking-tight">Sobre o Evento</h2>
+              <p className="whitespace-pre-line text-base leading-relaxed text-muted-foreground">
+                {event.description}
+              </p>
+            </section>
+
+            {/* Galeria de fotos */}
+            <PhotoGallery urls={event.galleryUrls} title={event.title} />
+
+            {/* Mapa */}
+            <LocationMap event={event} />
+
+            {/* Agenda */}
+            <EventAgenda agendaJson={event.agendaJson} />
+
+            {/* FAQ */}
+            <EventFaq faqJson={event.faqJson} />
+
+            {/* Organizador */}
+            <OrganizerInfo
+              name={organizerName}
+              description="Produtora responsavel por organizar eventos, ingressos e experiencias memoraveis."
+            />
           </div>
-          
-          <PhotoGallery urls={event.galleryUrls} title={event.title} />
-          
-          <LocationMap event={event} />
-          
-          <EventAgenda agendaJson={event.agendaJson} />
-          
-          <EventFaq faqJson={event.faqJson} />
-          
-          <OrganizerInfo name={organizerName} description="Produtora responsavel por organizar eventos, ingressos e experiencias memoraveis." />
+
+          {/* Coluna direita: seletor de ingressos + share (client) */}
+          <div className="relative">
+            <EventDetailClient event={event} />
+          </div>
         </div>
-        
-        <div className="relative">
-          <TicketSelector event={event} />
-        </div>
-      </section>
+      </div>
     </main>
   );
 }

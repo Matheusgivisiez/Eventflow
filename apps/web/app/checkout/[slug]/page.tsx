@@ -1,10 +1,11 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { useParams } from "next/navigation";
+import { useParams, useSearchParams } from "next/navigation";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { CheckCircle2, Loader2 } from "lucide-react";
+import { ArrowLeft, CheckCircle2, Loader2, ShieldCheck } from "lucide-react";
+import Link from "next/link";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { Button } from "@/components/ui/button";
@@ -24,17 +25,41 @@ const buyerSchema = z.object({
   paymentMethod: z.enum(["PIX", "CREDIT_CARD"])
 });
 
+/** Parse items from query string: "id1:qty1,id2:qty2" */
+function parseItemsParam(raw: string | null): Record<string, number> {
+  if (!raw) return {};
+  const result: Record<string, number> = {};
+
+  for (const pair of raw.split(",")) {
+    const [id, qtyStr] = pair.split(":");
+    if (id && qtyStr) {
+      const qty = parseInt(qtyStr, 10);
+      if (!isNaN(qty) && qty > 0) {
+        result[id] = qty;
+      }
+    }
+  }
+
+  return result;
+}
+
 export default function CheckoutPage() {
   const { slug } = useParams<{ slug: string }>();
-  const [quantities, setQuantities] = useState<Record<string, number>>({});
+  const searchParams = useSearchParams();
+  const initialItems = useMemo(() => parseItemsParam(searchParams.get("items")), [searchParams]);
+
+  const [quantities, setQuantities] = useState<Record<string, number>>(initialItems);
+
   const { data: event, isLoading } = useQuery({
     queryKey: ["checkout-event", slug],
     queryFn: () => api<EventHubEvent>(`/events/public/${slug}`, { auth: false })
   });
+
   const form = useForm<z.infer<typeof buyerSchema>>({
     resolver: zodResolver(buyerSchema),
     defaultValues: { paymentMethod: "PIX" }
   });
+
   const mutation = useMutation({
     mutationFn: (data: z.infer<typeof buyerSchema>) =>
       api<any>(`/checkout/${slug}`, {
@@ -76,77 +101,107 @@ export default function CheckoutPage() {
   }
 
   return (
-    <main className="mx-auto grid min-h-screen max-w-6xl gap-6 px-5 py-8 lg:grid-cols-[1fr_380px]">
-      <form className="space-y-6" onSubmit={form.handleSubmit((data) => mutation.mutate(data))}>
-        <div>
-          <h1 className="text-2xl font-semibold tracking-normal">Checkout</h1>
-          <p className="text-sm text-muted-foreground">{event?.title}</p>
-        </div>
-        <Card>
-          <CardHeader>
-            <CardTitle>Escolha seus ingressos</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            {event?.ticketTypes.map((ticket) => (
-              <div key={ticket.id} className="flex items-center justify-between gap-4 rounded-md border p-3">
-                <div>
-                  <p className="font-medium">{ticket.name}</p>
-                  <p className="text-sm text-muted-foreground">{money(ticket.priceCents)} · {ticket.quantity - ticket.sold} disponiveis</p>
-                </div>
-                <Input
-                  className="w-24"
-                  type="number"
-                  min={0}
-                  max={ticket.limitPerBuy}
-                  value={quantities[ticket.id] ?? 0}
-                  onChange={(event) => setQuantities((state) => ({ ...state, [ticket.id]: Number(event.target.value) }))}
-                />
-              </div>
-            ))}
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader>
-            <CardTitle>Dados pessoais</CardTitle>
-          </CardHeader>
-          <CardContent className="grid gap-4 sm:grid-cols-2">
-            <Field label="Nome" error={form.formState.errors.buyerName?.message}>
-              <Input {...form.register("buyerName")} />
-            </Field>
-            <Field label="E-mail" error={form.formState.errors.buyerEmail?.message}>
-              <Input type="email" {...form.register("buyerEmail")} />
-            </Field>
-            <Field label="Documento">
-              <Input {...form.register("buyerDocument")} />
-            </Field>
-            <Field label="Telefone">
-              <Input {...form.register("buyerPhone")} />
-            </Field>
-            <Field label="Pagamento">
-              <select className="h-10 rounded-md border bg-background px-3 text-sm" {...form.register("paymentMethod")}>
-                <option value="PIX">PIX</option>
-                <option value="CREDIT_CARD">Cartao</option>
-              </select>
-            </Field>
-          </CardContent>
-        </Card>
-      </form>
-      <Card className="h-fit">
-        <CardHeader>
-          <CardTitle>Resumo</CardTitle>
-          <CardDescription>Revise os valores antes de confirmar.</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <Summary label="Subtotal" value={money(subtotal)} />
-          <Summary label="Taxas" value={money(fee)} />
-          <Summary label="Total" value={money(subtotal + fee)} strong />
-          {mutation.error && <p className="text-sm text-destructive">{mutation.error.message}</p>}
-          <Button className="w-full" disabled={mutation.isPending || subtotal === 0} onClick={form.handleSubmit((data) => mutation.mutate(data))}>
-            {mutation.isPending && <Loader2 className="h-4 w-4 animate-spin" />}
-            Confirmar compra
+    <main className="min-h-screen bg-background">
+      {/* Header */}
+      <div className="sticky top-0 z-30 glass border-b">
+        <div className="mx-auto flex h-14 max-w-6xl items-center gap-4 px-5">
+          <Button asChild variant="ghost" size="sm" className="gap-2 text-muted-foreground hover:text-foreground">
+            <Link href={`/eventos/${slug}`}>
+              <ArrowLeft className="h-4 w-4" />
+              Voltar ao evento
+            </Link>
           </Button>
-        </CardContent>
-      </Card>
+          <div className="ml-auto flex items-center gap-2 text-xs text-muted-foreground">
+            <ShieldCheck className="h-4 w-4 text-green-600" />
+            Checkout seguro
+          </div>
+        </div>
+      </div>
+
+      <div className="mx-auto grid max-w-6xl gap-6 px-5 py-8 lg:grid-cols-[1fr_380px]">
+        <form className="space-y-6" onSubmit={form.handleSubmit((data) => mutation.mutate(data))}>
+          <div>
+            <h1 className="text-2xl font-semibold tracking-normal">Checkout</h1>
+            <p className="text-sm text-muted-foreground">{event?.title}</p>
+          </div>
+          <Card>
+            <CardHeader>
+              <CardTitle>Seus ingressos</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              {event?.ticketTypes.map((ticket) => {
+                const qty = quantities[ticket.id] ?? 0;
+                if (qty <= 0) return null;
+                return (
+                  <div key={ticket.id} className="flex items-center justify-between gap-4 rounded-xl border p-4">
+                    <div>
+                      <p className="font-medium">{ticket.name}</p>
+                      <p className="text-sm text-muted-foreground">{money(ticket.priceCents)} × {qty}</p>
+                    </div>
+                    <Input
+                      className="w-20 text-center"
+                      type="number"
+                      min={0}
+                      max={ticket.limitPerBuy}
+                      value={qty}
+                      onChange={(e) => setQuantities((state) => ({ ...state, [ticket.id]: Number(e.target.value) }))}
+                    />
+                  </div>
+                );
+              })}
+              {Object.values(quantities).every((q) => q <= 0) && (
+                <p className="py-4 text-center text-sm text-muted-foreground">
+                  Nenhum ingresso selecionado.{" "}
+                  <Link href={`/eventos/${slug}`} className="text-primary hover:underline">
+                    Voltar ao evento
+                  </Link>
+                </p>
+              )}
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader>
+              <CardTitle>Dados pessoais</CardTitle>
+            </CardHeader>
+            <CardContent className="grid gap-4 sm:grid-cols-2">
+              <Field label="Nome" error={form.formState.errors.buyerName?.message}>
+                <Input {...form.register("buyerName")} />
+              </Field>
+              <Field label="E-mail" error={form.formState.errors.buyerEmail?.message}>
+                <Input type="email" {...form.register("buyerEmail")} />
+              </Field>
+              <Field label="Documento">
+                <Input {...form.register("buyerDocument")} />
+              </Field>
+              <Field label="Telefone">
+                <Input {...form.register("buyerPhone")} />
+              </Field>
+              <Field label="Pagamento">
+                <select className="h-10 w-full rounded-md border bg-background px-3 text-sm" {...form.register("paymentMethod")}>
+                  <option value="PIX">PIX</option>
+                  <option value="CREDIT_CARD">Cartao</option>
+                </select>
+              </Field>
+            </CardContent>
+          </Card>
+        </form>
+        <Card className="h-fit sticky top-20">
+          <CardHeader>
+            <CardTitle>Resumo</CardTitle>
+            <CardDescription>Revise os valores antes de confirmar.</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <Summary label="Subtotal" value={money(subtotal)} />
+            <Summary label="Taxas" value={money(fee)} />
+            <Summary label="Total" value={money(subtotal + fee)} strong />
+            {mutation.error && <p className="text-sm text-destructive">{mutation.error.message}</p>}
+            <Button className="w-full" disabled={mutation.isPending || subtotal === 0} onClick={form.handleSubmit((data) => mutation.mutate(data))}>
+              {mutation.isPending && <Loader2 className="h-4 w-4 animate-spin" />}
+              Confirmar compra
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
     </main>
   );
 }

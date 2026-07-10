@@ -29,8 +29,8 @@ type Finance = {
 export default function ReportsPage() {
   const token = useAuthStore((state) => state.accessToken);
   const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001/api";
-  const dashboard = useQuery({ queryKey: ["dashboard-report"], queryFn: () => api<Dashboard>("/dashboard") });
-  const finance = useQuery({ queryKey: ["finance-report"], queryFn: () => api<Finance>("/finance/summary") });
+  const dashboard = useQuery({ queryKey: ["dashboard"], queryFn: () => api<Dashboard>("/dashboard") });
+  const finance = useQuery({ queryKey: ["finance"], queryFn: () => api<Finance>("/finance/summary") });
 
   async function download(format: "csv" | "excel" | "pdf", type: "sales" | "participants" = "sales") {
     const response = await fetch(`${apiUrl}/reports/export?format=${format}&type=${type}`, {

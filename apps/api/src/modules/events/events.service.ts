@@ -112,8 +112,35 @@ export class EventsService {
     await this.invalidatePublicCache();
   }
 
+  async duplicate(id: string, tenantId: string, ownerId: string) {
+    const source = await this.findOne(id, tenantId);
+    const { id: _id, slug: _slug, createdAt: _c, updatedAt: _u, ...rest } = source as any;
+    const newEvent = await this.prisma.event.create({
+      data: {
+        ...rest,
+        title: `${source.title} (copia)`,
+        slug: await this.uniqueSlug(`${source.title} copia`),
+        status: "DRAFT" as any,
+        ownerId,
+        tenantId
+      }
+    });
+    return newEvent;
+  }
+
+  async cancel(id: string, tenantId: string) {
+    await this.findOne(id, tenantId);
+    const event = await this.prisma.event.update({
+      where: { id },
+      data: { status: "CLOSED" as any }
+    });
+    await this.cache.del(`dashboard:${tenantId}`);
+    await this.invalidatePublicCache();
+    return event;
+  }
+
   private async invalidatePublicCache() {
-    await this.cache.del("events:public:*");
+    await this.cache.delByPattern("events:public:*");
   }
 
   private async uniqueSlug(title: string) {

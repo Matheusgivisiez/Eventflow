@@ -1,11 +1,15 @@
 import { BadRequestException, Injectable, NotFoundException } from "@nestjs/common";
+import { ConfigService } from "@nestjs/config";
 import { CheckInStatus, TicketStatus } from "@prisma/client";
 import { createHmac } from "crypto";
 import { PrismaService } from "../../../prisma/prisma.service";
 
 @Injectable()
 export class ValidateTicketUseCase {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly config: ConfigService
+  ) {}
 
   async execute(eventId: string, tenantId: string, userId: string, code: string) {
     const parsed = this.parseCode(code);
@@ -51,7 +55,7 @@ export class ValidateTicketUseCase {
   }
 
   private validateSignature(parsed: { uuid: string; orderId: string; signature: string }) {
-    const secret = process.env.QR_CODE_SECRET || "change-me-qrcode-secret";
+    const secret = this.config.get<string>("QR_CODE_SECRET") ?? "change-me-qrcode-secret";
     const expectedSignature = createHmac("sha256", secret)
       .update(`${parsed.uuid}:${parsed.orderId}`)
       .digest("hex");

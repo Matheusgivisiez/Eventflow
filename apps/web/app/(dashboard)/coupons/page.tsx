@@ -1,145 +1,220 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useCallback, useMemo } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Loader2, Pencil, Plus, Tag, Trash2, X } from "lucide-react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
-import { Badge } from "@/components/ui/badge";
+import {
+  Tag, Plus, Save, X, Pencil, Trash2, Loader2, CalendarX2
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { api } from "@/lib/api";
-import { money } from "@/lib/utils";
-
-type Coupon = {
-  id: string;
-  code: string;
-  discountPercent: number;
-  discountFixedCents: number;
-  maxUses: number;
-  usedCount: number;
-  validFrom: string;
-  validUntil: string;
-  isActive: boolean;
-};
+import { dateTime, money } from "@/lib/utils";
+import type { CouponType } from "@/types/eventhub";
 
 const couponSchema = z.object({
-  code: z.string().min(3, "Minimo 3 caracteres.").toUpperCase().regex(/^[A-Z0-9_-]+$/, "Use letras, numeros, _ e -."),
-  discountPercent: z.coerce.number().int().min(0).max(100).optional(),
-  discountFixedCents: z.coerce.number().min(0).optional().transform((value) => Math.round((value ?? 0) * 100)),
-  maxUses: z.coerce.number().int().min(0, "0 = ilimitado"),
-  validFrom: z.string().min(1, "Informe a data de inicio."),
-  validUntil: z.string().min(1, "Informe a validade."),
+  code: z.string().min(3, "O código deve ter pelo menos 3 caracteres.").toUpperCase(),
+  discountPercent: z.coerce.number().min(0).max(100).optional(),
+  discountFixedBrl: z.coerce.number().min(0).optional(),
+  validFrom: z.string().min(1, "Informe a data de início."),
+  validUntil: z.string().min(1, "Informe a data de término."),
+  maxUses: z.coerce.number().int().min(0),
   isActive: z.boolean().optional()
-}).refine((data) => (data.discountPercent ?? 0) > 0 || (data.discountFixedCents ?? 0) > 0, {
-  message: "Informe percentual ou valor fixo.",
+}).refine((data) => (data.discountPercent ?? 0) > 0 || (data.discountFixedBrl ?? 0) > 0, {
+  message: "Informe pelo menos um tipo de desconto (percentual ou fixo).",
   path: ["discountPercent"]
 });
 
 type CouponForm = z.infer<typeof couponSchema>;
 
+function brlToCents(brl?: number) {
+  return brl ? Math.round(brl * 100) : 0;
+}
+
 export default function CouponsPage() {
-  const queryClient = useQueryClient();
-  const [showForm, setShowForm] = useState(false);
-  const [editing, setEditing] = useState<Coupon | null>(null);
-  const coupons = useQuery({ queryKey: ["coupons"], queryFn: () => api<Coupon[]>("/coupons") });
-  const invalidate = () => queryClient.invalidateQueries({ queryKey: ["coupons"] });
-  const create = useMutation({
-    mutationFn: (data: CouponForm) => api("/coupons", { method: "POST", body: JSON.stringify(data) }),
+  const qc = useQueryClient();
+  const [showNew, setShowNew] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
+
+  const { data: coupons, isLoading } = useQuery<CouponType[]>({
+    queryKey: ["coupons"],
+    queryFn: () => api<CouponType[]>("/coupons")
+  });
+
+  const invalidate = useCallback(() => qc.invalidateQueries({ queryKey: ["coupons"] }), [qc]);
+
+  const createMutation = useMutation({
+    mutationFn: (data: CouponForm) =>
+      api("/coupons", {
+        method: "POST",
+        body: JSON.stringify({
+          ...data,
+          discountFixedCents: brlToCents(data.discountFixedBrl),
+          discountFixedBrl: undefined
+        })
+      }),
     onSuccess: () => {
       invalidate();
-      setShowForm(false);
+      setShowNew(false);
     }
   });
-  const update = useMutation({
-    mutationFn: ({ id, data }: { id: string; data: CouponForm }) => api(`/coupons/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
+
+  const updateMutation = useMutation({
+    mutationFn: ({ id, data }: { id: string; data: CouponForm }) =>
+      api(`/coupons/${id}`, {
+        method: "PATCH",
+        body: JSON.stringify({
+          ...data,
+          discountFixedCents: brlToCents(data.discountFixedBrl),
+          discountFixedBrl: undefined
+        })
+      }),
     onSuccess: () => {
       invalidate();
-      setEditing(null);
+      setEditingId(null);
     }
   });
-  const remove = useMutation({
+
+  const deleteMutation = useMutation({
     mutationFn: (id: string) => api(`/coupons/${id}`, { method: "DELETE" }),
     onSuccess: invalidate
   });
+
+  // Stable handler – avoids recreating the function on every render
+  const handleDelete = useCallback((id: string, code: string) => {
+    if (confirm(`Excluir cupom ${code}?`)) deleteMutation.mutate(id);
+  }, [deleteMutation]);
+
+  // Pre-compute once per render; avoids allocating a Date object per coupon in the map
+  const now = useMemo(() => new Date(), []);
 
   return (
     <div className="space-y-6">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-2xl font-semibold tracking-normal">Cupons</h1>
-          <p className="text-sm text-muted-foreground">Crie, edite e limite cupons por percentual ou valor fixo.</p>
+          <h1 className="text-2xl font-extrabold tracking-tight">Cupons de Desconto</h1>
+          <p className="text-sm text-muted-foreground mt-1">Crie e gerencie cupons promocionais para seus eventos.</p>
         </div>
-        <Button onClick={() => setShowForm(true)} disabled={showForm}>
-          <Plus className="h-4 w-4" />
-          Novo cupom
+        <Button onClick={() => setShowNew(true)} disabled={showNew} className="bg-primary hover:bg-primary/90 text-white shadow-sm shadow-primary/30">
+          <Plus className="h-4 w-4" /> Novo cupom
         </Button>
       </div>
 
-      {showForm && (
-        <CouponEditor
-          title="Novo cupom"
-          onCancel={() => setShowForm(false)}
-          onSubmit={(data) => create.mutate(data)}
-          isPending={create.isPending}
-          error={create.error?.message}
-        />
-      )}
-
-      {coupons.isLoading && <Skeleton className="h-72 w-full" />}
-
-      {!coupons.isLoading && coupons.data?.length === 0 && !showForm && (
-        <Card className="border-dashed">
-          <CardContent className="flex flex-col items-center justify-center py-14 text-center">
-            <Tag className="mb-3 h-10 w-10 text-muted-foreground" />
-            <p className="text-lg font-medium">Nenhum cupom criado</p>
-            <p className="mt-1 text-sm text-muted-foreground">Clique em "Novo cupom" para criar o primeiro desconto.</p>
+      {showNew && (
+        <Card className="border-primary/40 shadow-md">
+          <CardHeader className="flex-row items-center justify-between pb-4">
+            <CardTitle className="text-base">Novo cupom</CardTitle>
+            <Button variant="ghost" size="icon" onClick={() => setShowNew(false)}>
+              <X className="h-4 w-4" />
+            </Button>
+          </CardHeader>
+          <CardContent>
+            <CouponFormComponent
+              onSubmit={(d) => createMutation.mutate(d)}
+              isPending={createMutation.isPending}
+              error={createMutation.error?.message}
+              submitLabel="Criar cupom"
+            />
           </CardContent>
         </Card>
       )}
 
-      <div className="space-y-3">
-        {coupons.data?.map((coupon) =>
-          editing?.id === coupon.id ? (
-            <CouponEditor
-              key={coupon.id}
-              title={`Editando ${coupon.code}`}
-              coupon={coupon}
-              onCancel={() => setEditing(null)}
-              onSubmit={(data) => update.mutate({ id: coupon.id, data })}
-              isPending={update.isPending}
-              error={update.error?.message}
-            />
-          ) : (
-            <Card key={coupon.id}>
-              <CardContent className="grid gap-3 p-4 md:grid-cols-[1fr_180px_160px_180px_110px] md:items-center">
-                <div>
-                  <code className="rounded bg-muted px-2 py-1 text-sm font-semibold">{coupon.code}</code>
-                  <p className="mt-2 text-xs text-muted-foreground">
-                    Valido de {formatDate(coupon.validFrom)} ate {formatDate(coupon.validUntil)}
-                  </p>
-                </div>
-                <p className="font-medium text-primary">{discountLabel(coupon)}</p>
-                <p className="text-sm text-muted-foreground">
-                  {coupon.usedCount}/{coupon.maxUses === 0 ? "ilimitado" : coupon.maxUses} usos
-                </p>
-                <Badge variant={!coupon.isActive ? "secondary" : isExpired(coupon.validUntil) ? "destructive" : "default"}>
-                  {!coupon.isActive ? "Inativo" : isExpired(coupon.validUntil) ? "Expirado" : "Ativo"}
-                </Badge>
-                <div className="flex gap-1">
-                  <Button variant="ghost" size="icon" title="Editar cupom" onClick={() => setEditing(coupon)}>
-                    <Pencil className="h-4 w-4" />
-                  </Button>
-                  <Button variant="ghost" size="icon" title="Excluir cupom" className="text-destructive hover:text-destructive" onClick={() => confirm(`Excluir ${coupon.code}?`) && remove.mutate(coupon.id)}>
-                    {remove.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
-                  </Button>
-                </div>
+      {isLoading && (
+        <div className="space-y-4">
+          {[1, 2, 3].map(i => <Skeleton key={i} className="h-32 w-full rounded-2xl" />)}
+        </div>
+      )}
+
+      {!isLoading && coupons?.length === 0 && !showNew && (
+        <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed bg-white dark:bg-card p-12 text-center">
+          <div className="flex h-16 w-16 items-center justify-center rounded-full bg-primary/10 mb-4">
+            <Tag className="h-8 w-8 text-primary" />
+          </div>
+          <h3 className="text-lg font-bold">Nenhum cupom criado</h3>
+          <p className="text-sm text-muted-foreground mt-2 max-w-sm">Crie cupons promocionais para impulsionar suas vendas.</p>
+        </div>
+      )}
+
+      <div className="grid gap-4 md:grid-cols-2">
+        {coupons?.map(coupon => 
+          editingId === coupon.id ? (
+            <Card key={coupon.id} className="border-primary/30 shadow-sm md:col-span-2">
+              <CardHeader className="flex-row items-center justify-between pb-4">
+                <CardTitle className="text-base">Editando: {coupon.code}</CardTitle>
+                <Button variant="ghost" size="icon" onClick={() => setEditingId(null)}>
+                  <X className="h-4 w-4" />
+                </Button>
+              </CardHeader>
+              <CardContent>
+                <CouponFormComponent
+                  defaultValues={{
+                    code: coupon.code,
+                    discountPercent: coupon.discountPercent ?? 0,
+                    discountFixedBrl: (coupon.discountFixedCents ?? 0) / 100,
+                    validFrom: coupon.validFrom.slice(0, 16),
+                    validUntil: coupon.validUntil.slice(0, 16),
+                    maxUses: coupon.maxUses,
+                    isActive: coupon.isActive
+                  }}
+                  onSubmit={(d) => updateMutation.mutate({ id: coupon.id, data: d })}
+                  isPending={updateMutation.isPending}
+                  error={updateMutation.error?.message}
+                  submitLabel="Salvar"
+                />
               </CardContent>
             </Card>
+          ) : (
+            <div key={coupon.id} className="group rounded-2xl border bg-white dark:bg-card shadow-sm p-5 transition-all duration-200 hover:shadow-lg hover:border-primary/20 hover:-translate-y-0.5">
+              <div className="flex justify-between items-start mb-4">
+                <div>
+                  <div className="flex items-center gap-2 mb-1">
+                    <h3 className="font-bold text-lg">{coupon.code}</h3>
+                    <Badge variant={coupon.isActive ? "default" : "secondary"}>
+                      {coupon.isActive ? "Ativo" : "Inativo"}
+                    </Badge>
+                  </div>
+                  <p className="text-sm text-muted-foreground flex items-center gap-1.5">
+                    <CalendarX2 className="h-3.5 w-3.5" />
+                    Validade: {new Date(coupon.validUntil) < now ? (
+                      <span className="text-rose-500 font-medium">Expirado</span>
+                    ) : (
+                      dateTime(coupon.validUntil)
+                    )}
+                  </p>
+                </div>
+                <div className="flex gap-1">
+                  <Button variant="ghost" size="icon" onClick={() => setEditingId(coupon.id)}>
+                    <Pencil className="h-4 w-4" />
+                  </Button>
+                  <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive" onClick={() => handleDelete(coupon.id, coupon.code)}>
+                    {deleteMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
+                  </Button>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div className="rounded-xl bg-muted/50 p-3">
+                  <p className="text-xs text-muted-foreground">Desconto</p>
+                  <p className="font-semibold mt-0.5">
+                    {coupon.discountPercent ? `${coupon.discountPercent}%` : ""}
+                    {coupon.discountPercent && coupon.discountFixedCents ? " + " : ""}
+                    {coupon.discountFixedCents ? money(coupon.discountFixedCents) : ""}
+                  </p>
+                </div>
+                <div className="rounded-xl bg-muted/50 p-3">
+                  <p className="text-xs text-muted-foreground">Uso</p>
+                  <p className="font-semibold mt-0.5">
+                    {coupon.usedCount} {coupon.maxUses > 0 ? `/ ${coupon.maxUses}` : " (Ilimitado)"}
+                  </p>
+                </div>
+              </div>
+            </div>
           )
         )}
       </div>
@@ -147,105 +222,72 @@ export default function CouponsPage() {
   );
 }
 
-function CouponEditor({
-  title,
-  coupon,
-  onCancel,
-  onSubmit,
-  isPending,
-  error
+function CouponFormComponent({
+  defaultValues, onSubmit, isPending, error, submitLabel
 }: {
-  title: string;
-  coupon?: Coupon;
-  onCancel: () => void;
+  defaultValues?: Partial<CouponForm>;
   onSubmit: (data: CouponForm) => void;
   isPending: boolean;
   error?: string;
+  submitLabel: string;
 }) {
   const form = useForm<CouponForm>({
     resolver: zodResolver(couponSchema),
-    defaultValues: {
-      code: coupon?.code ?? "",
-      discountPercent: coupon?.discountPercent ?? 10,
-      discountFixedCents: coupon ? coupon.discountFixedCents / 100 : 0,
-      maxUses: coupon?.maxUses ?? 0,
-      validFrom: coupon?.validFrom.slice(0, 10) ?? "",
-      validUntil: coupon?.validUntil.slice(0, 10) ?? "",
-      isActive: coupon?.isActive ?? true
-    } as any
+    defaultValues: { maxUses: 0, isActive: true, discountPercent: 0, discountFixedBrl: 0, ...defaultValues }
   });
 
   return (
-    <Card className="border-primary/40 shadow-md">
-      <CardHeader className="flex-row items-center justify-between space-y-0 pb-4">
-        <div>
-          <CardTitle>{title}</CardTitle>
-          <CardDescription>Codigo, quantidade, validade, percentual e valor fixo.</CardDescription>
+    <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+      <div className="grid gap-4 sm:grid-cols-2">
+        <div className="space-y-2">
+          <Label>Código do cupom</Label>
+          <Input {...form.register("code")} placeholder="Ex: PROMO20" className="uppercase" />
+          {form.formState.errors.code && <p className="text-xs text-destructive">{form.formState.errors.code.message}</p>}
         </div>
-        <Button variant="ghost" size="icon" onClick={onCancel}>
-          <X className="h-4 w-4" />
-        </Button>
-      </CardHeader>
-      <CardContent>
-        <form className="grid gap-4" onSubmit={form.handleSubmit(onSubmit)}>
-          <div className="grid gap-4 sm:grid-cols-4">
-            <Field label="Codigo" error={form.formState.errors.code?.message}>
-              <Input {...form.register("code")} onChange={(event) => form.setValue("code", event.target.value.toUpperCase())} />
-            </Field>
-            <Field label="Percentual (%)" error={form.formState.errors.discountPercent?.message}>
-              <Input type="number" min={0} max={100} {...form.register("discountPercent")} />
-            </Field>
-            <Field label="Valor fixo (R$)" error={form.formState.errors.discountFixedCents?.message}>
-              <Input type="number" min={0} step={0.01} {...form.register("discountFixedCents")} />
-            </Field>
-            <Field label="Quantidade" error={form.formState.errors.maxUses?.message}>
-              <Input type="number" min={0} {...form.register("maxUses")} />
-            </Field>
-          </div>
-          <div className="grid gap-4 sm:grid-cols-2">
-            <Field label="Valido de" error={form.formState.errors.validFrom?.message}>
-              <Input type="date" {...form.register("validFrom")} />
-            </Field>
-            <Field label="Valido ate" error={form.formState.errors.validUntil?.message}>
-              <Input type="date" {...form.register("validUntil")} />
-            </Field>
-          </div>
-          <label className="flex cursor-pointer items-center gap-3">
-            <input type="checkbox" className="h-4 w-4 accent-primary" {...form.register("isActive")} />
-            <span className="text-sm font-medium">Cupom ativo</span>
-          </label>
-          {error && <p className="text-sm text-destructive">{error}</p>}
-          <div className="flex gap-2">
-            <Button disabled={isPending}>{isPending && <Loader2 className="h-4 w-4 animate-spin" />}Salvar cupom</Button>
-            <Button type="button" variant="ghost" onClick={onCancel}>Cancelar</Button>
-          </div>
-        </form>
-      </CardContent>
-    </Card>
-  );
-}
+        <div className="space-y-2">
+          <Label>Limite de usos (0 = ilimitado)</Label>
+          <Input type="number" min={0} {...form.register("maxUses")} />
+        </div>
+      </div>
+      
+      <div className="grid gap-4 sm:grid-cols-2">
+        <div className="space-y-2">
+          <Label>Desconto Percentual (%)</Label>
+          <Input type="number" min={0} max={100} {...form.register("discountPercent")} />
+          {form.formState.errors.discountPercent && <p className="text-xs text-destructive">{form.formState.errors.discountPercent.message}</p>}
+        </div>
+        <div className="space-y-2">
+          <Label>Desconto Fixo (R$)</Label>
+          <Input type="number" step={0.01} min={0} {...form.register("discountFixedBrl")} />
+        </div>
+      </div>
 
-function Field({ label, error, children }: { label: string; error?: string; children: React.ReactNode }) {
-  return (
-    <div className="space-y-2">
-      <Label>{label}</Label>
-      {children}
+      <div className="grid gap-4 sm:grid-cols-2">
+        <div className="space-y-2">
+          <Label>Início</Label>
+          <Input type="datetime-local" {...form.register("validFrom")} />
+          {form.formState.errors.validFrom && <p className="text-xs text-destructive">{form.formState.errors.validFrom.message}</p>}
+        </div>
+        <div className="space-y-2">
+          <Label>Término</Label>
+          <Input type="datetime-local" {...form.register("validUntil")} />
+          {form.formState.errors.validUntil && <p className="text-xs text-destructive">{form.formState.errors.validUntil.message}</p>}
+        </div>
+      </div>
+
+      <div className="flex items-center gap-2 pt-2">
+        <input type="checkbox" id="isActive" className="h-4 w-4 rounded border accent-primary" {...form.register("isActive")} />
+        <Label htmlFor="isActive">Cupom ativo para uso</Label>
+      </div>
+
       {error && <p className="text-sm text-destructive">{error}</p>}
-    </div>
+      
+      <div className="pt-2">
+        <Button type="submit" disabled={isPending} className="w-full sm:w-auto">
+          {isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+          {submitLabel}
+        </Button>
+      </div>
+    </form>
   );
-}
-
-function formatDate(iso: string) {
-  return new Date(iso).toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit", year: "numeric" });
-}
-
-function isExpired(until: string) {
-  return new Date(until) < new Date();
-}
-
-function discountLabel(coupon: Coupon) {
-  const parts = [];
-  if (coupon.discountPercent > 0) parts.push(`${coupon.discountPercent}%`);
-  if (coupon.discountFixedCents > 0) parts.push(money(coupon.discountFixedCents));
-  return `${parts.join(" + ")} OFF`;
 }

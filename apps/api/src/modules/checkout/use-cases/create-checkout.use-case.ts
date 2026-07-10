@@ -2,6 +2,7 @@ import { BadRequestException, Injectable, NotFoundException } from "@nestjs/comm
 import { EventStatus, PaymentStatus } from "@prisma/client";
 import { CouponsService } from "../../coupons/coupons.service";
 import { PrismaService } from "../../../prisma/prisma.service";
+import { RequestUser } from "../../../common/types/request-user";
 import type { CreateCheckoutDto } from "../dto/create-checkout.dto";
 
 const PLATFORM_FEE_RATE = 0.08;
@@ -20,7 +21,7 @@ export class CreateCheckoutUseCase {
     private readonly coupons: CouponsService
   ) {}
 
-  async execute(slug: string, dto: CreateCheckoutDto) {
+  async execute(slug: string, dto: CreateCheckoutDto, user?: RequestUser) {
     if (!dto.items.length) {
       throw new BadRequestException("Selecione pelo menos um ingresso.");
     }
@@ -39,6 +40,7 @@ export class CreateCheckoutUseCase {
       await this.validateCpfLimit(tx, event, dto);
       const couponResult = await this.processCoupon(tx, event, dto);
       const affiliateResult = await this.processAffiliate(tx, event, dto);
+      const promoterResult = await this.processPromoter(tx, event, dto);
 
       const items = this.validateAndPrepareItems(event, dto, couponResult.couponDiscount);
       const { subtotalCents, discountCents, feeCents, totalCents } = this.calculatePricing(
@@ -48,12 +50,15 @@ export class CreateCheckoutUseCase {
       const order = await tx.order.create({
         data: {
           eventId: event.id,
+          userId: user?.id,
           couponId: couponResult.couponId,
           buyerName: dto.buyerName,
           buyerEmail: dto.buyerEmail.toLowerCase(),
           buyerDocument: dto.buyerDocument,
           buyerPhone: dto.buyerPhone,
           affiliateLinkId: affiliateResult.affiliateLinkId,
+          promoterLinkId: promoterResult.promoterLinkId,
+          promoterCommissionCents: promoterResult.promoterCommissionCents,
           source: dto.source,
           device: dto.device,
           campaign: dto.campaign,
@@ -87,6 +92,13 @@ export class CreateCheckoutUseCase {
 
       if (affiliateResult.affiliateLinkId && affiliateResult.affiliateCommissionBps > 0) {
         await this.createAffiliateCommission(tx, event.tenantId, affiliateResult as { affiliateLinkId: string; affiliateCommissionBps: number }, order.id, totalCents);
+      }
+
+      if (promoterResult.promoterLinkId && promoterResult.promoterCommissionCents > 0) {
+        await tx.promoterLink.update({
+          where: { id: promoterResult.promoterLinkId },
+          data: { conversions: { increment: 1 }, revenueCents: { increment: totalCents }, commissionAcumCents: { increment: promoterResult.promoterCommissionCents } }
+        });
       }
 
       return order;
@@ -170,6 +182,40 @@ export class CreateCheckoutUseCase {
     }
 
     return { affiliateLinkId, affiliateCommissionBps };
+  }
+
+  private async processPromoter(tx: any, event: any, dto: CreateCheckoutDto) {
+    let promoterLinkId: string | undefined;
+    let promoterCommissionCents = 0;
+
+    if (dto.promoterCode) {
+      const promoterLink = await tx.promoterLink.findFirst({
+        where: { code: dto.promoterCode, eventId: event.id, isActive: true }
+      });
+      if (promoterLink) {
+        promoterLinkId = promoterLink.id;
+        
+        // Calculate subtotal for commission logic. Simple for now.
+        const totalQty = dto.items.reduce((s, i) => s + i.quantity, 0);
+        const subtotal = dto.items.reduce((s, i) => {
+          const t = event.ticketTypes.find((tt: any) => tt.id === i.ticketTypeId);
+          return s + (t ? t.priceCents * i.quantity : 0);
+        }, 0);
+
+        if (promoterLink.commissionType === "PERCENTAGE") {
+          promoterCommissionCents = Math.round(subtotal * (promoterLink.commissionValue / 10000));
+        } else if (promoterLink.commissionType === "FIXED") {
+          promoterCommissionCents = promoterLink.commissionValue * totalQty;
+        }
+
+        await tx.promoterLink.update({
+          where: { id: promoterLink.id },
+          data: { clicks: { increment: 1 } }
+        });
+      }
+    }
+
+    return { promoterLinkId, promoterCommissionCents };
   }
 
   private validateAndPrepareItems(event: any, dto: CreateCheckoutDto, couponDiscount: { discountPercent: number; discountFixedCents: number }): ProcessedItem[] {

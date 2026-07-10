@@ -1,16 +1,25 @@
-import { Injectable, NotFoundException } from "@nestjs/common";
+import { BadRequestException, Injectable, NotFoundException } from "@nestjs/common";
 import { PaymentStatus, TicketStatus } from "@prisma/client";
 import { createHash, createHmac, randomUUID } from "crypto";
+import { ConfigService } from "@nestjs/config";
 import QRCode from "qrcode";
 import { PrismaService } from "../../prisma/prisma.service";
 import { UpdatePaymentStatusDto } from "./dto/update-payment-status.dto";
 import { MercadoPagoGateway } from "./mercado-pago.gateway";
 
+const VALID_TRANSITIONS: Record<PaymentStatus, PaymentStatus[]> = {
+  [PaymentStatus.PENDING]: [PaymentStatus.PAID, PaymentStatus.CANCELED],
+  [PaymentStatus.PAID]: [PaymentStatus.REFUNDED],
+  [PaymentStatus.CANCELED]: [],
+  [PaymentStatus.REFUNDED]: []
+};
+
 @Injectable()
 export class PaymentsService {
   constructor(
     private readonly prisma: PrismaService,
-    private readonly mercadoPago: MercadoPagoGateway
+    private readonly mercadoPago: MercadoPagoGateway,
+    private readonly config: ConfigService
   ) {}
 
   list(tenantId: string, query: { page?: string; perPage?: string; status?: PaymentStatus }) {
@@ -48,6 +57,11 @@ export class PaymentsService {
     }
     if (payment.status === PaymentStatus.PAID && dto.status === PaymentStatus.PAID) {
       return payment;
+    }
+
+    const allowed = VALID_TRANSITIONS[payment.status] ?? [];
+    if (!allowed.includes(dto.status)) {
+      throw new BadRequestException(`Transicao de ${payment.status} para ${dto.status} nao permitida.`);
     }
 
     const updated = await this.prisma.payment.update({
@@ -97,7 +111,7 @@ export class PaymentsService {
     for (const item of order.items) {
       for (let index = 0; index < item.quantity; index += 1) {
         const uuid = randomUUID();
-        const secret = process.env.QR_CODE_SECRET || "change-me-qrcode-secret";
+        const secret = this.config.get<string>("QR_CODE_SECRET") ?? "change-me-qrcode-secret";
         const signature = createHmac("sha256", secret).update(`${uuid}:${order.id}`).digest("hex");
         // We hash uuid to prevent direct lookup attacks if db is leaked
         const hash = createHash("sha256").update(uuid).digest("hex");

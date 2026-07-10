@@ -3,15 +3,15 @@ import { ConfigModule, ConfigService } from "@nestjs/config";
 import { BullModule } from "@nestjs/bullmq";
 import { ThrottlerModule, ThrottlerGuard } from "@nestjs/throttler";
 import { APP_GUARD } from "@nestjs/core";
-import Redis from "ioredis";
 import { AppController } from "./app.controller";
 import { envSchema } from "./config/env.schema";
 import { RequestLoggerMiddleware } from "./common/middleware/request-logger.middleware";
 import { RateLimitMiddleware } from "./common/middleware/rate-limit.middleware";
 import { PrismaModule } from "./prisma/prisma.module";
 import { AuditModule } from "./modules/audit/audit.module";
-import { BuyerModule } from "./modules/buyer/buyer.module";
+import { CacheService } from "./modules/cache/cache.service";
 import { CacheModule } from "./modules/cache/cache.module";
+import { BuyerModule } from "./modules/buyer/buyer.module";
 import { AuthModule } from "./modules/auth/auth.module";
 import { UsersModule } from "./modules/users/users.module";
 import { EventsModule } from "./modules/events/events.module";
@@ -32,6 +32,8 @@ import { WebhooksModule } from "./modules/webhooks/webhooks.module";
 import { EnterpriseModule } from "./modules/enterprise/enterprise.module";
 import { LgpdModule } from "./modules/lgpd/lgpd.module";
 import { OrdersModule } from "./modules/orders/orders.module";
+import { PromotersModule } from "./modules/promoters/promoters.module";
+import { UploadModule } from "./modules/upload/upload.module";
 
 @Module({
   imports: [
@@ -41,25 +43,19 @@ import { OrdersModule } from "./modules/orders/orders.module";
     }),
     BullModule.forRoot({
       connection: {
-        url: process.env.REDIS_URL
+        url: process.env.REDIS_URL,
+        skipVersionCheck: true
       }
     }),
     ThrottlerModule.forRootAsync({
-      imports: [ConfigModule],
-      inject: [ConfigService],
-      useFactory: (config: ConfigService) => ({
+      imports: [ConfigModule, CacheModule],
+      inject: [ConfigService, CacheService],
+      useFactory: (config: ConfigService, cache: CacheService) => ({
         throttlers: [{ limit: 120, ttl: 60000 }],
         storage: {
           async increment(key: string, ttl: number) {
-            const redis = new Redis(config.get<string>("REDIS_URL") ?? "redis://localhost:6379", { lazyConnect: true, maxRetriesPerRequest: 1 });
-            try {
-              await redis.connect();
-              const value = await redis.incr(key);
-              if (value === 1) await redis.pexpire(key, ttl);
-              return { totalHits: value, timeToExpire: ttl, isBlocked: false, timeToBlockExpire: 0 };
-            } finally {
-              await redis.quit().catch(() => undefined);
-            }
+            const hits = await cache.increment(key, Math.ceil(ttl / 1000));
+            return { totalHits: hits, timeToExpire: ttl, isBlocked: false, timeToBlockExpire: 0 };
           }
         }
       })
@@ -87,7 +83,9 @@ import { OrdersModule } from "./modules/orders/orders.module";
     WebhooksModule,
     EnterpriseModule,
     LgpdModule,
-    OrdersModule
+    OrdersModule,
+    UploadModule,
+    PromotersModule
   ],
   controllers: [AppController],
   providers: [

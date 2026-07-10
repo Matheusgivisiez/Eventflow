@@ -5,7 +5,15 @@ import { ThemeProvider } from "next-themes";
 import { ReactNode, useState } from "react";
 
 export function Providers({ children }: { children: ReactNode }) {
-  const [queryClient] = useState(() => new QueryClient());
+  const [queryClient] = useState(() => new QueryClient({
+    defaultOptions: {
+      queries: {
+        staleTime: 1000 * 60 * 2, // 2 minutes
+        refetchOnWindowFocus: false,
+        retry: 1,
+      },
+    },
+  }));
 
   return (
     <ThemeProvider attribute="class" defaultTheme="system" enableSystem>

@@ -81,25 +81,8 @@ export default function MyTicketsPage() {
   }
 
   return (
-    <main className="min-h-[calc(100vh-64px)]">
-      {/* Header laranja estilo IngressoLive */}
-      <div className="hero-gradient py-10 px-4">
-        <div className="mx-auto max-w-5xl">
-          <div className="flex items-center gap-3 mb-2">
-            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-white/20">
-              <span className="text-white font-bold text-base">{user?.name?.charAt(0).toUpperCase() ?? "U"}</span>
-            </div>
-            <div>
-              <p className="text-white/80 text-sm">Olá,</p>
-              <p className="text-white font-bold text-lg leading-tight">{user?.name ?? "Participante"}</p>
-            </div>
-          </div>
-          <h1 className="text-2xl font-extrabold text-white mt-4">Meus Ingressos</h1>
-          <p className="text-white/80 text-sm mt-1">Acesse QR Codes, baixe PDF e gerencie seus ingressos</p>
-        </div>
-      </div>
-
-      <div className="mx-auto max-w-5xl px-4 -mt-4">
+    <main>
+      <div className="mx-auto max-w-5xl">
         {/* Tabs */}
         <div className="flex gap-2 mb-6">
           <button

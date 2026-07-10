@@ -26,11 +26,11 @@ export function EventCard({ event }: EventCardProps) {
             src={event.bannerUrl}
             alt={event.title}
             fill
-            className="object-cover transition-transform duration-500 group-hover:scale-105"
+            className="object-cover transition-transform duration-700 ease-out group-hover:scale-110"
           />
         ) : (
-          <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-primary/10 to-primary/5">
-            <Ticket className="h-12 w-12 text-primary/40 stroke-[1.5]" />
+          <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-primary/10 to-primary/5 transition-colors duration-300 group-hover:from-primary/15 group-hover:to-primary/10">
+            <Ticket className="h-12 w-12 text-primary/40 stroke-[1.5] transition-transform duration-300 group-hover:scale-110" />
           </div>
         )}
         {/* Badges sobrepostos */}
@@ -71,8 +71,8 @@ export function EventCard({ event }: EventCardProps) {
 
         <div className="mt-auto pt-4">
           <Button asChild size="sm" className="w-full bg-primary hover:bg-primary/90 text-white text-xs font-semibold rounded-xl shadow-sm shadow-primary/20">
-            <Link href={`/checkout/${event.slug}`}>
-              Comprar ingresso
+            <Link href={`/eventos/${event.slug}`}>
+              Ver evento
               <ChevronRight className="h-3.5 w-3.5" />
             </Link>
           </Button>

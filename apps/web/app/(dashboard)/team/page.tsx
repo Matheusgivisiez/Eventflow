@@ -323,9 +323,9 @@ function AddMemberCard({
       const next = new Set(prev);
       if (next.has(key)) next.delete(key);
       else next.add(key);
+      form.setValue("permissions", Array.from(next));
       return next;
     });
-    form.setValue("permissions", Array.from(selected));
   };
 
   const handleSubmit = form.handleSubmit((data) => {

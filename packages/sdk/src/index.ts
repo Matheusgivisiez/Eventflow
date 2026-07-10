@@ -37,13 +37,23 @@ export class EventHubClient {
   }
 
   private async request<T = unknown>(path: string, init: RequestInit = {}): Promise<T> {
+    const headers: Record<string, string> = {
+      "Content-Type": "application/json",
+      ...this.authHeader(),
+    };
+    if (init.headers) {
+      const entries = init.headers instanceof Headers
+        ? [...init.headers.entries()]
+        : Array.isArray(init.headers)
+          ? init.headers
+          : Object.entries(init.headers);
+      for (const [key, value] of entries) {
+        headers[key] = value;
+      }
+    }
     const response = await fetch(`${this.options.baseUrl.replace(/\/$/, "")}${path}`, {
       ...init,
-      headers: {
-        "Content-Type": "application/json",
-        ...this.authHeader(),
-        ...init.headers
-      }
+      headers,
     });
     if (!response.ok) {
       const error = await response.json().catch(() => ({ message: "EventHub API error" }));
@@ -52,9 +62,10 @@ export class EventHubClient {
     return response.json();
   }
 
-  private authHeader() {
+  private authHeader(): Record<string, string> {
     const token = this.options.accessToken ?? this.options.apiKey;
-    return token ? { Authorization: `Bearer ${token}` } : {};
+    if (token) return { Authorization: `Bearer ${token}` };
+    return {};
   }
 
   private query(params: Record<string, string | number | undefined>) {

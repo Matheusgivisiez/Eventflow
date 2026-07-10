@@ -37,6 +37,22 @@ export class CacheService implements OnModuleDestroy {
     this.memory.delete(key);
   }
 
+  async delByPattern(pattern: string) {
+    if (this.redis?.status === "ready") {
+      const stream = this.redis.scanStream({ match: pattern, count: 100 });
+      for await (const keys of stream) {
+        if (keys.length > 0) {
+          await this.redis.del(...keys);
+        }
+      }
+    }
+    for (const key of this.memory.keys()) {
+      if (key.includes(pattern.replace("*", ""))) {
+        this.memory.delete(key);
+      }
+    }
+  }
+
   async increment(key: string, ttlSeconds: number) {
     if (this.redis?.status === "ready") {
       const value = await this.redis.incr(key);

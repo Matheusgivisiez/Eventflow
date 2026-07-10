@@ -11,6 +11,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { EventCard } from "@/components/event-card";
+import { BrandLogo } from "@/components/brand-logo";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { api } from "@/lib/api";
 import { useAuthStore } from "@/stores/auth-store";
@@ -52,19 +53,14 @@ export default function CatalogPage() {
       {/* ─── HEADER ─────────────────────────────────────────────── */}
       <header className="sticky top-0 z-30 glass border-b shadow-sm">
         <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 lg:px-8">
-          <Link href="/" className="flex items-center gap-2 group">
-            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary shadow-md group-hover:shadow-primary/40 transition-shadow">
-              <Ticket className="h-5 w-5 text-white" />
-            </div>
-            <span className="text-xl font-bold tracking-tight">
-              Event<span className="text-primary">Flow</span>
-            </span>
+          <Link href="/" className="group hover:opacity-90 transition-opacity">
+            <BrandLogo />
           </Link>
 
           <nav className="hidden items-center gap-6 text-sm font-medium text-muted-foreground md:flex">
             <a href="#eventos" className="hover:text-foreground transition-colors">Comprar ingressos</a>
             <a href="#vender" className="hover:text-foreground transition-colors">Para organizadores</a>
-            <Link href="/me/ingressos" className="hover:text-foreground transition-colors">Meus ingressos</Link>
+            <Link href="/me" className="hover:text-foreground transition-colors">Perfil</Link>
           </nav>
 
           <div className="flex items-center gap-2">
@@ -72,9 +68,9 @@ export default function CatalogPage() {
             {user ? (
               <>
                 <Button asChild variant="ghost" size="sm" className="hidden sm:inline-flex gap-2">
-                  <Link href="/me/ingressos">
+                  <Link href="/me">
                     <UserCircle className="h-4 w-4" />
-                    Meus ingressos
+                    Perfil
                   </Link>
                 </Button>
                 <Button variant="outline" size="sm" onClick={logout} className="border-primary/30 text-primary hover:bg-primary hover:text-white transition-colors">
@@ -103,26 +99,28 @@ export default function CatalogPage() {
 
         <div className="relative mx-auto max-w-7xl px-4 py-16 lg:py-24 lg:px-8">
           <div className="text-center">
-            <Badge className="mb-4 bg-white/20 text-white hover:bg-white/30 border-white/30 backdrop-blur-sm">
-              <Star className="h-3 w-3 mr-1 fill-white" />
-              Plataforma líder em ingressos digitais
-            </Badge>
-            <h1 className="text-4xl font-extrabold tracking-tight text-white sm:text-5xl lg:text-6xl drop-shadow-sm">
+            <div className="animate-fade-in">
+              <Badge className="mb-4 bg-white/20 text-white hover:bg-white/30 border-white/30 backdrop-blur-sm">
+                <Star className="h-3 w-3 mr-1 fill-white" />
+                Plataforma líder em ingressos digitais
+              </Badge>
+            </div>
+            <h1 className="text-4xl font-extrabold tracking-tight text-white sm:text-5xl lg:text-6xl drop-shadow-sm animate-slide-up" style={{ animationDelay: "0.1s" }}>
               Encontre eventos e compre{" "}
               <span className="block">ingressos com segurança</span>
             </h1>
-            <p className="mx-auto mt-5 max-w-2xl text-lg text-white/85">
+            <p className="mx-auto mt-5 max-w-2xl text-lg text-white/85 animate-slide-up" style={{ animationDelay: "0.2s" }}>
               Shows, cursos, congressos, teatros e muito mais. Tudo num só lugar com checkout rápido e ingresso digital.
             </p>
 
             {/* Barra de busca */}
-            <div className="mx-auto mt-8 max-w-3xl">
-              <div className="flex flex-col gap-3 rounded-2xl bg-white p-3 shadow-2xl sm:flex-row">
+            <div className="mx-auto mt-8 max-w-3xl animate-slide-up" style={{ animationDelay: "0.3s" }}>
+              <div className="flex flex-col gap-3 rounded-2xl bg-white p-3 shadow-2xl shadow-black/10 sm:flex-row transition-all duration-300 focus-within:shadow-primary/20 focus-within:ring-2 focus-within:ring-primary/20">
                 <div className="relative flex-1">
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                   <input
                     type="text"
-                    className="w-full rounded-lg bg-muted/50 py-3 pl-9 pr-4 text-sm outline-none focus:ring-2 focus:ring-primary/30 placeholder:text-muted-foreground"
+                    className="w-full rounded-lg bg-muted/50 py-3 pl-9 pr-4 text-sm outline-none transition-all duration-200 focus:bg-white focus:ring-2 focus:ring-primary/30 placeholder:text-muted-foreground"
                     placeholder="Nome do evento, artista..."
                     value={search}
                     onChange={(e) => setSearch(e.target.value)}
@@ -132,13 +130,13 @@ export default function CatalogPage() {
                   <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                   <input
                     type="text"
-                    className="w-full rounded-lg bg-muted/50 py-3 pl-9 pr-4 text-sm outline-none focus:ring-2 focus:ring-primary/30 placeholder:text-muted-foreground"
+                    className="w-full rounded-lg bg-muted/50 py-3 pl-9 pr-4 text-sm outline-none transition-all duration-200 focus:bg-white focus:ring-2 focus:ring-primary/30 placeholder:text-muted-foreground"
                     placeholder="Cidade"
                     value={city}
                     onChange={(e) => setCity(e.target.value)}
                   />
                 </div>
-                <Button asChild className="bg-primary hover:bg-primary/90 text-white shadow-md px-6 rounded-xl">
+                <Button asChild className="bg-primary hover:bg-primary/90 active:scale-95 transition-all text-white shadow-md px-6 rounded-xl">
                   <a href="#eventos">
                     Buscar
                     <ArrowRight className="h-4 w-4" />
@@ -158,7 +156,7 @@ export default function CatalogPage() {
       </section>
 
       {/* ─── CATEGORIAS ─────────────────────────────────────────── */}
-      <section id="eventos" className="mx-auto max-w-7xl px-4 pt-8 pb-2 lg:px-8">
+      <section id="eventos" className="mx-auto max-w-7xl px-4 pt-8 pb-2 lg:px-8 animate-fade-in">
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-xl font-bold tracking-tight">Explorar por categoria</h2>
         </div>
@@ -213,7 +211,7 @@ export default function CatalogPage() {
             </Button>
           </div>
         ) : (
-          <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+          <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 stagger-children">
             {events.map((event) => (
               <EventCard key={event.id} event={event} />
             ))}
@@ -264,12 +262,7 @@ export default function CatalogPage() {
       {/* ─── FOOTER ─────────────────────────────────────────────── */}
       <footer className="border-t bg-white dark:bg-card py-8">
         <div className="mx-auto max-w-7xl px-4 lg:px-8 flex flex-col sm:flex-row items-center justify-between gap-4 text-sm text-muted-foreground">
-          <div className="flex items-center gap-2">
-            <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary">
-              <Ticket className="h-4 w-4 text-white" />
-            </div>
-            <span className="font-semibold text-foreground">EventFlow</span>
-          </div>
+          <BrandLogo iconOnly className="h-6 w-6" />
           <p>© {new Date().getFullYear()} EventFlow. Todos os direitos reservados.</p>
         </div>
       </footer>

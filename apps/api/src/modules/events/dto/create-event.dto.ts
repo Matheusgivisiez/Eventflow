@@ -1,5 +1,5 @@
 import { EventFormat, EventStatus } from "@prisma/client";
-import { IsArray, IsBoolean, IsDateString, IsEnum, IsInt, IsNotEmpty, IsOptional, IsString, IsUrl, Min } from "class-validator";
+import { IsArray, IsBoolean, IsDateString, IsEnum, IsInt, IsNotEmpty, IsOptional, IsString, Min } from "class-validator";
 import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger";
 
 export class CreateEventDto {
@@ -29,7 +29,7 @@ export class CreateEventDto {
 
   @ApiPropertyOptional({ description: "URL do banner do evento" })
   @IsOptional()
-  @IsUrl({ require_tld: false })
+  @IsString()
   bannerUrl?: string;
 
   @ApiPropertyOptional({ description: "URLs da galeria de imagens" })
@@ -85,7 +85,6 @@ export class CreateEventDto {
   @ApiPropertyOptional({ description: "URL do evento online" })
   @IsOptional()
   @IsString()
-  @IsUrl({ require_tld: false })
   onlineUrl?: string;
 
   @ApiPropertyOptional({ description: "FAQ do evento em JSON" })

@@ -18,6 +18,11 @@ export class UsersController {
     return this.users.list(user.tenantId!);
   }
 
+  @Patch("me")
+  updateMe(@CurrentUser() user: RequestUser, @Body() dto: UpdateUserDto) {
+    return this.users.updateMe(user.id, dto);
+  }
+
   @Patch(":id")
   update(@CurrentUser() user: RequestUser, @Param("id") id: string, @Body() dto: UpdateUserDto) {
     return this.users.update(id, user.tenantId!, dto);

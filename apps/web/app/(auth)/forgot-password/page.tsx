@@ -17,7 +17,7 @@ export default function ForgotPasswordPage() {
   const form = useForm<z.infer<typeof schema>>({ resolver: zodResolver(schema), defaultValues: { email: "" } });
   const mutation = useMutation({
     mutationFn: (data: z.infer<typeof schema>) =>
-      api<{ message: string; resetToken?: string }>("/auth/forgot-password", {
+      api<{ message: string }>("/auth/forgot-password", {
         method: "POST",
         body: JSON.stringify(data),
         auth: false
@@ -44,7 +44,6 @@ export default function ForgotPasswordPage() {
           {mutation.data && (
             <p className="rounded-md bg-muted p-3 text-sm text-muted-foreground">
               {mutation.data.message}
-              {mutation.data.resetToken ? ` Token local: ${mutation.data.resetToken}` : ""}
             </p>
           )}
         </form>
