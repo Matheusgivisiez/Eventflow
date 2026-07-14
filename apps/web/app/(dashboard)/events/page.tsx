@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useState, useCallback, useMemo, useEffect } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   CalendarPlus, ExternalLink, Pencil, Search, Ticket,
@@ -10,9 +10,9 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Skeleton } from "@/components/ui/skeleton";
+
 import { api } from "@/lib/api";
-import { dateTime, money } from "@/lib/utils";
+import { cn, dateTime, money } from "@/lib/utils";
 import type { EventHubEvent, Paginated } from "@/types/eventhub";
 
 const STATUS_TABS = [
@@ -65,12 +65,12 @@ export default function EventsPage() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between animate-fade-in">
         <div>
-          <h1 className="text-2xl font-extrabold tracking-tight">Eventos</h1>
-          <p className="text-sm text-muted-foreground">Crie, publique e acompanhe seus eventos.</p>
+          <h1 className="text-3xl font-extrabold tracking-tight">Eventos</h1>
+          <p className="text-sm text-muted-foreground mt-1 font-medium">Crie, publique e acompanhe seus eventos.</p>
         </div>
-        <Button asChild className="bg-primary hover:bg-primary/90 text-white shadow-sm shadow-primary/30 self-start">
+        <Button asChild className="bg-primary hover:bg-primary/90 text-white shadow-md shadow-primary/30 rounded-xl font-semibold self-start sm:self-auto">
           <Link href="/events/new"><CalendarPlus className="h-4 w-4" />Novo evento</Link>
         </Button>
       </div>
@@ -84,13 +84,13 @@ export default function EventsPage() {
             <button
               key={tab.key}
               onClick={() => setActiveTab(tab.key as any)}
-              className={`flex items-center gap-1.5 whitespace-nowrap rounded-xl px-4 py-2 text-sm font-medium transition-all duration-150 border ${
+              className={`flex items-center gap-2 whitespace-nowrap rounded-xl px-4 py-2.5 text-sm font-medium transition-all duration-300 border ${
                 isActive
-                  ? "bg-primary text-white border-primary shadow-sm shadow-primary/20"
-                  : "bg-white dark:bg-card border-border text-muted-foreground hover:border-primary/40 hover:text-primary"
+                  ? "bg-primary text-white border-primary shadow-lg shadow-primary/20 scale-[1.02]"
+                  : "bg-white/60 dark:bg-card/60 backdrop-blur-md border-border text-muted-foreground hover:border-primary/40 hover:bg-white dark:hover:bg-card hover:text-primary hover:shadow-sm"
               }`}
             >
-              <Icon className="h-3.5 w-3.5" />
+              <Icon className={cn("h-4 w-4", isActive ? "animate-pulse-soft" : "")} />
               {tab.label}
             </button>
           );
@@ -98,10 +98,10 @@ export default function EventsPage() {
       </div>
 
       {/* Search */}
-      <div className="relative max-w-md">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+      <div className="relative max-w-md group">
+        <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground transition-colors group-focus-within:text-primary" />
         <Input
-          className="pl-9 rounded-xl border-border focus:ring-2 focus:ring-primary/20"
+          className="pl-10 h-11 rounded-xl border-border/60 bg-white/50 dark:bg-card/50 backdrop-blur-sm transition-all duration-300 focus:bg-white dark:focus:bg-card focus:border-primary/50 focus:ring-4 focus:ring-primary/10 shadow-sm"
           placeholder="Buscar por nome, cidade ou categoria"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
@@ -111,7 +111,7 @@ export default function EventsPage() {
       {/* Loading */}
       {isLoading && (
         <div className="space-y-4">
-          {[1, 2, 3].map((i) => <Skeleton key={i} className="h-44 w-full rounded-2xl" />)}
+          {[1, 2, 3].map((i) => <div key={i} className="h-44 w-full rounded-2xl skeleton-shimmer glass-premium" />)}
         </div>
       )}
 
@@ -149,59 +149,63 @@ export default function EventsPage() {
           const isMenuOpen = openMenuId === event.id;
 
           return (
-            <div key={event.id} className="group rounded-2xl border bg-white dark:bg-card shadow-sm transition-all duration-200 hover:shadow-lg hover:border-primary/20 hover:-translate-y-0.5 overflow-hidden">
+            <div key={event.id} className="group rounded-2xl glass-premium shadow-sm transition-all duration-300 hover:shadow-xl hover:border-primary/30 hover:-translate-y-1 overflow-hidden">
               {/* Card Header */}
-              <div className="flex items-start justify-between p-5 pb-3">
+              <div className="flex items-start justify-between p-6 pb-4">
                 <div className="min-w-0 flex-1">
-                  <div className="flex items-center gap-2 flex-wrap mb-1">
-                    <span className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-medium ${statusColor[event.status]}`}>
+                  <div className="flex items-center gap-2 flex-wrap mb-2">
+                    <span className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-[11px] font-bold uppercase tracking-wider ${statusColor[event.status]}`}>
                       {statusLabel[event.status]}
                     </span>
                     {event.category && (
-                      <span className="text-xs text-muted-foreground bg-muted rounded-full px-2 py-0.5">{event.category}</span>
+                      <span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground bg-muted/60 border border-border/50 rounded-full px-2.5 py-0.5">{event.category}</span>
                     )}
                   </div>
-                  <h2 className="text-base font-bold mt-1 truncate">{event.title}</h2>
-                  <p className="text-sm text-muted-foreground mt-0.5">
-                    {dateTime(event.startsAt)} &middot; {event.city ?? "Online"}
+                  <h2 className="text-xl font-bold mt-1 truncate text-foreground group-hover:text-primary transition-colors">{event.title}</h2>
+                  <p className="text-sm text-muted-foreground mt-1 font-medium flex items-center gap-1.5">
+                    <Clock className="h-3.5 w-3.5" /> {dateTime(event.startsAt)} <span className="mx-1">•</span> {event.city ?? "Online"}
                   </p>
                 </div>
 
                 {/* Dropdown menu */}
-                <div className="relative ml-3 shrink-0">
+                <div className="relative ml-4 shrink-0">
                   <button
                     onClick={() => setOpenMenuId(isMenuOpen ? null : event.id)}
-                    className="flex h-8 w-8 items-center justify-center rounded-xl text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+                    className="flex h-9 w-9 items-center justify-center rounded-xl border border-transparent text-muted-foreground hover:bg-muted/80 hover:border-border/50 hover:text-foreground transition-all duration-200"
                   >
                     <MoreVertical className="h-4 w-4" />
                   </button>
                   {isMenuOpen && (
-                    <div className="absolute right-0 top-9 z-20 min-w-[160px] rounded-xl border bg-white dark:bg-card shadow-lg p-1 animate-scale-in">
+                    <div className="absolute right-0 top-11 z-20 min-w-[180px] rounded-2xl border border-border/50 bg-white/95 dark:bg-card/95 backdrop-blur-xl shadow-2xl p-1.5 animate-scale-in origin-top-right">
                       <Link href={`/events/${event.id}`}
-                        className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm hover:bg-muted transition-colors"
+                        className="flex items-center gap-2.5 rounded-xl px-3 py-2 text-sm font-medium hover:bg-primary/10 hover:text-primary transition-colors"
                         onClick={() => setOpenMenuId(null)}>
-                        <Pencil className="h-3.5 w-3.5" /> Editar
+                        <Pencil className="h-4 w-4" /> Editar
                       </Link>
                       <button
                         onClick={() => duplicateMutation.mutate(event.id)}
                         disabled={duplicateMutation.isPending}
-                        className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm hover:bg-muted transition-colors">
-                        <Copy className="h-3.5 w-3.5" /> Duplicar
+                        className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2 text-sm font-medium hover:bg-muted transition-colors">
+                        <Copy className="h-4 w-4" /> Duplicar
                       </button>
                       {event.status !== "CLOSED" && (
-                        <button
-                          onClick={() => cancelMutation.mutate(event.id)}
-                          disabled={cancelMutation.isPending}
-                          className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-900/20 transition-colors">
-                          <XCircle className="h-3.5 w-3.5" /> Cancelar
-                        </button>
+                        <div className="border-t border-border/50 mt-1 pt-1">
+                          <button
+                            onClick={() => cancelMutation.mutate(event.id)}
+                            disabled={cancelMutation.isPending}
+                            className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2 text-sm font-medium text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-900/20 transition-colors">
+                            <XCircle className="h-4 w-4" /> Cancelar
+                          </button>
+                        </div>
                       )}
                       {event.status === "PUBLISHED" && (
-                        <a href={`/eventos/${event.slug}`} target="_blank" rel="noreferrer"
-                          className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm hover:bg-muted transition-colors"
-                          onClick={() => setOpenMenuId(null)}>
-                          <ExternalLink className="h-3.5 w-3.5" /> Ver pagina
-                        </a>
+                        <div className="border-t border-border/50 mt-1 pt-1">
+                          <a href={`/eventos/${event.slug}`} target="_blank" rel="noreferrer"
+                            className="flex items-center gap-2.5 rounded-xl px-3 py-2 text-sm font-medium hover:bg-muted transition-colors"
+                            onClick={() => setOpenMenuId(null)}>
+                            <ExternalLink className="h-4 w-4" /> Ver página
+                          </a>
+                        </div>
                       )}
                     </div>
                   )}
@@ -209,30 +213,30 @@ export default function EventsPage() {
               </div>
 
               {/* Metrics */}
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 px-5 py-3">
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 px-6 py-4">
                 {[
                   { label: "Lotes", value: event.ticketTypes.length, icon: Ticket },
                   { label: "Vendidos", value: totalSold, icon: TrendingUp },
                   { label: "Disponíveis", value: totalAvail, icon: CheckCircle2 },
                   { label: "A partir de", value: money(minPrice), icon: null },
                 ].map((m) => (
-                  <div key={m.label} className="rounded-xl bg-muted/50 p-3">
-                    <p className="text-xs text-muted-foreground">{m.label}</p>
-                    <p className="mt-0.5 font-bold text-sm">{m.value}</p>
+                  <div key={m.label} className="rounded-xl bg-white/40 dark:bg-black/20 border border-border/40 p-3.5 transition-colors hover:bg-white/60 dark:hover:bg-black/40">
+                    <p className="text-xs text-muted-foreground font-medium">{m.label}</p>
+                    <p className="mt-1 font-bold text-base text-foreground">{m.value}</p>
                   </div>
                 ))}
               </div>
 
               {/* Stock progress bar */}
               {totalQty > 0 && (
-                <div className="px-5 pb-3">
-                  <div className="flex items-center justify-between text-xs text-muted-foreground mb-1.5">
-                    <span>Ocupação</span>
+                <div className="px-6 pb-4">
+                  <div className="flex items-center justify-between text-xs font-semibold text-muted-foreground mb-2">
+                    <span>Ocupação Total</span>
                     <span>{stockPct}%</span>
                   </div>
-                  <div className="h-1.5 rounded-full bg-muted overflow-hidden">
+                  <div className="h-2 rounded-full bg-muted/60 overflow-hidden border border-border/30">
                     <div
-                      className={`h-full rounded-full transition-all duration-500 ${stockPct >= 90 ? "bg-rose-500" : stockPct >= 60 ? "bg-amber-500" : "bg-emerald-500"}`}
+                      className={`h-full rounded-full transition-all duration-1000 ${stockPct >= 90 ? "bg-rose-500 shadow-[0_0_10px_rgba(244,63,94,0.5)]" : stockPct >= 60 ? "bg-amber-500 shadow-[0_0_10px_rgba(245,158,11,0.5)]" : "bg-emerald-500 shadow-[0_0_10px_rgba(16,185,129,0.5)]"}`}
                       style={{ width: `${stockPct}%` }}
                     />
                   </div>
@@ -240,17 +244,17 @@ export default function EventsPage() {
               )}
 
               {/* Footer actions */}
-              <div className="flex flex-wrap gap-2 border-t bg-muted/30 px-5 py-3">
-                <Button variant="outline" size="sm" asChild className="rounded-xl">
-                  <Link href={`/events/${event.id}`}><Pencil className="h-3.5 w-3.5" />Editar</Link>
+              <div className="flex flex-wrap gap-3 border-t border-border/50 bg-muted/20 px-6 py-4">
+                <Button variant="outline" size="sm" asChild className="rounded-xl font-semibold bg-white/50 dark:bg-card/50 hover:bg-white dark:hover:bg-card shadow-sm">
+                  <Link href={`/events/${event.id}`}><Pencil className="h-4 w-4" />Editar Detalhes</Link>
                 </Button>
-                <Button variant="outline" size="sm" asChild className="rounded-xl">
-                  <Link href={`/events/${event.id}/tickets`}><Ticket className="h-3.5 w-3.5" />Lotes ({event.ticketTypes.length})</Link>
+                <Button variant="outline" size="sm" asChild className="rounded-xl font-semibold bg-white/50 dark:bg-card/50 hover:bg-white dark:hover:bg-card shadow-sm">
+                  <Link href={`/events/${event.id}/tickets`}><Ticket className="h-4 w-4" />Gerenciar Lotes ({event.ticketTypes.length})</Link>
                 </Button>
                 {event.status === "PUBLISHED" && (
-                  <Button variant="ghost" size="sm" asChild className="rounded-xl">
+                  <Button variant="ghost" size="sm" asChild className="rounded-xl font-semibold text-primary hover:text-primary hover:bg-primary/10">
                     <a href={`/eventos/${event.slug}`} target="_blank" rel="noreferrer">
-                      <ExternalLink className="h-3.5 w-3.5" />Pagina publica
+                      <ExternalLink className="h-4 w-4" />Página Pública
                     </a>
                   </Button>
                 )}

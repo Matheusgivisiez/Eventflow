@@ -358,6 +358,7 @@ model Order {
   @@index([buyerDocument])
   @@index([affiliateLinkId])
   @@index([status, createdAt])
+  @@index([createdAt])
   @@index([buyerDocument, eventId, status])
 }
 
@@ -421,6 +422,8 @@ model Ticket {
   @@index([seatId])
   @@index([eventId, uuid])
   @@index([uuid, status])
+  @@index([attendeeName])
+  @@index([attendeeEmail])
 }
 
 model CheckInLog {
@@ -435,6 +438,7 @@ model CheckInLog {
 
   @@index([ticketId, createdAt])
   @@index([status, createdAt])
+  @@index([createdAt])
 }
 
 // ─── Finance ────────────────────────────────────────────────────

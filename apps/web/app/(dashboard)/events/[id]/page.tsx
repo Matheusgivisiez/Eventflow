@@ -5,7 +5,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ArrowLeft, Loader2, Save, Ticket, Trash2, Megaphone } from "lucide-react";
 import Link from "next/link";
-import { useEffect } from "react";
+import { useEffect, memo } from "react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { Badge } from "@/components/ui/badge";
@@ -14,8 +14,10 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
-import { ImageUpload } from "@/components/image-upload";
+import dynamic from "next/dynamic";
 import { api } from "@/lib/api";
+
+const ImageUpload = dynamic(() => import("@/components/image-upload").then(m => m.ImageUpload), { ssr: false, loading: () => <Skeleton className="h-40 w-full" /> });
 import type { EventHubEvent } from "@/types/eventhub";
 
 const schema = z.object({
@@ -323,7 +325,7 @@ export default function EditEventPage() {
   );
 }
 
-function Field({
+const Field = memo(function Field({
   label,
   error,
   children
@@ -339,4 +341,4 @@ function Field({
       {error && <p className="text-sm text-destructive">{error}</p>}
     </div>
   );
-}
+});

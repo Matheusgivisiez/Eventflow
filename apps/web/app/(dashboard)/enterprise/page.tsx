@@ -73,8 +73,8 @@ export default function EnterprisePage() {
   const queryClient = useQueryClient();
   const overview = useQuery({ queryKey: ["enterprise-overview"], queryFn: () => api<EnterpriseOverview>("/enterprise/overview") });
   const executive = useQuery({ queryKey: ["enterprise-executive"], queryFn: () => api<Executive>("/enterprise/executive") });
-  const infrastructure = useQuery({ queryKey: ["enterprise-infra"], queryFn: () => api<Record<string, string[] | string>>("/enterprise/infrastructure") });
-  const apiDocs = useQuery({ queryKey: ["enterprise-api-docs"], queryFn: () => api<Record<string, unknown>>("/enterprise/public-api/docs", { auth: false }) });
+  const infrastructure = useQuery({ queryKey: ["enterprise-infra"], queryFn: () => api<Record<string, string[] | string>>("/enterprise/infrastructure"), staleTime: Infinity });
+  const apiDocs = useQuery({ queryKey: ["enterprise-api-docs"], queryFn: () => api<Record<string, unknown>>("/enterprise/public-api/docs", { auth: false }), staleTime: Infinity });
 
   const whiteLabelMutation = useMutation({
     mutationFn: (body: Record<string, string>) => api("/enterprise/white-label", { method: "PATCH", body: JSON.stringify(body) }),

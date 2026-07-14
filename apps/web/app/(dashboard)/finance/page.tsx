@@ -5,8 +5,10 @@ import {
   Wallet, TrendingUp, ArrowDownToLine, ReceiptText, AlertTriangle,
   Loader2, ArrowUpRight, ArrowDownRight, CheckCircle2
 } from "lucide-react";
-import { useState, useMemo } from "react";
-import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
+import { useState, useMemo, memo } from "react";
+import dynamic from "next/dynamic";
+import { Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
+const AreaChart = dynamic(() => import("recharts").then((mod) => mod.AreaChart), { ssr: false, loading: () => <Skeleton className="h-[200px] w-full" /> });
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -287,7 +289,7 @@ export default function FinancePage() {
   );
 }
 
-function KpiCard({ label, value, icon, highlight, isLoading }: {
+const KpiCard = memo(function KpiCard({ label, value, icon, highlight, isLoading }: {
   label: string; value: string; icon: React.ReactNode; highlight: string; isLoading?: boolean;
 }) {
   return (
@@ -304,4 +306,4 @@ function KpiCard({ label, value, icon, highlight, isLoading }: {
       </CardContent>
     </Card>
   );
-}
+});

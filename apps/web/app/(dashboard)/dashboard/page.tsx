@@ -7,7 +7,7 @@ import {
   Activity, ArrowUpRight, ArrowDownRight, CalendarCheck,
   CircleDollarSign, TicketCheck, Users, TrendingUp,
   CalendarDays, MapPin, Monitor, CheckCircle2, Clock,
-  ExternalLink, Zap
+  ExternalLink, Zap, ChevronRight
 } from "lucide-react";
 import {
   Area, AreaChart, CartesianGrid, ResponsiveContainer,
@@ -70,36 +70,45 @@ function KpiCard({ label, value, icon: Icon, iconClass, growth, growthLabel, sub
   growth?: number; growthLabel?: string; sub?: string;
 }) {
   return (
-    <div className="group rounded-2xl border bg-white dark:bg-card p-5 shadow-sm transition-all duration-200 hover:shadow-lg hover:border-primary/20 hover:-translate-y-0.5">
-      <div className="flex items-start justify-between mb-3">
-        <div className={`flex h-10 w-10 items-center justify-center rounded-xl ${iconClass}`}>
+    <div className="group relative rounded-2xl glass-premium p-5 transition-all duration-300 hover:shadow-xl hover:-translate-y-1 overflow-hidden">
+      <div className="absolute -right-4 -top-4 h-24 w-24 rounded-full bg-gradient-to-br from-primary/5 to-transparent blur-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+      <div className="flex items-start justify-between mb-4 relative z-10">
+        <div className={`flex h-11 w-11 items-center justify-center rounded-xl shadow-sm transition-transform duration-300 group-hover:scale-110 ${iconClass}`}>
           <Icon className="h-5 w-5" />
         </div>
         {growth !== undefined && <GrowthBadge pct={growth} />}
       </div>
-      <p className="text-2xl font-extrabold tracking-tight text-foreground">{value}</p>
-      <p className="text-sm text-muted-foreground mt-0.5 font-medium">{label}</p>
-      {growthLabel && <p className="text-xs text-muted-foreground mt-1.5">{growthLabel}</p>}
-      {sub && <p className="text-xs text-muted-foreground mt-1">{sub}</p>}
+      <p className="text-3xl font-extrabold tracking-tight text-foreground relative z-10">{value}</p>
+      <p className="text-sm text-muted-foreground mt-1 font-medium relative z-10">{label}</p>
+      {growthLabel && <p className="text-xs text-muted-foreground mt-2 relative z-10">{growthLabel}</p>}
+      {sub && <p className="text-xs text-muted-foreground mt-1 relative z-10">{sub}</p>}
     </div>
   );
 }
 
 function DashboardSkeleton() {
   return (
-    <div className="space-y-6 animate-pulse">
-      <div className="h-8 w-48 rounded-xl bg-muted" />
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        {[1, 2, 3, 4].map((i) => <div key={i} className="h-36 rounded-2xl bg-muted" />)}
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <div className="space-y-2">
+          <div className="h-8 w-48 rounded-xl skeleton-shimmer" />
+          <div className="h-4 w-64 rounded-xl skeleton-shimmer" />
+        </div>
+        <div className="h-10 w-32 rounded-xl skeleton-shimmer" />
       </div>
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        {[1, 2, 3, 4].map((i) => <div key={i} className="h-28 rounded-2xl bg-muted" />)}
+      
+      {/* Quick Actions Skeleton */}
+      <div className="flex gap-3">
+         {[1, 2, 3].map((i) => <div key={i} className="h-10 w-32 rounded-xl skeleton-shimmer" />)}
+      </div>
+
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4 stagger-children">
+        {[1, 2, 3, 4].map((i) => <div key={i} className="h-40 rounded-2xl glass-premium skeleton-shimmer" />)}
       </div>
       <div className="grid gap-4 lg:grid-cols-[1fr_320px]">
-        <div className="h-80 rounded-2xl bg-muted" />
-        <div className="h-80 rounded-2xl bg-muted" />
+        <div className="h-80 rounded-2xl glass-premium skeleton-shimmer" />
+        <div className="h-80 rounded-2xl glass-premium skeleton-shimmer" />
       </div>
-      <div className="h-64 rounded-2xl bg-muted" />
     </div>
   );
 }
@@ -132,14 +141,19 @@ export default function DashboardPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between animate-fade-in">
         <div>
-          <h1 className="text-2xl font-extrabold tracking-tight">Dashboard</h1>
-          <p className="text-sm text-muted-foreground mt-1">Visao geral dos seus eventos e vendas em tempo real.</p>
+          <h1 className="text-3xl font-extrabold tracking-tight">Dashboard</h1>
+          <p className="text-sm text-muted-foreground mt-1 font-medium">Visão geral dos seus eventos e vendas em tempo real.</p>
         </div>
-        <Button asChild size="sm" className="bg-primary hover:bg-primary/90 text-white shadow-sm shadow-primary/30 self-start">
-          <Link href="/events/new"><Zap className="h-4 w-4" />Novo evento</Link>
-        </Button>
+        <div className="flex items-center gap-3 self-start sm:self-auto">
+          <Button variant="outline" size="sm" asChild className="hidden sm:flex rounded-xl font-semibold">
+            <Link href="/finance"><CircleDollarSign className="h-4 w-4" />Financeiro</Link>
+          </Button>
+          <Button asChild size="sm" className="bg-primary hover:bg-primary/90 text-white shadow-md shadow-primary/30 rounded-xl font-semibold">
+            <Link href="/events/new"><Zap className="h-4 w-4" />Criar Evento</Link>
+          </Button>
+        </div>
       </div>
 
       {/* Primary KPIs */}
@@ -175,58 +189,61 @@ export default function DashboardPage() {
       </div>
 
       {/* Charts Row */}
-      <div className="grid gap-4 lg:grid-cols-[1fr_320px]">
-        <div className="rounded-2xl border bg-white dark:bg-card p-5 shadow-sm">
-          <div className="flex items-center justify-between mb-1">
+      <div className="grid gap-5 lg:grid-cols-[1fr_320px] stagger-children">
+        <div className="rounded-2xl glass-premium p-6 flex flex-col hover-glow transition-all duration-300">
+          <div className="flex items-center justify-between mb-2">
             <div className="flex items-center gap-2">
-              <TrendingUp className="h-4 w-4 text-primary" />
-              <h2 className="font-bold text-base">Receita por mes</h2>
+              <div className="p-2 bg-primary/10 rounded-lg text-primary">
+                <TrendingUp className="h-4 w-4" />
+              </div>
+              <h2 className="font-bold text-lg">Receita Mensal</h2>
             </div>
-            <span className="text-xs text-muted-foreground bg-muted px-2 py-1 rounded-full">Ultimos 6 meses</span>
+            <span className="text-xs font-semibold text-primary bg-primary/10 px-3 py-1 rounded-full">Últimos 6 meses</span>
           </div>
-          <p className="text-xs text-muted-foreground mb-5">Pagamentos confirmados no periodo.</p>
-          <div className="h-64">
+          <p className="text-sm text-muted-foreground mb-6">Acompanhe a evolução das suas vendas.</p>
+          <div className="h-72 flex-1">
             <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={chartData} margin={{ top: 4, right: 4, left: 0, bottom: 0 }}>
+              <AreaChart data={chartData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
                 <defs>
                   <linearGradient id="revenueGrad" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="hsl(249 100% 62%)" stopOpacity={0.28} />
+                    <stop offset="5%" stopColor="hsl(249 100% 62%)" stopOpacity={0.4} />
                     <stop offset="95%" stopColor="hsl(249 100% 62%)" stopOpacity={0} />
                   </linearGradient>
                 </defs>
-                <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} />
-                <XAxis dataKey="month" tick={{ fontSize: 12, fill: "hsl(var(--muted-foreground))" }} axisLine={false} tickLine={false} />
+                <CartesianGrid strokeDasharray="4 4" stroke="hsl(var(--border))" vertical={false} opacity={0.6} />
+                <XAxis dataKey="month" tick={{ fontSize: 12, fill: "hsl(var(--muted-foreground))", fontWeight: 500 }} axisLine={false} tickLine={false} dy={10} />
                 <YAxis tickFormatter={(v) => `R$${(Number(v) / 100).toLocaleString("pt-BR", { notation: "compact" })}`}
-                  tick={{ fontSize: 11, fill: "hsl(var(--muted-foreground))" }} width={60} axisLine={false} tickLine={false} />
-                <Tooltip content={<RevenueTooltip />} />
-                <Area type="monotone" dataKey="totalCents" stroke="hsl(249 100% 62%)" strokeWidth={2.5}
+                  tick={{ fontSize: 11, fill: "hsl(var(--muted-foreground))", fontWeight: 500 }} width={60} axisLine={false} tickLine={false} dx={-10} />
+                <Tooltip content={<RevenueTooltip />} cursor={{ stroke: 'hsl(var(--primary))', strokeWidth: 1, strokeDasharray: '4 4' }} />
+                <Area type="monotone" dataKey="totalCents" stroke="hsl(249 100% 62%)" strokeWidth={3}
                   fill="url(#revenueGrad)"
+                  animationDuration={1500}
                   dot={{ r: 4, fill: "hsl(249 100% 62%)", strokeWidth: 2, stroke: "white" }}
-                  activeDot={{ r: 6, fill: "hsl(249 100% 62%)" }} />
+                  activeDot={{ r: 7, fill: "hsl(249 100% 62%)", strokeWidth: 2, stroke: "white", style: { filter: "drop-shadow(0px 0px 8px rgba(91,61,255,0.6))" } }} />
               </AreaChart>
             </ResponsiveContainer>
           </div>
         </div>
 
-        <div className="rounded-2xl border bg-white dark:bg-card p-5 shadow-sm flex flex-col">
-          <h2 className="font-bold text-base mb-1">Resumo financeiro</h2>
-          <p className="text-xs text-muted-foreground mb-5">Consolidado geral de receitas.</p>
-          <div className="space-y-2.5 flex-1">
+        <div className="rounded-2xl glass-premium p-6 flex flex-col transition-all duration-300 hover:shadow-lg">
+          <h2 className="font-bold text-lg mb-1">Resumo Financeiro</h2>
+          <p className="text-sm text-muted-foreground mb-6">Consolidado geral de receitas.</p>
+          <div className="space-y-3 flex-1">
             {[
               { label: "Pedidos pagos", value: String(data?.paidOrders ?? 0) },
               { label: "Receita bruta", value: money(data?.totalRevenueCents), highlight: true },
               { label: "Taxas da plataforma", value: `-\u00a0${money(data?.totalFeesCents)}`, negative: true },
             ].map((row) => (
-              <div key={row.label} className="flex items-center justify-between rounded-xl bg-muted/60 px-3 py-2.5 text-sm">
-                <span className="text-muted-foreground">{row.label}</span>
-                <span className={`font-semibold ${row.highlight ? "text-primary" : row.negative ? "text-rose-500" : ""}`}>{row.value}</span>
+              <div key={row.label} className="flex items-center justify-between rounded-xl bg-white/50 dark:bg-black/20 px-4 py-3 text-sm border border-border/40">
+                <span className="text-muted-foreground font-medium">{row.label}</span>
+                <span className={`font-bold ${row.highlight ? "text-primary" : row.negative ? "text-rose-500" : ""}`}>{row.value}</span>
               </div>
             ))}
           </div>
-          <div className="border-t mt-4 pt-4">
-            <div className="flex items-center justify-between rounded-xl bg-primary/5 border border-primary/15 px-3 py-3">
-              <span className="text-sm font-semibold">Receita liquida</span>
-              <span className="text-lg font-extrabold text-primary">{money(netRevenue)}</span>
+          <div className="border-t border-border/50 mt-5 pt-5">
+            <div className="flex items-center justify-between rounded-xl brand-gradient px-4 py-4 text-white shadow-lg shadow-primary/20">
+              <span className="text-sm font-semibold text-white/90">Receita Líquida</span>
+              <span className="text-xl font-extrabold">{money(netRevenue)}</span>
             </div>
           </div>
         </div>
@@ -234,17 +251,17 @@ export default function DashboardPage() {
 
       {/* Top Events */}
       {(data?.topEvents ?? []).length > 0 && (
-        <div className="rounded-2xl border bg-white dark:bg-card shadow-sm overflow-hidden">
-          <div className="flex items-center justify-between px-5 py-4 border-b">
+        <div className="rounded-2xl glass-premium shadow-sm overflow-hidden animate-slide-up">
+          <div className="flex items-center justify-between px-6 py-5 border-b border-border/50">
             <div>
-              <h2 className="font-bold text-base">Top eventos por receita</h2>
-              <p className="text-xs text-muted-foreground mt-0.5">Seus eventos com maior arrecadacao.</p>
+              <h2 className="font-bold text-lg">Top eventos por receita</h2>
+              <p className="text-sm text-muted-foreground mt-1">Seus eventos com maior arrecadação.</p>
             </div>
-            <Button variant="ghost" size="sm" asChild>
-              <Link href="/events">Ver todos <ExternalLink className="h-3.5 w-3.5" /></Link>
+            <Button variant="ghost" size="sm" className="hover:bg-primary/10 hover:text-primary transition-colors font-medium rounded-lg" asChild>
+              <Link href="/events">Ver todos <ExternalLink className="h-4 w-4 ml-1.5" /></Link>
             </Button>
           </div>
-          <div className="px-5 pt-4 pb-1 h-40">
+          <div className="px-6 pt-5 pb-2 h-44">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={data?.topEvents ?? []} barCategoryGap="30%" margin={{ top: 0, right: 0, left: 0, bottom: 0 }}>
                 <XAxis dataKey="title" tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }} axisLine={false} tickLine={false}
@@ -272,20 +289,20 @@ export default function DashboardPage() {
               <tbody>
                 {(data?.topEvents ?? []).map((ev) => (
                   <tr key={ev.id} className="border-t hover:bg-muted/30 transition-colors">
-                    <td className="px-5 py-3">
-                      <Link href={`/events/${ev.id}`} className="font-medium hover:text-primary transition-colors line-clamp-1">{ev.title}</Link>
-                      <p className="text-xs text-muted-foreground mt-0.5">{dateTime(ev.startsAt)}</p>
+                    <td className="px-6 py-4">
+                      <Link href={`/events/${ev.id}`} className="font-semibold text-foreground hover:text-primary transition-colors line-clamp-1 text-[15px]">{ev.title}</Link>
+                      <p className="text-xs text-muted-foreground mt-1 flex items-center gap-1.5"><CalendarDays className="h-3 w-3" /> {dateTime(ev.startsAt)}</p>
                     </td>
-                    <td className="px-3 py-3 hidden sm:table-cell">
-                      <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${statusColor[ev.status]}`}>
+                    <td className="px-3 py-4 hidden sm:table-cell">
+                      <span className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold ${statusColor[ev.status]}`}>
                         {statusLabel[ev.status]}
                       </span>
                     </td>
-                    <td className="px-3 py-3 text-right font-semibold">{ev.ticketsSold}</td>
-                    <td className="px-3 py-3 text-right hidden md:table-cell">
-                      <span className="text-emerald-600 font-semibold dark:text-emerald-400">{ev.checkIns}</span>
+                    <td className="px-3 py-4 text-right font-bold text-muted-foreground">{ev.ticketsSold}</td>
+                    <td className="px-3 py-4 text-right hidden md:table-cell">
+                      <span className="text-emerald-600 font-bold dark:text-emerald-400 bg-emerald-100 dark:bg-emerald-900/30 px-2.5 py-1 rounded-md">{ev.checkIns}</span>
                     </td>
-                    <td className="px-5 py-3 text-right font-bold text-primary">{money(ev.revenueCents)}</td>
+                    <td className="px-6 py-4 text-right font-extrabold text-primary text-[15px]">{money(ev.revenueCents)}</td>
                   </tr>
                 ))}
               </tbody>
@@ -295,39 +312,39 @@ export default function DashboardPage() {
       )}
 
       {/* Bottom Row */}
-      <div className="grid gap-4 lg:grid-cols-[1fr_300px]">
+      <div className="grid gap-5 lg:grid-cols-[1fr_300px] stagger-children">
         {(data?.upcomingEvents ?? []).length > 0 && (
-          <div className="rounded-2xl border bg-white dark:bg-card p-5 shadow-sm">
-            <div className="flex items-center justify-between mb-4">
+          <div className="rounded-2xl glass-premium p-6 shadow-sm flex flex-col">
+            <div className="flex items-center justify-between mb-5">
               <div>
-                <h2 className="font-bold text-base">Proximos eventos</h2>
-                <p className="text-xs text-muted-foreground mt-0.5">Publicados nos proximos 30 dias.</p>
+                <h2 className="font-bold text-lg">Próximos eventos</h2>
+                <p className="text-sm text-muted-foreground mt-1">Publicados nos próximos 30 dias.</p>
               </div>
-              <CalendarDays className="h-4 w-4 text-muted-foreground" />
+              <div className="p-2.5 bg-primary/10 rounded-xl text-primary">
+                <CalendarDays className="h-5 w-5" />
+              </div>
             </div>
-            <div className="space-y-3">
+            <div className="space-y-3 flex-1">
               {(data?.upcomingEvents ?? []).map((ev) => (
                 <Link key={ev.id} href={`/events/${ev.id}`}
-                  className="flex items-center gap-3 rounded-xl p-3 hover:bg-muted/60 transition-colors group">
-                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary group-hover:bg-primary group-hover:text-white transition-colors">
-                    {ev.format === "ONLINE" ? <Monitor className="h-4 w-4" /> : <MapPin className="h-4 w-4" />}
+                  className="flex items-center gap-4 rounded-2xl bg-white/40 dark:bg-black/20 p-4 border border-border/40 hover:border-primary/30 hover:bg-white/80 dark:hover:bg-black/40 transition-all duration-300 hover:shadow-md group">
+                  <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl brand-gradient text-white shadow-sm transition-transform duration-300 group-hover:scale-110">
+                    {ev.format === "ONLINE" ? <Monitor className="h-5 w-5" /> : <MapPin className="h-5 w-5" />}
                   </div>
                   <div className="min-w-0 flex-1">
-                    <p className="font-medium text-sm truncate">{ev.title}</p>
-                    <p className="text-xs text-muted-foreground mt-0.5">{dateTime(ev.startsAt)}{ev.city ? ` - ${ev.city}` : ""}</p>
+                    <p className="font-bold text-[15px] truncate text-foreground group-hover:text-primary transition-colors">{ev.title}</p>
+                    <p className="text-xs text-muted-foreground mt-1 font-medium">{dateTime(ev.startsAt)}{ev.city ? ` • ${ev.city}` : ""}</p>
                   </div>
-                  <span className="text-xs bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400 rounded-full px-2 py-0.5 font-medium shrink-0">
-                    Publicado
-                  </span>
+                  <ChevronRight className="h-4 w-4 text-muted-foreground opacity-0 -translate-x-2 transition-all duration-300 group-hover:opacity-100 group-hover:translate-x-0" />
                 </Link>
               ))}
             </div>
           </div>
         )}
 
-        <div className="rounded-2xl border bg-white dark:bg-card p-5 shadow-sm flex flex-col">
-          <h2 className="font-bold text-base mb-1">Taxa de check-in</h2>
-          <p className="text-xs text-muted-foreground mb-5">Participantes que compareceram.</p>
+        <div className="rounded-2xl glass-premium p-6 shadow-sm flex flex-col transition-all duration-300 hover:shadow-lg">
+          <h2 className="font-bold text-lg mb-1">Taxa de Check-in</h2>
+          <p className="text-sm text-muted-foreground mb-6">Participantes que compareceram.</p>
           <div className="flex flex-col items-center justify-center flex-1 gap-4">
             <div className="relative">
               <svg width="120" height="120" viewBox="0 0 120 120">
@@ -344,15 +361,15 @@ export default function DashboardPage() {
                 <span className="text-[10px] text-muted-foreground font-medium">compareceram</span>
               </div>
             </div>
-            <div className="w-full space-y-2">
+            <div className="w-full space-y-3 mt-2">
               {[
-                { label: "Ingressos emitidos", value: data?.ticketsSold ?? 0, cls: "" },
+                { label: "Emitidos", value: data?.ticketsSold ?? 0, cls: "" },
                 { label: "Check-ins", value: data?.checkIns ?? 0, cls: "text-emerald-600 dark:text-emerald-400" },
                 { label: "Ausentes", value: (data?.ticketsSold ?? 0) - (data?.checkIns ?? 0), cls: "text-muted-foreground" }
               ].map((r) => (
-                <div key={r.label} className="flex justify-between text-sm rounded-xl bg-muted/60 px-3 py-2">
-                  <span className="text-muted-foreground">{r.label}</span>
-                  <span className={`font-semibold ${r.cls}`}>{r.value}</span>
+                <div key={r.label} className="flex justify-between text-sm rounded-xl bg-white/50 dark:bg-black/20 px-4 py-2.5 border border-border/40">
+                  <span className="text-muted-foreground font-medium">{r.label}</span>
+                  <span className={`font-bold ${r.cls}`}>{r.value}</span>
                 </div>
               ))}
             </div>

@@ -26,9 +26,7 @@ export class ParticipantsService {
       OR: query.search
         ? [
             { attendeeName: { contains: query.search, mode: "insensitive" } },
-            { attendeeEmail: { contains: query.search, mode: "insensitive" } },
-            { event: { title: { contains: query.search, mode: "insensitive" } } },
-            { ticketType: { name: { contains: query.search, mode: "insensitive" } } }
+            { attendeeEmail: { contains: query.search, mode: "insensitive" } }
           ]
         : undefined
     };

@@ -10,19 +10,20 @@ export class PromoterPortalService {
     const promoter = await this.prisma.promoter.findUnique({ where: { userId } });
     if (!promoter) throw new NotFoundException("Promoter profile not found.");
 
-    const links = await this.prisma.promoterLink.findMany({
-      where: { promoterId: promoter.id },
-      include: { event: { select: { title: true, bannerUrl: true, startsAt: true } } }
-    });
+    const [links, withdrawals] = await Promise.all([
+      this.prisma.promoterLink.findMany({
+        where: { promoterId: promoter.id },
+        include: { event: { select: { title: true, bannerUrl: true, startsAt: true } } }
+      }),
+      this.prisma.promoterWithdrawal.findMany({
+        where: { promoterId: promoter.id, status: { in: [PromoterWithdrawalStatus.PAID, PromoterWithdrawalStatus.APPROVED] } }
+      })
+    ]);
 
     const totalClicks = links.reduce((sum, link) => sum + link.clicks, 0);
     const totalConversions = links.reduce((sum, link) => sum + link.conversions, 0);
     const totalRevenue = links.reduce((sum, link) => sum + link.revenueCents, 0);
     const totalCommissions = links.reduce((sum, link) => sum + link.commissionAcumCents, 0);
-
-    const withdrawals = await this.prisma.promoterWithdrawal.findMany({
-      where: { promoterId: promoter.id, status: { in: [PromoterWithdrawalStatus.PAID, PromoterWithdrawalStatus.APPROVED] } }
-    });
     const withdrawnAmount = withdrawals.reduce((sum, w) => sum + w.amountCents, 0);
     const availableBalance = totalCommissions - withdrawnAmount;
 

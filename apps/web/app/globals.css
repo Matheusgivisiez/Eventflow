@@ -210,6 +210,7 @@ body {
 .skeleton-shimmer {
   position: relative;
   overflow: hidden;
+  background-color: hsl(var(--muted));
 }
 .skeleton-shimmer::after {
   content: '';
@@ -218,15 +219,53 @@ body {
   background: linear-gradient(
     90deg,
     transparent 0%,
-    hsl(var(--muted) / 0.5) 50%,
+    hsl(var(--muted-foreground) / 0.1) 50%,
     transparent 100%
   );
   background-size: 200% 100%;
-  animation: shimmer 1.8s ease-in-out infinite;
+  animation: shimmer 1.5s ease-in-out infinite;
 }
 @keyframes shimmer {
   0%   { background-position: 200% 0; }
   100% { background-position: -200% 0; }
+}
+
+/* ─── Floating Label ───────────────────────────── */
+.input-wrapper {
+  position: relative;
+  width: 100%;
+}
+.input-floating {
+  padding-top: 1.25rem;
+  padding-bottom: 0.25rem;
+}
+.input-floating:focus-within ~ .floating-label,
+.input-floating:not(:placeholder-shown) ~ .floating-label {
+  transform: translateY(-0.8rem) scale(0.85);
+  color: hsl(var(--primary));
+}
+.floating-label {
+  position: absolute;
+  left: 0.75rem;
+  top: 0.85rem;
+  pointer-events: none;
+  transition: transform 150ms cubic-bezier(0.4, 0, 0.2, 1), color 150ms cubic-bezier(0.4, 0, 0.2, 1);
+  transform-origin: left top;
+  color: hsl(var(--muted-foreground));
+  font-size: 0.875rem;
+}
+
+/* ─── Glass Premium ────────────────────────────── */
+.glass-premium {
+  background: rgba(255, 255, 255, 0.6);
+  backdrop-filter: blur(24px) saturate(1.2);
+  border: 1px solid rgba(255, 255, 255, 0.5);
+  box-shadow: 0 8px 32px rgba(13, 11, 26, 0.05);
+}
+.dark .glass-premium {
+  background: rgba(13, 11, 26, 0.6);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
 }
 
 /* ─── Loading spinner elegante ─────────────────── */

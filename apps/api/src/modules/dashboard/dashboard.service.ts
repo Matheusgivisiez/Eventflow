@@ -42,6 +42,8 @@ export class DashboardService {
       revenueThisMonth,
       revenueLastMonth,
       // Top eventos por receita
+      topEventsRevenue,
+      topEventsCheckIns,
       topEvents,
       // Próximos eventos
       upcomingEvents,
@@ -67,7 +69,7 @@ export class DashboardService {
       this.prisma.checkInLog.count({ where: { status: CheckInStatus.ENTERED, ticket: { event: { tenantId } } } }),
       this.prisma.event.findMany({
         where: { tenantId },
-        select: { id: true, title: true, tickets: { select: { id: true, status: true } } },
+        select: { id: true, title: true, _count: { select: { tickets: true } } },
         take: 10,
         orderBy: { startsAt: "desc" }
       }),
@@ -95,7 +97,19 @@ export class DashboardService {
         where: { event: { tenantId }, status: PaymentStatus.PAID, createdAt: { gte: startOfLastMonth, lte: endOfLastMonth } },
         _sum: { totalCents: true }
       }),
-      // Top 5 events by revenue
+      // Top events revenue via GroupBy to avoid overfetching
+      this.prisma.order.groupBy({
+        by: ["eventId"],
+        where: { event: { tenantId }, status: PaymentStatus.PAID },
+        _sum: { totalCents: true }
+      }),
+      // Top events checkins via GroupBy
+      this.prisma.ticket.groupBy({
+        by: ["eventId"],
+        where: { event: { tenantId }, status: "USED" },
+        _count: true
+      }),
+      // Top events metadata
       this.prisma.event.findMany({
         where: { tenantId },
         select: {
@@ -103,11 +117,7 @@ export class DashboardService {
           title: true,
           status: true,
           startsAt: true,
-          orders: {
-            where: { status: PaymentStatus.PAID },
-            select: { totalCents: true }
-          },
-          tickets: { select: { id: true, status: true } }
+          _count: { select: { tickets: true } }
         },
         orderBy: { startsAt: "desc" },
         take: 20
@@ -151,15 +161,19 @@ export class DashboardService {
 
     // Top events sorted by total revenue
     const topEventsSorted = topEvents
-      .map((ev) => ({
-        id: ev.id,
-        title: ev.title,
-        status: ev.status,
-        startsAt: ev.startsAt,
-        revenueCents: ev.orders.reduce((sum, o) => sum + o.totalCents, 0),
-        ticketsSold: ev.tickets.length,
-        checkIns: ev.tickets.filter((t) => t.status === "USED").length
-      }))
+      .map((ev) => {
+        const revenue = topEventsRevenue.find(r => r.eventId === ev.id)?._sum.totalCents ?? 0;
+        const checkInsCount = topEventsCheckIns.find(c => c.eventId === ev.id)?._count ?? 0;
+        return {
+          id: ev.id,
+          title: ev.title,
+          status: ev.status,
+          startsAt: ev.startsAt,
+          revenueCents: revenue,
+          ticketsSold: ev._count.tickets,
+          checkIns: checkInsCount
+        };
+      })
       .sort((a, b) => b.revenueCents - a.revenueCents)
       .slice(0, 5);
 
@@ -194,12 +208,15 @@ export class DashboardService {
       // Tables
       topEvents: topEventsSorted,
       upcomingEvents,
-      participantsByEvent: participantsByEvent.map((event) => ({
-        eventId: event.id,
-        title: event.title,
-        total: event.tickets.length,
-        used: event.tickets.filter((t) => t.status === "USED").length
-      }))
+      participantsByEvent: participantsByEvent.map((event) => {
+        const usedCount = topEventsCheckIns.find(c => c.eventId === event.id)?._count ?? 0;
+        return {
+          eventId: event.id,
+          title: event.title,
+          total: event._count.tickets,
+          used: usedCount
+        };
+      })
     };
 
     await this.cache.set(cacheKey, result, 30);

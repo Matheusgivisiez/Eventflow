@@ -11,7 +11,6 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Skeleton } from "@/components/ui/skeleton";
 import { api } from "@/lib/api";
 import { cn, dateTime, money } from "@/lib/utils";
 import type { EventHubEvent, Paginated } from "@/types/eventhub";
@@ -239,39 +238,40 @@ export default function ParticipantsPage() {
 
       <div className="space-y-6">
         {/* Header */}
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between animate-fade-in">
           <div>
-            <h1 className="text-2xl font-extrabold tracking-tight">Participantes</h1>
-            <p className="text-sm text-muted-foreground mt-1">Consulte ingressos, status de entrada e perfis de networking.</p>
+            <h1 className="text-3xl font-extrabold tracking-tight">Participantes</h1>
+            <p className="text-sm text-muted-foreground mt-1 font-medium">Consulte ingressos, status de entrada e perfis de networking.</p>
           </div>
-          <Button variant="outline" onClick={handleExport} disabled={exportQuery.isFetching} className="gap-2 shadow-sm">
+          <Button variant="outline" onClick={handleExport} disabled={exportQuery.isFetching} className="gap-2 shadow-sm rounded-xl font-semibold bg-white/50 dark:bg-card/50 backdrop-blur-sm self-start sm:self-auto">
             <Download className="h-4 w-4" />
             {exportQuery.isFetching ? "Exportando..." : "Exportar CSV"}
           </Button>
         </div>
 
         {/* KPI Cards */}
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+        <div className="grid grid-cols-2 gap-4 sm:grid-cols-4 stagger-children">
           <KpiCard icon={<Users className="h-5 w-5 text-primary" />} label="Total (filtro)" value={total} />
-          <KpiCard icon={<TicketCheck className="h-5 w-5 text-emerald-500" />} label="Disponíveis" value={stats.available} color="text-emerald-600" />
-          <KpiCard icon={<UserCheck className="h-5 w-5 text-blue-500" />} label="Utilizados" value={stats.used} color="text-blue-600" />
-          <KpiCard icon={<XCircle className="h-5 w-5 text-rose-500" />} label="Cancelados" value={stats.canceled} color="text-rose-600" />
+          <KpiCard icon={<TicketCheck className="h-5 w-5 text-emerald-500" />} label="Disponíveis" value={stats.available} color="text-emerald-600 dark:text-emerald-400" />
+          <KpiCard icon={<UserCheck className="h-5 w-5 text-blue-500" />} label="Utilizados" value={stats.used} color="text-blue-600 dark:text-blue-400" />
+          <KpiCard icon={<XCircle className="h-5 w-5 text-rose-500" />} label="Cancelados" value={stats.canceled} color="text-rose-600 dark:text-rose-400" />
         </div>
 
         {/* Filters */}
-        <Card>
-          <CardContent className="grid gap-3 p-4 md:grid-cols-[1fr_240px_180px]">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+        {/* Filters */}
+        <Card className="rounded-2xl glass-premium shadow-sm">
+          <CardContent className="grid gap-4 p-5 md:grid-cols-[1fr_240px_180px]">
+            <div className="relative group">
+              <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground transition-colors group-focus-within:text-primary" />
               <Input
-                className="pl-9"
+                className="pl-10 h-11 rounded-xl border-border/60 bg-white/50 dark:bg-card/50 backdrop-blur-sm transition-all duration-300 focus:bg-white dark:focus:bg-card focus:border-primary/50 focus:ring-4 focus:ring-primary/10"
                 placeholder="Buscar por nome, e-mail, evento ou lote…"
                 value={searchInput}
                 onChange={(e) => setSearchInput(e.target.value)}
               />
             </div>
             <select
-              className="h-10 rounded-md border bg-background px-3 text-sm"
+              className="h-11 rounded-xl border border-border/60 bg-white/50 dark:bg-card/50 backdrop-blur-sm px-4 text-sm font-medium focus:ring-4 focus:ring-primary/10 focus:border-primary/50 transition-all outline-none"
               value={eventId}
               onChange={(e) => setEventId(e.target.value)}
             >
@@ -279,7 +279,7 @@ export default function ParticipantsPage() {
               {events?.data?.map((ev) => <option key={ev.id} value={ev.id}>{ev.title}</option>)}
             </select>
             <select
-              className="h-10 rounded-md border bg-background px-3 text-sm"
+              className="h-11 rounded-xl border border-border/60 bg-white/50 dark:bg-card/50 backdrop-blur-sm px-4 text-sm font-medium focus:ring-4 focus:ring-primary/10 focus:border-primary/50 transition-all outline-none"
               value={status}
               onChange={(e) => setStatus(e.target.value)}
             >
@@ -294,51 +294,53 @@ export default function ParticipantsPage() {
         {/* Table */}
         {isLoading ? (
           <div className="space-y-3">
-            {[...Array(6)].map((_, i) => <Skeleton key={i} className="h-20 w-full rounded-xl" />)}
+            {[...Array(6)].map((_, i) => <div key={i} className="h-20 w-full rounded-2xl skeleton-shimmer glass-premium" />)}
           </div>
         ) : (
-          <Card>
-            <CardHeader className="flex-row items-center justify-between space-y-0 pb-3">
-              <CardTitle className="text-base">Ingressos emitidos</CardTitle>
-              <Badge variant="secondary">{total} registros</Badge>
+          <Card className="rounded-2xl glass-premium shadow-sm overflow-hidden">
+            <CardHeader className="flex-row items-center justify-between space-y-0 p-6 border-b border-border/50">
+              <CardTitle className="text-lg font-bold">Ingressos emitidos</CardTitle>
+              <Badge variant="secondary" className="px-3 py-1 font-semibold">{total} registros</Badge>
             </CardHeader>
-            <CardContent className="space-y-2 p-4">
+            <CardContent className="p-0">
               {data?.data.length === 0 && (
-                <div className="flex min-h-48 flex-col items-center justify-center rounded-xl border border-dashed text-center text-muted-foreground">
+                <div className="flex min-h-48 flex-col items-center justify-center p-8 text-center text-muted-foreground">
                   <TicketCheck className="h-10 w-10 opacity-40" />
-                  <p className="mt-3 text-sm">Nenhum participante encontrado.</p>
+                  <p className="mt-3 text-sm font-medium">Nenhum participante encontrado.</p>
                 </div>
               )}
-              {data?.data.map((p) => {
-                const cfg = STATUS_CONFIG[p.status];
-                return (
-                  <button
-                    key={p.id}
-                    onClick={() => setSelected(p)}
-                    className="w-full text-left grid gap-3 rounded-xl border p-4 text-sm hover:bg-muted/50 hover:border-primary/30 hover:shadow-sm transition-all duration-150 md:grid-cols-[1.4fr_1fr_130px_130px]"
-                  >
-                    <div className="flex items-center gap-3">
-                      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary font-bold text-sm select-none">
-                        {p.attendeeName.charAt(0).toUpperCase()}
+              <div className="divide-y divide-border/50">
+                {data?.data.map((p) => {
+                  const cfg = STATUS_CONFIG[p.status];
+                  return (
+                    <button
+                      key={p.id}
+                      onClick={() => setSelected(p)}
+                      className="w-full text-left grid gap-4 p-5 text-sm hover:bg-muted/40 hover:shadow-[inset_4px_0_0_0_hsl(var(--primary))] transition-all duration-200 md:grid-cols-[1.4fr_1fr_130px_130px] group"
+                    >
+                      <div className="flex items-center gap-3.5">
+                        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary font-bold text-sm select-none group-hover:bg-primary group-hover:text-white transition-colors">
+                          {p.attendeeName.charAt(0).toUpperCase()}
+                        </div>
+                        <div className="min-w-0">
+                          <p className="font-bold truncate text-foreground text-[15px] group-hover:text-primary transition-colors">{p.attendeeName}</p>
+                          <p className="text-muted-foreground text-xs mt-0.5 truncate font-medium">{p.attendeeEmail}</p>
+                        </div>
                       </div>
-                      <div className="min-w-0">
-                        <p className="font-semibold truncate">{p.attendeeName}</p>
-                        <p className="text-muted-foreground text-xs truncate">{p.attendeeEmail}</p>
+                      <div className="self-center">
+                        <p className="font-semibold truncate text-[14px]">{p.event.title}</p>
+                        <p className="text-muted-foreground text-xs mt-0.5">{p.ticketType.name} · <span className="font-medium text-foreground/80">{money(p.ticketType.priceCents)}</span></p>
                       </div>
-                    </div>
-                    <div className="self-center">
-                      <p className="font-medium truncate">{p.event.title}</p>
-                      <p className="text-muted-foreground text-xs">{p.ticketType.name} · {money(p.ticketType.priceCents)}</p>
-                    </div>
-                    <div className="self-center">
-                      <Badge variant={cfg.variant}>{cfg.label}</Badge>
-                    </div>
-                    <div className="self-center text-xs text-muted-foreground">
-                      {p.usedAt ? dateTime(p.usedAt) : dateTime(p.createdAt)}
-                    </div>
-                  </button>
-                );
-              })}
+                      <div className="self-center">
+                        <Badge variant={cfg.variant} className="shadow-sm">{cfg.label}</Badge>
+                      </div>
+                      <div className="self-center text-xs text-muted-foreground font-medium">
+                        {p.usedAt ? dateTime(p.usedAt) : dateTime(p.createdAt)}
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
             </CardContent>
           </Card>
         )}
@@ -366,11 +368,11 @@ export default function ParticipantsPage() {
 
 function KpiCard({ icon, label, value, color }: { icon: React.ReactNode; label: string; value: number; color?: string }) {
   return (
-    <div className="rounded-2xl border bg-white dark:bg-card shadow-sm p-4 flex items-center gap-3">
-      <div className="shrink-0 p-2 rounded-xl bg-muted/60">{icon}</div>
+    <div className="rounded-2xl glass-premium shadow-sm p-5 flex items-center gap-4 transition-transform duration-300 hover:shadow-lg hover:-translate-y-1">
+      <div className="shrink-0 p-3 rounded-xl bg-white/50 dark:bg-black/20 shadow-sm border border-border/40">{icon}</div>
       <div>
-        <p className="text-xs text-muted-foreground">{label}</p>
-        <p className={cn("text-xl font-extrabold tracking-tight", color)}>{value.toLocaleString("pt-BR")}</p>
+        <p className="text-xs text-muted-foreground font-semibold uppercase tracking-wider">{label}</p>
+        <p className={cn("text-2xl font-extrabold tracking-tight mt-0.5", color)}>{value.toLocaleString("pt-BR")}</p>
       </div>
     </div>
   );

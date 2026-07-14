@@ -40,7 +40,7 @@ export class ReportsService {
     const [orders, checkIns, tickets, participants] = await Promise.all([
       this.prismaRead.order.findMany({
         where: { event: eventFilter, status: PaymentStatus.PAID, createdAt: dateFilter },
-        select: { id: true, createdAt: true, subtotalCents: true, discountCents: true, feeCents: true, totalCents: true }
+        select: { createdAt: true, discountCents: true, feeCents: true, totalCents: true }
       }),
       this.prismaRead.checkInLog.count({
         where: { status: CheckInStatus.ENTERED, ticket: { event: eventFilter }, createdAt: dateFilter }
@@ -48,7 +48,8 @@ export class ReportsService {
       this.prismaRead.ticket.count({ where: { event: eventFilter, createdAt: dateFilter } }),
       this.prismaRead.ticket.findMany({
         where: { event: eventFilter, createdAt: dateFilter },
-        include: { event: { select: { title: true } }, ticketType: { select: { name: true, priceCents: true } }, order: true }
+        include: { event: { select: { title: true } }, ticketType: { select: { name: true, priceCents: true } }, order: { select: { id: true } } },
+        take: 5000
       })
     ]);
 

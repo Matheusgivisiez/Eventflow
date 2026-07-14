@@ -4,20 +4,73 @@ const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001/api";
 
 type ApiOptions = RequestInit & { auth?: boolean };
 
+let isRefreshing = false;
+let refreshSubscribers: ((token: string) => void)[] = [];
+
+function onRefreshed(token: string) {
+  refreshSubscribers.forEach((cb) => cb(token));
+  refreshSubscribers = [];
+}
+
 export async function api<T>(path: string, options: ApiOptions = {}): Promise<T> {
-  const token = useAuthStore.getState().accessToken;
-  const response = await fetch(`${API_URL}${path}`, {
+  const store = useAuthStore.getState();
+  let token = store.accessToken;
+
+  let headers: Record<string, string> = {
+    "Content-Type": "application/json",
+    ...(options.headers as Record<string, string>)
+  };
+
+  if (options.auth !== false && token) {
+    headers["Authorization"] = `Bearer ${token}`;
+  }
+
+  let response = await fetch(`${API_URL}${path}`, {
     ...options,
-    headers: {
-      "Content-Type": "application/json",
-      ...(options.auth !== false && token ? { Authorization: `Bearer ${token}` } : {}),
-      ...options.headers
-    }
+    headers
   });
+
+  if (response.status === 401 && options.auth !== false && store.refreshToken) {
+    if (!isRefreshing) {
+      isRefreshing = true;
+      try {
+        const res = await fetch(`${API_URL}/auth/refresh`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ refreshToken: store.refreshToken }),
+        });
+        
+        if (!res.ok) throw new Error("Session expired");
+        
+        const data = await res.json();
+        store.setSession({ accessToken: data.accessToken, refreshToken: data.refreshToken, user: data.user });
+        onRefreshed(data.accessToken);
+        isRefreshing = false;
+      } catch (err) {
+        isRefreshing = false;
+        refreshSubscribers = [];
+        store.logout();
+        if (typeof window !== "undefined") window.location.href = "/login";
+        throw new Error("Sessão expirada. Faça login novamente.");
+      }
+    }
+
+    token = await new Promise<string>((resolve) => {
+      refreshSubscribers.push(resolve);
+    });
+
+    headers["Authorization"] = `Bearer ${token}`;
+    response = await fetch(`${API_URL}${path}`, {
+      ...options,
+      headers
+    });
+  }
 
   if (!response.ok) {
     const error = await response.json().catch(() => ({ message: "Erro inesperado." }));
-    throw new Error(Array.isArray(error.message) ? error.message.join(", ") : error.message ?? "Erro inesperado.");
+    const err: any = new Error(Array.isArray(error.message) ? error.message.join(", ") : error.message ?? "Erro inesperado.");
+    err.status = response.status;
+    throw err;
   }
 
   return response.json();

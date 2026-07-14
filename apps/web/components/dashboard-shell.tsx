@@ -7,7 +7,7 @@ import {
   BarChart3, Building2, CalendarDays, CreditCard, DoorOpen,
   FileBarChart2, LogOut, Shield, Tag, Ticket, UserCheck,
   UserCircle, Users, ChevronRight, Bell, Menu, X, Settings,
-  ChevronDown, Megaphone
+  ChevronDown, Megaphone, Search, PanelLeftClose, PanelLeftOpen
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ThemeToggle } from "@/components/theme-toggle";
@@ -15,6 +15,8 @@ import { BrandLogo } from "@/components/brand-logo";
 import { PageAnimation } from "@/components/page-animation";
 import { cn } from "@/lib/utils";
 import { useAuthStore } from "@/stores/auth-store";
+import { useQueryClient } from "@tanstack/react-query";
+import { api } from "@/lib/api";
 
 const nav = [
   { href: "/dashboard", label: "Dashboard", icon: BarChart3, roles: ["ORGANIZER", "ADMIN", "TEAM"] },
@@ -32,21 +34,40 @@ const nav = [
   { href: "/admin", label: "Admin", icon: Shield, roles: ["ADMIN"] }
 ];
 
-function NavItem({ item, active }: { item: typeof nav[0]; active: boolean }) {
+function NavItem({ item, active, isCollapsed }: { item: typeof nav[0]; active: boolean; isCollapsed: boolean }) {
   const Icon = item.icon;
+  const qc = useQueryClient();
+
+  const handlePrefetch = () => {
+    if (item.href === "/finance") {
+      qc.prefetchQuery({ queryKey: ["finance"], queryFn: () => api("/finance/summary") });
+    } else if (item.href === "/events") {
+      qc.prefetchQuery({ queryKey: ["events"], queryFn: () => api("/events") });
+    } else if (item.href === "/team") {
+      qc.prefetchQuery({ queryKey: ["team"], queryFn: () => api("/team") });
+    } else if (item.href === "/coupons") {
+      qc.prefetchQuery({ queryKey: ["coupons"], queryFn: () => api("/coupons") });
+    } else if (item.href === "/reports") {
+      qc.prefetchQuery({ queryKey: ["dashboard"], queryFn: () => api("/dashboard") });
+    }
+  };
+
   return (
     <Link
       href={item.href}
+      onMouseEnter={handlePrefetch}
+      title={isCollapsed ? item.label : undefined}
       className={cn(
-        "flex h-10 items-center gap-3 rounded-xl px-3 text-sm font-medium transition-all duration-150 relative",
+        "group flex h-10 items-center gap-3 rounded-xl text-sm font-medium transition-all duration-200 relative overflow-hidden",
+        isCollapsed ? "justify-center px-0 w-10 mx-auto" : "px-3",
         active
-          ? "bg-primary text-white shadow-sm shadow-primary/30"
-          : "text-muted-foreground hover:bg-muted hover:text-foreground"
+          ? "bg-primary text-white shadow-md shadow-primary/30"
+          : "text-muted-foreground hover:bg-muted hover:text-foreground hover:shadow-sm"
       )}
     >
-      <Icon className="h-4 w-4 shrink-0" />
-      <span className="flex-1">{item.label}</span>
-      {active && <ChevronRight className="h-3.5 w-3.5 opacity-70" />}
+      <Icon className={cn("shrink-0 transition-transform duration-200 group-hover:scale-110", isCollapsed ? "h-5 w-5" : "h-4 w-4")} />
+      {!isCollapsed && <span className="flex-1 animate-fade-in truncate">{item.label}</span>}
+      {!isCollapsed && active && <ChevronRight className="h-3.5 w-3.5 opacity-70" />}
     </Link>
   );
 }
@@ -57,6 +78,7 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
   const { user, logout } = useAuthStore();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
+  const [isCollapsed, setIsCollapsed] = useState(false);
 
   useEffect(() => {
     if (!user) { router.push("/login"); return; }
@@ -72,30 +94,43 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
   const initials = (user?.name ?? "U").split(" ").map((w: string) => w[0]).slice(0, 2).join("").toUpperCase();
 
   const Sidebar = (
-    <div className="flex flex-col h-full">
+    <div className="flex flex-col h-full bg-white dark:bg-card">
       {/* Logo */}
-      <div className="flex h-16 items-center gap-3 border-b px-5 shrink-0">
-        <BrandLogo />
+      <div className={cn("flex h-16 items-center border-b shrink-0 transition-all duration-300", isCollapsed ? "justify-center px-0" : "px-5 gap-3")}>
+        {!isCollapsed && <BrandLogo />}
+        {isCollapsed && <div className="h-8 w-8 rounded-lg brand-gradient flex items-center justify-center font-bold text-white text-xs">EF</div>}
       </div>
 
       {/* Nav */}
-      <nav className="flex-1 space-y-0.5 overflow-y-auto p-3">
+      <nav className="flex-1 space-y-1 overflow-y-auto p-3 scrollbar-hide">
         {filteredNav.map((item) => {
           const active = pathname.startsWith(item.href) && (item.href !== "/dashboard" || pathname === "/dashboard");
-          return <NavItem key={item.href} item={item} active={active} />;
+          return <NavItem key={item.href} item={item} active={active} isCollapsed={isCollapsed} />;
         })}
       </nav>
 
+      {/* Collapse Toggle (Desktop) */}
+      <div className="hidden lg:flex items-center justify-center p-2 border-t border-border/50">
+        <button 
+          onClick={() => setIsCollapsed(!isCollapsed)}
+          className="flex h-8 w-full items-center justify-center rounded-lg hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
+        >
+          {isCollapsed ? <PanelLeftOpen className="h-4 w-4" /> : <PanelLeftClose className="h-4 w-4" />}
+        </button>
+      </div>
+
       {/* User info */}
       <div className="border-t p-3 shrink-0">
-        <div className="flex items-center gap-3 rounded-xl bg-muted/60 p-3">
-          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full brand-gradient text-white font-bold text-sm">
+        <div className={cn("flex items-center rounded-xl bg-muted/40 transition-all duration-300 border border-transparent hover:border-border/50 hover:bg-muted/80", isCollapsed ? "p-1.5 justify-center" : "p-3 gap-3")}>
+          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full brand-gradient text-white font-bold text-sm shadow-sm">
             {initials}
           </div>
-          <div className="min-w-0 flex-1">
-            <p className="truncate text-sm font-semibold leading-none">{user?.name ?? "Organizador"}</p>
-            <p className="truncate text-xs text-muted-foreground mt-0.5">{user?.email}</p>
-          </div>
+          {!isCollapsed && (
+            <div className="min-w-0 flex-1 animate-fade-in">
+              <p className="truncate text-sm font-semibold leading-none text-foreground">{user?.name ?? "Organizador"}</p>
+              <p className="truncate text-xs text-muted-foreground mt-0.5">{user?.email}</p>
+            </div>
+          )}
         </div>
       </div>
     </div>
@@ -104,14 +139,17 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
   return (
     <div className="min-h-screen bg-background">
       {/* ─── Desktop Sidebar ──────────────────────── */}
-      <aside className="fixed inset-y-0 left-0 hidden w-64 border-r bg-white dark:bg-card shadow-sm lg:flex flex-col">
+      <aside className={cn(
+        "fixed inset-y-0 left-0 hidden border-r border-border/60 bg-white dark:bg-card shadow-sm lg:flex flex-col transition-all duration-300 z-30",
+        isCollapsed ? "w-[80px]" : "w-64"
+      )}>
         {Sidebar}
       </aside>
 
       {/* ─── Mobile Drawer Overlay ────────────────── */}
       {mobileOpen && (
         <div
-          className="fixed inset-0 z-40 bg-black/40 backdrop-blur-sm lg:hidden"
+          className="fixed inset-0 z-40 bg-black/40 backdrop-blur-sm lg:hidden animate-fade-in"
           onClick={() => setMobileOpen(false)}
         />
       )}
@@ -130,10 +168,10 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
       </aside>
 
       {/* ─── Content ──────────────────────────────── */}
-      <div className="lg:pl-64">
+      <div className={cn("transition-all duration-300", isCollapsed ? "lg:pl-[80px]" : "lg:pl-64")}>
         {/* Top bar */}
-        <header className="sticky top-0 z-20 flex h-16 items-center justify-between border-b bg-white/95 dark:bg-card/95 backdrop-blur px-4 shadow-sm lg:px-8">
-          <div className="flex items-center gap-3">
+        <header className="sticky top-0 z-20 flex h-16 items-center justify-between border-b border-border/50 bg-white/80 dark:bg-card/80 backdrop-blur-xl px-4 shadow-sm lg:px-8">
+          <div className="flex items-center gap-3 flex-1">
             {/* Mobile menu toggle */}
             <button
               onClick={() => setMobileOpen(true)}
@@ -141,9 +179,21 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
             >
               <Menu className="h-5 w-5" />
             </button>
-            <div className="hidden sm:block">
-              <p className="text-xs text-muted-foreground">Bem-vindo de volta,</p>
-              <p className="font-bold text-base leading-tight">{user?.name ?? "Organizador"}</p>
+            <div className="hidden sm:block lg:hidden xl:block min-w-0">
+              <p className="text-xs text-muted-foreground font-medium">Bem-vindo de volta,</p>
+              <p className="font-bold text-base leading-tight truncate">{user?.name ?? "Organizador"}</p>
+            </div>
+            {/* Search Bar */}
+            <div className="hidden md:flex ml-4 flex-1 max-w-md relative group">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground group-focus-within:text-primary transition-colors" />
+              <input 
+                type="text" 
+                placeholder="Pesquisar eventos, participantes..." 
+                className="h-10 w-full rounded-full border border-border/50 bg-muted/30 pl-10 pr-4 text-sm outline-none transition-all focus:border-primary/50 focus:bg-background focus:ring-4 focus:ring-primary/10"
+              />
+              <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-1">
+                <kbd className="hidden sm:inline-flex h-5 items-center gap-1 rounded border bg-muted px-1.5 font-mono text-[10px] font-medium text-muted-foreground">⌘K</kbd>
+              </div>
             </div>
           </div>
 
@@ -157,37 +207,37 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
             </button>
 
             {/* User dropdown */}
-            <div className="relative">
+            <div className="relative ml-2">
               <button
                 onClick={() => setUserMenuOpen((v) => !v)}
-                className="flex items-center gap-2 rounded-xl p-1.5 pr-2.5 hover:bg-muted transition-colors"
+                className="flex items-center gap-2 rounded-full p-1 pr-3 hover:bg-muted transition-colors border border-transparent hover:border-border/50"
               >
-                <div className="flex h-7 w-7 items-center justify-center rounded-full brand-gradient text-white font-bold text-xs">
+                <div className="flex h-8 w-8 items-center justify-center rounded-full brand-gradient text-white font-bold text-xs shadow-sm">
                   {initials}
                 </div>
-                <ChevronDown className={cn("h-3.5 w-3.5 text-muted-foreground transition-transform duration-200", userMenuOpen && "rotate-180")} />
+                <ChevronDown className={cn("h-4 w-4 text-muted-foreground transition-transform duration-200", userMenuOpen && "rotate-180")} />
               </button>
 
               {userMenuOpen && (
                 <>
                   <div className="fixed inset-0 z-10" onClick={() => setUserMenuOpen(false)} />
-                  <div className="absolute right-0 top-11 z-20 min-w-[180px] rounded-2xl border bg-white dark:bg-card shadow-xl p-1.5 animate-scale-in">
-                    <div className="px-3 py-2 border-b mb-1">
-                      <p className="text-sm font-semibold truncate">{user?.name}</p>
+                  <div className="absolute right-0 top-12 z-20 min-w-[220px] rounded-2xl border border-border/50 bg-white/95 dark:bg-card/95 backdrop-blur-xl shadow-2xl p-1.5 animate-scale-in origin-top-right">
+                    <div className="px-3 py-2.5 border-b mb-1.5 bg-muted/30 rounded-t-xl">
+                      <p className="text-sm font-semibold truncate text-foreground">{user?.name}</p>
                       <p className="text-xs text-muted-foreground truncate">{user?.email}</p>
                     </div>
                     <Link href="/profile" onClick={() => setUserMenuOpen(false)}
-                      className="flex items-center gap-2 rounded-xl px-3 py-2 text-sm hover:bg-muted transition-colors">
-                      <UserCircle className="h-4 w-4" /> Perfil
+                      className="flex items-center gap-2.5 rounded-xl px-3 py-2 text-sm font-medium hover:bg-primary/10 hover:text-primary transition-colors">
+                      <UserCircle className="h-4 w-4" /> Meu Perfil
                     </Link>
                     <Link href="/enterprise" onClick={() => setUserMenuOpen(false)}
-                      className="flex items-center gap-2 rounded-xl px-3 py-2 text-sm hover:bg-muted transition-colors">
-                      <Settings className="h-4 w-4" /> Configuracoes
+                      className="flex items-center gap-2.5 rounded-xl px-3 py-2 text-sm font-medium hover:bg-primary/10 hover:text-primary transition-colors">
+                      <Settings className="h-4 w-4" /> Configurações
                     </Link>
-                    <div className="border-t mt-1 pt-1">
+                    <div className="border-t border-border/50 mt-1.5 pt-1.5">
                       <button
                         onClick={() => { logout(); router.push("/login"); }}
-                        className="flex w-full items-center gap-2 rounded-xl px-3 py-2 text-sm text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-900/20 transition-colors"
+                        className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2 text-sm font-medium text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-900/20 transition-colors"
                       >
                         <LogOut className="h-4 w-4" /> Sair
                       </button>

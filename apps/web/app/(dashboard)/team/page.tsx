@@ -71,15 +71,29 @@ export default function TeamPage() {
   const updatePermsMutation = useMutation({
     mutationFn: ({ id, permissions }: { id: string; permissions: string[] }) =>
       api(`/team/${id}`, { method: "PATCH", body: JSON.stringify({ permissions }) }),
-    onSuccess: () => {
-      invalidate();
+    onMutate: async ({ id, permissions }) => {
+      await queryClient.cancelQueries({ queryKey: ["team"] });
+      const previous = queryClient.getQueryData<TeamMember[]>(["team"]);
+      queryClient.setQueryData<TeamMember[]>(["team"], (old) => 
+        old?.map(m => m.id === id ? { ...m, permissions: permissions as any } : m)
+      );
       setEditingId(null);
-    }
+      return { previous };
+    },
+    onError: (err, vars, context) => queryClient.setQueryData(["team"], context?.previous),
+    onSettled: invalidate
   });
 
   const removeMutation = useMutation({
     mutationFn: (id: string) => api(`/team/${id}`, { method: "DELETE" }),
-    onSuccess: invalidate
+    onMutate: async (id) => {
+      await queryClient.cancelQueries({ queryKey: ["team"] });
+      const previous = queryClient.getQueryData<TeamMember[]>(["team"]);
+      queryClient.setQueryData<TeamMember[]>(["team"], (old) => old?.filter((m) => m.id !== id));
+      return { previous };
+    },
+    onError: (err, id, context) => queryClient.setQueryData(["team"], context?.previous),
+    onSettled: invalidate
   });
 
   return (

@@ -83,7 +83,18 @@ export default function CouponsPage() {
 
   const deleteMutation = useMutation({
     mutationFn: (id: string) => api(`/coupons/${id}`, { method: "DELETE" }),
-    onSuccess: invalidate
+    onMutate: async (id) => {
+      await qc.cancelQueries({ queryKey: ["coupons"] });
+      const previousCoupons = qc.getQueryData<CouponType[]>(["coupons"]);
+      qc.setQueryData<CouponType[]>(["coupons"], (old) => old?.filter((c) => c.id !== id));
+      return { previousCoupons };
+    },
+    onError: (err, newCoupon, context) => {
+      qc.setQueryData(["coupons"], context?.previousCoupons);
+    },
+    onSettled: () => {
+      invalidate();
+    }
   });
 
   // Stable handler – avoids recreating the function on every render
