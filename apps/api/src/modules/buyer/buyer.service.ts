@@ -12,11 +12,18 @@ export class BuyerService {
     private readonly payments: PaymentsService
   ) {}
 
-  listTickets(email: string, scope?: "future" | "past") {
+  listTickets(userId: string, email: string, scope?: "future" | "past") {
     const now = new Date();
+    const normalizedEmail = email.toLowerCase();
     return this.prisma.ticket.findMany({
       where: {
-        OR: [{ attendeeEmail: email }, { order: { buyerEmail: email } }],
+        OR: [
+          { ownerId: userId },
+          {
+            ownerId: null,
+            OR: [{ attendeeEmail: normalizedEmail }, { order: { buyerEmail: normalizedEmail } }]
+          }
+        ],
         event: scope === "future" ? { startsAt: { gte: now } } : scope === "past" ? { startsAt: { lt: now } } : undefined
       },
       include: {
@@ -29,7 +36,7 @@ export class BuyerService {
   }
 
   async requestRefund(userId: string, email: string, ticketId: string) {
-    const ticket = await this.findOwnedTicket(email, ticketId);
+    const ticket = await this.findOwnedTicket(userId, email, ticketId);
     if (ticket.status !== TicketStatus.AVAILABLE) {
       throw new BadRequestException("Somente ingressos disponiveis podem solicitar reembolso.");
     }
@@ -57,8 +64,8 @@ export class BuyerService {
     return { message: "Reembolso processado.", status: "REFUNDED" };
   }
 
-  async ticketPdf(email: string, ticketId: string) {
-    const ticket = await this.findOwnedTicket(email, ticketId);
+  async ticketPdf(userId: string, email: string, ticketId: string) {
+    const ticket = await this.findOwnedTicket(userId, email, ticketId);
     const content = [
       `EventHub - Ingresso`,
       `Evento: ${ticket.event.title}`,
@@ -71,8 +78,8 @@ export class BuyerService {
     return this.simplePdf(content);
   }
 
-  async walletPayload(email: string, ticketId: string, provider: "google" | "apple") {
-    const ticket = await this.findOwnedTicket(email, ticketId);
+  async walletPayload(userId: string, email: string, ticketId: string, provider: "google" | "apple") {
+    const ticket = await this.findOwnedTicket(userId, email, ticketId);
     return {
       provider,
       passType: "event_ticket",
@@ -88,9 +95,19 @@ export class BuyerService {
     };
   }
 
-  private async findOwnedTicket(email: string, ticketId: string) {
+  private async findOwnedTicket(userId: string, email: string, ticketId: string) {
+    const normalizedEmail = email.toLowerCase();
     const ticket = await this.prisma.ticket.findFirst({
-      where: { id: ticketId, OR: [{ attendeeEmail: email }, { order: { buyerEmail: email } }] },
+      where: {
+        id: ticketId,
+        OR: [
+          { ownerId: userId },
+          {
+            ownerId: null,
+            OR: [{ attendeeEmail: normalizedEmail }, { order: { buyerEmail: normalizedEmail } }]
+          }
+        ]
+      },
       include: { event: true, ticketType: true, order: true }
     });
     if (!ticket) {

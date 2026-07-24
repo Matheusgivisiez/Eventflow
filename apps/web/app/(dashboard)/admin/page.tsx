@@ -4,11 +4,11 @@ import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   Users, Calendar, CreditCard, ShieldAlert, CheckCircle2, Clock,
-  XCircle, Search, Building2, UserCog, Loader2, ToggleLeft, ToggleRight
+  XCircle, Search, Building2, Loader2, ArrowDownToLine, Key
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -34,6 +34,11 @@ type AdminPayment = {
   id: string; status: string; amountCents: number; createdAt: string;
   event?: { title: string };
   order?: { buyerEmail: string };
+};
+
+type AdminWithdrawal = {
+  id: string; tenantId: string; amountCents: number;
+  status: string; pixKey?: string; requestedAt: string;
 };
 
 // ─── Status helpers ───────────────────────────────────────────────────────────
@@ -62,12 +67,23 @@ const EVENT_STATUS: Record<string, { label: string; variant: "default" | "second
 // ─── Main Admin Page ──────────────────────────────────────────────────────────
 
 export default function AdminPage() {
+  const qc = useQueryClient();
   const [userSearch, setUserSearch] = useState("");
   const [eventSearch, setEventSearch] = useState("");
+  const [pixKeys, setPixKeys] = useState<Record<string, string>>({});
 
-  const users    = useQuery({ queryKey: ["admin-users"],    queryFn: () => api<AdminUser[]>("/admin/users") });
-  const events   = useQuery({ queryKey: ["admin-events"],   queryFn: () => api<AdminEvent[]>("/admin/events") });
-  const payments = useQuery({ queryKey: ["admin-payments"], queryFn: () => api<AdminPayment[]>("/admin/payments") });
+  const users    = useQuery({ queryKey: ["admin-users"],       queryFn: () => api<AdminUser[]>("/admin/users") });
+  const events   = useQuery({ queryKey: ["admin-events"],      queryFn: () => api<AdminEvent[]>("/admin/events") });
+  const payments = useQuery({ queryKey: ["admin-payments"],    queryFn: () => api<AdminPayment[]>("/admin/payments") });
+  const withdrawals = useQuery({ queryKey: ["admin-withdrawals"], queryFn: () => api<AdminWithdrawal[]>("/finance/withdrawals") });
+
+  const approveWithdrawal = useMutation({
+    mutationFn: ({ id, pixKey }: { id: string; pixKey: string }) =>
+      api(`/finance/withdrawals/${id}/approve`, { method: "POST", body: JSON.stringify({ pixKey }) }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["admin-withdrawals"] })
+  });
+
+  const pendingWithdrawals = (withdrawals.data ?? []).filter(w => w.status === "REQUESTED");
 
   const filteredUsers = (users.data ?? []).filter(u =>
     !userSearch || u.name.toLowerCase().includes(userSearch.toLowerCase()) || u.email.toLowerCase().includes(userSearch.toLowerCase())
@@ -89,18 +105,26 @@ export default function AdminPage() {
 
       {/* KPI Summary */}
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-        <KpiCard label="Usuários" value={users.data?.length ?? 0}    icon={<Users className="h-5 w-5 text-primary" />} loading={users.isLoading} />
-        <KpiCard label="Eventos"  value={events.data?.length ?? 0}   icon={<Calendar className="h-5 w-5 text-purple-500" />} color="text-purple-600" loading={events.isLoading} />
-        <KpiCard label="Pagamentos" value={payments.data?.length ?? 0} icon={<CreditCard className="h-5 w-5 text-emerald-500" />} color="text-emerald-600" loading={payments.isLoading} />
-        <KpiCard label="Receita total" value={money(totalRevenue)}   icon={<Building2 className="h-5 w-5 text-rose-500" />} color="text-rose-600" loading={payments.isLoading} isMonetary />
+        <KpiCard label="Usuários"     value={users.data?.length ?? 0}     icon={<Users className="h-5 w-5 text-primary" />}          loading={users.isLoading} />
+        <KpiCard label="Eventos"      value={events.data?.length ?? 0}    icon={<Calendar className="h-5 w-5 text-purple-500" />}     color="text-purple-600" loading={events.isLoading} />
+        <KpiCard label="Pagamentos"   value={payments.data?.length ?? 0}  icon={<CreditCard className="h-5 w-5 text-emerald-500" />}  color="text-emerald-600" loading={payments.isLoading} />
+        <KpiCard label="Receita total" value={money(totalRevenue)}         icon={<Building2 className="h-5 w-5 text-rose-500" />}      color="text-rose-600" loading={payments.isLoading} isMonetary />
       </div>
 
       {/* Tabs */}
       <Tabs defaultValue="users">
-        <TabsList className="grid w-full grid-cols-3">
+        <TabsList className="grid w-full grid-cols-4">
           <TabsTrigger value="users"><Users className="h-4 w-4 mr-2" /> Usuários</TabsTrigger>
           <TabsTrigger value="events"><Calendar className="h-4 w-4 mr-2" /> Eventos</TabsTrigger>
           <TabsTrigger value="payments"><CreditCard className="h-4 w-4 mr-2" /> Pagamentos</TabsTrigger>
+          <TabsTrigger value="withdrawals" className="relative">
+            <ArrowDownToLine className="h-4 w-4 mr-2" /> Saques
+            {pendingWithdrawals.length > 0 && (
+              <span className="ml-1.5 flex h-4 w-4 items-center justify-center rounded-full bg-amber-500 text-[10px] font-bold text-white">
+                {pendingWithdrawals.length}
+              </span>
+            )}
+          </TabsTrigger>
         </TabsList>
 
         {/* ── Users Tab ── */}
@@ -220,6 +244,85 @@ export default function AdminPage() {
               })}
               {!payments.isLoading && (payments.data?.length ?? 0) === 0 && (
                 <p className="text-center text-sm text-muted-foreground py-8">Nenhum pagamento encontrado.</p>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* ── Withdrawals Tab ── */}
+        <TabsContent value="withdrawals" className="mt-4">
+          <Card className="shadow-sm">
+            <CardHeader className="pb-3 flex-row items-center justify-between space-y-0">
+              <CardTitle className="text-base flex items-center gap-2">
+                <ArrowDownToLine className="h-4 w-4 text-amber-500" /> Saques pendentes
+              </CardTitle>
+              <Badge variant="outline" className="border-amber-500 text-amber-600">
+                {pendingWithdrawals.length} aguardando
+              </Badge>
+            </CardHeader>
+            <CardContent className="space-y-3 max-h-[600px] overflow-y-auto pr-1">
+              {withdrawals.isLoading && <Skeleton className="h-64 w-full" />}
+              {!withdrawals.isLoading && pendingWithdrawals.length === 0 && (
+                <div className="flex flex-col items-center justify-center py-10 gap-2 text-muted-foreground">
+                  <CheckCircle2 className="h-8 w-8 text-emerald-500" />
+                  <p className="text-sm">Nenhum saque pendente. ✓</p>
+                </div>
+              )}
+              {pendingWithdrawals.map(w => (
+                <div key={w.id} className="p-4 rounded-xl border border-amber-200 bg-amber-50 dark:bg-amber-950/20 dark:border-amber-900 space-y-3">
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <p className="font-bold text-lg">{money(w.amountCents)}</p>
+                      <p className="text-xs text-muted-foreground mt-0.5">
+                        Solicitado em {new Date(w.requestedAt).toLocaleString("pt-BR")}
+                      </p>
+                      <p className="text-xs font-mono text-muted-foreground mt-0.5">ID: {w.tenantId}</p>
+                    </div>
+                    <Badge variant="outline" className="border-amber-500 text-amber-600 shrink-0">
+                      <Clock className="h-3 w-3 mr-1" /> Pendente
+                    </Badge>
+                  </div>
+                  <div className="flex gap-2">
+                    <div className="relative flex-1">
+                      <Key className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+                      <Input
+                        className="pl-8 h-9 text-sm"
+                        placeholder="Chave PIX do organizador"
+                        value={pixKeys[w.id] ?? ""}
+                        onChange={e => setPixKeys(prev => ({ ...prev, [w.id]: e.target.value }))}
+                      />
+                    </div>
+                    <Button
+                      size="sm"
+                      className="bg-emerald-600 hover:bg-emerald-700 text-white h-9 shrink-0"
+                      disabled={!pixKeys[w.id] || approveWithdrawal.isPending}
+                      onClick={() => approveWithdrawal.mutate({ id: w.id, pixKey: pixKeys[w.id] })}
+                    >
+                      {approveWithdrawal.isPending
+                        ? <Loader2 className="h-4 w-4 animate-spin" />
+                        : <CheckCircle2 className="h-4 w-4" />}
+                      Aprovar PIX
+                    </Button>
+                  </div>
+                </div>
+              ))}
+              {/* Approved/Paid history */}
+              {(withdrawals.data ?? []).filter(w => w.status !== "REQUESTED").length > 0 && (
+                <>
+                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide pt-2">Histórico</p>
+                  {(withdrawals.data ?? []).filter(w => w.status !== "REQUESTED").map(w => (
+                    <div key={w.id} className="flex items-center gap-3 p-3 rounded-xl border hover:bg-muted/40 transition-colors">
+                      <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-emerald-100 text-emerald-600 dark:bg-emerald-500/20">
+                        <CheckCircle2 className="h-4 w-4" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="font-semibold text-sm">{money(w.amountCents)}</p>
+                        <p className="text-xs text-muted-foreground truncate">{w.pixKey ?? "—"}</p>
+                      </div>
+                      <Badge variant="secondary" className="text-emerald-600 shrink-0">{w.status}</Badge>
+                    </div>
+                  ))}
+                </>
               )}
             </CardContent>
           </Card>

@@ -47,12 +47,19 @@ export class ProfileService {
     return { message: "Senha alterada com sucesso." };
   }
 
-  async myTickets(email: string) {
+  async myTickets(email: string, userId?: string) {
+    const normalizedEmail = email.toLowerCase();
     return this.prisma.ticket.findMany({
       where: {
         OR: [
-          { attendeeEmail: email.toLowerCase() },
-          { order: { buyerEmail: email.toLowerCase() } }
+          ...(userId ? [{ ownerId: userId }] : []),
+          {
+            ownerId: null,
+            OR: [
+              { attendeeEmail: normalizedEmail },
+              { order: { buyerEmail: normalizedEmail } }
+            ]
+          }
         ]
       },
       include: {

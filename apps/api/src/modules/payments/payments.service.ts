@@ -5,7 +5,7 @@ import { ConfigService } from "@nestjs/config";
 import QRCode from "qrcode";
 import { PrismaService } from "../../prisma/prisma.service";
 import { UpdatePaymentStatusDto } from "./dto/update-payment-status.dto";
-import { MercadoPagoGateway } from "./mercado-pago.gateway";
+import { AbacatePayGateway } from "./abacate-pay.gateway";
 
 const VALID_TRANSITIONS: Record<PaymentStatus, PaymentStatus[]> = {
   [PaymentStatus.PENDING]: [PaymentStatus.PAID, PaymentStatus.CANCELED],
@@ -18,7 +18,7 @@ const VALID_TRANSITIONS: Record<PaymentStatus, PaymentStatus[]> = {
 export class PaymentsService {
   constructor(
     private readonly prisma: PrismaService,
-    private readonly mercadoPago: MercadoPagoGateway,
+    private readonly abacatePay: AbacatePayGateway,
     private readonly config: ConfigService
   ) {}
 
@@ -39,12 +39,24 @@ export class PaymentsService {
     if (!order || !order.payment) {
       throw new NotFoundException("Pedido nao encontrado.");
     }
-    return this.mercadoPago.createPreference({
+    const appUrl = this.config.get<string>("APP_URL") ?? "http://localhost:3000";
+    const result = await this.abacatePay.createCheckout({
       orderId,
       amountCents: order.totalCents,
       buyerEmail: order.buyerEmail,
-      description: order.event.title
+      buyerName: order.buyerName,
+      buyerDocument: order.buyerDocument ?? undefined,
+      buyerPhone: order.buyerPhone ?? undefined,
+      description: order.event.title,
+      returnUrl: `${appUrl}/orders/${orderId}`,
+      completionUrl: `${appUrl}/orders/${orderId}/success`
     });
+    // Persist AbacatePay reference on the payment record
+    await this.prisma.payment.update({
+      where: { orderId },
+      data: { provider: "abacate_pay", providerRef: result.providerRef }
+    });
+    return result;
   }
 
   async updateStatus(id: string, tenantId: string, dto: UpdatePaymentStatusDto) {
@@ -127,6 +139,7 @@ export class PaymentsService {
             orderId: order.id,
             eventId: order.eventId,
             ticketTypeId: item.ticketTypeId,
+            ownerId: order.userId,
             attendeeName: order.buyerName,
             attendeeEmail: order.buyerEmail,
             qrCodeDataUrl

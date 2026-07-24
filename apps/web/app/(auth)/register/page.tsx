@@ -16,7 +16,8 @@ import { useAuthStore } from "@/stores/auth-store";
 const schema = z.object({
   name: z.string().min(2, "Informe seu nome."),
   email: z.string().email("Informe um e-mail válido."),
-  phone: z.string().optional(),
+  phone: z.string().min(10, "Informe um telefone válido com DDD."),
+  cpf: z.string().min(11, "Informe um CPF válido."),
   password: z.string().min(8, "A senha deve ter pelo menos 8 caracteres.")
 });
 
@@ -63,11 +64,18 @@ export default function RegisterPage() {
               {...form.register("email")}
             />
           </Field>
-          <Field label="Telefone (opcional)" error={form.formState.errors.phone?.message} icon={<Phone className="h-4 w-4" />}>
+          <Field label="Telefone" error={form.formState.errors.phone?.message} icon={<Phone className="h-4 w-4" />}>
             <Input
               placeholder="(11) 99999-9999"
               className="pl-10 rounded-xl border-border focus:border-primary"
               {...form.register("phone")}
+            />
+          </Field>
+          <Field label="CPF" error={form.formState.errors.cpf?.message} icon={<User className="h-4 w-4" />}>
+            <Input
+              placeholder="000.000.000-00"
+              className="pl-10 rounded-xl border-border focus:border-primary"
+              {...form.register("cpf")}
             />
           </Field>
           <Field label="Senha" error={form.formState.errors.password?.message} icon={<Lock className="h-4 w-4" />}>

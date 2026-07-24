@@ -6,13 +6,17 @@ import Image from "next/image";
 import Link from "next/link";
 import {
   Calendar, Download, MapPin, RefreshCcw, Smartphone,
-  Ticket, WalletCards, QrCode, CheckCircle2, XCircle, Clock
+  Ticket, WalletCards, QrCode, CheckCircle2, XCircle, Clock,
+  Send, Search, Loader2, UserPlus
 } from "lucide-react";
 import { api } from "@/lib/api";
 import { useAuthStore } from "@/stores/auth-store";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { dateTime } from "@/lib/utils";
 
 type MyTicket = {
@@ -38,6 +42,18 @@ type MyTicket = {
   };
 };
 
+type RecipientLookup = {
+  exists: boolean;
+  user?: {
+    id: string;
+    name: string;
+    email: string;
+    avatarUrl?: string;
+  };
+  receiverEmail?: string;
+  receiverCpf?: string;
+};
+
 const statusConfig = {
   AVAILABLE: { label: "Disponível", icon: CheckCircle2, color: "text-brand-purple bg-brand-purple/10 border-brand-purple/20 dark:bg-brand-purple/20" },
   USED: { label: "Utilizado", icon: Clock, color: "text-brand-violet bg-brand-violet/10 border-brand-violet/20 dark:bg-brand-violet/20" },
@@ -47,6 +63,9 @@ const statusConfig = {
 export default function MyTicketsPage() {
   const [scope, setScope] = useState<"future" | "past">("future");
   const [expandedTicket, setExpandedTicket] = useState<string | null>(null);
+  const [transferTicket, setTransferTicket] = useState<MyTicket | null>(null);
+  const [recipient, setRecipient] = useState("");
+  const [recipientLookup, setRecipientLookup] = useState<RecipientLookup | null>(null);
   const token = useAuthStore((state) => state.accessToken);
   const user = useAuthStore((state) => state.user);
   const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001/api";
@@ -65,6 +84,49 @@ export default function MyTicketsPage() {
     mutationFn: ({ ticketId, provider }: { ticketId: string; provider: "google" | "apple" }) =>
       api(`/buyer/tickets/${ticketId}/${provider}-wallet`)
   });
+
+  const resolveRecipient = useMutation({
+    mutationFn: (value: string) => api<RecipientLookup>("/transfers/recipient", {
+      method: "POST",
+      body: JSON.stringify(recipientPayload(value))
+    }),
+    onSuccess: (data) => setRecipientLookup(data)
+  });
+
+  const createTransfer = useMutation({
+    mutationFn: () => {
+      if (!transferTicket) throw new Error("Ingresso nao selecionado.");
+      return api("/transfers", {
+        method: "POST",
+        body: JSON.stringify({
+          ticketId: transferTicket.id,
+          ...recipientPayload(recipient)
+        })
+      });
+    },
+    onSuccess: () => {
+      setTransferTicket(null);
+      setRecipient("");
+      setRecipientLookup(null);
+      tickets.refetch();
+    }
+  });
+
+  function openTransferModal(ticket: MyTicket) {
+    setTransferTicket(ticket);
+    setRecipient("");
+    setRecipientLookup(null);
+    resolveRecipient.reset();
+    createTransfer.reset();
+  }
+
+  function recipientPayload(value: string) {
+    const clean = value.trim();
+    if (clean.includes("@")) {
+      return { receiverEmail: clean.toLowerCase() };
+    }
+    return { receiverCpf: clean.replace(/\D/g, "") };
+  }
 
   async function downloadPdf(ticketId: string) {
     const response = await fetch(`${apiUrl}/buyer/tickets/${ticketId}/pdf`, {
@@ -257,16 +319,27 @@ export default function MyTicketsPage() {
                     </div>
 
                     {ticket.status === "AVAILABLE" && (
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        className="w-full mt-2 rounded-xl text-muted-foreground hover:text-destructive hover:bg-destructive/10 text-xs"
-                        disabled={refund.isPending}
-                        onClick={() => refund.mutate(ticket.id)}
-                      >
-                        <RefreshCcw className="h-3.5 w-3.5" />
-                        Solicitar reembolso
-                      </Button>
+                      <div className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-2">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="rounded-xl gap-1.5 text-xs"
+                          onClick={() => openTransferModal(ticket)}
+                        >
+                          <Send className="h-3.5 w-3.5" />
+                          Transferir
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          className="rounded-xl text-muted-foreground hover:text-destructive hover:bg-destructive/10 text-xs"
+                          disabled={refund.isPending}
+                          onClick={() => refund.mutate(ticket.id)}
+                        >
+                          <RefreshCcw className="h-3.5 w-3.5" />
+                          Solicitar reembolso
+                        </Button>
+                      </div>
                     )}
                   </div>
                 </div>
@@ -274,6 +347,104 @@ export default function MyTicketsPage() {
             })}
           </div>
         )}
+
+        <Dialog open={Boolean(transferTicket)} onOpenChange={(open) => !open && setTransferTicket(null)}>
+          <DialogContent className="sm:max-w-md">
+            <DialogHeader>
+              <DialogTitle>Transferir ingresso</DialogTitle>
+              <DialogDescription>
+                Informe o e-mail ou CPF do destinatario para iniciar uma transferencia pendente.
+              </DialogDescription>
+            </DialogHeader>
+
+            {transferTicket && (
+              <div className="rounded-xl border bg-muted/40 p-3 text-sm">
+                <p className="font-semibold">{transferTicket.event.title}</p>
+                <p className="text-muted-foreground">{transferTicket.ticketType.name} - {dateTime(transferTicket.event.startsAt)}</p>
+              </div>
+            )}
+
+            <div className="space-y-2">
+              <Label htmlFor="recipient">E-mail ou CPF</Label>
+              <div className="flex gap-2">
+                <Input
+                  id="recipient"
+                  value={recipient}
+                  onChange={(event) => {
+                    setRecipient(event.target.value);
+                    setRecipientLookup(null);
+                    resolveRecipient.reset();
+                    createTransfer.reset();
+                  }}
+                  placeholder="destino@email.com ou 00000000000"
+                />
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="icon"
+                  disabled={!recipient.trim() || resolveRecipient.isPending}
+                  onClick={() => resolveRecipient.mutate(recipient)}
+                  title="Buscar destinatario"
+                >
+                  {resolveRecipient.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
+                </Button>
+              </div>
+            </div>
+
+            {recipientLookup && (
+              <div className="rounded-xl border p-4">
+                {recipientLookup.exists && recipientLookup.user ? (
+                  <div className="flex items-center gap-3">
+                    <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10 text-sm font-bold text-primary">
+                      {recipientLookup.user.name.charAt(0).toUpperCase()}
+                    </div>
+                    <div className="min-w-0">
+                      <p className="font-semibold">{recipientLookup.user.name}</p>
+                      <p className="truncate text-sm text-muted-foreground">{recipientLookup.user.email}</p>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="flex items-start gap-3">
+                    <div className="flex h-10 w-10 items-center justify-center rounded-full bg-muted">
+                      <UserPlus className="h-5 w-5 text-muted-foreground" />
+                    </div>
+                    <div>
+                      <p className="font-semibold">Destinatario ainda nao cadastrado</p>
+                      <p className="text-sm text-muted-foreground">Ele recebera um convite e podera aceitar depois de criar a conta.</p>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {resolveRecipient.isError && (
+              <p className="rounded-lg border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive">
+                {(resolveRecipient.error as Error).message}
+              </p>
+            )}
+
+            {createTransfer.isError && (
+              <p className="rounded-lg border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive">
+                {(createTransfer.error as Error).message}
+              </p>
+            )}
+
+            {createTransfer.isSuccess && (
+              <p className="rounded-lg border border-brand-purple/20 bg-brand-purple/10 p-3 text-sm text-brand-purple">
+                Transferencia criada com sucesso.
+              </p>
+            )}
+
+            <Button
+              className="w-full rounded-xl"
+              disabled={!recipientLookup || createTransfer.isPending}
+              onClick={() => createTransfer.mutate()}
+            >
+              {createTransfer.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Send className="mr-2 h-4 w-4" />}
+              Confirmar transferencia
+            </Button>
+          </DialogContent>
+        </Dialog>
 
         {/* Feedbacks */}
         {refund.isSuccess && (

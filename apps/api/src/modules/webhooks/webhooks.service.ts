@@ -14,7 +14,7 @@ export class WebhooksService {
     private readonly audit: AuditService
   ) {}
 
-  async handle(provider: "mercado_pago" | "stripe" | "asaas", payload: Record<string, any>) {
+  async handle(provider: "mercado_pago" | "stripe" | "asaas" | "abacate_pay", payload: Record<string, any>) {
     const providerRef = String(payload.providerRef ?? payload.id ?? payload.data?.id ?? payload.payment?.id ?? "");
     const orderId = payload.orderId ? String(payload.orderId) : undefined;
     const payment = await this.prisma.payment.findFirst({
@@ -45,8 +45,13 @@ export class WebhooksService {
   }
 
   private mapStatus(provider: string, payload: Record<string, any>): PaymentStatus {
-    const raw = String(payload.status ?? payload.data?.status ?? payload.payment?.status ?? "").toLowerCase();
-    if (["paid", "approved", "confirmed", "received"].includes(raw)) return PaymentStatus.PAID;
+    const raw = String(payload.status ?? payload.event ?? payload.data?.status ?? payload.payment?.status ?? "").toLowerCase();
+    // AbacatePay events: checkout.completed, transparent.completed
+    if (["checkout.completed", "transparent.completed", "subscription.completed"].includes(raw)) return PaymentStatus.PAID;
+    if (["checkout.refunded", "transparent.refunded"].includes(raw)) return PaymentStatus.REFUNDED;
+    if (["checkout.disputed", "checkout.lost", "transparent.disputed", "transparent.lost"].includes(raw)) return PaymentStatus.CANCELED;
+    // Generic status words
+    if (["paid", "approved", "confirmed", "received", "completed"].includes(raw)) return PaymentStatus.PAID;
     if (["refunded", "refunded_partially"].includes(raw)) return PaymentStatus.REFUNDED;
     if (["canceled", "cancelled", "failed", "rejected", "overdue"].includes(raw)) return PaymentStatus.CANCELED;
     return PaymentStatus.PENDING;

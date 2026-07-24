@@ -38,6 +38,7 @@ export class AuthService {
             email: dto.email.toLowerCase(),
             passwordHash,
             phone: dto.phone,
+            cpf: dto.cpf,
             role: UserRole.ORGANIZER
           }
         });
@@ -52,6 +53,7 @@ export class AuthService {
         email: dto.email.toLowerCase(),
         passwordHash,
         phone: dto.phone,
+        cpf: dto.cpf,
         role: UserRole.CUSTOMER
       }
     });

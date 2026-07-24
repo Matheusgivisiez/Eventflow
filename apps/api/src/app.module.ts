@@ -34,6 +34,7 @@ import { LgpdModule } from "./modules/lgpd/lgpd.module";
 import { OrdersModule } from "./modules/orders/orders.module";
 import { PromotersModule } from "./modules/promoters/promoters.module";
 import { UploadModule } from "./modules/upload/upload.module";
+import { TransfersModule } from "./modules/transfers/transfers.module";
 
 @Module({
   imports: [
@@ -85,7 +86,8 @@ import { UploadModule } from "./modules/upload/upload.module";
     LgpdModule,
     OrdersModule,
     UploadModule,
-    PromotersModule
+    PromotersModule,
+    TransfersModule
   ],
   controllers: [AppController],
   providers: [

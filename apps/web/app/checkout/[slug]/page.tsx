@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { Suspense, useMemo, useState } from "react";
 import { useParams, useSearchParams } from "next/navigation";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation, useQuery } from "@tanstack/react-query";
@@ -43,7 +43,7 @@ function parseItemsParam(raw: string | null): Record<string, number> {
   return result;
 }
 
-export default function CheckoutPage() {
+function CheckoutForm() {
   const { slug } = useParams<{ slug: string }>();
   const searchParams = useSearchParams();
   const initialItems = useMemo(() => parseItemsParam(searchParams.get("items")), [searchParams]);
@@ -222,5 +222,17 @@ function Summary({ label, value, strong }: { label: string; value: string; stron
       <span className="text-muted-foreground">{label}</span>
       <span className={strong ? "text-lg font-semibold" : "font-medium"}>{value}</span>
     </div>
+  );
+}
+
+export default function CheckoutPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-background p-6 flex justify-center">
+        <Skeleton className="h-[620px] w-full max-w-6xl" />
+      </div>
+    }>
+      <CheckoutForm />
+    </Suspense>
   );
 }

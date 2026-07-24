@@ -99,6 +99,18 @@ enum NotificationEvent {
   EVENT_TODAY
   CANCELLATION
   TICKET_CANCELED
+  TICKET_TRANSFER_RECEIVED
+  TICKET_TRANSFER_ACCEPTED
+  TICKET_TRANSFER_DECLINED
+  TICKET_TRANSFER_EXPIRED
+}
+
+enum TransferStatus {
+  PENDING
+  ACCEPTED
+  DECLINED
+  EXPIRED
+  CANCELLED
 }
 
 enum CampaignChannel {
@@ -197,6 +209,7 @@ model User {
   email        String         @unique
   passwordHash String
   phone        String?
+  cpf          String?
   role         UserRole       @default(ORGANIZER)
   avatarUrl    String?
   createdAt    DateTime       @default(now())
@@ -210,6 +223,10 @@ model User {
   teamMembers  TeamMember[]
   twoFactorEnabled Boolean    @default(false)
   promoterProfile Promoter?
+  ownedTickets Ticket[] @relation("TicketOwner")
+  sentTransfers Transfer[] @relation("TransferSender")
+  receivedTransfers Transfer[] @relation("TransferReceiver")
+  transferHistory TransferHistory[]
 }
 
 model RefreshToken {
@@ -406,6 +423,7 @@ model Ticket {
   orderId       String
   eventId       String
   ticketTypeId  String
+  ownerId       String?
   attendeeName  String
   attendeeEmail String
   qrCodeDataUrl String?
@@ -416,14 +434,57 @@ model Ticket {
   order         Order        @relation(fields: [orderId], references: [id], onDelete: Cascade)
   event         Event        @relation(fields: [eventId], references: [id])
   ticketType    TicketType   @relation(fields: [ticketTypeId], references: [id])
+  owner         User?        @relation("TicketOwner", fields: [ownerId], references: [id], onDelete: SetNull)
   checkIns      CheckInLog[]
+  transfers     Transfer[]
 
   @@index([eventId, status])
+  @@index([ownerId])
   @@index([seatId])
   @@index([eventId, uuid])
   @@index([uuid, status])
   @@index([attendeeName])
   @@index([attendeeEmail])
+}
+
+model Transfer {
+  id            String         @id @default(cuid())
+  ticketId      String
+  senderId      String
+  receiverId    String?
+  receiverEmail String?
+  receiverCpf   String?
+  status        TransferStatus @default(PENDING)
+  expiresAt     DateTime?
+  acceptedAt    DateTime?
+  declinedAt    DateTime?
+  cancelledAt   DateTime?
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  ticket        Ticket         @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  sender        User           @relation("TransferSender", fields: [senderId], references: [id], onDelete: Cascade)
+  receiver      User?          @relation("TransferReceiver", fields: [receiverId], references: [id], onDelete: SetNull)
+  history       TransferHistory[]
+
+  @@index([ticketId, status])
+  @@index([senderId, createdAt])
+  @@index([receiverId, status])
+  @@index([receiverEmail, status])
+  @@index([receiverCpf, status])
+}
+
+model TransferHistory {
+  id         String   @id @default(cuid())
+  transferId String
+  action     String
+  userId     String?
+  metadata   Json?
+  timestamp  DateTime @default(now())
+  transfer   Transfer @relation(fields: [transferId], references: [id], onDelete: Cascade)
+  user       User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([transferId, timestamp])
+  @@index([userId, timestamp])
 }
 
 model CheckInLog {

@@ -15,7 +15,7 @@ export class BuyerController {
 
   @Get("tickets")
   tickets(@CurrentUser() user: RequestUser, @Query("scope") scope?: "future" | "past") {
-    return this.buyer.listTickets(user.email, scope);
+    return this.buyer.listTickets(user.id, user.email, scope);
   }
 
   @Post("tickets/:id/refund")
@@ -25,7 +25,7 @@ export class BuyerController {
 
   @Get("tickets/:id/pdf")
   async pdf(@CurrentUser() user: RequestUser, @Param("id") id: string, @Res({ passthrough: true }) response: Response) {
-    const buffer = await this.buyer.ticketPdf(user.email, id);
+    const buffer = await this.buyer.ticketPdf(user.id, user.email, id);
     response.setHeader("Content-Type", "application/pdf");
     response.setHeader("Content-Disposition", `attachment; filename="eventhub-ticket-${id}.pdf"`);
     return new StreamableFile(buffer);
@@ -33,11 +33,11 @@ export class BuyerController {
 
   @Get("tickets/:id/google-wallet")
   googleWallet(@CurrentUser() user: RequestUser, @Param("id") id: string) {
-    return this.buyer.walletPayload(user.email, id, "google");
+    return this.buyer.walletPayload(user.id, user.email, id, "google");
   }
 
   @Get("tickets/:id/apple-wallet")
   appleWallet(@CurrentUser() user: RequestUser, @Param("id") id: string) {
-    return this.buyer.walletPayload(user.email, id, "apple");
+    return this.buyer.walletPayload(user.id, user.email, id, "apple");
   }
 }

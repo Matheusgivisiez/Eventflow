@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Ticket, UserCog } from "lucide-react";
+import { History, Inbox, Ticket, UserCog } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuthStore } from "@/stores/auth-store";
 
@@ -12,6 +12,8 @@ export default function ProfileLayout({ children }: { children: React.ReactNode 
 
   const tabs = [
     { href: "/me/ingressos", icon: Ticket, label: "Meus Ingressos" },
+    { href: "/me/recebidos", icon: Inbox, label: "Recebidos" },
+    { href: "/me/historico", icon: History, label: "Historico" },
     { href: "/me/conta", icon: UserCog, label: "Minha Conta" },
   ];
 

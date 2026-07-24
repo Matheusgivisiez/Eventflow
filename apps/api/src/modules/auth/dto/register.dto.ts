@@ -16,7 +16,11 @@ export class RegisterDto {
   @IsString()
   companyName?: string;
 
-  @IsOptional()
   @IsString()
-  phone?: string;
+  @IsNotEmpty()
+  phone!: string;
+
+  @IsString()
+  @IsNotEmpty()
+  cpf!: string;
 }

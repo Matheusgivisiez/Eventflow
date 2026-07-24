@@ -56,6 +56,7 @@ export class WebhooksController {
   private readonly stripeSecret: string;
   private readonly mpSecret: string;
   private readonly asaasSecret: string;
+  private readonly abacatePaySecret: string;
 
   constructor(
     private readonly webhooks: WebhooksService,
@@ -64,6 +65,7 @@ export class WebhooksController {
     this.stripeSecret = config.get<string>("STRIPE_WEBHOOK_SECRET") ?? "";
     this.mpSecret = config.get<string>("MERCADO_PAGO_WEBHOOK_SECRET") ?? "";
     this.asaasSecret = config.get<string>("ASAAS_WEBHOOK_SECRET") ?? "";
+    this.abacatePaySecret = config.get<string>("ABACATEPAY_WEBHOOK_SECRET") ?? "";
   }
 
   @Post("mercado-pago")
@@ -101,5 +103,16 @@ export class WebhooksController {
       throw new UnauthorizedException("Assinatura do webhook invalida.");
     }
     return this.webhooks.handle("asaas", body);
+  }
+
+  @Post("abacate-pay")
+  abacatePay(
+    @Body() body: Record<string, unknown>,
+    @Headers("x-webhook-secret") xSecret?: string
+  ) {
+    if (this.abacatePaySecret && xSecret !== this.abacatePaySecret) {
+      throw new UnauthorizedException("Assinatura do webhook invalida.");
+    }
+    return this.webhooks.handle("abacate_pay", body);
   }
 }
