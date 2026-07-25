@@ -9,6 +9,7 @@ import { ForgotPasswordDto } from "./dto/forgot-password.dto";
 import { LoginDto } from "./dto/login.dto";
 import { RefreshTokenDto } from "./dto/refresh-token.dto";
 import { RegisterDto } from "./dto/register.dto";
+import { RegisterOrganizerDto } from "./dto/register-organizer.dto";
 import { ResetPasswordDto } from "./dto/reset-password.dto";
 
 @ApiTags("Autenticacao")
@@ -20,6 +21,12 @@ export class AuthController {
   @Throttle({ default: { limit: 5, ttl: 60000 } })
   register(@Body() dto: RegisterDto) {
     return this.auth.register(dto);
+  }
+
+  @Post("register-organizer")
+  @Throttle({ default: { limit: 5, ttl: 60000 } })
+  registerOrganizer(@Body() dto: RegisterOrganizerDto) {
+    return this.auth.registerOrganizer(dto);
   }
 
   @Post("login")

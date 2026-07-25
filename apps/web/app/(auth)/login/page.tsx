@@ -125,6 +125,12 @@ export default function LoginPage() {
           Criar conta grátis
         </Link>
       </p>
+      <p className="mt-2 text-center text-sm text-muted-foreground">
+        É produtor de eventos?{" "}
+        <Link href="/organizador/register" className="font-semibold text-primary hover:underline">
+          Criar conta de organizador
+        </Link>
+      </p>
     </div>
   );
 }

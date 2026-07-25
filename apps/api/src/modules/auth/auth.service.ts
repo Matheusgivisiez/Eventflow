@@ -9,6 +9,7 @@ import { ForgotPasswordDto } from "./dto/forgot-password.dto";
 import { LoginDto } from "./dto/login.dto";
 import { RefreshTokenDto } from "./dto/refresh-token.dto";
 import { RegisterDto } from "./dto/register.dto";
+import { RegisterOrganizerDto } from "./dto/register-organizer.dto";
 import { ResetPasswordDto } from "./dto/reset-password.dto";
 
 @Injectable()
@@ -56,6 +57,46 @@ export class AuthService {
         cpf: dto.cpf,
         role: UserRole.CUSTOMER
       }
+    });
+
+    return this.issueSession(user);
+  }
+
+  async registerOrganizer(dto: RegisterOrganizerDto) {
+    const emailExists = await this.prisma.user.findUnique({ where: { email: dto.email.toLowerCase() } });
+    if (emailExists) {
+      throw new ConflictException("Ja existe uma conta com este e-mail.");
+    }
+
+    const cnpjClean = dto.cnpj.replace(/\D/g, "");
+    const cnpjExists = await this.prisma.tenant.findFirst({ where: { document: cnpjClean } });
+    if (cnpjExists) {
+      throw new ConflictException("Ja existe uma empresa cadastrada com este CNPJ.");
+    }
+
+    const passwordHash = await bcrypt.hash(dto.password, 12);
+
+    const user = await this.prisma.$transaction(async (tx) => {
+      const tenant = await tx.tenant.create({
+        data: {
+          name: dto.companyName,
+          document: cnpjClean,
+          city: dto.city,
+          state: dto.state.toUpperCase(),
+          website: dto.website?.trim() || null,
+          instagram: dto.instagram?.trim().replace(/^@/, "") || null,
+        }
+      });
+      return tx.user.create({
+        data: {
+          tenantId: tenant.id,
+          name: dto.name,
+          email: dto.email.toLowerCase(),
+          passwordHash,
+          phone: dto.phone,
+          role: UserRole.ORGANIZER
+        }
+      });
     });
 
     return this.issueSession(user);

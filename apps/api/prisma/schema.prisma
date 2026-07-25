@@ -189,6 +189,10 @@ model Tenant {
   legalName    String?
   document     String?
   logoUrl      String?
+  city         String?
+  state        String?
+  website      String?
+  instagram    String?
   createdAt    DateTime       @default(now())
   updatedAt    DateTime       @updatedAt
   users        User[]
