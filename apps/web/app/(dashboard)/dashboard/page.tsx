@@ -120,6 +120,15 @@ export default function DashboardPage() {
     refetchInterval: 60_000
   });
 
+  // Memoized: these values only change when `data` itself changes
+  const netRevenue = useMemo(() => (data?.totalRevenueCents ?? 0) - (data?.totalFeesCents ?? 0), [data]);
+  const checkInRate = useMemo(() => data?.ticketsSold ? Math.round(((data.checkIns ?? 0) / data.ticketsSold) * 100) : 0, [data]);
+  const chartData = useMemo(() => (data?.revenueByMonth ?? []).slice(-6).map((item) => ({
+    month: item.month.slice(5),
+    totalCents: item.totalCents
+  })), [data]);
+  const barColors = ["#5b3dff", "#a855f7", "#ec4899", "#6366f1", "#8b5cf6"];
+
   if (isLoading) return <DashboardSkeleton />;
   if (error) {
     return (
@@ -129,15 +138,6 @@ export default function DashboardPage() {
       </div>
     );
   }
-
-  // Memoized: these values only change when `data` itself changes
-  const netRevenue = useMemo(() => (data?.totalRevenueCents ?? 0) - (data?.totalFeesCents ?? 0), [data]);
-  const checkInRate = useMemo(() => data?.ticketsSold ? Math.round(((data.checkIns ?? 0) / data.ticketsSold) * 100) : 0, [data]);
-  const chartData = useMemo(() => (data?.revenueByMonth ?? []).slice(-6).map((item) => ({
-    month: item.month.slice(5),
-    totalCents: item.totalCents
-  })), [data]);
-  const barColors = ["#5b3dff", "#a855f7", "#ec4899", "#6366f1", "#8b5cf6"];
 
   return (
     <div className="space-y-6">

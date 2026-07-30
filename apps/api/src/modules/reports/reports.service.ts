@@ -53,16 +53,22 @@ export class ReportsService {
       })
     ]);
 
+    let revenueCents = 0;
+    let discountsCents = 0;
+    let feesCents = 0;
     const revenueByPeriod = orders.reduce<Record<string, number>>((acc, order) => {
       const key = order.createdAt.toISOString().slice(0, 10);
+      revenueCents += order.totalCents;
+      discountsCents += order.discountCents;
+      feesCents += order.feeCents;
       acc[key] = (acc[key] ?? 0) + order.totalCents;
       return acc;
     }, {});
     const visitorsEstimate = orders.length + Math.max(25, Math.round(orders.length * 1.8));
     const report = {
-      revenueCents: orders.reduce((sum, order) => sum + order.totalCents, 0),
-      discountsCents: orders.reduce((sum, order) => sum + order.discountCents, 0),
-      feesCents: orders.reduce((sum, order) => sum + order.feeCents, 0),
+      revenueCents,
+      discountsCents,
+      feesCents,
       paidOrders: orders.length,
       ticketsSold: tickets,
       checkIns,

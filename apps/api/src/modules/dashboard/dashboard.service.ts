@@ -143,6 +143,9 @@ export class DashboardService {
       })
     ]);
 
+    const revenueByEvent = new Map(topEventsRevenue.map((item) => [item.eventId, item._sum.totalCents ?? 0]));
+    const checkInsByEvent = new Map(topEventsCheckIns.map((item) => [item.eventId, item._count]));
+
     // Build revenue by month chart data
     const revenueByMonth = monthly.reduce<Record<string, number>>((acc, order) => {
       const key = order.createdAt.toISOString().slice(0, 7);
@@ -162,8 +165,8 @@ export class DashboardService {
     // Top events sorted by total revenue
     const topEventsSorted = topEvents
       .map((ev) => {
-        const revenue = topEventsRevenue.find(r => r.eventId === ev.id)?._sum.totalCents ?? 0;
-        const checkInsCount = topEventsCheckIns.find(c => c.eventId === ev.id)?._count ?? 0;
+        const revenue = revenueByEvent.get(ev.id) ?? 0;
+        const checkInsCount = checkInsByEvent.get(ev.id) ?? 0;
         return {
           id: ev.id,
           title: ev.title,
@@ -209,7 +212,7 @@ export class DashboardService {
       topEvents: topEventsSorted,
       upcomingEvents,
       participantsByEvent: participantsByEvent.map((event) => {
-        const usedCount = topEventsCheckIns.find(c => c.eventId === event.id)?._count ?? 0;
+        const usedCount = checkInsByEvent.get(event.id) ?? 0;
         return {
           eventId: event.id,
           title: event.title,

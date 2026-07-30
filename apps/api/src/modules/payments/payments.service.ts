@@ -16,11 +16,15 @@ const VALID_TRANSITIONS: Record<PaymentStatus, PaymentStatus[]> = {
 
 @Injectable()
 export class PaymentsService {
+  private readonly qrCodeSecret: string;
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly abacatePay: AbacatePayGateway,
     private readonly config: ConfigService
-  ) {}
+  ) {
+    this.qrCodeSecret = this.config.get<string>("QR_CODE_SECRET") ?? "change-me-qrcode-secret";
+  }
 
   list(tenantId: string, query: { page?: string; perPage?: string; status?: PaymentStatus }) {
     const page = Number(query.page ?? 1);
@@ -120,19 +124,18 @@ export class PaymentsService {
       return;
     }
 
-    for (const item of order.items) {
-      for (let index = 0; index < item.quantity; index += 1) {
-        const uuid = randomUUID();
-        const secret = this.config.get<string>("QR_CODE_SECRET") ?? "change-me-qrcode-secret";
-        const signature = createHmac("sha256", secret).update(`${uuid}:${order.id}`).digest("hex");
-        // We hash uuid to prevent direct lookup attacks if db is leaked
-        const hash = createHash("sha256").update(uuid).digest("hex");
-        
-        const payload = JSON.stringify({ uuid, orderId: order.id, signature });
-        const qrCodeDataUrl = await QRCode.toDataURL(payload);
-        
-        await this.prisma.ticket.create({
-          data: {
+    const tickets = await Promise.all(
+      order.items.flatMap((item) =>
+        Array.from({ length: item.quantity }, async () => {
+          const uuid = randomUUID();
+          const signature = createHmac("sha256", this.qrCodeSecret).update(`${uuid}:${order.id}`).digest("hex");
+          // We hash uuid to prevent direct lookup attacks if db is leaked
+          const hash = createHash("sha256").update(uuid).digest("hex");
+
+          const payload = JSON.stringify({ uuid, orderId: order.id, signature });
+          const qrCodeDataUrl = await QRCode.toDataURL(payload);
+
+          return {
             uuid,
             hash,
             signature,
@@ -143,9 +146,13 @@ export class PaymentsService {
             attendeeName: order.buyerName,
             attendeeEmail: order.buyerEmail,
             qrCodeDataUrl
-          }
-        });
-      }
+          };
+        })
+      )
+    );
+
+    if (tickets.length > 0) {
+      await this.prisma.ticket.createMany({ data: tickets });
     }
   }
 }

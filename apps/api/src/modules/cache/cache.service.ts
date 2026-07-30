@@ -4,9 +4,13 @@ import Redis from "ioredis";
 
 @Injectable()
 export class CacheService implements OnModuleDestroy {
+  private static readonly MEMORY_CLEANUP_INTERVAL_MS = 60_000;
+  private static readonly MAX_MEMORY_ENTRIES_BEFORE_CLEANUP = 10_000;
+
   private readonly logger = new Logger(CacheService.name);
   private readonly memory = new Map<string, { value: string; expiresAt: number }>();
   private readonly redis?: Redis;
+  private lastMemoryCleanupAt = 0;
 
   constructor(config: ConfigService) {
     const url = config.get<string>("REDIS_URL");
@@ -27,6 +31,7 @@ export class CacheService implements OnModuleDestroy {
       await this.redis.set(key, serialized, "EX", ttlSeconds);
       return;
     }
+    this.pruneExpiredMemory();
     this.memory.set(key, { value: serialized, expiresAt: Date.now() + ttlSeconds * 1000 });
   }
 
@@ -46,6 +51,7 @@ export class CacheService implements OnModuleDestroy {
         }
       }
     }
+    this.pruneExpiredMemory(true);
     for (const key of this.memory.keys()) {
       if (key.includes(pattern.replace("*", ""))) {
         this.memory.delete(key);
@@ -62,6 +68,7 @@ export class CacheService implements OnModuleDestroy {
       return value;
     }
 
+    this.pruneExpiredMemory();
     const current = Number(this.getMemory(key) ?? 0) + 1;
     this.memory.set(key, { value: String(current), expiresAt: Date.now() + ttlSeconds * 1000 });
     return current;
@@ -79,5 +86,23 @@ export class CacheService implements OnModuleDestroy {
       return null;
     }
     return cached.value;
+  }
+
+  private pruneExpiredMemory(force = false) {
+    const now = Date.now();
+    if (
+      !force &&
+      this.memory.size < CacheService.MAX_MEMORY_ENTRIES_BEFORE_CLEANUP &&
+      now - this.lastMemoryCleanupAt < CacheService.MEMORY_CLEANUP_INTERVAL_MS
+    ) {
+      return;
+    }
+
+    this.lastMemoryCleanupAt = now;
+    for (const [key, cached] of this.memory.entries()) {
+      if (cached.expiresAt < now) {
+        this.memory.delete(key);
+      }
+    }
   }
 }
