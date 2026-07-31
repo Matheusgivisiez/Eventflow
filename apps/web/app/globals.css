@@ -59,36 +59,25 @@ html.light body {
 }
 
 body {
-  background:
-    radial-gradient(circle at top left, rgb(91 61 255 / 0.08), transparent 30rem),
-    linear-gradient(180deg, #ffffff 0%, #f2f2f7 100%);
+  background: hsl(var(--background));
   color: hsl(var(--foreground));
   font-family: var(--font-poppins), system-ui, sans-serif;
 }
 
 .dark body {
-  background:
-    radial-gradient(circle at 15% 5%, rgb(91 61 255 / 0.26), transparent 26rem),
-    radial-gradient(circle at 85% 0%, rgb(236 72 153 / 0.16), transparent 24rem),
-    #0d0b1a;
+  background: hsl(var(--background));
 }
 
 .brand-gradient {
-  background: linear-gradient(135deg, #5b3dff 0%, #a855f7 52%, #ec4899 100%);
+  background: hsl(var(--primary));
 }
 
 .brand-gradient-soft {
-  background:
-    radial-gradient(circle at 20% 0%, rgb(91 61 255 / 0.45), transparent 24rem),
-    radial-gradient(circle at 80% 20%, rgb(236 72 153 / 0.32), transparent 22rem),
-    linear-gradient(135deg, #0d0b1a 0%, #15102d 54%, #0d0b1a 100%);
+  background: #15102d;
 }
 
 .hero-gradient {
-  background:
-    linear-gradient(90deg, rgb(13 11 26 / 0.96), rgb(13 11 26 / 0.62)),
-    radial-gradient(circle at 70% 30%, rgb(168 85 247 / 0.72), transparent 22rem),
-    linear-gradient(135deg, #0d0b1a 0%, #5b3dff 48%, #ec4899 100%);
+  background: #1a1528;
 }
 
 .glass {
