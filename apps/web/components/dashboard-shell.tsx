@@ -168,7 +168,7 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
       </aside>
 
       {/* ─── Content ──────────────────────────────── */}
-      <div className={cn("transition-all duration-300", isCollapsed ? "lg:pl-[80px]" : "lg:pl-64")}>
+      <div className={cn("transition-all duration-300 min-h-screen flex flex-col", isCollapsed ? "lg:pl-[80px]" : "lg:pl-64")}>
         {/* Top bar */}
         <header className="sticky top-0 z-20 flex h-16 items-center justify-between border-b border-border/50 bg-white/80 dark:bg-card/80 backdrop-blur-xl px-4 shadow-sm lg:px-8">
           <div className="flex items-center gap-3 flex-1">
@@ -249,9 +249,27 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
           </div>
         </header>
 
-        <main className="mx-auto max-w-7xl px-4 py-6 lg:px-8">
+        <main className="mx-auto max-w-7xl px-4 py-6 lg:px-8 flex-grow">
           <PageAnimation>{children}</PageAnimation>
         </main>
+        
+        {/* Rodapé do Organizador */}
+        <footer className="mt-auto border-t bg-white/50 dark:bg-card/50 py-6">
+          <div className="mx-auto max-w-7xl px-4 lg:px-8 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-muted-foreground">
+            <p>© {new Date().getFullYear()} EventFlow.</p>
+            <div className="flex items-center gap-4">
+              <Link href="/politica-de-cookies" className="hover:text-primary transition-colors">
+                Política de Cookies
+              </Link>
+              <button 
+                onClick={() => window.dispatchEvent(new CustomEvent('open-cookie-settings'))}
+                className="hover:text-primary transition-colors"
+              >
+                Configurações de Cookies
+              </button>
+            </div>
+          </div>
+        </footer>
       </div>
     </div>
   );

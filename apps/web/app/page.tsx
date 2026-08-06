@@ -262,8 +262,21 @@ export default function CatalogPage() {
       {/* ─── FOOTER ─────────────────────────────────────────────── */}
       <footer className="border-t bg-white dark:bg-card py-8">
         <div className="mx-auto max-w-7xl px-4 lg:px-8 flex flex-col sm:flex-row items-center justify-between gap-4 text-sm text-muted-foreground">
-          <BrandLogo iconOnly className="h-6 w-6" />
-          <p>© {new Date().getFullYear()} EventFlow. Todos os direitos reservados.</p>
+          <div className="flex items-center gap-2">
+            <BrandLogo iconOnly className="h-6 w-6" />
+            <p>© {new Date().getFullYear()} EventFlow.</p>
+          </div>
+          <div className="flex items-center gap-4">
+            <a href="/politica-de-cookies" className="hover:text-primary transition-colors">
+              Política de Cookies
+            </a>
+            <button 
+              onClick={() => window.dispatchEvent(new CustomEvent('open-cookie-settings'))}
+              className="hover:text-primary transition-colors"
+            >
+              Configurações de Cookies
+            </button>
+          </div>
         </div>
       </footer>
     </div>

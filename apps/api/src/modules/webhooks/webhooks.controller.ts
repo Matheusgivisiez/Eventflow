@@ -73,8 +73,8 @@ export class WebhooksController {
     @Body() body: Record<string, unknown>,
     @Headers("x-signature") xSignature?: string
   ) {
-    if (this.mpSecret && !validateMercadoPagoSignature(body, xSignature, this.mpSecret)) {
-      throw new UnauthorizedException("Assinatura do webhook invalida.");
+    if (!this.mpSecret || !validateMercadoPagoSignature(body, xSignature, this.mpSecret)) {
+      throw new UnauthorizedException("Assinatura do webhook invalida ou secret nao configurado.");
     }
     return this.webhooks.handle("mercado_pago", body);
   }
@@ -85,11 +85,9 @@ export class WebhooksController {
     @Headers("stripe-signature") stripeSignature?: string,
     @Headers() headers?: Record<string, string>
   ) {
-    if (this.stripeSecret) {
-      const rawBody = headers?.["x-raw-body"] ?? JSON.stringify(body);
-      if (!validateStripeSignature(rawBody, stripeSignature, this.stripeSecret)) {
-        throw new UnauthorizedException("Assinatura do webhook invalida.");
-      }
+    const rawBody = headers?.["x-raw-body"] ?? JSON.stringify(body);
+    if (!this.stripeSecret || !validateStripeSignature(rawBody, stripeSignature, this.stripeSecret)) {
+      throw new UnauthorizedException("Assinatura do webhook invalida ou secret nao configurado.");
     }
     return this.webhooks.handle("stripe", body);
   }
@@ -99,8 +97,8 @@ export class WebhooksController {
     @Body() body: Record<string, unknown>,
     @Headers("x-signature") xSignature?: string
   ) {
-    if (this.asaasSecret && !validateAsaasSignature(body, xSignature, this.asaasSecret)) {
-      throw new UnauthorizedException("Assinatura do webhook invalida.");
+    if (!this.asaasSecret || !validateAsaasSignature(body, xSignature, this.asaasSecret)) {
+      throw new UnauthorizedException("Assinatura do webhook invalida ou secret nao configurado.");
     }
     return this.webhooks.handle("asaas", body);
   }
@@ -110,8 +108,8 @@ export class WebhooksController {
     @Body() body: Record<string, unknown>,
     @Headers("x-webhook-secret") xSecret?: string
   ) {
-    if (this.abacatePaySecret && xSecret !== this.abacatePaySecret) {
-      throw new UnauthorizedException("Assinatura do webhook invalida.");
+    if (!this.abacatePaySecret || xSecret !== this.abacatePaySecret) {
+      throw new UnauthorizedException("Assinatura do webhook invalida ou secret nao configurado.");
     }
     return this.webhooks.handle("abacate_pay", body);
   }

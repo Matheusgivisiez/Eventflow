@@ -1,4 +1,4 @@
-import { Body, Controller, Delete, Get, Param, Patch, Post, Query, UseGuards } from "@nestjs/common";
+import { Body, Controller, Delete, Get, Param, Patch, Post, Query, UseGuards, UseInterceptors } from "@nestjs/common";
 import { ApiBearerAuth, ApiOperation, ApiTags } from "@nestjs/swagger";
 import { EventStatus } from "@prisma/client";
 import { CurrentUser } from "../../common/decorators/current-user.decorator";
@@ -7,6 +7,7 @@ import { RequestUser } from "../../common/types/request-user";
 import { CreateEventDto } from "./dto/create-event.dto";
 import { UpdateEventDto } from "./dto/update-event.dto";
 import { EventsService } from "./events.service";
+import { CustomCacheInterceptor } from "../cache/custom-cache.interceptor";
 
 @ApiTags("Eventos")
 @Controller("events")
@@ -14,6 +15,7 @@ export class EventsController {
   constructor(private readonly events: EventsService) {}
 
   @Get("public")
+  @UseInterceptors(CustomCacheInterceptor)
   @ApiOperation({ summary: "Listar eventos públicos", description: "Retorna eventos publicados para a vitrine." })
   publicList(@Query() query: { page?: string; perPage?: string; search?: string; category?: string }) {
     return this.events.publicList(query);

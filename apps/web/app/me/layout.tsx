@@ -95,8 +95,28 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
       </header>
 
       {/* Conteúdo principal */}
-      <div className="flex-grow">
-        {children}
+      <div className="flex-grow flex flex-col">
+        <div className="flex-grow">
+          {children}
+        </div>
+        
+        {/* Rodapé da Área do Cliente */}
+        <footer className="py-6 mt-8 border-t bg-white dark:bg-card">
+          <div className="mx-auto max-w-5xl px-4 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-muted-foreground">
+            <p>© {new Date().getFullYear()} EventFlow.</p>
+            <div className="flex items-center gap-4">
+              <a href="/politica-de-cookies" className="hover:text-primary transition-colors">
+                Política de Cookies
+              </a>
+              <button 
+                onClick={() => window.dispatchEvent(new CustomEvent('open-cookie-settings'))}
+                className="hover:text-primary transition-colors"
+              >
+                Configurações de Cookies
+              </button>
+            </div>
+          </div>
+        </footer>
       </div>
 
       {/* Bottom nav — mobile */}
