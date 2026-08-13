@@ -14,7 +14,7 @@ async function bootstrap() {
     await initTelemetry();
   }
 
-  const app = await NestFactory.create<NestExpressApplication>(AppModule);
+  const app = await NestFactory.create<NestExpressApplication>(AppModule, { rawBody: true });
   const config = app.get(ConfigService);
 
   app.setGlobalPrefix("api");
@@ -23,7 +23,7 @@ async function bootstrap() {
     origin: [config.get<string>("APP_URL") ?? "http://localhost:3000"],
     credentials: true,
     methods: ["GET", "POST", "PATCH", "DELETE", "OPTIONS"],
-    allowedHeaders: ["Content-Type", "Authorization", "X-Requested-With"],
+    allowedHeaders: ["Content-Type", "Authorization", "X-Requested-With", "X-Webhook-Signature"],
     maxAge: 86400
   });
   app.use(helmet({

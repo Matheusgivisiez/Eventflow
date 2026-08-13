@@ -372,6 +372,7 @@ model Order {
   promoterLink   PromoterLink? @relation(fields: [promoterLinkId], references: [id])
   items          OrderItem[]
   payment        Payment?
+  paymentLogs    PaymentLog[]
   tickets        Ticket[]
 
   @@index([eventId, status])
@@ -390,6 +391,7 @@ model OrderItem {
   quantity      Int
   unitCents     Int
   totalCents    Int
+  seatIds       String[]   @default([])
   order         Order      @relation(fields: [orderId], references: [id], onDelete: Cascade)
   ticketType    TicketType @relation(fields: [ticketTypeId], references: [id])
 }
@@ -402,6 +404,9 @@ model Payment {
   status         PaymentStatus @default(PENDING)
   provider       String        @default("mercado_pago")
   providerRef    String?
+  checkoutId     String?
+  billId         String?
+  transactionId  String?
   qrCodePayload  String?
   cardLast4      String?
   amountCents    Int
@@ -412,9 +417,33 @@ model Payment {
   updatedAt      DateTime      @updatedAt
   order          Order         @relation(fields: [orderId], references: [id], onDelete: Cascade)
   event          Event         @relation(fields: [eventId], references: [id])
+  logs           PaymentLog[]
 
   @@index([eventId, status])
   @@index([status, createdAt])
+  @@index([provider, checkoutId])
+  @@index([provider, transactionId])
+}
+
+model PaymentLog {
+  id              String         @id @default(cuid())
+  orderId         String?
+  paymentId       String?
+  provider        String
+  providerEventId String?
+  event           String
+  status          PaymentStatus?
+  payload         Json
+  processedAt     DateTime?
+  createdAt       DateTime       @default(now())
+  order           Order?         @relation(fields: [orderId], references: [id], onDelete: SetNull)
+  payment         Payment?       @relation(fields: [paymentId], references: [id], onDelete: SetNull)
+
+  @@unique([provider, providerEventId])
+  @@index([orderId, createdAt])
+  @@index([paymentId, createdAt])
+  @@index([provider, event])
+  @@index([processedAt])
 }
 
 // ─── Tickets & Check-in ────────────────────────────────────────

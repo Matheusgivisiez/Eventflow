@@ -4,9 +4,10 @@ import { CheckoutService } from "./checkout.service";
 import { CreateCheckoutUseCase } from "./use-cases/create-checkout.use-case";
 
 import { CouponsModule } from "../coupons/coupons.module";
+import { PaymentsModule } from "../payments/payments.module";
 
 @Module({
-  imports: [CouponsModule],
+  imports: [CouponsModule, PaymentsModule],
   controllers: [CheckoutController],
   providers: [CheckoutService, CreateCheckoutUseCase],
   exports: [CheckoutService]

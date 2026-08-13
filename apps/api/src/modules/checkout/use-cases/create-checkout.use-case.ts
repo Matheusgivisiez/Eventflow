@@ -72,7 +72,8 @@ export class CreateCheckoutUseCase {
               ticketTypeId: item.ticketType.id,
               quantity: item.quantity,
               unitCents: item.ticketType.priceCents,
-              totalCents: item.totalCents
+              totalCents: item.totalCents,
+              seatIds: item.seatIds
             }))
           },
           payment: {
@@ -80,15 +81,12 @@ export class CreateCheckoutUseCase {
               eventId: event.id,
               method: dto.paymentMethod,
               amountCents: totalCents,
-              qrCodePayload: dto.paymentMethod === "PIX" ? `pix:eventhub:${event.id}:${totalCents}` : undefined
+              provider: "abacate_pay"
             }
           }
         } as any,
         include: { payment: true, items: { include: { ticketType: true } } }
       });
-
-      await this.updateTicketTypeSold(tx, items);
-      await this.updateSeats(tx, event.id, items, order.id);
 
       if (affiliateResult.affiliateLinkId && affiliateResult.affiliateCommissionBps > 0) {
         await this.createAffiliateCommission(tx, event.tenantId, affiliateResult as { affiliateLinkId: string; affiliateCommissionBps: number }, order.id, totalCents);
@@ -261,30 +259,6 @@ export class CreateCheckoutUseCase {
 
     return { subtotalCents, discountCents, feeCents, totalCents };
   }
-
-  private async updateTicketTypeSold(tx: any, items: ProcessedItem[]) {
-    for (const item of items) {
-      await tx.ticketType.update({
-        where: { id: item.ticketType.id },
-        data: { sold: { increment: item.quantity } }
-      });
-    }
-  }
-
-  private async updateSeats(tx: any, eventId: string, items: ProcessedItem[], orderId: string) {
-    for (const item of items) {
-      if (!item.seatIds.length) continue;
-      await tx.seat.updateMany({
-        where: { id: { in: item.seatIds }, status: { in: ["HELD", "RESERVED", "AVAILABLE"] } },
-        data: { status: "SOLD" }
-      });
-      await tx.seatReservation.updateMany({
-        where: { seatId: { in: item.seatIds }, eventId },
-        data: { status: "SOLD", orderId }
-      });
-    }
-  }
-
   private async createAffiliateCommission(
     tx: any,
     tenantId: string,

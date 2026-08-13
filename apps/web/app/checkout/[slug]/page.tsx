@@ -4,7 +4,7 @@ import { Suspense, useMemo, useState } from "react";
 import { useParams, useSearchParams } from "next/navigation";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { ArrowLeft, CheckCircle2, Loader2, ShieldCheck } from "lucide-react";
+import { ArrowLeft, CheckCircle2, ExternalLink, Loader2, ShieldCheck } from "lucide-react";
 import Link from "next/link";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
@@ -16,6 +16,14 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { api } from "@/lib/api";
 import { money } from "@/lib/utils";
 import type { EventHubEvent, PaymentMethod } from "@/types/eventhub";
+
+type CheckoutResponse = {
+  id: string;
+  orderId: string;
+  status: string;
+  totalCents: number;
+  checkoutUrl?: string;
+};
 
 const buyerSchema = z.object({
   buyerName: z.string().min(2, "Informe seu nome."),
@@ -62,7 +70,7 @@ function CheckoutForm() {
 
   const mutation = useMutation({
     mutationFn: (data: z.infer<typeof buyerSchema>) =>
-      api<any>(`/checkout/${slug}`, {
+      api<CheckoutResponse>(`/checkout/${slug}`, {
         method: "POST",
         body: JSON.stringify({
           ...data,
@@ -71,7 +79,12 @@ function CheckoutForm() {
             .map(([ticketTypeId, quantity]) => ({ ticketTypeId, quantity }))
         }),
         auth: false
-      })
+      }),
+    onSuccess: (data) => {
+      if (data.checkoutUrl) {
+        window.location.assign(data.checkoutUrl);
+      }
+    }
   });
 
   const subtotal = useMemo(() => {
@@ -88,12 +101,19 @@ function CheckoutForm() {
           <CardHeader>
             <CheckCircle2 className="h-10 w-10 text-primary" />
             <CardTitle>Pedido criado</CardTitle>
-            <CardDescription>Seu pagamento foi registrado como pendente. A confirmacao emitira seus QR Codes automaticamente.</CardDescription>
+            <CardDescription>Seu pagamento esta pendente. A confirmacao emitira seus QR Codes automaticamente.</CardDescription>
           </CardHeader>
           <CardContent className="space-y-3 text-sm">
-            <p>Pedido: {mutation.data.id}</p>
+            <p>Pedido: {mutation.data.orderId ?? mutation.data.id}</p>
             <p>Total: {money(mutation.data.totalCents)}</p>
-            {mutation.data.payment?.qrCodePayload && <p className="rounded-md bg-muted p-3">PIX: {mutation.data.payment.qrCodePayload}</p>}
+            {mutation.data.checkoutUrl && (
+              <Button asChild className="w-full gap-2">
+                <a href={mutation.data.checkoutUrl}>
+                  <ExternalLink className="h-4 w-4" />
+                  Abrir checkout seguro
+                </a>
+              </Button>
+            )}
           </CardContent>
         </Card>
       </main>
@@ -194,10 +214,24 @@ function CheckoutForm() {
             <Summary label="Subtotal" value={money(subtotal)} />
             <Summary label="Taxas" value={money(fee)} />
             <Summary label="Total" value={money(subtotal + fee)} strong />
-            {mutation.error && <p className="text-sm text-destructive">{mutation.error.message}</p>}
+            {mutation.error && (
+              <div className="space-y-2 rounded-md border border-destructive/30 bg-destructive/10 p-3">
+                <p className="text-sm text-destructive">{mutation.error.message}</p>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  className="w-full"
+                  disabled={mutation.isPending}
+                  onClick={form.handleSubmit((data) => mutation.mutate(data))}
+                >
+                  Tentar novamente
+                </Button>
+              </div>
+            )}
             <Button className="w-full" disabled={mutation.isPending || subtotal === 0} onClick={form.handleSubmit((data) => mutation.mutate(data))}>
               {mutation.isPending && <Loader2 className="h-4 w-4 animate-spin" />}
-              Confirmar compra
+              {mutation.isPending ? "Criando checkout..." : "Confirmar compra"}
             </Button>
           </CardContent>
         </Card>

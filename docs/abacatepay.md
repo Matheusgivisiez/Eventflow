@@ -42,7 +42,7 @@ Cliente → Eventflow → POST /payments/orders/:id/preference
                           ↓
               Cliente paga no AbacatePay
                           ↓
-              POST /webhooks/abacate-pay  ← AbacatePay notifica
+              POST /webhooks/abacatepay  ← AbacatePay notifica
                           ↓
               Ingressos gerados automaticamente
 
@@ -69,8 +69,10 @@ Admin → POST /finance/withdrawals/:id/approve + pixKey
 Edite o arquivo `.env` na raiz de `apps/api`:
 
 ```bash
-ABACATEPAY_API_KEY="sk_live_xxxxxxxxxxxxxxxxxxxx"
-ABACATEPAY_WEBHOOK_SECRET="whsec_xxxxxxxxxxxxxxxxxxxx"
+ABACATE_API_KEY="sk_live_xxxxxxxxxxxxxxxxxxxx"
+ABACATE_WEBHOOK_SECRET="webhook-secret-configurado-no-dashboard"
+ABACATE_BASE_URL="https://api.abacatepay.com/v2"
+ABACATE_ENVIRONMENT="production"
 ```
 
 > ⚠️ **Nunca commite as chaves reais.** Use um gerenciador de segredos em produção.
@@ -79,7 +81,7 @@ ABACATEPAY_WEBHOOK_SECRET="whsec_xxxxxxxxxxxxxxxxxxxx"
 
 1. Acesse [app.abacatepay.com](https://app.abacatepay.com)
 2. Vá em **Configurações → API Keys**
-3. Gere uma nova API Key e copie para `ABACATEPAY_API_KEY`
+3. Gere uma nova API Key e copie para `ABACATE_API_KEY`
 4. Para Webhooks: vá em **Configurações → Webhooks**, registre a URL e copie o `secret`
 
 ---
@@ -118,7 +120,7 @@ O cliente é redirecionado para a página do AbacatePay e paga via PIX ou Cartã
 
 ### Etapa 3 — Webhook confirma pagamento
 
-O AbacatePay envia um `POST` para `/api/webhooks/abacate-pay` quando o pagamento é confirmado.
+O AbacatePay envia um `POST` para `/api/webhooks/abacatepay?webhookSecret=<secret>` quando o pagamento é confirmado. A rota legada `/api/webhooks/abacate-pay` continua aceita por compatibilidade.
 
 ---
 
@@ -179,7 +181,7 @@ Content-Type: application/json
 Registre a seguinte URL no painel do AbacatePay:
 
 ```
-https://seu-dominio.com/api/webhooks/abacate-pay
+https://seu-dominio.com/api/webhooks/abacatepay?webhookSecret=SEU_SECRET
 ```
 
 Eventos que devem ser habilitados:
@@ -193,13 +195,9 @@ Eventos que devem ser habilitados:
 
 ### Validação de Segurança
 
-O endpoint verifica o header `x-webhook-secret`:
+O endpoint valida o `webhookSecret` na query string (tambem aceita `x-webhook-secret` por compatibilidade) e a assinatura HMAC-SHA256 no header `X-Webhook-Signature`, calculada sobre o corpo raw do webhook conforme a documentacao oficial da AbacatePay.
 
-```
-x-webhook-secret: <ABACATEPAY_WEBHOOK_SECRET>
-```
-
-Se o header estiver ausente ou incorreto, a requisição é rejeitada com `401 Unauthorized`.
+Se o secret ou a assinatura estiver ausente/incorreto, a requisicao e rejeitada com `401 Unauthorized`. Cada evento tambem e gravado em `PaymentLog` por `provider + providerEventId`, impedindo processamento duplicado em retentativas.
 
 ### Payload de exemplo (checkout.completed)
 
@@ -221,7 +219,7 @@ Se o header estiver ausente ou incorreto, a requisição é rejeitada com `401 U
 ngrok http 3001
 
 # Use a URL gerada no painel do AbacatePay:
-# https://abc123.ngrok.io/api/webhooks/abacate-pay
+# https://abc123.ngrok.io/api/webhooks/abacatepay?webhookSecret=SEU_SECRET
 ```
 
 ---
@@ -231,7 +229,7 @@ ngrok http 3001
 ```
 apps/api/src/
 ├── config/
-│   └── env.schema.ts              ← Adicionadas ABACATEPAY_API_KEY e ABACATEPAY_WEBHOOK_SECRET
+│   └── env.schema.ts              ← Adicionadas variaveis ABACATE_*
 ├── modules/
 │   ├── payments/
 │   │   ├── abacate-pay.gateway.ts ← 🆕 Gateway principal do AbacatePay
@@ -244,9 +242,9 @@ apps/api/src/
 │   │   ├── finance.module.ts      ← Importa PaymentsModule (para AbacatePayGateway)
 │   │   └── finance.service.ts     ← approveWithdrawal dispara PIX via AbacatePay
 │   └── webhooks/
-│       ├── webhooks.controller.ts ← 🆕 POST /webhooks/abacate-pay
+│       ├── webhooks.controller.ts ← 🆕 POST /webhooks/abacatepay
 │       └── webhooks.service.ts    ← Mapeamento de eventos checkout.completed, etc.
-apps/api/.env                      ← ABACATEPAY_API_KEY e ABACATEPAY_WEBHOOK_SECRET
+apps/api/.env                      ← ABACATE_API_KEY e ABACATE_WEBHOOK_SECRET
 
 apps/web/src/
 └── app/(dashboard)/admin/
@@ -261,8 +259,11 @@ apps/web/src/
 
 | Variável | Obrigatória | Descrição |
 |---|---|---|
-| `ABACATEPAY_API_KEY` | ✅ Sim | Chave de API do AbacatePay (`sk_live_...`) |
-| `ABACATEPAY_WEBHOOK_SECRET` | ✅ Sim | Secret para validar webhooks recebidos |
+| `ABACATE_API_KEY` | ✅ Sim | Chave de API do AbacatePay (`sk_live_...`). `ABACATEPAY_API_KEY` segue aceito por compatibilidade. |
+| `ABACATE_WEBHOOK_SECRET` | ✅ Sim | Secret usado na query `webhookSecret`. `ABACATEPAY_WEBHOOK_SECRET` segue aceito por compatibilidade. |
+| `ABACATE_BASE_URL` | ✅ Sim | URL base da API, padrao `https://api.abacatepay.com/v2`. |
+| `ABACATE_ENVIRONMENT` | ✅ Sim | `sandbox` ou `production`. |
+| `ABACATE_PUBLIC_KEY` | Opcional | Chave publica HMAC da AbacatePay. Se ausente, usa a chave publica documentada pela AbacatePay. |
 | `APP_URL` | ✅ Sim | URL base do frontend (usado nas `returnUrl` e `completionUrl`) |
 
 ---

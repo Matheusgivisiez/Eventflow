@@ -1,8 +1,12 @@
-import { Body, Controller, Headers, Post, UnauthorizedException } from "@nestjs/common";
+import { Body, Controller, Headers, Post, Query, RawBodyRequest, Req, UnauthorizedException } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { ApiTags } from "@nestjs/swagger";
 import { createHmac, timingSafeEqual } from "crypto";
+import { Request } from "express";
 import { WebhooksService } from "./webhooks.service";
+
+const ABACATEPAY_PUBLIC_KEY =
+  "t9dXRhHHo3yDEj5pVDYz0frf7q6bMKyMRmxxCPIPp3RCplBfXRxqlC6ZpiWmOqj4L63qEaeUOtrCI8P0VMUgo6iIga2ri9ogaHFs0WIIywSMg0q7RmBfybe1E5XJcfC4IW3alNqym0tXoAKkzvfEjZxV6bE0oG2zJrNNYmUCKZyV0KZ3JS8Votf9EAWWYdiDkMkpbMdPggfh1EqHlVkMiTady6jOR3hyzGEHrIz2Ret0xHKMbiqkr9HS1JhNHDX9";
 
 function validateStripeSignature(payload: string, signature: string | undefined, secret: string): boolean {
   if (!signature || !secret) return false;
@@ -50,6 +54,18 @@ function validateAsaasSignature(payload: Record<string, unknown>, xSignature: st
   }
 }
 
+function safeCompare(a: string, b: string): boolean {
+  const left = Buffer.from(a);
+  const right = Buffer.from(b);
+  return left.length === right.length && timingSafeEqual(left, right);
+}
+
+function validateAbacatePaySignature(rawBody: string, signature: string | undefined, publicKey: string): boolean {
+  if (!signature || !publicKey) return false;
+  const computed = createHmac("sha256", publicKey).update(Buffer.from(rawBody, "utf8")).digest("base64");
+  return safeCompare(computed, signature);
+}
+
 @ApiTags("Webhooks")
 @Controller("webhooks")
 export class WebhooksController {
@@ -57,6 +73,7 @@ export class WebhooksController {
   private readonly mpSecret: string;
   private readonly asaasSecret: string;
   private readonly abacatePaySecret: string;
+  private readonly abacatePayPublicKey: string;
 
   constructor(
     private readonly webhooks: WebhooksService,
@@ -65,7 +82,8 @@ export class WebhooksController {
     this.stripeSecret = config.get<string>("STRIPE_WEBHOOK_SECRET") ?? "";
     this.mpSecret = config.get<string>("MERCADO_PAGO_WEBHOOK_SECRET") ?? "";
     this.asaasSecret = config.get<string>("ASAAS_WEBHOOK_SECRET") ?? "";
-    this.abacatePaySecret = config.get<string>("ABACATEPAY_WEBHOOK_SECRET") ?? "";
+    this.abacatePaySecret = config.get<string>("ABACATE_WEBHOOK_SECRET") ?? config.get<string>("ABACATEPAY_WEBHOOK_SECRET") ?? "";
+    this.abacatePayPublicKey = config.get<string>("ABACATE_PUBLIC_KEY") ?? config.get<string>("ABACATEPAY_PUBLIC_KEY") ?? ABACATEPAY_PUBLIC_KEY;
   }
 
   @Post("mercado-pago")
@@ -103,14 +121,34 @@ export class WebhooksController {
     return this.webhooks.handle("asaas", body);
   }
 
-  @Post("abacate-pay")
+  @Post("abacatepay")
   abacatePay(
     @Body() body: Record<string, unknown>,
-    @Headers("x-webhook-secret") xSecret?: string
+    @Req() req: RawBodyRequest<Request>,
+    @Query("webhookSecret") webhookSecret?: string,
+    @Headers("x-webhook-secret") xSecret?: string,
+    @Headers("x-webhook-signature") xSignature?: string
   ) {
-    if (!this.abacatePaySecret || xSecret !== this.abacatePaySecret) {
+    const providedSecret = webhookSecret ?? xSecret;
+    const rawBody = req.rawBody?.toString("utf8") ?? JSON.stringify(body);
+    if (
+      !this.abacatePaySecret ||
+      providedSecret !== this.abacatePaySecret ||
+      !validateAbacatePaySignature(rawBody, xSignature, this.abacatePayPublicKey)
+    ) {
       throw new UnauthorizedException("Assinatura do webhook invalida ou secret nao configurado.");
     }
     return this.webhooks.handle("abacate_pay", body);
+  }
+
+  @Post("abacate-pay")
+  abacatePayLegacy(
+    @Body() body: Record<string, unknown>,
+    @Req() req: RawBodyRequest<Request>,
+    @Query("webhookSecret") webhookSecret?: string,
+    @Headers("x-webhook-secret") xSecret?: string,
+    @Headers("x-webhook-signature") xSignature?: string
+  ) {
+    return this.abacatePay(body, req, webhookSecret, xSecret, xSignature);
   }
 }

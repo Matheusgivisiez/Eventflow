@@ -9,7 +9,7 @@ import { AbacatePayGateway } from "./abacate-pay.gateway";
 
 const VALID_TRANSITIONS: Record<PaymentStatus, PaymentStatus[]> = {
   [PaymentStatus.PENDING]: [PaymentStatus.PAID, PaymentStatus.CANCELED],
-  [PaymentStatus.PAID]: [PaymentStatus.REFUNDED],
+  [PaymentStatus.PAID]: [PaymentStatus.REFUNDED, PaymentStatus.CANCELED],
   [PaymentStatus.CANCELED]: [],
   [PaymentStatus.REFUNDED]: []
 };
@@ -52,13 +52,20 @@ export class PaymentsService {
       buyerDocument: order.buyerDocument ?? undefined,
       buyerPhone: order.buyerPhone ?? undefined,
       description: order.event.title,
-      returnUrl: `${appUrl}/orders/${orderId}`,
-      completionUrl: `${appUrl}/orders/${orderId}/success`
+      paymentMethod: order.payment?.method ?? undefined,
+      returnUrl: `${appUrl}/me/ingressos?orderId=${orderId}`,
+      completionUrl: `${appUrl}/me/ingressos?orderId=${orderId}&status=paid`
     });
-    // Persist AbacatePay reference on the payment record
+
     await this.prisma.payment.update({
       where: { orderId },
-      data: { provider: "abacate_pay", providerRef: result.providerRef }
+      data: {
+        provider: "abacate_pay",
+        providerRef: result.providerRef,
+        checkoutId: result.checkoutId,
+        billId: result.billId,
+        transactionId: result.transactionId
+      }
     });
     return result;
   }
@@ -66,13 +73,14 @@ export class PaymentsService {
   async updateStatus(id: string, tenantId: string, dto: UpdatePaymentStatusDto) {
     const payment = await this.prisma.payment.findFirst({
       where: { id, event: { tenantId } },
-      include: { order: { include: { items: true } }, event: true }
+      include: { order: { include: { items: { include: { ticketType: true } }, tickets: true } }, event: true }
     });
     if (!payment) {
       throw new NotFoundException("Pagamento nao encontrado.");
     }
     if (payment.status === PaymentStatus.PAID && dto.status === PaymentStatus.PAID) {
-      return payment;
+      await this.ensurePaidFulfillment(payment.id, tenantId);
+      return this.prisma.payment.findUnique({ where: { id } });
     }
 
     const allowed = VALID_TRANSITIONS[payment.status] ?? [];
@@ -80,21 +88,135 @@ export class PaymentsService {
       throw new BadRequestException(`Transicao de ${payment.status} para ${dto.status} nao permitida.`);
     }
 
-    const updated = await this.prisma.payment.update({
-      where: { id },
-      data: {
-        status: dto.status,
-        providerRef: dto.providerRef ?? payment.providerRef,
-        paidAt: dto.status === PaymentStatus.PAID ? new Date() : undefined,
-        canceledAt: dto.status === PaymentStatus.CANCELED ? new Date() : undefined,
-        refundedAt: dto.status === PaymentStatus.REFUNDED ? new Date() : undefined,
-        order: { update: { status: dto.status } }
-      }
-    });
-
     if (dto.status === PaymentStatus.PAID) {
-      await this.emitTickets(payment.orderId);
-      await this.prisma.ledgerEntry.create({
+      return this.markPaid(payment.id, tenantId, dto.providerRef ?? payment.providerRef ?? undefined);
+    }
+
+    return this.markTerminal(payment.id, tenantId, dto.status, dto.providerRef ?? payment.providerRef ?? undefined);
+  }
+
+  private async markPaid(paymentId: string, tenantId: string, providerRef?: string) {
+    return this.prisma.$transaction(async (tx) => {
+      const payment = await tx.payment.findFirst({
+        where: { id: paymentId, event: { tenantId } },
+        include: { order: { include: { items: { include: { ticketType: true } }, tickets: true } }, event: true }
+      });
+      if (!payment) throw new NotFoundException("Pagamento nao encontrado.");
+
+      if (payment.status !== PaymentStatus.PAID) {
+        await tx.payment.update({
+          where: { id: paymentId },
+          data: {
+            status: PaymentStatus.PAID,
+            providerRef,
+            paidAt: new Date(),
+            order: { update: { status: PaymentStatus.PAID } }
+          }
+        });
+      }
+
+      await this.ensurePaidFulfillmentTx(tx, payment);
+
+      return tx.payment.findUnique({ where: { id: paymentId } });
+    }, { timeout: 20000 });
+  }
+
+  private async markTerminal(paymentId: string, tenantId: string, status: PaymentStatus, providerRef?: string) {
+    return this.prisma.$transaction(async (tx) => {
+      const payment = await tx.payment.findFirst({
+        where: { id: paymentId, event: { tenantId } },
+        include: { order: { include: { items: true } }, event: true }
+      });
+      if (!payment) throw new NotFoundException("Pagamento nao encontrado.");
+
+      const wasPaid = payment.status === PaymentStatus.PAID;
+      const updated = await tx.payment.update({
+        where: { id: paymentId },
+        data: {
+          status,
+          providerRef,
+          canceledAt: status === PaymentStatus.CANCELED ? new Date() : undefined,
+          refundedAt: status === PaymentStatus.REFUNDED ? new Date() : undefined,
+          order: { update: { status } }
+        }
+      });
+
+      await tx.ticket.updateMany({
+        where: { orderId: payment.orderId },
+        data: { status: TicketStatus.CANCELED }
+      });
+
+      if (wasPaid) {
+        for (const item of payment.order.items) {
+          await tx.ticketType.update({
+            where: { id: item.ticketTypeId },
+            data: { sold: { decrement: item.quantity } }
+          });
+
+          if (item.seatIds.length) {
+            await tx.seat.updateMany({
+              where: { id: { in: item.seatIds }, status: "SOLD" },
+              data: { status: "AVAILABLE" }
+            });
+            await tx.seatReservation.updateMany({
+              where: { seatId: { in: item.seatIds }, eventId: payment.eventId, orderId: payment.orderId },
+              data: { status: "AVAILABLE" }
+            });
+          }
+        }
+      }
+
+      return updated;
+    });
+  }
+
+  private async ensurePaidFulfillment(paymentId: string, tenantId: string) {
+    await this.prisma.$transaction(async (tx) => {
+      const payment = await tx.payment.findFirst({
+        where: { id: paymentId, event: { tenantId } },
+        include: { order: { include: { items: { include: { ticketType: true } }, tickets: true } }, event: true }
+      });
+      if (payment) {
+        await this.ensurePaidFulfillmentTx(tx, payment);
+      }
+    }, { timeout: 20000 });
+  }
+
+  private async ensurePaidFulfillmentTx(tx: any, payment: any) {
+    const existingTickets = await tx.ticket.count({ where: { orderId: payment.orderId } });
+
+    if (existingTickets === 0) {
+      for (const item of payment.order.items) {
+        const updatedStock = await tx.ticketType.updateMany({
+          where: {
+            id: item.ticketTypeId,
+            sold: { lte: item.ticketType.quantity - item.quantity }
+          },
+          data: { sold: { increment: item.quantity } }
+        });
+
+        if (updatedStock.count !== 1) {
+          throw new BadRequestException(`Estoque indisponivel para o lote ${item.ticketType.name}.`);
+        }
+
+        if (item.seatIds.length) {
+          await tx.seat.updateMany({
+            where: { id: { in: item.seatIds }, status: { in: ["HELD", "RESERVED", "AVAILABLE"] } },
+            data: { status: "SOLD" }
+          });
+          await tx.seatReservation.updateMany({
+            where: { seatId: { in: item.seatIds }, eventId: payment.eventId },
+            data: { status: "SOLD", orderId: payment.orderId }
+          });
+        }
+      }
+
+      await this.emitTicketsTx(tx, payment.order);
+    }
+
+    const existingLedger = await tx.ledgerEntry.findFirst({ where: { reference: payment.id } });
+    if (!existingLedger) {
+      await tx.ledgerEntry.create({
         data: {
           tenantId: payment.event.tenantId,
           description: `Venda ${payment.event.title}`,
@@ -104,32 +226,14 @@ export class PaymentsService {
         }
       });
     }
-
-    if (dto.status === PaymentStatus.CANCELED || dto.status === PaymentStatus.REFUNDED) {
-      await this.prisma.ticket.updateMany({
-        where: { orderId: payment.orderId },
-        data: { status: TicketStatus.CANCELED }
-      });
-    }
-
-    return updated;
   }
 
-  private async emitTickets(orderId: string) {
-    const order = await this.prisma.order.findUnique({
-      where: { id: orderId },
-      include: { tickets: true, items: true }
-    });
-    if (!order || order.tickets.length > 0) {
-      return;
-    }
-
+  private async emitTicketsTx(tx: any, order: any) {
     const tickets = await Promise.all(
       order.items.flatMap((item) =>
-        Array.from({ length: item.quantity }, async () => {
+        Array.from({ length: item.quantity }, async (_, index) => {
           const uuid = randomUUID();
           const signature = createHmac("sha256", this.qrCodeSecret).update(`${uuid}:${order.id}`).digest("hex");
-          // We hash uuid to prevent direct lookup attacks if db is leaked
           const hash = createHash("sha256").update(uuid).digest("hex");
 
           const payload = JSON.stringify({ uuid, orderId: order.id, signature });
@@ -145,14 +249,15 @@ export class PaymentsService {
             ownerId: order.userId,
             attendeeName: order.buyerName,
             attendeeEmail: order.buyerEmail,
-            qrCodeDataUrl
+            qrCodeDataUrl,
+            seatId: item.seatIds[index]
           };
         })
       )
     );
 
     if (tickets.length > 0) {
-      await this.prisma.ticket.createMany({ data: tickets });
+      await tx.ticket.createMany({ data: tickets });
     }
   }
 }
