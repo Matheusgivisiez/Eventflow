@@ -1,4 +1,4 @@
-import { Injectable, Logger, InternalServerErrorException } from "@nestjs/common";
+import { Injectable, Logger, InternalServerErrorException, HttpException } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 
 export type AbacateCheckoutInput = {
@@ -56,7 +56,7 @@ export class AbacatePayGateway {
       try {
         const res = await fetch(url, {
           ...init,
-          signal: AbortSignal.timeout(10000),
+          signal: AbortSignal.timeout(60000),
           headers: {
             "Content-Type": "application/json",
             Authorization: `Bearer ${this.apiKey}`,
@@ -79,6 +79,10 @@ export class AbacatePayGateway {
         this.logger.error(`AbacatePay API error [${path}]: ${msg}`);
         throw new InternalServerErrorException(`Falha no gateway de pagamento: ${msg}`);
       } catch (error) {
+        // Re-throw HTTP exceptions immediately (e.g. 4xx from AbacatePay) — do NOT retry those
+        if (error instanceof HttpException) {
+          throw error;
+        }
         lastError = error;
         if (attempt === 1) {
           this.logger.warn(`Retrying AbacatePay API call [${path}] after network error.`);
@@ -89,6 +93,31 @@ export class AbacatePayGateway {
 
     this.logger.error(`AbacatePay API unavailable [${path}]`, lastError as Error);
     throw new InternalServerErrorException("Falha temporaria no gateway de pagamento.");
+  }
+
+  /**
+   * Cria (ou retorna existente) um Customer na AbacatePay.
+   * Customers são únicos por CPF/CNPJ — taxId duplicado retorna o cliente já cadastrado.
+   */
+  private async ensureCustomer(input: AbacateCheckoutInput): Promise<string> {
+    const customerPayload: Record<string, string> = {
+      email: input.buyerEmail,
+      name: input.buyerName
+    };
+    if (input.buyerDocument?.trim()) {
+      // Remove pontuação do CPF/CNPJ antes de enviar
+      customerPayload.taxId = input.buyerDocument.replace(/\D/g, "");
+    }
+    if (input.buyerPhone?.trim()) {
+      customerPayload.cellphone = input.buyerPhone.trim();
+    }
+
+    const customer = await this.request<{ id: string }>("/customers/create", {
+      method: "POST",
+      body: JSON.stringify(customerPayload)
+    });
+
+    return customer.id;
   }
 
   /**
@@ -110,24 +139,22 @@ export class AbacatePayGateway {
 
   /**
    * Creates a hosted checkout page on AbacatePay.
+   * Flow: 1) Create/fetch Customer + Product in parallel → 2) Create Checkout with customerId
    */
   async createCheckout(input: AbacateCheckoutInput): Promise<AbacateCheckoutResult> {
+    // Execute sequentially to reduce load on the AbacatePay sandbox API
+    const customerId = await this.ensureCustomer(input);
     const productId = await this.ensureProduct(input);
 
-    // Map internal payment method to AbacatePay methods array
-    const methods = input.paymentMethod === "CREDIT_CARD" ? ["CARD"] : ["PIX"];
+    // AbacatePay currently supports only PIX on hosted checkouts
+    const methods = ["PIX"];
 
     const checkout = await this.request<{ id: string; url: string; billId?: string; transactionId?: string }>("/checkouts/create", {
       method: "POST",
       body: JSON.stringify({
         items: [{ id: productId, quantity: 1 }],
         methods,
-        customer: {
-          email: input.buyerEmail,
-          name: input.buyerName,
-          taxId: input.buyerDocument,
-          cellphone: input.buyerPhone
-        },
+        customerId,
         externalId: input.orderId,
         returnUrl: input.returnUrl,
         completionUrl: input.completionUrl,
@@ -144,7 +171,6 @@ export class AbacatePayGateway {
       checkoutUrl: checkout.url
     };
   }
-
 
   /**
    * Sends a PIX transfer to a third-party PIX key (used for organizer payouts).

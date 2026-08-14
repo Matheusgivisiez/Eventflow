@@ -30,5 +30,7 @@ export const envSchema = z.object({
   ENCRYPTION_KEY_REF: z.string().optional(),
   GOOGLE_ANALYTICS_MEASUREMENT_ID: z.string().optional(),
   META_PIXEL_ID: z.string().optional(),
-  OTEL_ENABLED: z.coerce.boolean().default(false)
+  OTEL_ENABLED: z.coerce.boolean().default(false),
+  THROTTLE_TTL: z.coerce.number().default(60000),
+  THROTTLE_LIMIT: z.coerce.number().default(120)
 });

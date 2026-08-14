@@ -36,17 +36,19 @@ export class AuthController {
   }
 
   @Post("refresh")
+  @Throttle({ auth: { limit: 15, ttl: 60000 } })
   refresh(@Body() dto: RefreshTokenDto) {
     return this.auth.refresh(dto);
   }
 
   @Post("forgot-password")
-  @Throttle({ default: { limit: 3, ttl: 60000 } })
+  @Throttle({ auth: { limit: 3, ttl: 60000 } })
   forgotPassword(@Body() dto: ForgotPasswordDto) {
     return this.auth.forgotPassword(dto);
   }
 
   @Post("reset-password")
+  @Throttle({ auth: { limit: 5, ttl: 60000 } })
   resetPassword(@Body() dto: ResetPasswordDto) {
     return this.auth.resetPassword(dto);
   }

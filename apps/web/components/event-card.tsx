@@ -26,6 +26,8 @@ export function EventCard({ event }: EventCardProps) {
             src={event.bannerUrl}
             alt={event.title}
             fill
+            sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
+            quality={80}
             className="object-cover transition-transform duration-700 ease-out group-hover:scale-110"
           />
         ) : (

@@ -1,5 +1,6 @@
 import { Body, Controller, Delete, Get, Param, Patch, Post, Query, UseGuards, UseInterceptors } from "@nestjs/common";
 import { ApiBearerAuth, ApiOperation, ApiTags } from "@nestjs/swagger";
+import { Throttle } from "@nestjs/throttler";
 import { EventStatus } from "@prisma/client";
 import { CurrentUser } from "../../common/decorators/current-user.decorator";
 import { JwtAuthGuard } from "../../common/guards/jwt-auth.guard";
@@ -39,6 +40,7 @@ export class EventsController {
   }
 
   @Post()
+  @Throttle({ sensitive: { limit: 20, ttl: 60000 } })
   @ApiBearerAuth()
   @ApiOperation({ summary: "Criar evento", description: "Cria um novo evento para o tenant autenticado." })
   @UseGuards(JwtAuthGuard)
@@ -55,6 +57,7 @@ export class EventsController {
   }
 
   @Patch(":id")
+  @Throttle({ sensitive: { limit: 20, ttl: 60000 } })
   @ApiBearerAuth()
   @ApiOperation({ summary: "Atualizar evento", description: "Atualiza os dados de um evento existente." })
   @UseGuards(JwtAuthGuard)

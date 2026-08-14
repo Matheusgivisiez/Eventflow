@@ -74,6 +74,33 @@ export class CacheService implements OnModuleDestroy {
     return current;
   }
 
+  async incrementThrottle(key: string, ttlMs: number): Promise<{ totalHits: number; timeToExpire: number }> {
+    const ttlSeconds = Math.max(1, Math.ceil(ttlMs / 1000));
+    if (this.redis?.status === "ready") {
+      const totalHits = await this.redis.incr(key);
+      if (totalHits === 1) {
+        await this.redis.expire(key, ttlSeconds);
+      }
+      const ttlSec = await this.redis.ttl(key);
+      const timeToExpire = ttlSec > 0 ? ttlSec * 1000 : ttlMs;
+      return { totalHits, timeToExpire };
+    }
+
+    this.pruneExpiredMemory();
+    const now = Date.now();
+    const cached = this.memory.get(key);
+    let totalHits = 1;
+    let expiresAt = now + ttlMs;
+
+    if (cached && cached.expiresAt > now) {
+      totalHits = Number(cached.value) + 1;
+      expiresAt = cached.expiresAt;
+    }
+
+    this.memory.set(key, { value: String(totalHits), expiresAt });
+    return { totalHits, timeToExpire: Math.max(0, expiresAt - now) };
+  }
+
   async onModuleDestroy() {
     await this.redis?.quit().catch(() => undefined);
   }

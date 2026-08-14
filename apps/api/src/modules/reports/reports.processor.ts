@@ -1,14 +1,20 @@
 import { Processor, WorkerHost } from "@nestjs/bullmq";
 import { Job } from "bullmq";
-import { Logger } from "@nestjs/common";
+import { Logger, OnModuleInit } from "@nestjs/common";
 import { ReportsService } from "./reports.service";
 
 @Processor("reports")
-export class ReportsProcessor extends WorkerHost {
+export class ReportsProcessor extends WorkerHost implements OnModuleInit {
   private readonly logger = new Logger(ReportsProcessor.name);
 
   constructor(private readonly reportsService: ReportsService) {
     super();
+  }
+
+  onModuleInit() {
+    this.worker?.on("error", (err) => {
+      this.logger.warn(`ReportsProcessor worker warning: ${err.message}`);
+    });
   }
 
   async process(job: Job<any, any, string>): Promise<any> {

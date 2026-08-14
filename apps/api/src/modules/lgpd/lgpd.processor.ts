@@ -1,14 +1,20 @@
 import { Processor, WorkerHost } from "@nestjs/bullmq";
-import { Logger } from "@nestjs/common";
+import { Logger, OnModuleInit } from "@nestjs/common";
 import { Job } from "bullmq";
 import { PrismaService } from "../../prisma/prisma.service";
 
 @Processor("lgpd")
-export class LgpdProcessor extends WorkerHost {
+export class LgpdProcessor extends WorkerHost implements OnModuleInit {
   private readonly logger = new Logger(LgpdProcessor.name);
 
   constructor(private readonly prisma: PrismaService) {
     super();
+  }
+
+  onModuleInit() {
+    this.worker?.on("error", (err) => {
+      this.logger.warn(`LgpdProcessor worker warning: ${err.message}`);
+    });
   }
 
   async process(job: Job<{ userId: string }>) {

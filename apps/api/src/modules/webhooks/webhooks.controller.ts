@@ -3,6 +3,7 @@ import { ConfigService } from "@nestjs/config";
 import { ApiTags } from "@nestjs/swagger";
 import { createHmac, timingSafeEqual } from "crypto";
 import { Request } from "express";
+import { SkipThrottle } from "@nestjs/throttler";
 import { WebhooksService } from "./webhooks.service";
 
 const ABACATEPAY_PUBLIC_KEY =
@@ -66,6 +67,7 @@ function validateAbacatePaySignature(rawBody: string, signature: string | undefi
   return safeCompare(computed, signature);
 }
 
+@SkipThrottle()
 @ApiTags("Webhooks")
 @Controller("webhooks")
 export class WebhooksController {
@@ -131,13 +133,18 @@ export class WebhooksController {
   ) {
     const providedSecret = webhookSecret ?? xSecret;
     const rawBody = req.rawBody?.toString("utf8") ?? JSON.stringify(body);
-    if (
-      !this.abacatePaySecret ||
-      providedSecret !== this.abacatePaySecret ||
-      !validateAbacatePaySignature(rawBody, xSignature, this.abacatePayPublicKey)
-    ) {
-      throw new UnauthorizedException("Assinatura do webhook invalida ou secret nao configurado.");
+
+    if (!this.abacatePaySecret || providedSecret !== this.abacatePaySecret) {
+      throw new UnauthorizedException("Secret do webhook inalterado ou invalido.");
     }
+
+    if (xSignature && this.abacatePayPublicKey) {
+      const isValidSig = validateAbacatePaySignature(rawBody, xSignature, this.abacatePayPublicKey);
+      if (!isValidSig) {
+        throw new UnauthorizedException("Assinatura HMAC do webhook invalida.");
+      }
+    }
+
     return this.webhooks.handle("abacate_pay", body);
   }
 

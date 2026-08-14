@@ -1,4 +1,4 @@
-import { Injectable } from "@nestjs/common";
+import { Injectable, Logger } from "@nestjs/common";
 import { NotificationEvent, NotificationType, Prisma } from "@prisma/client";
 import { PrismaService } from "../../prisma/prisma.service";
 
@@ -12,10 +12,14 @@ type NotifyInput = {
 
 @Injectable()
 export class NotificationsService {
+  private readonly logger = new Logger(NotificationsService.name);
+
   constructor(private readonly prisma: PrismaService) {}
 
   async send(input: NotifyInput) {
     const log = await this.prisma.notificationLog.create({ data: input });
+    this.logger.log(`[Notification Dispatch] Channel: ${input.type} | Event: ${input.event} | Recipient: ${input.recipient} | LogID: ${log.id}`);
+
     return {
       id: log.id,
       status: "QUEUED",

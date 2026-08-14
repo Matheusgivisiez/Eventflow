@@ -1,5 +1,6 @@
 import { Body, Controller, Get, Param, Patch, Post, Query, UseGuards } from "@nestjs/common";
 import { ApiBearerAuth, ApiTags } from "@nestjs/swagger";
+import { Throttle } from "@nestjs/throttler";
 import { PaymentStatus } from "@prisma/client";
 import { CurrentUser } from "../../common/decorators/current-user.decorator";
 import { JwtAuthGuard } from "../../common/guards/jwt-auth.guard";
@@ -20,11 +21,13 @@ export class PaymentsController {
   }
 
   @Post("orders/:orderId/preference")
+  @Throttle({ checkout: { limit: 30, ttl: 60000 } })
   createPreference(@Param("orderId") orderId: string) {
     return this.payments.createProviderPreference(orderId);
   }
 
   @Patch(":id/status")
+  @Throttle({ sensitive: { limit: 20, ttl: 60000 } })
   updateStatus(@CurrentUser() user: RequestUser, @Param("id") id: string, @Body() dto: UpdatePaymentStatusDto) {
     return this.payments.updateStatus(id, user.tenantId!, dto);
   }

@@ -6,8 +6,10 @@ import { CreateCheckoutUseCase } from "./use-cases/create-checkout.use-case";
 import { CouponsModule } from "../coupons/coupons.module";
 import { PaymentsModule } from "../payments/payments.module";
 
+import { PrismaModule } from "../../prisma/prisma.module";
+
 @Module({
-  imports: [CouponsModule, PaymentsModule],
+  imports: [PrismaModule, CouponsModule, PaymentsModule],
   controllers: [CheckoutController],
   providers: [CheckoutService, CreateCheckoutUseCase],
   exports: [CheckoutService]

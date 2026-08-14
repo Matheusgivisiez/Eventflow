@@ -15,7 +15,7 @@ export class FinanceService {
   async summary(tenantId: string) {
     const [credits, withdrawals, entries] = await Promise.all([
       this.prisma.ledgerEntry.aggregate({ where: { tenantId }, _sum: { amountCents: true, feeCents: true } }),
-      this.prisma.withdrawal.aggregate({ where: { tenantId, status: { in: [WithdrawalStatus.APPROVED, WithdrawalStatus.PAID] } }, _sum: { amountCents: true } }),
+      this.prisma.withdrawal.aggregate({ where: { tenantId, status: { in: [WithdrawalStatus.REQUESTED, WithdrawalStatus.APPROVED, WithdrawalStatus.PAID] } }, _sum: { amountCents: true } }),
       this.prisma.ledgerEntry.findMany({ where: { tenantId }, orderBy: { createdAt: "desc" }, take: 20 })
     ]);
     const balanceCents = (credits._sum.amountCents ?? 0) - (withdrawals._sum.amountCents ?? 0);

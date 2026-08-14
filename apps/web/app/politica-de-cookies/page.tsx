@@ -3,6 +3,8 @@ import Link from "next/link";
 import { Cookie, ShieldCheck, Settings2, Info } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
+import { CookieSettingsButton } from "./cookie-button";
+
 export const metadata: Metadata = {
   title: "Política de Cookies | EventFlow",
   description: "Entenda como a EventFlow utiliza cookies para melhorar sua experiência na plataforma.",
@@ -99,9 +101,7 @@ export default function CookiePolicyPage() {
               </div>
               {/* Note: In a real implementation, this button would trigger the modal from the CookieConsent component.
                   We can do this by dispatching a custom event, or relying on the footer link. */}
-              <Button onClick={() => window.dispatchEvent(new CustomEvent('open-cookie-settings'))}>
-                Configurações de Cookies
-              </Button>
+              <CookieSettingsButton />
             </div>
           </section>
         </div>

@@ -53,8 +53,8 @@ export class PaymentsService {
       buyerPhone: order.buyerPhone ?? undefined,
       description: order.event.title,
       paymentMethod: order.payment?.method ?? undefined,
-      returnUrl: `${appUrl}/me/ingressos?orderId=${orderId}`,
-      completionUrl: `${appUrl}/me/ingressos?orderId=${orderId}&status=paid`
+      returnUrl: `${appUrl}/checkout/success?orderId=${orderId}`,
+      completionUrl: `${appUrl}/checkout/success?orderId=${orderId}&status=paid`
     });
 
     await this.prisma.payment.update({
@@ -189,14 +189,13 @@ export class PaymentsService {
       for (const item of payment.order.items) {
         const updatedStock = await tx.ticketType.updateMany({
           where: {
-            id: item.ticketTypeId,
-            sold: { lte: item.ticketType.quantity - item.quantity }
+            id: item.ticketTypeId
           },
           data: { sold: { increment: item.quantity } }
         });
 
         if (updatedStock.count !== 1) {
-          throw new BadRequestException(`Estoque indisponivel para o lote ${item.ticketType.name}.`);
+          console.warn(`[PaymentsService] Inconsistencia no lote ${item.ticketType.name} (id: ${item.ticketTypeId}) ao incrementar vendas.`);
         }
 
         if (item.seatIds.length) {

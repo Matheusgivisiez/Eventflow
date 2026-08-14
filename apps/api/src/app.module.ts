@@ -1,12 +1,13 @@
 import { MiddlewareConsumer, Module, NestModule } from "@nestjs/common";
 import { ConfigModule, ConfigService } from "@nestjs/config";
 import { BullModule } from "@nestjs/bullmq";
-import { ThrottlerModule, ThrottlerGuard } from "@nestjs/throttler";
+import { ThrottlerModule } from "@nestjs/throttler";
 import { APP_GUARD } from "@nestjs/core";
 import { AppController } from "./app.controller";
 import { envSchema } from "./config/env.schema";
 import { RequestLoggerMiddleware } from "./common/middleware/request-logger.middleware";
 import { RateLimitMiddleware } from "./common/middleware/rate-limit.middleware";
+import { CustomThrottlerGuard } from "./common/guards/custom-throttler.guard";
 import { PrismaModule } from "./prisma/prisma.module";
 import { AuditModule } from "./modules/audit/audit.module";
 import { CacheService } from "./modules/cache/cache.service";
@@ -52,11 +53,21 @@ import { TransfersModule } from "./modules/transfers/transfers.module";
       imports: [ConfigModule, CacheModule],
       inject: [ConfigService, CacheService],
       useFactory: (config: ConfigService, cache: CacheService) => ({
-        throttlers: [{ limit: 120, ttl: 60000 }],
+        throttlers: [
+          { name: "default", limit: config.get<number>("THROTTLE_LIMIT") ?? 120, ttl: config.get<number>("THROTTLE_TTL") ?? 60000 },
+          { name: "auth", limit: 10, ttl: 60000 },
+          { name: "checkout", limit: 30, ttl: 60000 },
+          { name: "sensitive", limit: 20, ttl: 60000 }
+        ],
         storage: {
           async increment(key: string, ttl: number) {
-            const hits = await cache.increment(key, Math.ceil(ttl / 1000));
-            return { totalHits: hits, timeToExpire: ttl, isBlocked: false, timeToBlockExpire: 0 };
+            const res = await cache.incrementThrottle(key, ttl);
+            return {
+              totalHits: res.totalHits,
+              timeToExpire: res.timeToExpire,
+              isBlocked: false,
+              timeToBlockExpire: 0
+            };
           }
         }
       })
@@ -91,7 +102,7 @@ import { TransfersModule } from "./modules/transfers/transfers.module";
   ],
   controllers: [AppController],
   providers: [
-    { provide: APP_GUARD, useClass: ThrottlerGuard }
+    { provide: APP_GUARD, useClass: CustomThrottlerGuard }
   ]
 })
 export class AppModule implements NestModule {
