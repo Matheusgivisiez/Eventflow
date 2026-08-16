@@ -25,6 +25,24 @@ Atualizado em: 2026-08-16
 - `pnpm --filter @eventhub/mobile test`: 5 testes passaram. O primeiro disparo falhou por restricao de sandbox ao criar pipe IPC do `tsx`; o comando foi reexecutado fora do sandbox e passou.
 - `pnpm --filter @eventhub/mobile typecheck`: passou sem erros.
 
+## Registro de Infra Staging
+
+### 2026-08-16
+
+- Vercel configurado para a web.
+- Time Vercel: `riquelmydevs-projects`.
+- Projeto Vercel: `eventhub-web`.
+- Project ID: `prj_dw9CY4ZOjp9twqnqM1e7Gvb16rzO`.
+- Root directory: `apps/web`.
+- Framework: Next.js.
+- Install command: `pnpm install --frozen-lockfile`.
+- Build command: `pnpm --filter @eventhub/web build`.
+- Deployment ID: `dpl_5hGH3WxivgVCJVsLGoxcVRgSjnoH`.
+- URL principal: `https://eventhub-web-ten.vercel.app`.
+- URL de deployment: `https://eventhub-39jhmq8c3-riquelmydevs-projects.vercel.app`.
+- Verificacao HTTP da home: status 200.
+- Pendente: configurar `NEXT_PUBLIC_API_URL` quando a API staging estiver publicada.
+
 ## Variaveis Obrigatorias de Producao
 
 Todas as variaveis abaixo sao exigidas pelo `envSchema` quando `NODE_ENV=production`. A API falha ao iniciar se estiverem ausentes ou fracas.
