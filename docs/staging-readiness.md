@@ -108,7 +108,8 @@ Atualizado em: 2026-08-16
 - Bucket antigo removido apos rename para evitar recursos com nome legado.
 - Regra operacional: este bucket publico deve receber apenas assets publicos de eventos, como banners, logos e imagens de galeria.
 - Proibido armazenar documentos pessoais, relatorios, ingressos privados, comprovantes, QR payload completo ou qualquer dado sensivel neste bucket publico.
-- Pendente: regerar credenciais R2 S3 API para o bucket `eventflow-assets-staging`. As credenciais antigas estavam escopadas para o bucket removido e retornaram `AccessDenied` no bucket novo.
+- Credenciais R2 S3 API regeradas para o bucket `eventflow-assets-staging`.
+- Teste real R2 executado com credenciais novas: `ListObjectsV2`, `PutObject` em arquivo temporario, leitura publica via `r2.dev` com HTTP 200 e `DeleteObject` do arquivo temporario.
 - Observacao: o Wrangler nao possui comando para criar essas credenciais, e a sessao OAuth atual nao autorizou a API de tokens da Cloudflare (`Unauthorized to access requested resource`).
 - Procedimento seguro: criar a credencial em Cloudflare Dashboard > R2 > Overview > Manage API Tokens, escopo somente `eventflow-assets-staging`, copiar o Access Key ID e o Secret Access Key uma unica vez e configurar apenas como env vars da API.
 - Variaveis R2 staging esperadas na hospedagem da API: `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_S3_ENDPOINT=https://b77a3d86099773b5d2300baa91421517.r2.cloudflarestorage.com`, `AWS_REGION=auto`, `AWS_S3_FORCE_PATH_STYLE=true`, `AWS_S3_ASSETS_BUCKET=eventflow-assets-staging`, `AWS_S3_ASSETS_PUBLIC_URL=https://pub-474447a5c61b4ecaa4cc55272d5c82ff.r2.dev`.
