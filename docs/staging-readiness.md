@@ -59,6 +59,29 @@ Atualizado em: 2026-08-16
 - Pendente: provisionar `DATABASE_URL`, `REDIS_URL`, `RABBITMQ_URL`, SMTP, S3/CDN e credenciais AbacatePay sandbox.
 - Pendente: configurar env vars da API staging e executar migrations.
 
+## Registro de Banco Staging
+
+### 2026-08-16
+
+- Neon CLI autenticado localmente porque o OAuth do plugin retornou `Invalid redirect URI`.
+- Projeto Neon criado: `eventhub-staging`.
+- Project ID Neon: `royal-wildflower-24974285`.
+- Organizacao Neon: `org-falling-firefly-87758675`.
+- Regiao: `aws-us-east-1`.
+- Database: `neondb`.
+- PostgreSQL: 18.
+- Connection string nao foi registrada na documentacao por ser secret.
+- Migrations aplicadas inicialmente: 8.
+- Seed inicial falhou por drift entre `schema.prisma` e migrations (`Tenant.city` ausente no banco).
+- Criada migration `20260816213000_promoters_schema_sync` para alinhar promoters, campos de tenant/user/order e indices faltantes.
+- `pnpm --filter @eventhub/api test`: 18 suites e 137 testes passaram antes da nova migration.
+- `pnpm --filter @eventhub/api build`: Prisma generate e Nest build passaram antes da nova migration.
+- `git diff --check`: passou sem erros.
+- Migrations aplicadas apos correcao: 9.
+- Seed staging executado com dados ficticios.
+- `prisma migrate diff` contra o Neon staging retornou migration vazia, confirmando schema alinhado.
+- Pendente: configurar `DATABASE_URL` como secret na hospedagem da API.
+
 ## Variaveis Obrigatorias de Producao
 
 Todas as variaveis abaixo sao exigidas pelo `envSchema` quando `NODE_ENV=production`. A API falha ao iniciar se estiverem ausentes ou fracas.
