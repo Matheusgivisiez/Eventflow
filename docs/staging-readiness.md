@@ -95,11 +95,15 @@ Atualizado em: 2026-08-16
 - `git diff --check`: passou sem erros.
 - Wrangler CLI autenticado na conta Cloudflare.
 - Account ID Cloudflare: `b77a3d86099773b5d2300baa91421517`.
-- Tentativa de criar bucket `eventhub-assets-staging` falhou porque R2 ainda nao esta habilitado na conta Cloudflare.
-- Erro Cloudflare: `Please enable R2 through the Cloudflare Dashboard. [code: 10042]`.
-- Pendente: habilitar R2 no painel Cloudflare e repetir criacao do bucket.
+- Bucket R2 criado: `eventhub-assets-staging`.
+- Storage class: Standard.
+- Acesso publico `r2.dev` habilitado para staging.
+- URL publica R2 staging: `https://pub-da763cc1a8384db2b74c2f9d24821086.r2.dev`.
+- Bucket vazio apos criacao: 0 objetos, 0 B.
+- Regra operacional: este bucket publico deve receber apenas assets publicos de eventos, como banners, logos e imagens de galeria.
+- Proibido armazenar documentos pessoais, relatorios, ingressos privados, comprovantes, QR payload completo ou qualquer dado sensivel neste bucket publico.
 - Pendente: criar credenciais R2 S3 API com permissao Object Read & Write somente para o bucket de staging.
-- Pendente: configurar URL publica do bucket via `r2.dev` para staging ou dominio customizado para producao.
+- Pendente: usar dominio customizado em producao caso assets publicos sejam mantidos em R2.
 
 ## Variaveis Obrigatorias de Producao
 
