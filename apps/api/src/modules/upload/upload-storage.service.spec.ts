@@ -44,6 +44,8 @@ describe("UploadStorageService", () => {
   it("uploads valid assets to S3 and returns a public external URL", async () => {
     const service = new UploadStorageService(createConfig({
       NODE_ENV: "production",
+      AWS_ACCESS_KEY_ID: "test-access-key",
+      AWS_SECRET_ACCESS_KEY: "test-secret-key",
       AWS_REGION: "us-east-1",
       AWS_S3_ASSETS_BUCKET: "eventhub-assets",
       AWS_S3_ASSETS_PUBLIC_URL: "https://cdn.example.com/assets"
@@ -51,7 +53,15 @@ describe("UploadStorageService", () => {
 
     const result = await service.store(pngFile());
 
-    expect(S3Client).toHaveBeenCalledWith({ region: "us-east-1" });
+    expect(S3Client).toHaveBeenCalledWith({
+      region: "us-east-1",
+      endpoint: undefined,
+      forcePathStyle: false,
+      credentials: {
+        accessKeyId: "test-access-key",
+        secretAccessKey: "test-secret-key"
+      }
+    });
     expect(PutObjectCommand).toHaveBeenCalledWith(expect.objectContaining({
       Bucket: "eventhub-assets",
       ContentType: "image/png",
@@ -59,6 +69,31 @@ describe("UploadStorageService", () => {
     }));
     expect(result.storage).toBe("s3");
     expect(result.url).toMatch(/^https:\/\/cdn\.example\.com\/assets\/assets\/\d{4}\/\d{2}\/[a-f0-9]{32}\.png$/);
+  });
+
+  it("supports Cloudflare R2 S3-compatible endpoints", async () => {
+    const service = new UploadStorageService(createConfig({
+      NODE_ENV: "production",
+      AWS_ACCESS_KEY_ID: "r2-access-key",
+      AWS_SECRET_ACCESS_KEY: "r2-secret-key",
+      AWS_REGION: "auto",
+      AWS_S3_ENDPOINT: "https://example-account.r2.cloudflarestorage.com",
+      AWS_S3_FORCE_PATH_STYLE: true,
+      AWS_S3_ASSETS_BUCKET: "eventhub-assets-staging",
+      AWS_S3_ASSETS_PUBLIC_URL: "https://pub-example.r2.dev"
+    }) as any);
+
+    await service.store(pngFile());
+
+    expect(S3Client).toHaveBeenCalledWith({
+      region: "auto",
+      endpoint: "https://example-account.r2.cloudflarestorage.com",
+      forcePathStyle: true,
+      credentials: {
+        accessKeyId: "r2-access-key",
+        secretAccessKey: "r2-secret-key"
+      }
+    });
   });
 
   it("fails closed in production when external storage is not configured", async () => {

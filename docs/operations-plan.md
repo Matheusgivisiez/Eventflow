@@ -121,6 +121,8 @@ Configurar em staging e producao:
 - `ABACATE_API_KEY` ou `ABACATEPAY_API_KEY`
 - `ABACATE_WEBHOOK_SECRET` ou `ABACATEPAY_WEBHOOK_SECRET`
 - `ABACATE_ENVIRONMENT`
+- `AWS_ACCESS_KEY_ID`
+- `AWS_SECRET_ACCESS_KEY`
 
 Regras para secrets:
 
@@ -128,6 +130,7 @@ Regras para secrets:
 - Nunca usar `change-me-*` ou `dev-only-*` em staging/producao.
 - Nunca commitar `.env`.
 - Rotacionar secrets se forem expostos em terminal, log, print ou chat.
+- Para Cloudflare R2, configurar tambem `AWS_S3_ENDPOINT`, `AWS_REGION=auto` e `AWS_S3_FORCE_PATH_STYLE=true`.
 
 ## Gates Obrigatorios de Deploy
 

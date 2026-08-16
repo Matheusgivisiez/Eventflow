@@ -82,6 +82,25 @@ Atualizado em: 2026-08-16
 - `prisma migrate diff` contra o Neon staging retornou migration vazia, confirmando schema alinhado.
 - Pendente: configurar `DATABASE_URL` como secret na hospedagem da API.
 
+## Registro de Storage R2 Staging
+
+### 2026-08-16
+
+- API preparada para Cloudflare R2 usando interface S3-compatible.
+- Adicionadas variaveis `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_S3_ENDPOINT` e `AWS_S3_FORCE_PATH_STYLE`.
+- Para Cloudflare R2, usar `AWS_REGION=auto`, `AWS_S3_FORCE_PATH_STYLE=true` e endpoint `https://<ACCOUNT_ID>.r2.cloudflarestorage.com`.
+- `pnpm --filter @eventhub/api test -- upload-storage.service.spec.ts env.schema.spec.ts`: 2 suites e 13 testes passaram.
+- `pnpm --filter @eventhub/api test`: 18 suites e 140 testes passaram.
+- `pnpm --filter @eventhub/api build`: Prisma generate e Nest build passaram.
+- `git diff --check`: passou sem erros.
+- Wrangler CLI autenticado na conta Cloudflare.
+- Account ID Cloudflare: `b77a3d86099773b5d2300baa91421517`.
+- Tentativa de criar bucket `eventhub-assets-staging` falhou porque R2 ainda nao esta habilitado na conta Cloudflare.
+- Erro Cloudflare: `Please enable R2 through the Cloudflare Dashboard. [code: 10042]`.
+- Pendente: habilitar R2 no painel Cloudflare e repetir criacao do bucket.
+- Pendente: criar credenciais R2 S3 API com permissao Object Read & Write somente para o bucket de staging.
+- Pendente: configurar URL publica do bucket via `r2.dev` para staging ou dominio customizado para producao.
+
 ## Variaveis Obrigatorias de Producao
 
 Todas as variaveis abaixo sao exigidas pelo `envSchema` quando `NODE_ENV=production`. A API falha ao iniciar se estiverem ausentes ou fracas.
@@ -103,8 +122,12 @@ Todas as variaveis abaixo sao exigidas pelo `envSchema` quando `NODE_ENV=product
 
 ### Storage externo (uploads)
 
+- `AWS_ACCESS_KEY_ID`
+- `AWS_SECRET_ACCESS_KEY`
 - `AWS_S3_ASSETS_BUCKET`
 - `AWS_S3_ASSETS_PUBLIC_URL`
+- `AWS_S3_ENDPOINT` quando usar storage S3-compatible como Cloudflare R2
+- `AWS_S3_FORCE_PATH_STYLE=true` quando usar Cloudflare R2
 
 ### Infraestrutura
 

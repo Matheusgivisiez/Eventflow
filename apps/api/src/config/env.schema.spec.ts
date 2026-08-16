@@ -16,6 +16,8 @@ const strongMail = {
 };
 
 const strongStorage = {
+  AWS_ACCESS_KEY_ID: "storage-access-key",
+  AWS_SECRET_ACCESS_KEY: "storage-secret-key",
   AWS_S3_ASSETS_BUCKET: "eventhub-assets-prod",
   AWS_S3_ASSETS_PUBLIC_URL: "https://assets.example.com"
 };
@@ -70,6 +72,16 @@ describe("envSchema", () => {
     }))).toThrow(/AWS_S3_ASSETS_BUCKET/);
   });
 
+  it("rejects production config when S3 credentials are missing", () => {
+    expect(() => envSchema.parse(baseEnv({
+      NODE_ENV: "production",
+      ...strongSecrets,
+      ...strongMail,
+      AWS_S3_ASSETS_BUCKET: "eventhub-assets-prod",
+      AWS_S3_ASSETS_PUBLIC_URL: "https://assets.example.com"
+    }))).toThrow(/AWS_ACCESS_KEY_ID/);
+  });
+
   it("accepts strong production secrets", () => {
     const env = envSchema.parse(baseEnv({
       NODE_ENV: "production",
@@ -82,5 +94,21 @@ describe("envSchema", () => {
     expect(env.QR_CODE_SECRET).toBe(strongSecrets.QR_CODE_SECRET);
     expect(env.SMTP_FROM).toBe(strongMail.SMTP_FROM);
     expect(env.AWS_S3_ASSETS_PUBLIC_URL).toBe(strongStorage.AWS_S3_ASSETS_PUBLIC_URL);
+  });
+
+  it("accepts Cloudflare R2-compatible storage settings", () => {
+    const env = envSchema.parse(baseEnv({
+      NODE_ENV: "production",
+      ...strongSecrets,
+      ...strongMail,
+      ...strongStorage,
+      AWS_REGION: "auto",
+      AWS_S3_ENDPOINT: "https://example-account.r2.cloudflarestorage.com",
+      AWS_S3_FORCE_PATH_STYLE: "true"
+    }));
+
+    expect(env.AWS_REGION).toBe("auto");
+    expect(env.AWS_S3_ENDPOINT).toBe("https://example-account.r2.cloudflarestorage.com");
+    expect(env.AWS_S3_FORCE_PATH_STYLE).toBe(true);
   });
 });

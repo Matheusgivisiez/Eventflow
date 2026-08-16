@@ -19,7 +19,12 @@ const weakSecretValues = new Set([
 
 const secretKeys = ["JWT_ACCESS_SECRET", "JWT_REFRESH_SECRET", "JWT_RESET_SECRET", "QR_CODE_SECRET"] as const;
 const productionMailKeys = ["SMTP_HOST", "SMTP_PORT", "SMTP_USER", "SMTP_PASS", "SMTP_FROM"] as const;
-const productionAssetStorageKeys = ["AWS_S3_ASSETS_BUCKET", "AWS_S3_ASSETS_PUBLIC_URL"] as const;
+const productionAssetStorageKeys = [
+  "AWS_ACCESS_KEY_ID",
+  "AWS_SECRET_ACCESS_KEY",
+  "AWS_S3_ASSETS_BUCKET",
+  "AWS_S3_ASSETS_PUBLIC_URL"
+] as const;
 
 export const envSchema = z.object({
   NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
@@ -45,7 +50,11 @@ export const envSchema = z.object({
   ABACATEPAY_PUBLIC_KEY: z.string().optional(),
   QR_CODE_SECRET: z.string().optional(),
   RABBITMQ_URL: z.string().url().default("amqp://eventhub:eventhub@localhost:5672"),
+  AWS_ACCESS_KEY_ID: z.string().optional(),
+  AWS_SECRET_ACCESS_KEY: z.string().optional(),
   AWS_REGION: z.string().default("us-east-1"),
+  AWS_S3_ENDPOINT: z.string().url().optional(),
+  AWS_S3_FORCE_PATH_STYLE: z.coerce.boolean().default(false),
   AWS_S3_ASSETS_BUCKET: z.string().optional(),
   AWS_S3_ASSETS_PUBLIC_URL: z.string().url().optional(),
   AWS_S3_BACKUPS_BUCKET: z.string().optional(),

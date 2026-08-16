@@ -75,8 +75,15 @@ export class UploadStorageService {
 
   private s3Client() {
     if (!this.s3) {
+      const accessKeyId = this.config.get<string>("AWS_ACCESS_KEY_ID");
+      const secretAccessKey = this.config.get<string>("AWS_SECRET_ACCESS_KEY");
+      const endpoint = this.config.get<string>("AWS_S3_ENDPOINT");
+
       this.s3 = new S3Client({
-        region: this.config.get<string>("AWS_REGION") ?? "us-east-1"
+        region: this.config.get<string>("AWS_REGION") ?? "us-east-1",
+        endpoint,
+        forcePathStyle: this.config.get<boolean>("AWS_S3_FORCE_PATH_STYLE") ?? false,
+        credentials: accessKeyId && secretAccessKey ? { accessKeyId, secretAccessKey } : undefined
       });
     }
 
