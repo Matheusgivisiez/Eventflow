@@ -13,6 +13,18 @@ Atualizado em: 2026-08-16
 | `pnpm --filter @eventhub/mobile test` | 5 testes passaram |
 | `pnpm --filter @eventhub/mobile typecheck` | Sem erros de tipo |
 
+## Registro de Validacao Local
+
+### 2026-08-16
+
+- Gates locais reexecutados antes do inicio operacional de staging.
+- `git diff --check`: passou sem erros.
+- `pnpm --filter @eventhub/api test`: 18 suites e 137 testes passaram.
+- `pnpm --filter @eventhub/api build`: Prisma generate e Nest build passaram.
+- `pnpm --filter @eventhub/web build`: build Next.js passou com 34 paginas geradas.
+- `pnpm --filter @eventhub/mobile test`: 5 testes passaram. O primeiro disparo falhou por restricao de sandbox ao criar pipe IPC do `tsx`; o comando foi reexecutado fora do sandbox e passou.
+- `pnpm --filter @eventhub/mobile typecheck`: passou sem erros.
+
 ## Variaveis Obrigatorias de Producao
 
 Todas as variaveis abaixo sao exigidas pelo `envSchema` quando `NODE_ENV=production`. A API falha ao iniciar se estiverem ausentes ou fracas.
