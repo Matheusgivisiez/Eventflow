@@ -43,6 +43,22 @@ Atualizado em: 2026-08-16
 - Verificacao HTTP da home: status 200.
 - Pendente: configurar `NEXT_PUBLIC_API_URL` quando a API staging estiver publicada.
 
+## Registro de Preparacao da API Staging
+
+### 2026-08-16
+
+- API revisada para deploy em servico Node/Docker gratuito.
+- `apps/api/Dockerfile` ajustado para usar `pnpm-lock.yaml` com `pnpm install --frozen-lockfile`.
+- Healthcheck do container ajustado para respeitar `PORT`: `/api/health`.
+- `pnpm --filter @eventhub/api test`: 18 suites e 137 testes passaram.
+- `pnpm --filter @eventhub/api build`: Prisma generate e Nest build passaram.
+- `git diff --check`: passou sem erros.
+- Build Docker local nao executado porque o Docker daemon nao estava rodando.
+- Plataforma recomendada para API staging: Koyeb Free.
+- Pendente: criar/configurar conta Koyeb ou fornecer token/CLI autenticado.
+- Pendente: provisionar `DATABASE_URL`, `REDIS_URL`, `RABBITMQ_URL`, SMTP, S3/CDN e credenciais AbacatePay sandbox.
+- Pendente: configurar env vars da API staging e executar migrations.
+
 ## Variaveis Obrigatorias de Producao
 
 Todas as variaveis abaixo sao exigidas pelo `envSchema` quando `NODE_ENV=production`. A API falha ao iniciar se estiverem ausentes ou fracas.
