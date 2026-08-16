@@ -55,7 +55,9 @@ Atualizado em: 2026-08-16
 - `git diff --check`: passou sem erros.
 - Build Docker local nao executado porque o Docker daemon nao estava rodando.
 - Plataforma recomendada para API staging: Koyeb Free.
-- Pendente: criar/configurar conta Koyeb ou fornecer token/CLI autenticado.
+- Koyeb CLI instalada localmente: `5.10.2`.
+- Pendente: autenticar a Koyeb CLI com `koyeb login` no terminal local do operador. O Personal Access Token nao deve ser colado em chat, docs ou commit.
+- Pendente: criar/configurar app e service Koyeb Free para a API.
 - Pendente: provisionar `DATABASE_URL`, `REDIS_URL`, `RABBITMQ_URL`, SMTP, S3/CDN e credenciais AbacatePay sandbox.
 - Pendente: configurar env vars da API staging e executar migrations.
 
