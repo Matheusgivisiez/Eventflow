@@ -1,7 +1,10 @@
 import { Controller, Get, Header } from "@nestjs/common";
+import { BusinessMetricsService } from "./modules/observability/business-metrics.service";
 
 @Controller()
 export class AppController {
+  constructor(private readonly metricsService: BusinessMetricsService) {}
+
   @Get("health")
   health() {
     return { status: "ok", service: "eventhub-api" };
@@ -10,13 +13,6 @@ export class AppController {
   @Get("metrics")
   @Header("Content-Type", "text/plain; version=0.0.4")
   metrics() {
-    return [
-      "# HELP eventhub_api_up EventHub API availability",
-      "# TYPE eventhub_api_up gauge",
-      "eventhub_api_up 1",
-      "# HELP eventhub_enterprise_modules Enterprise modules enabled",
-      "# TYPE eventhub_enterprise_modules gauge",
-      "eventhub_enterprise_modules 12"
-    ].join("\n");
+    return this.metricsService.renderPrometheus();
   }
 }

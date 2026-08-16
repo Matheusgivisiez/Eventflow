@@ -449,7 +449,10 @@ export class TransfersService {
 
   private async generateTicketQr(orderId: string) {
     const uuid = randomUUID();
-    const secret = this.config.get<string>("QR_CODE_SECRET") ?? "change-me-qrcode-secret";
+    const secret = this.config.get<string>("QR_CODE_SECRET");
+    if (!secret) {
+      throw new Error("QR_CODE_SECRET is required.");
+    }
     const signature = createHmac("sha256", secret).update(`${uuid}:${orderId}`).digest("hex");
     const hash = createHash("sha256").update(uuid).digest("hex");
     const payload = JSON.stringify({ uuid, orderId, signature });

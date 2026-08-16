@@ -33,6 +33,14 @@ Credenciais seed:
 - Admin: admin@eventhub.local / EventHub@123
 - Organizador: organizador@eventhub.local / EventHub@123
 
+## Maturidade do produto
+
+A matriz completa esta em [docs/product-maturity.md](./docs/product-maturity.md). Resumo atual:
+
+- Pronto para validacao local/staging: autenticacao, eventos/lotes, checkout com reserva atomica, webhook de pagamento, QR/check-in e permissoes enterprise.
+- Parcial: financeiro, white-label, mobile offline, afiliados, CRM/marketing, analytics, API publica, seat maps, marketplace, seguranca operacional e observabilidade.
+- Planejado/prototipo: IA enterprise, SDK publico completo e infraestrutura multi-regiao.
+
 ## Modulos principais
 
 - Autenticacao com JWT, refresh token e recuperacao de senha.
@@ -56,6 +64,8 @@ Credenciais seed:
 - Seguranca enterprise com 2FA, LGPD, auditoria, backups e permissoes.
 - Infraestrutura para alta disponibilidade e escalabilidade horizontal.
 
+Os itens acima descrevem o escopo do produto. Para saber o que esta pronto, parcial ou planejado, consulte a matriz de maturidade.
+
 ## Documentacao tecnica
 
 A documentacao completa esta em [docs/index.md](./docs/index.md).
@@ -70,3 +80,4 @@ A documentacao completa esta em [docs/index.md](./docs/index.md).
 - [Frontend e mobile](./docs/frontend-mobile.md)
 - [Runbooks operacionais](./docs/operations-runbooks.md)
 - [Governanca tecnica](./docs/technical-governance.md)
+- [Maturidade do produto](./docs/product-maturity.md)

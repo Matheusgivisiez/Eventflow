@@ -39,21 +39,22 @@ type PublicOrderDetails = {
 function SuccessContent() {
   const searchParams = useSearchParams();
   const orderId = searchParams.get("orderId");
+  const accessToken = searchParams.get("accessToken");
 
   const { data: order, isLoading, error } = useQuery({
-    queryKey: ["public-order", orderId],
-    queryFn: () => api<PublicOrderDetails>(`/checkout/order/${orderId}`, { auth: false }),
-    enabled: Boolean(orderId),
+    queryKey: ["public-order", orderId, accessToken],
+    queryFn: () => api<PublicOrderDetails>(`/checkout/order/${orderId}?accessToken=${encodeURIComponent(accessToken ?? "")}`, { auth: false }),
+    enabled: Boolean(orderId && accessToken),
     refetchInterval: (query) => (query.state.data?.status === "PENDING" ? 4000 : false)
   });
 
-  if (!orderId) {
+  if (!orderId || !accessToken) {
     return (
       <Card className="max-w-md w-full">
         <CardHeader>
           <AlertCircle className="h-10 w-10 text-destructive" />
           <CardTitle>Pedido não informado</CardTitle>
-          <CardDescription>Não foi possível encontrar a referência do pedido.</CardDescription>
+          <CardDescription>Não foi possível validar o acesso seguro a este pedido.</CardDescription>
         </CardHeader>
         <CardContent>
           <Button asChild className="w-full">

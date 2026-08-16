@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Post, UseGuards } from "@nestjs/common";
+import { Body, Controller, Get, Param, Post, Query, UseGuards } from "@nestjs/common";
 import { ApiBearerAuth, ApiOperation, ApiTags } from "@nestjs/swagger";
 import { Throttle } from "@nestjs/throttler";
 import { CurrentUser } from "../../common/decorators/current-user.decorator";
@@ -24,7 +24,7 @@ export class CheckoutController {
   @Get("order/:orderId")
   @Throttle({ default: { limit: 60, ttl: 60000 } })
   @ApiOperation({ summary: "Consultar status público de um pedido", description: "Permite que compradores consultem o status e ingressos do seu pedido sem login." })
-  getOrderStatus(@Param("orderId") orderId: string) {
-    return this.checkout.getOrderStatus(orderId);
+  getOrderStatus(@Param("orderId") orderId: string, @Query("accessToken") accessToken?: string) {
+    return this.checkout.getOrderStatus(orderId, accessToken);
   }
 }

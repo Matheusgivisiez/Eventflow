@@ -6,8 +6,8 @@ import { Button } from "@/components/ui/button";
 import { CookieSettingsButton } from "./cookie-button";
 
 export const metadata: Metadata = {
-  title: "Política de Cookies | EventFlow",
-  description: "Entenda como a EventFlow utiliza cookies para melhorar sua experiência na plataforma.",
+  title: "Política de Cookies | EventHub",
+  description: "Entenda como a EventHub utiliza cookies para melhorar sua experiência na plataforma.",
 };
 
 export default function CookiePolicyPage() {
@@ -17,9 +17,9 @@ export default function CookiePolicyPage() {
       <header className="sticky top-0 z-30 w-full border-b bg-white/95 dark:bg-card/95 backdrop-blur shadow-sm h-16 flex items-center px-4 md:px-8">
         <Link href="/" className="font-bold text-xl flex items-center gap-2 text-primary hover:opacity-80 transition-opacity">
           <div className="h-8 w-8 rounded-lg brand-gradient flex items-center justify-center text-white">
-            EF
+            EH
           </div>
-          EventFlow
+          EventHub
         </Link>
       </header>
 
@@ -48,7 +48,7 @@ export default function CookiePolicyPage() {
 
           <section className="space-y-6">
             <h2 className="text-2xl font-semibold border-b pb-2">Como utilizamos os cookies</h2>
-            <p>A EventFlow utiliza cookies para diferentes finalidades, categorizados da seguinte forma:</p>
+            <p>A EventHub utiliza cookies para diferentes finalidades, categorizados da seguinte forma:</p>
             
             <div className="grid gap-6 md:grid-cols-3">
               <div className="bg-card border rounded-xl p-5 shadow-sm">
@@ -108,7 +108,7 @@ export default function CookiePolicyPage() {
       </main>
 
       <footer className="border-t bg-white dark:bg-card py-8 text-center text-sm text-muted-foreground">
-        <p>&copy; {new Date().getFullYear()} EventFlow. Todos os direitos reservados.</p>
+        <p>&copy; {new Date().getFullYear()} EventHub. Todos os direitos reservados.</p>
       </footer>
     </div>
   );

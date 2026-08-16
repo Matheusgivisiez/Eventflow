@@ -137,7 +137,7 @@ export default function MyTicketsPage() {
     const url = URL.createObjectURL(blob);
     const anchor = document.createElement("a");
     anchor.href = url;
-    anchor.download = `eventflow-ticket-${ticketId}.pdf`;
+    anchor.download = `eventhub-ticket-${ticketId}.pdf`;
     anchor.click();
     URL.revokeObjectURL(url);
   }

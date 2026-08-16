@@ -28,7 +28,7 @@ export default function LoginPage() {
   const form = useForm<FormData>({ resolver: zodResolver(schema), defaultValues: { email: "", password: "" } });
   const mutation = useMutation({
     mutationFn: (data: FormData) =>
-      api<{ accessToken: string; refreshToken: string; user: any }>("/auth/login", {
+      api<{ accessToken: string; user: any }>("/auth/login", {
         method: "POST",
         body: JSON.stringify(data),
         auth: false

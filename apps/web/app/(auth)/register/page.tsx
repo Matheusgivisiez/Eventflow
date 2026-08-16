@@ -29,7 +29,7 @@ export default function RegisterPage() {
   const form = useForm<FormData>({ resolver: zodResolver(schema) });
   const mutation = useMutation({
     mutationFn: (data: FormData) =>
-      api<{ accessToken: string; refreshToken: string; user: any }>("/auth/register", {
+      api<{ accessToken: string; user: any }>("/auth/register", {
         method: "POST",
         body: JSON.stringify(data),
         auth: false

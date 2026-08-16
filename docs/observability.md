@@ -11,7 +11,38 @@ Observability must answer three questions quickly: is the system healthy, which 
 - Dashboards: Grafana.
 - Central logs: Loki or equivalent.
 
-## Recommended metrics
+## Implemented metrics
+
+The API exposes Prometheus text metrics at `/api/metrics`. Current business metrics are intentionally low-cardinality and must not include email, phone, document, access token, QR payload or payment identifiers as labels.
+
+Core:
+
+- `eventhub_api_up`
+- `eventhub_enterprise_modules`
+
+Checkout:
+
+- `eventhub_checkout_created_total{method}`
+- `eventhub_checkout_inventory_conflicts_total{reason}`
+
+Payments:
+
+- `eventhub_payment_status_transitions_total{status}`
+- `eventhub_payment_tickets_emitted_total`
+
+Webhooks:
+
+- `eventhub_webhooks_received_total{provider}`
+- `eventhub_webhooks_processed_total{provider,status}`
+- `eventhub_webhooks_duplicates_total{provider}`
+- `eventhub_webhooks_unmatched_total{provider}`
+
+Check-in:
+
+- `eventhub_checkin_validations_total{status}`
+- `eventhub_checkin_signature_failures_total{reason}`
+
+## Recommended next metrics
 
 API:
 

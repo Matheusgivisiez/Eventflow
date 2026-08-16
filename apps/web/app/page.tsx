@@ -264,7 +264,7 @@ export default function CatalogPage() {
         <div className="mx-auto max-w-7xl px-4 lg:px-8 flex flex-col sm:flex-row items-center justify-between gap-4 text-sm text-muted-foreground">
           <div className="flex items-center gap-2">
             <BrandLogo iconOnly className="h-6 w-6" />
-            <p>© {new Date().getFullYear()} EventFlow.</p>
+            <p>© {new Date().getFullYear()} EventHub.</p>
           </div>
           <div className="flex items-center gap-4">
             <a href="/politica-de-cookies" className="hover:text-primary transition-colors">

@@ -1,9 +1,10 @@
-import { Injectable, NotFoundException } from "@nestjs/common";
+import { Injectable, NotFoundException, Optional } from "@nestjs/common";
 import { PaymentStatus } from "@prisma/client";
 import { AuditService } from "../audit/audit.service";
 import { NotificationsService } from "../notifications/notifications.service";
 import { PaymentsService } from "../payments/payments.service";
 import { PrismaService } from "../../prisma/prisma.service";
+import { BusinessMetricsService } from "../observability/business-metrics.service";
 
 @Injectable()
 export class WebhooksService {
@@ -11,15 +12,18 @@ export class WebhooksService {
     private readonly prisma: PrismaService,
     private readonly payments: PaymentsService,
     private readonly notifications: NotificationsService,
-    private readonly audit: AuditService
+    private readonly audit: AuditService,
+    @Optional() private readonly metrics?: BusinessMetricsService
   ) {}
 
   async handle(provider: "mercado_pago" | "stripe" | "asaas" | "abacate_pay", payload: Record<string, any>) {
+    this.metrics?.increment("eventhub_webhooks_received_total", { provider });
     const eventName = this.extractEventName(payload);
     const providerEventId = this.extractProviderEventId(payload);
     const log = await this.upsertPaymentLog(provider, providerEventId, eventName, payload);
 
     if (log?.processedAt) {
+      this.metrics?.increment("eventhub_webhooks_duplicates_total", { provider });
       return { received: true, provider, duplicate: true };
     }
 
@@ -39,6 +43,7 @@ export class WebhooksService {
       include: { event: true, order: true }
     });
     if (!payment) {
+      this.metrics?.increment("eventhub_webhooks_unmatched_total", { provider });
       throw new NotFoundException("Pagamento do webhook nao encontrado.");
     }
 
@@ -46,12 +51,14 @@ export class WebhooksService {
     if (status === payment.status) {
       await this.markPaymentLogProcessed(log?.id, payment.id, payment.orderId, status);
       await this.audit.log({ action: `webhook.${provider}`, entity: "payment", entityId: payment.id, metadata: { status, providerEventId, event: eventName, unchanged: true } });
+      this.metrics?.increment("eventhub_webhooks_processed_total", { provider, status });
       return { received: true, provider, status, payment };
     }
 
     const updated = await this.payments.updateStatus(payment.id, payment.event.tenantId, { status, providerRef });
     await this.markPaymentLogProcessed(log?.id, payment.id, payment.orderId, status);
     await this.audit.log({ action: `webhook.${provider}`, entity: "payment", entityId: payment.id, metadata: { status, providerEventId, event: eventName } });
+    this.metrics?.increment("eventhub_webhooks_processed_total", { provider, status });
 
     if (status === PaymentStatus.PAID) {
       await this.notifications.sendPurchaseApproved({

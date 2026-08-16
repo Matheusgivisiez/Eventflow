@@ -103,7 +103,7 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
         {/* Rodapé da Área do Cliente */}
         <footer className="py-6 mt-8 border-t bg-white dark:bg-card">
           <div className="mx-auto max-w-5xl px-4 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-muted-foreground">
-            <p>© {new Date().getFullYear()} EventFlow.</p>
+            <p>© {new Date().getFullYear()} EventHub.</p>
             <div className="flex items-center gap-4">
               <a href="/politica-de-cookies" className="hover:text-primary transition-colors">
                 Política de Cookies

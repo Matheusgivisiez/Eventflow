@@ -36,6 +36,7 @@ import { OrdersModule } from "./modules/orders/orders.module";
 import { PromotersModule } from "./modules/promoters/promoters.module";
 import { UploadModule } from "./modules/upload/upload.module";
 import { TransfersModule } from "./modules/transfers/transfers.module";
+import { ObservabilityModule } from "./modules/observability/observability.module";
 
 @Module({
   imports: [
@@ -73,6 +74,7 @@ import { TransfersModule } from "./modules/transfers/transfers.module";
       })
     }),
     CacheModule,
+    ObservabilityModule,
     AuditModule,
     PrismaModule,
     AuthModule,

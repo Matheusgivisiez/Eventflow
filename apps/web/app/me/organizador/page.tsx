@@ -26,7 +26,7 @@ export default function BecomeOrganizerPage() {
 
   const mutation = useMutation({
     mutationFn: (data: FormData) =>
-      api<{ accessToken: string; refreshToken: string; user: any }>("/auth/become-organizer", {
+      api<{ accessToken: string; user: any }>("/auth/become-organizer", {
         method: "POST",
         body: JSON.stringify(data)
       }),

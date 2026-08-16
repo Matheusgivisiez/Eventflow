@@ -43,7 +43,7 @@ async function main() {
   let customerId;
   try {
     const customer = await req("/customers/create", {
-      email: "teste@eventflow.com.br",
+      email: "teste@eventhub.local",
       name: "Usuario Teste",
       taxId: "12201513600",
       cellphone: "31985955542",
@@ -61,7 +61,7 @@ async function main() {
   try {
     const product = await req("/products/create", {
       externalId: testOrderId,
-      name: "Ingresso Teste - Eventflow",
+      name: "Ingresso Teste - EventHub",
       price: 19440,
       currency: "BRL",
     });

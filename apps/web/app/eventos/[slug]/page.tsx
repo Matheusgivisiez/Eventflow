@@ -34,12 +34,12 @@ export async function generateMetadata(
 
   if (!event) {
     return {
-      title: "Evento nao encontrado | EventFlow",
+      title: "Evento nao encontrado | EventHub",
       description: "O evento procurado nao existe ou nao esta mais disponivel."
     };
   }
 
-  const title = event.seoTitle || `${event.title} | EventFlow`;
+  const title = event.seoTitle || `${event.title} | EventHub`;
   const description = event.seoDescription || event.description.substring(0, 160);
 
   return {

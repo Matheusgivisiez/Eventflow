@@ -37,9 +37,15 @@ import { api } from "@/lib/api";
 import { money } from "@/lib/utils";
 
 type EnterpriseOverview = {
-  readiness: Record<string, boolean>;
+  readiness: Record<string, ReadinessEntry>;
   counters: Record<string, number>;
   scaleTargets: Record<string, string>;
+};
+
+type ReadinessEntry = {
+  status: "not_started" | "prototype" | "partial" | "production_ready";
+  label: string;
+  evidence: string;
 };
 
 type Executive = {
@@ -68,6 +74,13 @@ const modules = [
   { key: "security", label: "Seguranca", icon: ShieldCheck },
   { key: "infrastructure", label: "Infraestrutura", icon: Cloud }
 ];
+
+const readinessVariant: Record<ReadinessEntry["status"], "default" | "secondary" | "outline" | "destructive"> = {
+  production_ready: "default",
+  partial: "secondary",
+  prototype: "outline",
+  not_started: "outline"
+};
 
 export default function EnterprisePage() {
   const queryClient = useQueryClient();
@@ -128,20 +141,24 @@ export default function EnterprisePage() {
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
         {modules.map((module) => {
           const Icon = module.icon;
-          const active = overview.data?.readiness[module.key];
+          const readiness = overview.data?.readiness[module.key] ?? {
+            status: "not_started",
+            label: "Not started",
+            evidence: "Sem dados de readiness."
+          };
           return (
             <Card key={module.key}>
-              <CardContent className="flex h-20 items-center justify-between p-4">
-                <div className="flex items-center gap-3">
+              <CardContent className="flex min-h-24 items-center justify-between gap-3 p-4">
+                <div className="flex min-w-0 items-center gap-3">
                   <div className="flex h-9 w-9 items-center justify-center rounded-md bg-muted">
                     <Icon className="h-4 w-4" />
                   </div>
-                  <div>
+                  <div className="min-w-0">
                     <p className="text-sm font-medium">{module.label}</p>
-                    <p className="text-xs text-muted-foreground">{active ? "Ativo" : "Pendente"}</p>
+                    <p className="line-clamp-2 text-xs text-muted-foreground">{readiness.evidence}</p>
                   </div>
                 </div>
-                <Badge variant={active ? "default" : "secondary"}>{active ? "Ready" : "Setup"}</Badge>
+                <Badge className="shrink-0" variant={readinessVariant[readiness.status]}>{readiness.label}</Badge>
               </CardContent>
             </Card>
           );

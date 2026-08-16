@@ -18,6 +18,8 @@ This documentation is the source of truth for engineering, product operations, s
 - [Technical Governance](./technical-governance.md): engineering standards, release gates and ownership model.
 - [Public API](./public-api.md): SDK usage, auth modes and partner API guidelines.
 - [Enterprise Platform](./enterprise-platform.md): enterprise module inventory.
+- [Product Maturity](./product-maturity.md): what is production-ready, partial or planned.
+- [Project Fix Checklist](./project-fix-checklist.md): prioritized correction plan and progress tracker.
 
 ## Repository layout
 
@@ -56,6 +58,16 @@ Services:
 - Prometheus: `http://localhost:9090`
 - Grafana: `http://localhost:3002`
 - RabbitMQ management: `http://localhost:15672`
+
+## Current Product Maturity
+
+The canonical maturity matrix is [Product Maturity](./product-maturity.md). In short:
+
+- Ready for local/staging validation: auth, events, checkout stock reservation, payment webhook handling, QR/check-in and enterprise permission gates.
+- Partial: finance, white-label, mobile offline, affiliates, CRM/marketing, analytics, public API, seat maps, marketplace, security operations and observability.
+- Prototype/planned: AI automation, full public SDK and multi-region production infrastructure.
+
+The sections below describe repository capabilities and architecture foundations. They are not a production readiness claim by themselves.
 
 ## Recent enterprise upgrades
 

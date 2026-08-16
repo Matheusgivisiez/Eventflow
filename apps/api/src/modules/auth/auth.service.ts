@@ -5,6 +5,7 @@ import { User, UserRole } from "@prisma/client";
 import * as bcrypt from "bcryptjs";
 import { createHash, randomUUID } from "crypto";
 import { PrismaService } from "../../prisma/prisma.service";
+import { MailService } from "../../common/services/mail.service";
 import { ForgotPasswordDto } from "./dto/forgot-password.dto";
 import { LoginDto } from "./dto/login.dto";
 import { RefreshTokenDto } from "./dto/refresh-token.dto";
@@ -17,7 +18,8 @@ export class AuthService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly jwt: JwtService,
-    private readonly config: ConfigService
+    private readonly config: ConfigService,
+    private readonly mail: MailService
   ) {}
 
   async register(dto: RegisterDto) {
@@ -134,7 +136,7 @@ export class AuthService {
     return this.issueSession(user);
   }
 
-  async refresh(dto: RefreshTokenDto) {
+  async refresh(dto: Pick<RefreshTokenDto, "refreshToken">) {
     const tokenHash = this.hash(dto.refreshToken);
     const stored = await this.prisma.refreshToken.findFirst({
       where: {
@@ -157,6 +159,20 @@ export class AuthService {
     return this.issueSession(stored.user);
   }
 
+  async logout(refreshToken?: string) {
+    if (refreshToken) {
+      await this.prisma.refreshToken.updateMany({
+        where: {
+          tokenHash: this.hash(refreshToken),
+          revokedAt: null
+        },
+        data: { revokedAt: new Date() }
+      });
+    }
+
+    return { message: "Sessao encerrada com sucesso." };
+  }
+
   async forgotPassword(dto: ForgotPasswordDto) {
     const user = await this.prisma.user.findUnique({ where: { email: dto.email.toLowerCase() } });
     if (!user) {
@@ -172,7 +188,13 @@ export class AuthService {
       }
     });
 
-    // TODO: Enviar token por email/SMS em vez de retornar na resposta
+    await this.mail.send({
+      to: user.email,
+      subject: "Recuperacao de senha EventHub",
+      text: `Use este link para redefinir sua senha: ${this.resetPasswordUrl(token)}`,
+      html: `<p>Recebemos uma solicitacao para redefinir sua senha.</p><p><a href="${this.resetPasswordUrl(token)}">Redefinir senha</a></p><p>Este link expira em 30 minutos.</p>`
+    });
+
     return {
       message: "Se o e-mail existir, enviaremos instrucoes de recuperacao."
     };
@@ -254,5 +276,12 @@ export class AuthService {
 
   private hash(value: string) {
     return createHash("sha256").update(value).digest("hex");
+  }
+
+  private resetPasswordUrl(token: string) {
+    const appUrl = this.config.get<string>("APP_URL") ?? "http://localhost:3000";
+    const url = new URL("/reset-password", appUrl);
+    url.searchParams.set("token", token);
+    return url.toString();
   }
 }

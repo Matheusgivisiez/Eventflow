@@ -19,8 +19,19 @@ type ReportSummary = {
   checkIns: number;
   conversionRate: number;
   revenueByPeriod: { period: string; totalCents: number }[];
-  participants: any[];
+  participants: ReportParticipant[];
 };
+
+type ReportParticipant = {
+  attendeeName: string | null;
+  attendeeEmail: string | null;
+  status: string;
+  event: { title: string };
+  ticketType: { name: string; priceCents: number };
+  order: { id: string };
+};
+
+type ExportRow = Record<string, string | number | null>;
 
 @Injectable()
 export class ReportsService {
@@ -85,7 +96,7 @@ export class ReportsService {
     const report = await this.summary(tenantId, query);
     const rows =
       query.type === "participants"
-        ? report.participants.map((ticket: any) => ({
+        ? report.participants.map((ticket): ExportRow => ({
             participante: ticket.attendeeName,
             email: ticket.attendeeEmail,
             evento: ticket.event.title,
@@ -93,7 +104,7 @@ export class ReportsService {
             status: ticket.status,
             pedido: ticket.order.id
           }))
-        : report.revenueByPeriod.map((item: any) => ({
+        : report.revenueByPeriod.map((item): ExportRow => ({
             periodo: item.period,
             receita: item.totalCents,
             pedidosPagos: report.paidOrders,

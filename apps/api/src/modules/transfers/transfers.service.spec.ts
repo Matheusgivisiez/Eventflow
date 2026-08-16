@@ -34,7 +34,7 @@ function createTicket(overrides: Record<string, unknown> = {}) {
     ownerId: sender.id,
     event: {
       id: "event-1",
-      title: "EventFlow Conf",
+      title: "EventHub Conf",
       startsAt: new Date(Date.now() + 1000 * 60 * 60 * 24),
       endsAt: null
     },

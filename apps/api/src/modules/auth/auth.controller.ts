@@ -1,6 +1,7 @@
-import { Body, Controller, Get, Post, UseGuards } from "@nestjs/common";
+import { Body, Controller, Get, Post, Req, Res, UnauthorizedException, UseGuards } from "@nestjs/common";
 import { ApiBearerAuth, ApiTags } from "@nestjs/swagger";
 import { Throttle } from "@nestjs/throttler";
+import { Request, Response } from "express";
 import { CurrentUser } from "../../common/decorators/current-user.decorator";
 import { JwtAuthGuard } from "../../common/guards/jwt-auth.guard";
 import { RequestUser } from "../../common/types/request-user";
@@ -19,26 +20,41 @@ export class AuthController {
 
   @Post("register")
   @Throttle({ default: { limit: 5, ttl: 60000 } })
-  register(@Body() dto: RegisterDto) {
-    return this.auth.register(dto);
+  async register(@Body() dto: RegisterDto, @Res({ passthrough: true }) response: Response) {
+    return this.withRefreshCookie(response, await this.auth.register(dto));
   }
 
   @Post("register-organizer")
   @Throttle({ default: { limit: 5, ttl: 60000 } })
-  registerOrganizer(@Body() dto: RegisterOrganizerDto) {
-    return this.auth.registerOrganizer(dto);
+  async registerOrganizer(@Body() dto: RegisterOrganizerDto, @Res({ passthrough: true }) response: Response) {
+    return this.withRefreshCookie(response, await this.auth.registerOrganizer(dto));
   }
 
   @Post("login")
   @Throttle({ default: { limit: 10, ttl: 60000 } })
-  login(@Body() dto: LoginDto) {
-    return this.auth.login(dto);
+  async login(@Body() dto: LoginDto, @Res({ passthrough: true }) response: Response) {
+    return this.withRefreshCookie(response, await this.auth.login(dto));
   }
 
   @Post("refresh")
   @Throttle({ auth: { limit: 15, ttl: 60000 } })
-  refresh(@Body() dto: RefreshTokenDto) {
-    return this.auth.refresh(dto);
+  async refresh(
+    @Body() dto: Partial<RefreshTokenDto>,
+    @Req() request: Request,
+    @Res({ passthrough: true }) response: Response
+  ) {
+    const refreshToken = dto.refreshToken ?? this.readCookie(request, "eventhub_refresh");
+    if (!refreshToken) {
+      throw new UnauthorizedException("Refresh token invalido.");
+    }
+    return this.withRefreshCookie(response, await this.auth.refresh({ refreshToken }));
+  }
+
+  @Post("logout")
+  async logout(@Req() request: Request, @Res({ passthrough: true }) response: Response) {
+    const refreshToken = this.readCookie(request, "eventhub_refresh");
+    this.clearRefreshCookie(response);
+    return this.auth.logout(refreshToken);
   }
 
   @Post("forgot-password")
@@ -63,7 +79,52 @@ export class AuthController {
   @Post("become-organizer")
   @ApiBearerAuth()
   @UseGuards(JwtAuthGuard)
-  becomeOrganizer(@CurrentUser() user: RequestUser, @Body() body: { companyName: string }) {
-    return this.auth.becomeOrganizer(user.id, body.companyName);
+  async becomeOrganizer(
+    @CurrentUser() user: RequestUser,
+    @Body() body: { companyName: string },
+    @Res({ passthrough: true }) response: Response
+  ) {
+    return this.withRefreshCookie(response, await this.auth.becomeOrganizer(user.id, body.companyName));
+  }
+
+  private withRefreshCookie(
+    response: Response,
+    session: { accessToken: string; refreshToken: string; user: unknown }
+  ) {
+    this.setRefreshCookie(response, session.refreshToken);
+    return {
+      accessToken: session.accessToken,
+      user: session.user
+    };
+  }
+
+  private setRefreshCookie(response: Response, refreshToken: string) {
+    response.cookie("eventhub_refresh", refreshToken, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "lax",
+      path: "/api/auth",
+      maxAge: 1000 * 60 * 60 * 24 * 7
+    });
+  }
+
+  private clearRefreshCookie(response: Response) {
+    response.clearCookie("eventhub_refresh", {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "lax",
+      path: "/api/auth"
+    });
+  }
+
+  private readCookie(request: Request, name: string) {
+    const cookieHeader = request.headers.cookie;
+    if (!cookieHeader) return undefined;
+
+    const cookies = cookieHeader.split(";").map((cookie) => cookie.trim());
+    const cookie = cookies.find((value) => value.startsWith(`${name}=`));
+    if (!cookie) return undefined;
+
+    return decodeURIComponent(cookie.slice(name.length + 1));
   }
 }

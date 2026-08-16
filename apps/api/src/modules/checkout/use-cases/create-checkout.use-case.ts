@@ -1,8 +1,10 @@
-import { BadRequestException, Injectable, NotFoundException } from "@nestjs/common";
-import { EventStatus, PaymentStatus } from "@prisma/client";
+import { BadRequestException, Injectable, NotFoundException, Optional } from "@nestjs/common";
+import { EventStatus, PaymentStatus, Prisma } from "@prisma/client";
+import { randomBytes } from "crypto";
 import { CouponsService } from "../../coupons/coupons.service";
 import { PrismaService } from "../../../prisma/prisma.service";
 import { RequestUser } from "../../../common/types/request-user";
+import { BusinessMetricsService } from "../../observability/business-metrics.service";
 import type { CreateCheckoutDto } from "../dto/create-checkout.dto";
 
 const PLATFORM_FEE_RATE = 0.08;
@@ -14,11 +16,15 @@ type ProcessedItem = {
   totalCents: number;
 };
 
+type CheckoutTx = Prisma.TransactionClient;
+type CheckoutEvent = Prisma.EventGetPayload<{ include: { ticketTypes: true } }>;
+
 @Injectable()
 export class CreateCheckoutUseCase {
   constructor(
     private readonly prisma: PrismaService,
-    private readonly coupons: CouponsService
+    private readonly coupons: CouponsService,
+    @Optional() private readonly metrics?: BusinessMetricsService
   ) {}
 
   async execute(slug: string, dto: CreateCheckoutDto, user?: RequestUser) {
@@ -46,6 +52,7 @@ export class CreateCheckoutUseCase {
       const { subtotalCents, discountCents, feeCents, totalCents } = this.calculatePricing(
         items, couponResult.couponDiscount, event.feeAbsorbedByOrganizer
       );
+      await this.reserveStockTx(tx, items);
 
       const order = await tx.order.create({
         data: {
@@ -62,11 +69,13 @@ export class CreateCheckoutUseCase {
           source: dto.source,
           device: dto.device,
           campaign: dto.campaign,
+          stockReservedAt: new Date(),
           subtotalCents,
           discountCents,
           feeCents,
           totalCents,
           status: PaymentStatus.PENDING,
+          orderAccessToken: this.createOrderAccessToken(),
           items: {
             create: items.map((item) => ({
               ticketTypeId: item.ticketType.id,
@@ -84,7 +93,7 @@ export class CreateCheckoutUseCase {
               provider: "abacate_pay"
             }
           }
-        } as any,
+        },
         include: { payment: true, items: { include: { ticketType: true } } }
       });
 
@@ -99,11 +108,13 @@ export class CreateCheckoutUseCase {
         });
       }
 
+      this.metrics?.increment("eventhub_checkout_created_total", { method: dto.paymentMethod });
+
       return order;
     });
   }
 
-  private validateSalesPeriod(event: any) {
+  private validateSalesPeriod(event: CheckoutEvent) {
     const now = new Date();
     if (event.salesStartsAt && now < event.salesStartsAt) {
       throw new BadRequestException("As vendas para este evento ainda nao comecaram.");
@@ -113,7 +124,7 @@ export class CreateCheckoutUseCase {
     }
   }
 
-  private async validateCpfLimit(tx: any, event: any, dto: CreateCheckoutDto) {
+  private async validateCpfLimit(tx: CheckoutTx, event: CheckoutEvent, dto: CreateCheckoutDto) {
     if (!event.limitPerCpf || !dto.buyerDocument) return;
 
     const previousOrders = await tx.order.findMany({
@@ -136,7 +147,7 @@ export class CreateCheckoutUseCase {
     }
   }
 
-  private async processCoupon(tx: any, event: any, dto: CreateCheckoutDto) {
+  private async processCoupon(tx: CheckoutTx, event: CheckoutEvent, dto: CreateCheckoutDto) {
     let couponId: string | undefined;
     let couponDiscount = { discountPercent: 0, discountFixedCents: 0 };
 
@@ -161,7 +172,7 @@ export class CreateCheckoutUseCase {
     return { couponId, couponDiscount };
   }
 
-  private async processAffiliate(tx: any, event: any, dto: CreateCheckoutDto) {
+  private async processAffiliate(tx: CheckoutTx, event: CheckoutEvent, dto: CreateCheckoutDto) {
     let affiliateLinkId: string | undefined;
     let affiliateCommissionBps = 0;
 
@@ -182,7 +193,7 @@ export class CreateCheckoutUseCase {
     return { affiliateLinkId, affiliateCommissionBps };
   }
 
-  private async processPromoter(tx: any, event: any, dto: CreateCheckoutDto) {
+  private async processPromoter(tx: CheckoutTx, event: CheckoutEvent, dto: CreateCheckoutDto) {
     let promoterLinkId: string | undefined;
     let promoterCommissionCents = 0;
 
@@ -196,7 +207,7 @@ export class CreateCheckoutUseCase {
         // Calculate subtotal for commission logic. Simple for now.
         const totalQty = dto.items.reduce((s, i) => s + i.quantity, 0);
         const subtotal = dto.items.reduce((s, i) => {
-          const t = event.ticketTypes.find((tt: any) => tt.id === i.ticketTypeId);
+          const t = event.ticketTypes.find((tt) => tt.id === i.ticketTypeId);
           return s + (t ? t.priceCents * i.quantity : 0);
         }, 0);
 
@@ -216,11 +227,11 @@ export class CreateCheckoutUseCase {
     return { promoterLinkId, promoterCommissionCents };
   }
 
-  private validateAndPrepareItems(event: any, dto: CreateCheckoutDto, couponDiscount: { discountPercent: number; discountFixedCents: number }): ProcessedItem[] {
+  private validateAndPrepareItems(event: CheckoutEvent, dto: CreateCheckoutDto, couponDiscount: { discountPercent: number; discountFixedCents: number }): ProcessedItem[] {
     const now = new Date();
 
     return dto.items.map((item) => {
-      const ticketType = event.ticketTypes.find((t: any) => t.id === item.ticketTypeId);
+      const ticketType = event.ticketTypes.find((t) => t.id === item.ticketTypeId);
       if (!ticketType || !ticketType.isActive) {
         throw new BadRequestException("Lote de ingresso indisponivel.");
       }
@@ -246,6 +257,29 @@ export class CreateCheckoutUseCase {
     });
   }
 
+  private async reserveStockTx(tx: CheckoutTx, items: ProcessedItem[]) {
+    for (const item of items) {
+      const updated = await tx.ticketType.updateMany({
+        where: {
+          id: item.ticketType.id,
+          sold: { lte: item.ticketType.quantity - item.quantity }
+        },
+        data: {
+          sold: { increment: item.quantity }
+        }
+      });
+
+      if (updated.count !== 1) {
+        this.metrics?.increment("eventhub_checkout_inventory_conflicts_total", { reason: "insufficient_stock" });
+        throw new BadRequestException(`Nao ha ingressos suficientes para ${item.ticketType.name}.`);
+      }
+    }
+  }
+
+  private createOrderAccessToken() {
+    return randomBytes(32).toString("base64url");
+  }
+
   private calculatePricing(
     items: ProcessedItem[],
     couponDiscount: { discountPercent: number; discountFixedCents: number },
@@ -260,7 +294,7 @@ export class CreateCheckoutUseCase {
     return { subtotalCents, discountCents, feeCents, totalCents };
   }
   private async createAffiliateCommission(
-    tx: any,
+    tx: CheckoutTx,
     tenantId: string,
     affiliateResult: { affiliateLinkId: string; affiliateCommissionBps: number },
     orderId: string,

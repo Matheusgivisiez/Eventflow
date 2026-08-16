@@ -1,14 +1,16 @@
 import { useEffect, useMemo, useState } from "react";
 import {
   Alert, Pressable, SafeAreaView, ScrollView, StyleSheet,
-  Text, TextInput, View, StatusBar, Image
+  Text, TextInput, View, StatusBar, Image, Platform
 } from "react-native";
 import { BarCodeScanner } from "expo-barcode-scanner";
 import * as Application from "expo-application";
 import * as Network from "expo-network";
+import * as SecureStore from "expo-secure-store";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { initDatabase, listQueuedScans, queueScan, syncQueuedScans } from "./src/offline-checkin";
+import { DEFAULT_API_URL, MobileUser, fetchCurrentUser, loginWithPassword, normalizeApiUrl, registerMobileDevice } from "./src/mobile-auth";
 
-const API_URL = "http://localhost:3001/api";
 const ORANGE = "#F97316";
 const ORANGE_DARK = "#EA6C0A";
 const ORANGE_LIGHT = "#FFF7ED";
@@ -16,13 +18,58 @@ const GRAY_BG = "#F5F5F5";
 const DARK_TEXT = "#1C1917";
 const MID_TEXT = "#78716C";
 const BORDER = "#E7E5E4";
+const ACCESS_TOKEN_KEY = "eventhub.mobile.accessToken";
+const API_URL_KEY = "eventhub.mobile.apiUrl";
+const EVENT_ID_KEY = "eventhub.mobile.eventId";
+const DEVICE_ID_KEY = "eventhub.mobile.deviceId";
 
 // ── Tela ativa (bottom nav) ─────────────────────────────────
 type Tab = "home" | "check-in" | "sync" | "perfil";
 
+type LoginScreenProps = {
+  apiUrl: string;
+  setApiUrl: (value: string) => void;
+  email: string;
+  setEmail: (value: string) => void;
+  password: string;
+  setPassword: (value: string) => void;
+  loading: boolean;
+  onLogin: () => void;
+};
+
+type CheckInTabProps = {
+  apiUrl: string;
+  setApiUrl: (value: string) => void;
+  eventId: string;
+  setEventId: (value: string) => void;
+  deviceId: string;
+  setDeviceId: (value: string) => void;
+  queue: number;
+  online: boolean;
+  cameraAllowed: boolean;
+  scanning: boolean;
+  lastScan?: string;
+  ready: boolean;
+  onStartScan: () => void;
+  onBarCodeScanned: (event: { data: string }) => void;
+};
+
+type SyncTabProps = {
+  queue: number;
+  online: boolean;
+  ready: boolean;
+  onSync: () => void;
+};
+
 export default function App() {
   const [tab, setTab] = useState<Tab>("check-in");
+  const [apiUrl, setApiUrlState] = useState(DEFAULT_API_URL);
   const [token, setToken] = useState("");
+  const [user, setUser] = useState<MobileUser>();
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [loadingSession, setLoadingSession] = useState(true);
+  const [loginLoading, setLoginLoading] = useState(false);
   const [eventId, setEventId] = useState("");
   const [deviceId, setDeviceId] = useState("");
   const [queue, setQueue] = useState(0);
@@ -34,11 +81,40 @@ export default function App() {
   const ready = useMemo(() => Boolean(token && eventId && deviceId), [deviceId, eventId, token]);
 
   useEffect(() => {
-    void initDatabase().then(refreshQueue);
+    void bootstrap();
     void BarCodeScanner.requestPermissionsAsync().then((result) => setCameraAllowed(result.status === "granted"));
     void Network.getNetworkStateAsync().then((state) => setOnline(Boolean(state.isConnected && state.isInternetReachable !== false)));
-    setDeviceId(Application.androidId ?? Application.applicationId ?? "eventflow-mobile");
   }, []);
+
+  async function bootstrap() {
+    await initDatabase();
+    await refreshQueue();
+
+    const [storedToken, storedApiUrl, storedEventId, storedDeviceId] = await Promise.all([
+      SecureStore.getItemAsync(ACCESS_TOKEN_KEY),
+      AsyncStorage.getItem(API_URL_KEY),
+      AsyncStorage.getItem(EVENT_ID_KEY),
+      AsyncStorage.getItem(DEVICE_ID_KEY)
+    ]);
+    const normalizedApiUrl = normalizeApiUrl(storedApiUrl);
+    const resolvedDeviceId = storedDeviceId || Application.applicationId || "eventhub-mobile";
+
+    setApiUrlState(normalizedApiUrl);
+    setEventId(storedEventId ?? "");
+    setDeviceId(resolvedDeviceId);
+
+    if (storedToken) {
+      try {
+        const currentUser = await fetchCurrentUser(normalizedApiUrl, storedToken);
+        setToken(storedToken);
+        setUser(currentUser);
+      } catch {
+        await SecureStore.deleteItemAsync(ACCESS_TOKEN_KEY);
+      }
+    }
+
+    setLoadingSession(false);
+  }
 
   async function refreshQueue() {
     const queued = await listQueuedScans();
@@ -56,12 +132,93 @@ export default function App() {
 
   async function sync() {
     if (!ready) {
-      Alert.alert("Configuração incompleta", "Informe token, evento e device antes de sincronizar.");
+      Alert.alert("Configuração incompleta", "Entre na conta e informe evento/device antes de sincronizar.");
       return;
     }
-    const result = await syncQueuedScans({ apiUrl: API_URL, token, eventId, deviceId });
+    const result = await syncQueuedScans({ apiUrl: normalizeApiUrl(apiUrl), token, eventId, deviceId });
     await refreshQueue();
     Alert.alert("Sincronização concluída", `${result.acceptedScans ?? 0} entradas aceitas, ${result.conflictScans ?? 0} conflitos.`);
+  }
+
+  async function login() {
+    setLoginLoading(true);
+    try {
+      const result = await loginWithPassword(apiUrl, { email, password });
+      await registerMobileDevice(apiUrl, result.accessToken, {
+        id: deviceId,
+        platform: Platform.OS,
+        deviceName: Application.applicationName ?? "EventHub Check-in",
+        appVersion: Application.nativeApplicationVersion ?? "0.1.0"
+      });
+      await SecureStore.setItemAsync(ACCESS_TOKEN_KEY, result.accessToken);
+      await AsyncStorage.setItem(API_URL_KEY, normalizeApiUrl(apiUrl));
+      setToken(result.accessToken);
+      setUser(result.user);
+      setPassword("");
+    } catch (error) {
+      Alert.alert("Falha ao entrar", error instanceof Error ? error.message : "Confira e-mail, senha e ambiente.");
+    } finally {
+      setLoginLoading(false);
+    }
+  }
+
+  async function logout() {
+    await SecureStore.deleteItemAsync(ACCESS_TOKEN_KEY);
+    setToken("");
+    setUser(undefined);
+    setPassword("");
+    setTab("check-in");
+  }
+
+  function setApiUrl(value: string) {
+    setApiUrlState(value);
+    void AsyncStorage.setItem(API_URL_KEY, normalizeApiUrl(value));
+  }
+
+  function persistEventId(value: string) {
+    setEventId(value);
+    void AsyncStorage.setItem(EVENT_ID_KEY, value);
+  }
+
+  function persistDeviceId(value: string) {
+    setDeviceId(value);
+    void AsyncStorage.setItem(DEVICE_ID_KEY, value);
+  }
+
+  if (loadingSession) {
+    return (
+      <SafeAreaView style={styles.safe}>
+        <StatusBar backgroundColor={ORANGE} barStyle="light-content" />
+        <View style={styles.header}>
+          <Text style={styles.headerTitle}>EVENTHUB</Text>
+        </View>
+        <View style={styles.centerContent}>
+          <Text style={styles.emptyScannerEmoji}>🔒</Text>
+          <Text style={styles.emptyScannerText}>Carregando sessão segura...</Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  if (!token) {
+    return (
+      <SafeAreaView style={styles.safe}>
+        <StatusBar backgroundColor={ORANGE} barStyle="light-content" />
+        <View style={styles.header}>
+          <Text style={styles.headerTitle}>ENTRAR</Text>
+        </View>
+        <LoginScreen
+          apiUrl={apiUrl}
+          setApiUrl={setApiUrl}
+          email={email}
+          setEmail={setEmail}
+          password={password}
+          setPassword={setPassword}
+          loading={loginLoading}
+          onLogin={() => void login()}
+        />
+      </SafeAreaView>
+    );
   }
 
   return (
@@ -81,20 +238,20 @@ export default function App() {
       {tab === "home" && <HomeTab />}
       {tab === "check-in" && (
         <CheckInTab
-          token={token} setToken={setToken}
-          eventId={eventId} setEventId={setEventId}
-          deviceId={deviceId} setDeviceId={setDeviceId}
+          apiUrl={apiUrl} setApiUrl={setApiUrl}
+          eventId={eventId} setEventId={persistEventId}
+          deviceId={deviceId} setDeviceId={persistDeviceId}
           queue={queue} online={online} cameraAllowed={cameraAllowed}
           scanning={scanning} lastScan={lastScan}
           ready={ready}
           onStartScan={() => setScanning(true)}
-          onBarCodeScanned={({ data }) => void handleScan(data)}
+          onBarCodeScanned={(event: { data: string }) => void handleScan(event.data)}
         />
       )}
       {tab === "sync" && (
         <SyncTab queue={queue} online={online} ready={ready} onSync={() => void sync()} />
       )}
-      {tab === "perfil" && <PerfilTab deviceId={deviceId} />}
+      {tab === "perfil" && <PerfilTab user={user} deviceId={deviceId} apiUrl={apiUrl} onLogout={() => void logout()} />}
 
       {/* ── BOTTOM NAV ───────────────────────────────────── */}
       <View style={styles.bottomNav}>
@@ -125,11 +282,68 @@ export default function App() {
   );
 }
 
+// ── TELA: LOGIN ───────────────────────────────────────────────
+function LoginScreen({
+  apiUrl, setApiUrl, email, setEmail, password, setPassword, loading, onLogin
+}: LoginScreenProps) {
+  const canSubmit = Boolean(normalizeApiUrl(apiUrl) && email.trim() && password.length >= 8 && !loading);
+
+  return (
+    <ScrollView contentContainerStyle={styles.tabContent}>
+      <View style={styles.card}>
+        <Text style={styles.cardTitle}>🔒  Acesso do operador</Text>
+        <Field label="Ambiente da API">
+          <TextInput
+            value={apiUrl}
+            onChangeText={setApiUrl}
+            autoCapitalize="none"
+            autoCorrect={false}
+            keyboardType="url"
+            placeholder="https://api.seudominio.com/api"
+            style={styles.input}
+            placeholderTextColor={MID_TEXT}
+          />
+        </Field>
+        <Field label="E-mail">
+          <TextInput
+            value={email}
+            onChangeText={setEmail}
+            autoCapitalize="none"
+            autoCorrect={false}
+            keyboardType="email-address"
+            placeholder="operador@evento.com"
+            style={styles.input}
+            placeholderTextColor={MID_TEXT}
+          />
+        </Field>
+        <Field label="Senha">
+          <TextInput
+            value={password}
+            onChangeText={setPassword}
+            secureTextEntry
+            placeholder="mínimo 8 caracteres"
+            style={styles.input}
+            placeholderTextColor={MID_TEXT}
+          />
+        </Field>
+      </View>
+
+      <Pressable
+        style={[styles.btnPrimary, !canSubmit && styles.btnDisabled]}
+        disabled={!canSubmit}
+        onPress={onLogin}
+      >
+        <Text style={styles.btnPrimaryText}>{loading ? "Entrando..." : "Entrar"}</Text>
+      </Pressable>
+    </ScrollView>
+  );
+}
+
 // ── TAB: HOME ─────────────────────────────────────────────────
 function HomeTab() {
   return (
     <ScrollView contentContainerStyle={styles.tabContent}>
-      <Text style={styles.sectionTitle}>Bem-vindo ao EventFlow</Text>
+      <Text style={styles.sectionTitle}>Bem-vindo ao EventHub</Text>
       <Text style={styles.sectionSubtitle}>App de check-in offline para organizadores</Text>
 
       <View style={styles.featureCard}>
@@ -169,10 +383,10 @@ function HomeTab() {
 
 // ── TAB: CHECK-IN ─────────────────────────────────────────────
 function CheckInTab({
-  token, setToken, eventId, setEventId, deviceId, setDeviceId,
+  apiUrl, setApiUrl, eventId, setEventId, deviceId, setDeviceId,
   queue, online, cameraAllowed, scanning, lastScan, ready,
   onStartScan, onBarCodeScanned
-}: any) {
+}: CheckInTabProps) {
   return (
     <ScrollView contentContainerStyle={styles.tabContent}>
       {/* Status cards */}
@@ -186,10 +400,13 @@ function CheckInTab({
       {/* Configuração */}
       <View style={styles.card}>
         <Text style={styles.cardTitle}>⚙️  Configuração</Text>
-        <Field label="Token de acesso">
+        <Field label="Ambiente da API">
           <TextInput
-            value={token} onChangeText={setToken}
-            placeholder="Bearer token" secureTextEntry
+            value={apiUrl} onChangeText={setApiUrl}
+            autoCapitalize="none"
+            autoCorrect={false}
+            keyboardType="url"
+            placeholder="https://api.seudominio.com/api"
             style={styles.input}
             placeholderTextColor={MID_TEXT}
           />
@@ -243,7 +460,7 @@ function CheckInTab({
 }
 
 // ── TAB: SYNC ─────────────────────────────────────────────────
-function SyncTab({ queue, online, ready, onSync }: any) {
+function SyncTab({ queue, online, ready, onSync }: SyncTabProps) {
   return (
     <ScrollView contentContainerStyle={styles.tabContent}>
       <View style={styles.card}>
@@ -291,15 +508,14 @@ function SyncTab({ queue, online, ready, onSync }: any) {
 }
 
 // ── TAB: PERFIL ───────────────────────────────────────────────
-function PerfilTab({ deviceId }: { deviceId: string }) {
+function PerfilTab({ user, deviceId, apiUrl, onLogout }: { user?: MobileUser; deviceId: string; apiUrl: string; onLogout: () => void }) {
   const menuItems = [
-    { emoji: "👤", label: "Minha conta", onPress: () => {} },
-    { emoji: "🎟️", label: "Meus ingressos", onPress: () => {} },
-    { emoji: "📋", label: "Termos de Uso", onPress: () => {} },
-    { emoji: "🛡️", label: "Política de Privacidade", onPress: () => {} },
-    { emoji: "❓", label: "Ajuda", onPress: () => {} },
-    { emoji: "💬", label: "Fale Conosco", onPress: () => {} },
-    { emoji: "🚪", label: "Sair", onPress: () => Alert.alert("Sair", "Deseja realmente sair?") },
+    { emoji: "🔗", label: normalizeApiUrl(apiUrl), onPress: () => {} },
+    { emoji: "📱", label: deviceId, onPress: () => {} },
+    { emoji: "🚪", label: "Sair", onPress: () => Alert.alert("Sair", "Deseja realmente sair?", [
+      { text: "Cancelar", style: "cancel" },
+      { text: "Sair", style: "destructive", onPress: onLogout }
+    ]) },
   ];
 
   return (
@@ -307,11 +523,12 @@ function PerfilTab({ deviceId }: { deviceId: string }) {
       {/* Avatar + saudação */}
       <View style={styles.profileHeader}>
         <View style={styles.avatar}>
-          <Text style={styles.avatarText}>EF</Text>
+          <Text style={styles.avatarText}>EH</Text>
         </View>
         <View>
           <Text style={styles.profileGreeting}>Olá,</Text>
-          <Text style={styles.profileName}>Organizador EventFlow</Text>
+          <Text style={styles.profileName}>{user?.name || "Operador EventHub"}</Text>
+          <Text style={styles.profileGreeting}>{user?.role || "CHECK-IN"}</Text>
         </View>
       </View>
 
@@ -372,6 +589,7 @@ function parseTicketUuid(data: string) {
 // ── ESTILOS ───────────────────────────────────────────────────
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: GRAY_BG },
+  centerContent: { flex: 1, alignItems: "center", justifyContent: "center", padding: 24 },
 
   // Header
   header: {

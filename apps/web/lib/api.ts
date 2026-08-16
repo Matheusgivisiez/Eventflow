@@ -3,6 +3,14 @@ import { useAuthStore } from "@/stores/auth-store";
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001/api";
 
 type ApiOptions = RequestInit & { auth?: boolean };
+type ApiErrorBody = { message?: string | string[] };
+
+export class ApiError extends Error {
+  constructor(message: string, readonly status: number) {
+    super(message);
+    this.name = "ApiError";
+  }
+}
 
 let isRefreshing = false;
 let refreshSubscribers: ((token: string) => void)[] = [];
@@ -27,23 +35,24 @@ export async function api<T>(path: string, options: ApiOptions = {}): Promise<T>
 
   let response = await fetch(`${API_URL}${path}`, {
     ...options,
-    headers
+    headers,
+    credentials: "include"
   });
 
-  if (response.status === 401 && options.auth !== false && store.refreshToken) {
+  if (response.status === 401 && options.auth !== false && path !== "/auth/refresh") {
     if (!isRefreshing) {
       isRefreshing = true;
       try {
         const res = await fetch(`${API_URL}/auth/refresh`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ refreshToken: store.refreshToken }),
+          credentials: "include"
         });
         
         if (!res.ok) throw new Error("Session expired");
         
         const data = await res.json();
-        store.setSession({ accessToken: data.accessToken, refreshToken: data.refreshToken, user: data.user });
+        store.setSession({ accessToken: data.accessToken, user: data.user });
         onRefreshed(data.accessToken);
         isRefreshing = false;
       } catch (err) {
@@ -62,15 +71,15 @@ export async function api<T>(path: string, options: ApiOptions = {}): Promise<T>
     headers["Authorization"] = `Bearer ${token}`;
     response = await fetch(`${API_URL}${path}`, {
       ...options,
-      headers
+      headers,
+      credentials: "include"
     });
   }
 
   if (!response.ok) {
-    const error = await response.json().catch(() => ({ message: "Erro inesperado." }));
-    const err: any = new Error(Array.isArray(error.message) ? error.message.join(", ") : error.message ?? "Erro inesperado.");
-    err.status = response.status;
-    throw err;
+    const error = await response.json().catch((): ApiErrorBody => ({ message: "Erro inesperado." })) as ApiErrorBody;
+    const message = Array.isArray(error.message) ? error.message.join(", ") : error.message ?? "Erro inesperado.";
+    throw new ApiError(message, response.status);
   }
 
   return response.json();
@@ -85,7 +94,8 @@ export async function uploadFile(file: File): Promise<{ url: string }> {
     headers: {
       ...(token ? { Authorization: `Bearer ${token}` } : {})
     },
-    body: form
+    body: form,
+    credentials: "include"
   });
   if (!response.ok) {
     const error = await response.json().catch(() => ({ message: "Erro no upload." }));

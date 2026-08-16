@@ -363,6 +363,8 @@ model Order {
   promoterLinkId String?
   promoterCommissionCents Int @default(0)
   status         PaymentStatus @default(PENDING)
+  orderAccessToken String?    @unique
+  stockReservedAt DateTime?
   createdAt      DateTime      @default(now())
   updatedAt      DateTime      @updatedAt
   event          Event         @relation(fields: [eventId], references: [id])

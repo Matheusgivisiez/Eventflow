@@ -1,6 +1,6 @@
-# 🥑 AbacatePay — Integração Eventflow
+# AbacatePay - Integracao EventHub
 
-> Documentação completa da integração com o gateway de pagamentos **AbacatePay** no Eventflow.  
+> Documentacao completa da integracao com o gateway de pagamentos **AbacatePay** no EventHub.
 > API Base: `https://api.abacatepay.com/v2` · Autenticação: `Bearer Token` · Moeda: `BRL (centavos)`
 
 ---
@@ -20,7 +20,7 @@
 
 ## Visão Geral
 
-O Eventflow utiliza o **AbacatePay** como gateway de pagamento principal (substituindo o Mercado Pago). A integração cobre dois fluxos:
+O EventHub utiliza o **AbacatePay** como gateway de pagamento principal (substituindo o Mercado Pago). A integracao cobre dois fluxos:
 
 | Fluxo | Endpoint AbacatePay | Descrição |
 |---|---|---|
@@ -32,7 +32,7 @@ O Eventflow utiliza o **AbacatePay** como gateway de pagamento principal (substi
 ```
 COMPRA DE INGRESSO
 ─────────────────
-Cliente → Eventflow → POST /payments/orders/:id/preference
+Cliente -> EventHub -> POST /payments/orders/:id/preference
                           ↓
                    AbacatePay cria Produto
                           ↓
@@ -186,7 +186,7 @@ https://seu-dominio.com/api/webhooks/abacatepay?webhookSecret=SEU_SECRET
 
 Eventos que devem ser habilitados:
 
-| Evento | Ação no Eventflow |
+| Evento | Acao no EventHub |
 |---|---|
 | `checkout.completed` | Pagamento → `PAID`, ingressos emitidos |
 | `checkout.refunded` | Pagamento → `REFUNDED`, ingressos cancelados |

@@ -1,14 +1,16 @@
-import { BadRequestException, Injectable, NotFoundException } from "@nestjs/common";
+import { BadRequestException, Injectable, NotFoundException, Optional } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { CheckInStatus, TicketStatus } from "@prisma/client";
 import { createHmac } from "crypto";
 import { PrismaService } from "../../../prisma/prisma.service";
+import { BusinessMetricsService } from "../../observability/business-metrics.service";
 
 @Injectable()
 export class ValidateTicketUseCase {
   constructor(
     private readonly prisma: PrismaService,
-    private readonly config: ConfigService
+    private readonly config: ConfigService,
+    @Optional() private readonly metrics?: BusinessMetricsService
   ) {}
 
   async execute(eventId: string, tenantId: string, userId: string, code: string) {
@@ -28,16 +30,19 @@ export class ValidateTicketUseCase {
     });
 
     if (!ticket) {
+      this.metrics?.increment("eventhub_checkin_validations_total", { status: "NOT_FOUND" });
       throw new NotFoundException("Ingresso nao encontrado.");
     }
 
     if (ticket.status === TicketStatus.USED) {
       await this.logCheckIn(ticket.id, userId, CheckInStatus.DUPLICATED, "Ingresso ja utilizado.");
+      this.metrics?.increment("eventhub_checkin_validations_total", { status: CheckInStatus.DUPLICATED });
       return { status: CheckInStatus.DUPLICATED, message: "Entrada duplicada.", ticket };
     }
 
     if (ticket.status !== TicketStatus.AVAILABLE) {
       await this.logCheckIn(ticket.id, userId, CheckInStatus.REFUSED, "Ingresso cancelado ou indisponivel.");
+      this.metrics?.increment("eventhub_checkin_validations_total", { status: CheckInStatus.REFUSED });
       return { status: CheckInStatus.REFUSED, message: "Entrada recusada.", ticket };
     }
 
@@ -51,15 +56,21 @@ export class ValidateTicketUseCase {
       include: { event: true, ticketType: true }
     });
 
+    this.metrics?.increment("eventhub_checkin_validations_total", { status: CheckInStatus.ENTERED });
+
     return { status: CheckInStatus.ENTERED, message: "Entrada liberada.", ticket: updated };
   }
 
   private validateSignature(parsed: { uuid: string; orderId: string; signature: string }) {
-    const secret = this.config.get<string>("QR_CODE_SECRET") ?? "change-me-qrcode-secret";
+    const secret = this.config.get<string>("QR_CODE_SECRET");
+    if (!secret) {
+      throw new Error("QR_CODE_SECRET is required.");
+    }
     const expectedSignature = createHmac("sha256", secret)
       .update(`${parsed.uuid}:${parsed.orderId}`)
       .digest("hex");
     if (expectedSignature !== parsed.signature) {
+      this.metrics?.increment("eventhub_checkin_signature_failures_total", { reason: "invalid_signature" });
       throw new BadRequestException("Assinatura do ingresso invalida. QR Code forjado ou adulterado.");
     }
   }

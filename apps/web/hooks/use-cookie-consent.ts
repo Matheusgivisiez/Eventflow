@@ -17,7 +17,7 @@ const DEFAULT_PREFERENCES: CookiePreferences = {
   acceptedAt: null,
 };
 
-const STORAGE_KEY = "eventflow_cookie_preferences";
+const STORAGE_KEY = "eventhub_cookie_preferences";
 
 export function useCookieConsent() {
   const [preferences, setPreferences] = useState<CookiePreferences>(DEFAULT_PREFERENCES);

@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable, NotFoundException } from "@nestjs/common";
+import { BadRequestException, Injectable, NotFoundException, Optional } from "@nestjs/common";
 import { PaymentStatus, TicketStatus } from "@prisma/client";
 import { createHash, createHmac, randomUUID } from "crypto";
 import { ConfigService } from "@nestjs/config";
@@ -6,6 +6,7 @@ import QRCode from "qrcode";
 import { PrismaService } from "../../prisma/prisma.service";
 import { UpdatePaymentStatusDto } from "./dto/update-payment-status.dto";
 import { AbacatePayGateway } from "./abacate-pay.gateway";
+import { BusinessMetricsService } from "../observability/business-metrics.service";
 
 const VALID_TRANSITIONS: Record<PaymentStatus, PaymentStatus[]> = {
   [PaymentStatus.PENDING]: [PaymentStatus.PAID, PaymentStatus.CANCELED],
@@ -21,9 +22,14 @@ export class PaymentsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly abacatePay: AbacatePayGateway,
-    private readonly config: ConfigService
+    private readonly config: ConfigService,
+    @Optional() private readonly metrics?: BusinessMetricsService
   ) {
-    this.qrCodeSecret = this.config.get<string>("QR_CODE_SECRET") ?? "change-me-qrcode-secret";
+    const qrCodeSecret = this.config.get<string>("QR_CODE_SECRET");
+    if (!qrCodeSecret) {
+      throw new Error("QR_CODE_SECRET is required.");
+    }
+    this.qrCodeSecret = qrCodeSecret;
   }
 
   list(tenantId: string, query: { page?: string; perPage?: string; status?: PaymentStatus }) {
@@ -38,12 +44,20 @@ export class PaymentsService {
     });
   }
 
-  async createProviderPreference(orderId: string) {
+  async createProviderPreference(orderId: string, tenantId?: string | null) {
     const order = await this.prisma.order.findUnique({ where: { id: orderId }, include: { event: true, payment: true } });
     if (!order || !order.payment) {
       throw new NotFoundException("Pedido nao encontrado.");
     }
+    if (tenantId && order.event.tenantId !== tenantId) {
+      throw new NotFoundException("Pedido nao encontrado.");
+    }
     const appUrl = this.config.get<string>("APP_URL") ?? "http://localhost:3000";
+    const successParams = new URLSearchParams({ orderId });
+    if (order.orderAccessToken) {
+      successParams.set("accessToken", order.orderAccessToken);
+    }
+    const successUrl = `${appUrl}/checkout/success?${successParams.toString()}`;
     const result = await this.abacatePay.createCheckout({
       orderId,
       amountCents: order.totalCents,
@@ -53,8 +67,8 @@ export class PaymentsService {
       buyerPhone: order.buyerPhone ?? undefined,
       description: order.event.title,
       paymentMethod: order.payment?.method ?? undefined,
-      returnUrl: `${appUrl}/checkout/success?orderId=${orderId}`,
-      completionUrl: `${appUrl}/checkout/success?orderId=${orderId}&status=paid`
+      returnUrl: successUrl,
+      completionUrl: `${successUrl}&status=paid`
     });
 
     await this.prisma.payment.update({
@@ -113,6 +127,7 @@ export class PaymentsService {
             order: { update: { status: PaymentStatus.PAID } }
           }
         });
+        this.metrics?.increment("eventhub_payment_status_transitions_total", { status: PaymentStatus.PAID });
       }
 
       await this.ensurePaidFulfillmentTx(tx, payment);
@@ -146,25 +161,11 @@ export class PaymentsService {
         data: { status: TicketStatus.CANCELED }
       });
 
-      if (wasPaid) {
-        for (const item of payment.order.items) {
-          await tx.ticketType.update({
-            where: { id: item.ticketTypeId },
-            data: { sold: { decrement: item.quantity } }
-          });
-
-          if (item.seatIds.length) {
-            await tx.seat.updateMany({
-              where: { id: { in: item.seatIds }, status: "SOLD" },
-              data: { status: "AVAILABLE" }
-            });
-            await tx.seatReservation.updateMany({
-              where: { seatId: { in: item.seatIds }, eventId: payment.eventId, orderId: payment.orderId },
-              data: { status: "AVAILABLE" }
-            });
-          }
-        }
+      if (payment.order.stockReservedAt || wasPaid) {
+        await this.releaseReservedStockTx(tx, payment);
       }
+
+      this.metrics?.increment("eventhub_payment_status_transitions_total", { status });
 
       return updated;
     });
@@ -187,15 +188,18 @@ export class PaymentsService {
 
     if (existingTickets === 0) {
       for (const item of payment.order.items) {
-        const updatedStock = await tx.ticketType.updateMany({
-          where: {
-            id: item.ticketTypeId
-          },
-          data: { sold: { increment: item.quantity } }
-        });
+        if (!payment.order.stockReservedAt) {
+          const updatedStock = await tx.ticketType.updateMany({
+            where: {
+              id: item.ticketTypeId,
+              sold: { lte: item.ticketType.quantity - item.quantity }
+            },
+            data: { sold: { increment: item.quantity } }
+          });
 
-        if (updatedStock.count !== 1) {
-          console.warn(`[PaymentsService] Inconsistencia no lote ${item.ticketType.name} (id: ${item.ticketTypeId}) ao incrementar vendas.`);
+          if (updatedStock.count !== 1) {
+            console.warn(`[PaymentsService] Inconsistencia no lote ${item.ticketType.name} (id: ${item.ticketTypeId}) ao incrementar vendas.`);
+          }
         }
 
         if (item.seatIds.length) {
@@ -257,6 +261,34 @@ export class PaymentsService {
 
     if (tickets.length > 0) {
       await tx.ticket.createMany({ data: tickets });
+      this.metrics?.increment("eventhub_payment_tickets_emitted_total", {}, tickets.length);
+    }
+  }
+
+  private async releaseReservedStockTx(tx: any, payment: any) {
+    for (const item of payment.order.items) {
+      await tx.ticketType.update({
+        where: { id: item.ticketTypeId },
+        data: { sold: { decrement: item.quantity } }
+      });
+
+      if (item.seatIds.length) {
+        await tx.seat.updateMany({
+          where: { id: { in: item.seatIds }, status: "SOLD" },
+          data: { status: "AVAILABLE" }
+        });
+        await tx.seatReservation.updateMany({
+          where: { seatId: { in: item.seatIds }, eventId: payment.eventId, orderId: payment.orderId },
+          data: { status: "AVAILABLE" }
+        });
+      }
+    }
+
+    if (payment.order.stockReservedAt) {
+      await tx.order.update({
+        where: { id: payment.orderId },
+        data: { stockReservedAt: null }
+      });
     }
   }
 }

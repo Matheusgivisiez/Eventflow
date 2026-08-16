@@ -1,4 +1,5 @@
-import { Injectable, NotFoundException } from "@nestjs/common";
+import { Injectable, NotFoundException, UnauthorizedException } from "@nestjs/common";
+import { PaymentStatus } from "@prisma/client";
 import { RequestUser } from "../../common/types/request-user";
 import { PrismaService } from "../../prisma/prisma.service";
 import { PaymentsService } from "../payments/payments.service";
@@ -15,17 +16,24 @@ export class CheckoutService {
 
   async create(slug: string, dto: CreateCheckoutDto, user?: RequestUser) {
     const order = await this.createCheckout.execute(slug, dto, user);
-    const checkout = await this.payments.createProviderPreference(order.id);
+    let checkout: Awaited<ReturnType<PaymentsService["createProviderPreference"]>>;
+    try {
+      checkout = await this.payments.createProviderPreference(order.id);
+    } catch (error) {
+      await this.cancelOrderAfterProviderFailure(order.id);
+      throw error;
+    }
 
     return {
       ...order,
       orderId: order.id,
+      orderAccessToken: order.orderAccessToken,
       status: order.status,
       checkoutUrl: checkout.checkoutUrl
     };
   }
 
-  async getOrderStatus(orderId: string) {
+  async getOrderStatus(orderId: string, accessToken?: string) {
     const order = await this.prisma.order.findUnique({
       where: { id: orderId },
       include: {
@@ -38,6 +46,9 @@ export class CheckoutService {
 
     if (!order) {
       throw new NotFoundException("Pedido nao encontrado.");
+    }
+    if (!order.orderAccessToken || !accessToken || order.orderAccessToken !== accessToken) {
+      throw new UnauthorizedException("Token de acesso do pedido invalido.");
     }
 
     return {
@@ -64,5 +75,37 @@ export class CheckoutService {
         status: t.status
       }))
     };
+  }
+
+  private async cancelOrderAfterProviderFailure(orderId: string) {
+    await this.prisma.$transaction(async (tx) => {
+      const order = await tx.order.findUnique({
+        where: { id: orderId },
+        include: { items: true, payment: true }
+      });
+
+      if (!order || order.status !== PaymentStatus.PENDING) return;
+
+      if (order.stockReservedAt) {
+        for (const item of order.items) {
+          await tx.ticketType.update({
+            where: { id: item.ticketTypeId },
+            data: { sold: { decrement: item.quantity } }
+          });
+        }
+      }
+
+      await tx.order.update({
+        where: { id: order.id },
+        data: { status: PaymentStatus.CANCELED, stockReservedAt: null }
+      });
+
+      if (order.payment) {
+        await tx.payment.update({
+          where: { orderId: order.id },
+          data: { status: PaymentStatus.CANCELED, canceledAt: new Date() }
+        });
+      }
+    });
   }
 }

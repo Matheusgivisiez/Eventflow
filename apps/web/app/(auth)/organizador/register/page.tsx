@@ -58,7 +58,7 @@ export default function RegisterOrganizerPage() {
   const mutation = useMutation({
     mutationFn: (data: FormData) => {
       const { confirmPassword, ...payload } = data;
-      return api<{ accessToken: string; refreshToken: string; user: any }>("/auth/register-organizer", {
+      return api<{ accessToken: string; user: any }>("/auth/register-organizer", {
         method: "POST",
         body: JSON.stringify({
           ...payload,

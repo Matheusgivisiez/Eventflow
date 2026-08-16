@@ -14,9 +14,8 @@ export type AuthUser = {
 
 type AuthState = {
   accessToken?: string;
-  refreshToken?: string;
   user?: AuthUser;
-  setSession: (session: { accessToken: string; refreshToken: string; user: AuthUser }) => void;
+  setSession: (session: { accessToken: string; user: AuthUser }) => void;
   updateUser: (data: Partial<AuthUser>) => void;
   logout: () => void;
 };
@@ -26,8 +25,17 @@ export const useAuthStore = create<AuthState>()(
     (set) => ({
       setSession: (session) => set(session),
       updateUser: (data) => set((state) => ({ user: state.user ? { ...state.user, ...data } : undefined })),
-      logout: () => set({ accessToken: undefined, refreshToken: undefined, user: undefined })
+      logout: () => {
+        void fetch(`${process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001/api"}/auth/logout`, {
+          method: "POST",
+          credentials: "include"
+        }).catch(() => undefined);
+        set({ accessToken: undefined, user: undefined });
+      }
     }),
-    { name: "eventhub-session" }
+    {
+      name: "eventhub-session",
+      partialize: (state) => ({ accessToken: state.accessToken, user: state.user })
+    }
   )
 );
