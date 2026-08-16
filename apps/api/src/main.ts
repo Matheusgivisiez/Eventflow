@@ -52,7 +52,7 @@ async function bootstrap() {
   );
 
   const swagger = new DocumentBuilder()
-    .setTitle("EventHub API")
+    .setTitle("Event Flow API")
     .setDescription("API do MVP SaaS de venda de ingressos online.")
     .setVersion("0.1.0")
     .addBearerAuth()

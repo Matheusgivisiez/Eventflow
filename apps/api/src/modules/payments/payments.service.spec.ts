@@ -62,7 +62,7 @@ function createPayment(overrides: Record<string, any> = {}) {
     status: PaymentStatus.PENDING,
     providerRef: null,
     amountCents: 10800,
-    event: { id: "event-1", tenantId: "tenant-1", title: "EventHub Conf" },
+    event: { id: "event-1", tenantId: "tenant-1", title: "Event Flow Conf" },
     order: {
       id: "order-1",
       userId: "user-1",
@@ -105,7 +105,7 @@ describe("PaymentsService", () => {
       buyerDocument: "12345678900",
       buyerPhone: "11999999999",
       orderAccessToken: "public-token",
-      event: { tenantId: "tenant-1", title: "EventHub Conf" },
+      event: { tenantId: "tenant-1", title: "Event Flow Conf" },
       payment: { method: PaymentMethod.PIX, status: PaymentStatus.PENDING }
     });
     abacatePay.createCheckout.mockResolvedValue({
@@ -134,7 +134,7 @@ describe("PaymentsService", () => {
       buyerEmail: "buyer@example.com",
       buyerName: "Buyer",
       orderAccessToken: "public-token",
-      event: { tenantId: "tenant-2", title: "EventHub Conf" },
+      event: { tenantId: "tenant-2", title: "Event Flow Conf" },
       payment: { method: PaymentMethod.PIX, status: PaymentStatus.PENDING }
     });
 
@@ -151,7 +151,7 @@ describe("PaymentsService", () => {
       buyerEmail: "buyer@example.com",
       buyerName: "Buyer",
       orderAccessToken: "public-token",
-      event: { tenantId: "tenant-1", title: "EventHub Conf" },
+      event: { tenantId: "tenant-1", title: "Event Flow Conf" },
       payment: { method: PaymentMethod.PIX, status: PaymentStatus.PENDING }
     });
     abacatePay.createCheckout.mockResolvedValue({
@@ -203,7 +203,7 @@ describe("PaymentsService", () => {
     expect(prisma.ledgerEntry.create).toHaveBeenCalledWith({
       data: {
         tenantId: "tenant-1",
-        description: "Venda EventHub Conf",
+        description: "Venda Event Flow Conf",
         amountCents: 10000,
         feeCents: 800,
         reference: "payment-1"

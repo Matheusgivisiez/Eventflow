@@ -1,6 +1,6 @@
 import type { Config } from "tailwindcss";
 
-export const eventhubPreset: Partial<Config> = {
+export const eventflowPreset: Partial<Config> = {
   darkMode: ["class"],
   theme: {
     extend: {

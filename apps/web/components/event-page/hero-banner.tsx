@@ -7,10 +7,10 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { BrandLogo } from "@/components/brand-logo";
 import { dateTime } from "@/lib/utils";
-import type { EventHubEvent } from "@/types/eventhub";
+import type { EventFlowEvent } from "@/types/eventflow";
 
 type HeroBannerProps = {
-  event: EventHubEvent;
+  event: EventFlowEvent;
 };
 
 export function HeroBanner({ event }: HeroBannerProps) {

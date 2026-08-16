@@ -8,7 +8,7 @@ FROM base AS deps
 COPY package.json pnpm-workspace.yaml ./
 COPY packages/config/package.json packages/config/package.json
 COPY apps/web/package.json apps/web/package.json
-RUN pnpm install --filter @eventhub/web --frozen-lockfile=false
+RUN pnpm install --filter @eventflow/web --frozen-lockfile=false
 
 FROM deps AS build
 COPY packages packages

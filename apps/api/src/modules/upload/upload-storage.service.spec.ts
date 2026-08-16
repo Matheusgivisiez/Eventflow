@@ -47,7 +47,7 @@ describe("UploadStorageService", () => {
       AWS_ACCESS_KEY_ID: "test-access-key",
       AWS_SECRET_ACCESS_KEY: "test-secret-key",
       AWS_REGION: "us-east-1",
-      AWS_S3_ASSETS_BUCKET: "eventhub-assets",
+      AWS_S3_ASSETS_BUCKET: "eventflow-assets",
       AWS_S3_ASSETS_PUBLIC_URL: "https://cdn.example.com/assets"
     }) as any);
 
@@ -63,7 +63,7 @@ describe("UploadStorageService", () => {
       }
     });
     expect(PutObjectCommand).toHaveBeenCalledWith(expect.objectContaining({
-      Bucket: "eventhub-assets",
+      Bucket: "eventflow-assets",
       ContentType: "image/png",
       CacheControl: "public, max-age=31536000, immutable"
     }));
@@ -79,7 +79,7 @@ describe("UploadStorageService", () => {
       AWS_REGION: "auto",
       AWS_S3_ENDPOINT: "https://example-account.r2.cloudflarestorage.com",
       AWS_S3_FORCE_PATH_STYLE: true,
-      AWS_S3_ASSETS_BUCKET: "eventhub-assets-staging",
+      AWS_S3_ASSETS_BUCKET: "eventflow-assets-staging",
       AWS_S3_ASSETS_PUBLIC_URL: "https://pub-example.r2.dev"
     }) as any);
 

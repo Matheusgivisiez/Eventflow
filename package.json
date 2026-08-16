@@ -1,15 +1,15 @@
 {
-  "name": "eventhub",
+  "name": "eventflow",
   "private": true,
   "version": "0.1.0",
-  "description": "EventHub MVP - plataforma SaaS para venda de ingressos online.",
+  "description": "Event Flow MVP - plataforma SaaS para venda de ingressos online.",
   "scripts": {
     "dev": "pnpm --parallel dev",
     "build": "pnpm --recursive build",
     "lint": "pnpm --recursive lint",
     "format": "prettier --write .",
-    "db:migrate": "pnpm --filter @eventhub/api prisma:migrate",
-    "db:seed": "pnpm --filter @eventhub/api prisma:seed"
+    "db:migrate": "pnpm --filter @eventflow/api prisma:migrate",
+    "db:seed": "pnpm --filter @eventflow/api prisma:seed"
   },
   "workspaces": [
     "apps/*",

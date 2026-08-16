@@ -36,7 +36,7 @@ jobs:
           node-version: ${{ env.NODE_VERSION }}
           cache: pnpm
       - run: pnpm install --frozen-lockfile
-      - run: pnpm --filter @eventhub/api prisma:generate
+      - run: pnpm --filter @eventflow/api prisma:generate
       - run: npx tsc --noEmit
 
   test:
@@ -45,9 +45,9 @@ jobs:
       postgres:
         image: postgres:16-alpine
         env:
-          POSTGRES_USER: eventhub
-          POSTGRES_PASSWORD: eventhub
-          POSTGRES_DB: eventhub_test
+          POSTGRES_USER: eventflow
+          POSTGRES_PASSWORD: eventflow
+          POSTGRES_DB: eventflow_test
         ports:
           - 5432:5432
         options: >-
@@ -74,13 +74,13 @@ jobs:
           node-version: ${{ env.NODE_VERSION }}
           cache: pnpm
       - run: pnpm install --frozen-lockfile
-      - run: pnpm --filter @eventhub/api prisma:generate
-      - run: pnpm --filter @eventhub/api prisma:migrate
+      - run: pnpm --filter @eventflow/api prisma:generate
+      - run: pnpm --filter @eventflow/api prisma:migrate
         env:
-          DATABASE_URL: postgresql://eventhub:eventhub@localhost:5432/eventhub_test
+          DATABASE_URL: postgresql://eventflow:eventflow@localhost:5432/eventflow_test
       - run: pnpm --recursive test
         env:
-          DATABASE_URL: postgresql://eventhub:eventhub@localhost:5432/eventhub_test
+          DATABASE_URL: postgresql://eventflow:eventflow@localhost:5432/eventflow_test
           REDIS_URL: redis://localhost:6379
 
   build:
@@ -96,7 +96,7 @@ jobs:
           node-version: ${{ env.NODE_VERSION }}
           cache: pnpm
       - run: pnpm install --frozen-lockfile
-      - run: pnpm --filter @eventhub/api prisma:generate
+      - run: pnpm --filter @eventflow/api prisma:generate
       - run: pnpm build
 
   docker:

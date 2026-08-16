@@ -4,7 +4,7 @@ import { Minus, Plus, Tag } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { money } from "@/lib/utils";
-import type { TicketType } from "@/types/eventhub";
+import type { TicketType } from "@/types/eventflow";
 
 type TicketSelectorProps = {
   ticketTypes: TicketType[];

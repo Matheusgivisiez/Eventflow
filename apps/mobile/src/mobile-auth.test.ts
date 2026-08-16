@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { DEFAULT_API_URL, fetchCurrentUser, loginWithPassword, normalizeApiUrl, registerMobileDevice } from "./mobile-auth";
 
 test("normalizes configured API URL and falls back to local default", () => {
-  assert.equal(normalizeApiUrl("https://api.eventhub.app/api///"), "https://api.eventhub.app/api");
+  assert.equal(normalizeApiUrl("https://api.eventflow.app/api///"), "https://api.eventflow.app/api");
   assert.equal(normalizeApiUrl("   "), DEFAULT_API_URL);
 });
 
@@ -18,9 +18,9 @@ test("login posts credentials and returns only access token plus user", async ()
     }), { status: 201, headers: { "Content-Type": "application/json" } });
   };
 
-  const result = await loginWithPassword("https://api.eventhub.app/api/", { email: "op@example.com", password: "12345678" }, fetcher as typeof fetch);
+  const result = await loginWithPassword("https://api.eventflow.app/api/", { email: "op@example.com", password: "12345678" }, fetcher as typeof fetch);
 
-  assert.equal(calls[0].url, "https://api.eventhub.app/api/auth/login");
+  assert.equal(calls[0].url, "https://api.eventflow.app/api/auth/login");
   assert.equal(result.accessToken, "access-token");
   assert.deepEqual(result.user, {
     id: "user-1",
@@ -48,9 +48,9 @@ test("fetchCurrentUser uses bearer token without exposing it in URL", async () =
     return new Response(JSON.stringify({ id: "user-1", tenantId: "tenant-1", name: "Operador", email: "op@example.com", role: "ORGANIZER" }));
   };
 
-  const user = await fetchCurrentUser("https://api.eventhub.app/api", "secret-access-token", fetcher as typeof fetch);
+  const user = await fetchCurrentUser("https://api.eventflow.app/api", "secret-access-token", fetcher as typeof fetch);
 
-  assert.equal(calls[0].url, "https://api.eventhub.app/api/auth/me");
+  assert.equal(calls[0].url, "https://api.eventflow.app/api/auth/me");
   assert.equal(calls[0].url.includes("secret-access-token"), false);
   assert.equal((calls[0].init?.headers as Record<string, string>).Authorization, "Bearer secret-access-token");
   assert.equal(user.role, "ORGANIZER");

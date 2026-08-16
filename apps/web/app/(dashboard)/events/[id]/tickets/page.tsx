@@ -21,7 +21,7 @@ import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { api } from "@/lib/api";
 import { dateTime, money } from "@/lib/utils";
-import type { TicketType } from "@/types/eventhub";
+import type { TicketType } from "@/types/eventflow";
 
 const ticketSchema = z.object({
   name: z.string().min(2, "Informe o nome do lote."),

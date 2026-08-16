@@ -1,5 +1,5 @@
 {
-  "name": "@eventhub/config",
+  "name": "@eventflow/config",
   "private": true,
   "version": "0.1.0",
   "type": "module",

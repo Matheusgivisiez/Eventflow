@@ -10,18 +10,18 @@ type MetricSample = {
 };
 
 const METRIC_HELP: Record<string, string> = {
-  eventhub_api_up: "EventHub API availability",
-  eventhub_enterprise_modules: "Enterprise modules enabled",
-  eventhub_checkout_created_total: "Checkout orders created",
-  eventhub_checkout_inventory_conflicts_total: "Checkout inventory reservation conflicts",
-  eventhub_payment_status_transitions_total: "Payment status transitions",
-  eventhub_payment_tickets_emitted_total: "Tickets emitted after payment approval",
-  eventhub_webhooks_received_total: "Payment webhooks received",
-  eventhub_webhooks_processed_total: "Payment webhooks processed",
-  eventhub_webhooks_duplicates_total: "Duplicate payment webhooks ignored",
-  eventhub_webhooks_unmatched_total: "Payment webhooks that could not be matched",
-  eventhub_checkin_validations_total: "Check-in validation outcomes",
-  eventhub_checkin_signature_failures_total: "Forged or invalid check-in QR signatures"
+  eventflow_api_up: "Event Flow API availability",
+  eventflow_enterprise_modules: "Enterprise modules enabled",
+  eventflow_checkout_created_total: "Checkout orders created",
+  eventflow_checkout_inventory_conflicts_total: "Checkout inventory reservation conflicts",
+  eventflow_payment_status_transitions_total: "Payment status transitions",
+  eventflow_payment_tickets_emitted_total: "Tickets emitted after payment approval",
+  eventflow_webhooks_received_total: "Payment webhooks received",
+  eventflow_webhooks_processed_total: "Payment webhooks processed",
+  eventflow_webhooks_duplicates_total: "Duplicate payment webhooks ignored",
+  eventflow_webhooks_unmatched_total: "Payment webhooks that could not be matched",
+  eventflow_checkin_validations_total: "Check-in validation outcomes",
+  eventflow_checkin_signature_failures_total: "Forged or invalid check-in QR signatures"
 };
 
 @Injectable()
@@ -29,8 +29,8 @@ export class BusinessMetricsService {
   private readonly counters = new Map<string, MetricSample>();
 
   constructor() {
-    this.setGauge("eventhub_api_up", 1);
-    this.setGauge("eventhub_enterprise_modules", 12);
+    this.setGauge("eventflow_api_up", 1);
+    this.setGauge("eventflow_enterprise_modules", 12);
   }
 
   increment(name: keyof typeof METRIC_HELP, labels: MetricLabels = {}, value = 1) {

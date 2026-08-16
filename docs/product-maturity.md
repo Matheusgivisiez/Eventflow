@@ -1,4 +1,4 @@
-# EventHub Product Maturity
+# Event Flow Product Maturity
 
 Esta matriz separa o que esta pronto para uso, o que existe de forma parcial e o que ainda e planejamento tecnico. Ela deve ser usada junto com o checklist de correcao antes de qualquer venda, demo ou deploy real.
 

@@ -13,7 +13,7 @@ import { Input } from "@/components/ui/input";
 
 import { api } from "@/lib/api";
 import { cn, dateTime, money } from "@/lib/utils";
-import type { EventHubEvent, Paginated } from "@/types/eventhub";
+import type { EventFlowEvent, Paginated } from "@/types/eventflow";
 
 const STATUS_TABS = [
   { key: "all", label: "Todos", icon: Filter },
@@ -48,7 +48,7 @@ export default function EventsPage() {
       const params = new URLSearchParams();
       if (debouncedSearch) params.set("search", debouncedSearch);
       if (activeTab !== "all") params.set("status", activeTab);
-      return api<Paginated<EventHubEvent>>(`/events?${params}`);
+      return api<Paginated<EventFlowEvent>>(`/events?${params}`);
     }
   });
 

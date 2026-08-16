@@ -42,7 +42,7 @@ export default function ReportsPage() {
     const url = URL.createObjectURL(blob);
     const anchor = document.createElement("a");
     anchor.href = url;
-    anchor.download = `eventhub-${type}.${extension}`;
+    anchor.download = `eventflow-${type}.${extension}`;
     anchor.click();
     URL.revokeObjectURL(url);
   }

@@ -71,7 +71,7 @@ High-risk orders should be held for review before ticket issuance.
 
 ## LGPD
 
-Personal data processed by EventHub includes:
+Personal data processed by Event Flow includes:
 
 - name
 - email

@@ -1,26 +1,26 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: eventhub-web
-  namespace: eventhub
+  name: eventflow-web
+  namespace: eventflow
 spec:
   replicas: 3
   selector:
     matchLabels:
-      app: eventhub-web
+      app: eventflow-web
   template:
     metadata:
       labels:
-        app: eventhub-web
+        app: eventflow-web
     spec:
       containers:
         - name: web
-          image: ghcr.io/your-org/eventhub/web:latest
+          image: ghcr.io/your-org/eventflow/web:latest
           ports:
             - containerPort: 3000
           envFrom:
             - configMapRef:
-                name: eventhub-web-config
+                name: eventflow-web-config
           resources:
             requests:
               cpu: 200m
@@ -32,11 +32,11 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  name: eventhub-web
-  namespace: eventhub
+  name: eventflow-web
+  namespace: eventflow
 spec:
   selector:
-    app: eventhub-web
+    app: eventflow-web
   ports:
     - port: 80
       targetPort: 3000

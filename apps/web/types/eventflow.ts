@@ -28,7 +28,7 @@ export type AgendaItem = {
   description?: string;
 };
 
-export type EventHubEvent = {
+export type EventFlowEvent = {
   id: string;
   title: string;
   slug: string;

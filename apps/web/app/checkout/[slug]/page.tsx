@@ -15,7 +15,7 @@ import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { api } from "@/lib/api";
 import { money } from "@/lib/utils";
-import type { EventHubEvent, PaymentMethod } from "@/types/eventhub";
+import type { EventFlowEvent, PaymentMethod } from "@/types/eventflow";
 
 type CheckoutResponse = {
   id: string;
@@ -60,7 +60,7 @@ function CheckoutForm() {
 
   const { data: event, isLoading } = useQuery({
     queryKey: ["checkout-event", slug],
-    queryFn: () => api<EventHubEvent>(`/events/public/${slug}`, { auth: false })
+    queryFn: () => api<EventFlowEvent>(`/events/public/${slug}`, { auth: false })
   });
 
   const form = useForm<z.infer<typeof buyerSchema>>({

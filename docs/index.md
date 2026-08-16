@@ -1,6 +1,6 @@
-# EventHub Technical Documentation
+# Event Flow Technical Documentation
 
-EventHub is a multi-tenant SaaS platform for event discovery, ticket sales, payments, QR tickets, check-in, finance, CRM, marketplace and enterprise organizer operations.
+Event Flow is a multi-tenant SaaS platform for event discovery, ticket sales, payments, QR tickets, check-in, finance, CRM, marketplace and enterprise organizer operations.
 
 This documentation is the source of truth for engineering, product operations, security reviews and deployment planning.
 
@@ -44,7 +44,7 @@ docs/         technical documentation
 cp .env.example .env
 docker compose up -d postgres redis rabbitmq
 pnpm install
-pnpm --filter @eventhub/api prisma:generate
+pnpm --filter @eventflow/api prisma:generate
 pnpm db:migrate
 pnpm db:seed
 pnpm dev

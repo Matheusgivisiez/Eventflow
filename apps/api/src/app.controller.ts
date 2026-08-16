@@ -7,7 +7,7 @@ export class AppController {
 
   @Get("health")
   health() {
-    return { status: "ok", service: "eventhub-api" };
+    return { status: "ok", service: "eventflow-api" };
   }
 
   @Get("metrics")

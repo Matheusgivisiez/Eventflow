@@ -29,8 +29,8 @@ export class EnterpriseWhiteLabelService extends EnterpriseDomainService {
       emailTemplateJson: body.emailTemplateJson ?? {},
       dnsInstructions: customDomain
         ? {
-            cname: { name: customDomain, value: "white-label.eventhub.app" },
-            txt: { name: `_eventhub.${customDomain}`, value: this.hash(`${tenantId}:${customDomain}`).slice(0, 32) }
+            cname: { name: customDomain, value: "white-label.eventflow.app" },
+            txt: { name: `_eventflow.${customDomain}`, value: this.hash(`${tenantId}:${customDomain}`).slice(0, 32) }
           }
         : undefined
     };

@@ -14,7 +14,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { api } from "@/lib/api";
 import { dateTime } from "@/lib/utils";
-import type { EventHubEvent, Paginated } from "@/types/eventhub";
+import type { EventFlowEvent, Paginated } from "@/types/eventflow";
 
 function useDebounce<T>(value: T, delay: number): T {
   const [debouncedValue, setDebouncedValue] = useState<T>(value);
@@ -35,9 +35,9 @@ export default function CheckInPage() {
   const [search, setSearch] = useState("");
   const debouncedSearch = useDebounce(search, 500);
 
-  const { data: events } = useQuery({ 
-    queryKey: ["events-checkin"], 
-    queryFn: () => api<Paginated<EventHubEvent>>("/events?status=PUBLISHED") 
+  const { data: events } = useQuery({
+    queryKey: ["events-checkin"],
+    queryFn: () => api<Paginated<EventFlowEvent>>("/events?status=PUBLISHED")
   });
 
   const invalidateLogs = () => qc.invalidateQueries({ queryKey: ["checkin-logs", eventId] });

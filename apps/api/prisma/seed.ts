@@ -4,52 +4,52 @@ import * as bcrypt from "bcryptjs";
 const prisma = new PrismaClient();
 
 async function main() {
-  const passwordHash = await bcrypt.hash("EventHub@123", 12);
+  const passwordHash = await bcrypt.hash("EventFlow@123", 12);
 
   const tenant = await prisma.tenant.upsert({
-    where: { id: "seed-tenant-eventhub" },
+    where: { id: "seed-tenant-eventflow" },
     update: {},
     create: {
-      id: "seed-tenant-eventhub",
-      name: "EventHub Demo",
-      legalName: "EventHub Demo LTDA",
+      id: "seed-tenant-eventflow",
+      name: "Event Flow Demo",
+      legalName: "Event Flow Demo LTDA",
       document: "00.000.000/0001-00",
       logoUrl: "https://images.unsplash.com/photo-1511795409834-ef04bbd61622"
     }
   });
 
   await prisma.user.upsert({
-    where: { email: "admin@eventhub.local" },
+    where: { email: "admin@eventflow.local" },
     update: {},
     create: {
       tenantId: tenant.id,
-      name: "Admin EventHub",
-      email: "admin@eventhub.local",
+      name: "Admin Event Flow",
+      email: "admin@eventflow.local",
       passwordHash,
       role: UserRole.ADMIN
     }
   });
 
   const organizer = await prisma.user.upsert({
-    where: { email: "organizador@eventhub.local" },
+    where: { email: "organizador@eventflow.local" },
     update: {},
     create: {
       tenantId: tenant.id,
       name: "Organizador Demo",
-      email: "organizador@eventhub.local",
+      email: "organizador@eventflow.local",
       passwordHash,
       role: UserRole.ORGANIZER
     }
   });
 
   const event = await prisma.event.upsert({
-    where: { slug: "summit-eventhub-2026" },
+    where: { slug: "summit-eventflow-2026" },
     update: {},
     create: {
       tenantId: tenant.id,
       ownerId: organizer.id,
-      title: "Summit EventHub 2026",
-      slug: "summit-eventhub-2026",
+      title: "Summit Event Flow 2026",
+      slug: "summit-eventflow-2026",
       description:
         "Um encontro para criadores, produtores e empresas que querem vender ingressos com controle financeiro e check-in profissional.",
       category: "Tecnologia",
@@ -67,7 +67,7 @@ async function main() {
       mapUrl: "https://maps.google.com/?q=Avenida+Paulista+1000+Sao+Paulo",
       format: EventFormat.IN_PERSON,
       status: EventStatus.PUBLISHED,
-      seoTitle: "Summit EventHub 2026",
+      seoTitle: "Summit Event Flow 2026",
       seoDescription: "Evento demo de tecnologia com checkout e check-in por QR Code."
     }
   });

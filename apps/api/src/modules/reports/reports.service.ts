@@ -115,20 +115,20 @@ export class ReportsService {
     const format = query.format ?? "csv";
     if (format === "pdf") {
       return {
-        fileName: `eventhub-${query.type ?? "sales"}.pdf`,
+        fileName: `eventflow-${query.type ?? "sales"}.pdf`,
         contentType: "application/pdf",
         buffer: this.toPdf(rows)
       };
     }
     if (format === "excel") {
       return {
-        fileName: `eventhub-${query.type ?? "sales"}.xls`,
+        fileName: `eventflow-${query.type ?? "sales"}.xls`,
         contentType: "application/vnd.ms-excel",
         buffer: Buffer.from(this.toExcelXml(rows), "utf8")
       };
     }
     return {
-      fileName: `eventhub-${query.type ?? "sales"}.csv`,
+      fileName: `eventflow-${query.type ?? "sales"}.csv`,
       contentType: "text/csv; charset=utf-8",
       buffer: Buffer.from(this.toCsv(rows), "utf8")
     };

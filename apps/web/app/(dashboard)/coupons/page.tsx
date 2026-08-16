@@ -16,7 +16,7 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { api } from "@/lib/api";
 import { dateTime, money } from "@/lib/utils";
-import type { CouponType } from "@/types/eventhub";
+import type { CouponType } from "@/types/eventflow";
 
 const couponSchema = z.object({
   code: z.string().min(3, "O código deve ter pelo menos 3 caracteres.").toUpperCase(),

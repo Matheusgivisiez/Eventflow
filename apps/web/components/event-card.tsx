@@ -6,10 +6,10 @@ import { Calendar, MapPin, Ticket, ChevronRight } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { dateTime, money } from "@/lib/utils";
-import type { EventHubEvent } from "@/types/eventhub";
+import type { EventFlowEvent } from "@/types/eventflow";
 
 interface EventCardProps {
-  event: EventHubEvent;
+  event: EventFlowEvent;
 }
 
 export function EventCard({ event }: EventCardProps) {

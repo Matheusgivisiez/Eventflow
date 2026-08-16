@@ -1,20 +1,20 @@
-export type EventHubClientOptions = {
+export type EventFlowClientOptions = {
   baseUrl: string;
   apiKey?: string;
   accessToken?: string;
 };
 
-export type EventHubListParams = {
+export type EventFlowListParams = {
   search?: string;
   category?: string;
   page?: number;
   perPage?: number;
 };
 
-export class EventHubClient {
-  constructor(private readonly options: EventHubClientOptions) {}
+export class EventFlowClient {
+  constructor(private readonly options: EventFlowClientOptions) {}
 
-  listEvents(params: EventHubListParams = {}) {
+  listEvents(params: EventFlowListParams = {}) {
     return this.request(`/events/public?${this.query(params)}`);
   }
 
@@ -56,7 +56,7 @@ export class EventHubClient {
       headers,
     });
     if (!response.ok) {
-      const error = await response.json().catch(() => ({ message: "EventHub API error" }));
+      const error = await response.json().catch(() => ({ message: "Event Flow API error" }));
       throw new Error(Array.isArray(error.message) ? error.message.join(", ") : error.message);
     }
     return response.json();

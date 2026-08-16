@@ -67,7 +67,7 @@ export class BuyerService {
   async ticketPdf(userId: string, email: string, ticketId: string) {
     const ticket = await this.findOwnedTicket(userId, email, ticketId);
     const content = [
-      `EventHub - Ingresso`,
+      `Event Flow - Ingresso`,
       `Evento: ${ticket.event.title}`,
       `Participante: ${ticket.attendeeName}`,
       `Email: ${ticket.attendeeEmail}`,

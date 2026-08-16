@@ -49,7 +49,7 @@ export const envSchema = z.object({
   ABACATEPAY_BASE_URL: z.string().url().optional(),
   ABACATEPAY_PUBLIC_KEY: z.string().optional(),
   QR_CODE_SECRET: z.string().optional(),
-  RABBITMQ_URL: z.string().url().default("amqp://eventhub:eventhub@localhost:5672"),
+  RABBITMQ_URL: z.string().url().default("amqp://eventflow:eventflow@localhost:5672"),
   AWS_ACCESS_KEY_ID: z.string().optional(),
   AWS_SECRET_ACCESS_KEY: z.string().optional(),
   AWS_REGION: z.string().default("us-east-1"),

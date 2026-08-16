@@ -34,7 +34,7 @@ export const useAuthStore = create<AuthState>()(
       }
     }),
     {
-      name: "eventhub-session",
+      name: "eventflow-session",
       partialize: (state) => ({ accessToken: state.accessToken, user: state.user })
     }
   )

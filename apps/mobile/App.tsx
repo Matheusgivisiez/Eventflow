@@ -18,10 +18,10 @@ const GRAY_BG = "#F5F5F5";
 const DARK_TEXT = "#1C1917";
 const MID_TEXT = "#78716C";
 const BORDER = "#E7E5E4";
-const ACCESS_TOKEN_KEY = "eventhub.mobile.accessToken";
-const API_URL_KEY = "eventhub.mobile.apiUrl";
-const EVENT_ID_KEY = "eventhub.mobile.eventId";
-const DEVICE_ID_KEY = "eventhub.mobile.deviceId";
+const ACCESS_TOKEN_KEY = "eventflow.mobile.accessToken";
+const API_URL_KEY = "eventflow.mobile.apiUrl";
+const EVENT_ID_KEY = "eventflow.mobile.eventId";
+const DEVICE_ID_KEY = "eventflow.mobile.deviceId";
 
 // ── Tela ativa (bottom nav) ─────────────────────────────────
 type Tab = "home" | "check-in" | "sync" | "perfil";
@@ -97,7 +97,7 @@ export default function App() {
       AsyncStorage.getItem(DEVICE_ID_KEY)
     ]);
     const normalizedApiUrl = normalizeApiUrl(storedApiUrl);
-    const resolvedDeviceId = storedDeviceId || Application.applicationId || "eventhub-mobile";
+    const resolvedDeviceId = storedDeviceId || Application.applicationId || "eventflow-mobile";
 
     setApiUrlState(normalizedApiUrl);
     setEventId(storedEventId ?? "");
@@ -147,7 +147,7 @@ export default function App() {
       await registerMobileDevice(apiUrl, result.accessToken, {
         id: deviceId,
         platform: Platform.OS,
-        deviceName: Application.applicationName ?? "EventHub Check-in",
+        deviceName: Application.applicationName ?? "Event Flow Check-in",
         appVersion: Application.nativeApplicationVersion ?? "0.1.0"
       });
       await SecureStore.setItemAsync(ACCESS_TOKEN_KEY, result.accessToken);
@@ -190,7 +190,7 @@ export default function App() {
       <SafeAreaView style={styles.safe}>
         <StatusBar backgroundColor={ORANGE} barStyle="light-content" />
         <View style={styles.header}>
-          <Text style={styles.headerTitle}>EVENTHUB</Text>
+          <Text style={styles.headerTitle}>EVENTFLOW</Text>
         </View>
         <View style={styles.centerContent}>
           <Text style={styles.emptyScannerEmoji}>🔒</Text>
@@ -343,7 +343,7 @@ function LoginScreen({
 function HomeTab() {
   return (
     <ScrollView contentContainerStyle={styles.tabContent}>
-      <Text style={styles.sectionTitle}>Bem-vindo ao EventHub</Text>
+      <Text style={styles.sectionTitle}>Bem-vindo ao Event Flow</Text>
       <Text style={styles.sectionSubtitle}>App de check-in offline para organizadores</Text>
 
       <View style={styles.featureCard}>
@@ -527,7 +527,7 @@ function PerfilTab({ user, deviceId, apiUrl, onLogout }: { user?: MobileUser; de
         </View>
         <View>
           <Text style={styles.profileGreeting}>Olá,</Text>
-          <Text style={styles.profileName}>{user?.name || "Operador EventHub"}</Text>
+          <Text style={styles.profileName}>{user?.name || "Operador Event Flow"}</Text>
           <Text style={styles.profileGreeting}>{user?.role || "CHECK-IN"}</Text>
         </View>
       </View>

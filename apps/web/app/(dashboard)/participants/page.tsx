@@ -13,7 +13,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { api } from "@/lib/api";
 import { cn, dateTime, money } from "@/lib/utils";
-import type { EventHubEvent, Paginated } from "@/types/eventhub";
+import type { EventFlowEvent, Paginated } from "@/types/eventflow";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -198,7 +198,7 @@ export default function ParticipantsPage() {
 
   const { data: events } = useQuery({
     queryKey: ["events-filter"],
-    queryFn: () => api<Paginated<EventHubEvent>>("/events?perPage=100"),
+    queryFn: () => api<Paginated<EventFlowEvent>>("/events?perPage=100"),
   });
 
   const { data, isLoading, error } = useQuery({

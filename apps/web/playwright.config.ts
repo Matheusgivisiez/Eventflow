@@ -15,7 +15,7 @@ export default defineConfig({
     { name: "chromium", use: { ...devices["Desktop Chrome"] } }
   ],
   webServer: {
-    command: "pnpm --filter @eventhub/api dev",
+    command: "pnpm --filter @eventflow/api dev",
     url: "http://localhost:3001/api",
     reuseExistingServer: !process.env.CI,
     timeout: 120000

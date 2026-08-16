@@ -27,7 +27,7 @@ export class BuyerController {
   async pdf(@CurrentUser() user: RequestUser, @Param("id") id: string, @Res({ passthrough: true }) response: Response) {
     const buffer = await this.buyer.ticketPdf(user.id, user.email, id);
     response.setHeader("Content-Type", "application/pdf");
-    response.setHeader("Content-Disposition", `attachment; filename="eventhub-ticket-${id}.pdf"`);
+    response.setHeader("Content-Disposition", `attachment; filename="eventflow-ticket-${id}.pdf"`);
     return new StreamableFile(buffer);
   }
 

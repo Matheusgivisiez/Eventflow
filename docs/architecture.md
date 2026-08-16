@@ -1,6 +1,6 @@
-# EventHub Architecture
+# Event Flow Architecture
 
-EventHub is organized as a monorepo with clear separation between web, API, mobile, SDK, shared config and infrastructure.
+Event Flow is organized as a monorepo with clear separation between web, API, mobile, SDK, shared config and infrastructure.
 
 ## System context
 

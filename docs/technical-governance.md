@@ -1,6 +1,6 @@
 # Technical Governance
 
-This document defines engineering standards for keeping EventHub maintainable as it grows into an enterprise SaaS platform.
+This document defines engineering standards for keeping Event Flow maintainable as it grows into an enterprise SaaS platform.
 
 ## Engineering principles
 

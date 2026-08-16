@@ -13,7 +13,7 @@ export default function PromoterPortalLayout({
       <aside className="fixed inset-y-0 z-50 flex w-72 flex-col border-r bg-white dark:bg-card">
         <div className="flex h-16 items-center px-6 border-b">
           <Ticket className="h-6 w-6 text-primary mr-2" />
-          <span className="text-xl font-black tracking-tight">EventHub <span className="text-primary">Portal</span></span>
+          <span className="text-xl font-black tracking-tight">Event Flow <span className="text-primary">Portal</span></span>
         </div>
         <div className="flex-1 overflow-auto py-6 px-4 space-y-1">
           <NavItem href="/portal/dashboard" icon={LayoutDashboard} label="Dashboard" />

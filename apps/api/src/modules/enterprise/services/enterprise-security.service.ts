@@ -53,7 +53,7 @@ export class EnterpriseSecurityService extends EnterpriseDomainService {
         tenantId,
         scope: this.string(body.scope) ?? "tenant",
         status: "scheduled",
-        storageUrl: this.string(body.storageUrl) ?? `s3://eventhub-backups/${tenantId}/${Date.now()}.dump`
+        storageUrl: this.string(body.storageUrl) ?? `s3://eventflow-backups/${tenantId}/${Date.now()}.dump`
       }
     });
   }

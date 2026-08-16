@@ -17,30 +17,30 @@ The API exposes Prometheus text metrics at `/api/metrics`. Current business metr
 
 Core:
 
-- `eventhub_api_up`
-- `eventhub_enterprise_modules`
+- `eventflow_api_up`
+- `eventflow_enterprise_modules`
 
 Checkout:
 
-- `eventhub_checkout_created_total{method}`
-- `eventhub_checkout_inventory_conflicts_total{reason}`
+- `eventflow_checkout_created_total{method}`
+- `eventflow_checkout_inventory_conflicts_total{reason}`
 
 Payments:
 
-- `eventhub_payment_status_transitions_total{status}`
-- `eventhub_payment_tickets_emitted_total`
+- `eventflow_payment_status_transitions_total{status}`
+- `eventflow_payment_tickets_emitted_total`
 
 Webhooks:
 
-- `eventhub_webhooks_received_total{provider}`
-- `eventhub_webhooks_processed_total{provider,status}`
-- `eventhub_webhooks_duplicates_total{provider}`
-- `eventhub_webhooks_unmatched_total{provider}`
+- `eventflow_webhooks_received_total{provider}`
+- `eventflow_webhooks_processed_total{provider,status}`
+- `eventflow_webhooks_duplicates_total{provider}`
+- `eventflow_webhooks_unmatched_total{provider}`
 
 Check-in:
 
-- `eventhub_checkin_validations_total{status}`
-- `eventhub_checkin_signature_failures_total{reason}`
+- `eventflow_checkin_validations_total{status}`
+- `eventflow_checkin_signature_failures_total{reason}`
 
 ## Recommended next metrics
 

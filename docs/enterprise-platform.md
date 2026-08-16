@@ -1,4 +1,4 @@
-# EventHub Enterprise Platform
+# Event Flow Enterprise Platform
 
 This document is an enterprise capability inventory. It does not mean every module is production-ready.
 

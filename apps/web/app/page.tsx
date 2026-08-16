@@ -15,7 +15,7 @@ import { BrandLogo } from "@/components/brand-logo";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { api } from "@/lib/api";
 import { useAuthStore } from "@/stores/auth-store";
-import type { EventHubEvent, Paginated } from "@/types/eventhub";
+import type { EventFlowEvent, Paginated } from "@/types/eventflow";
 
 const categories = [
   { id: "all", label: "Todos", icon: Zap },
@@ -41,7 +41,7 @@ export default function CatalogPage() {
     return params.toString();
   }, [search, city, selectedCategory]);
 
-  const { data, isLoading } = useQuery<Paginated<EventHubEvent>>({
+  const { data, isLoading } = useQuery<Paginated<EventFlowEvent>>({
     queryKey: ["public-events", query],
     queryFn: () => api(`/events/public?${query}`, { auth: false })
   });
@@ -264,7 +264,7 @@ export default function CatalogPage() {
         <div className="mx-auto max-w-7xl px-4 lg:px-8 flex flex-col sm:flex-row items-center justify-between gap-4 text-sm text-muted-foreground">
           <div className="flex items-center gap-2">
             <BrandLogo iconOnly className="h-6 w-6" />
-            <p>© {new Date().getFullYear()} EventHub.</p>
+            <p>© {new Date().getFullYear()} Event Flow.</p>
           </div>
           <div className="flex items-center gap-4">
             <a href="/politica-de-cookies" className="hover:text-primary transition-colors">

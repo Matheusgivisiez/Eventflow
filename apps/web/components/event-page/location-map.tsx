@@ -1,7 +1,7 @@
 import { MapPin } from "lucide-react";
-import type { EventHubEvent } from "@/types/eventhub";
+import type { EventFlowEvent } from "@/types/eventflow";
 
-export function LocationMap({ event }: { event: EventHubEvent }) {
+export function LocationMap({ event }: { event: EventFlowEvent }) {
   if (event.format === "ONLINE") {
     return (
       <div className="space-y-4">

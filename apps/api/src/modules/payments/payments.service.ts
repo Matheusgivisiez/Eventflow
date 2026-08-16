@@ -127,7 +127,7 @@ export class PaymentsService {
             order: { update: { status: PaymentStatus.PAID } }
           }
         });
-        this.metrics?.increment("eventhub_payment_status_transitions_total", { status: PaymentStatus.PAID });
+        this.metrics?.increment("eventflow_payment_status_transitions_total", { status: PaymentStatus.PAID });
       }
 
       await this.ensurePaidFulfillmentTx(tx, payment);
@@ -165,7 +165,7 @@ export class PaymentsService {
         await this.releaseReservedStockTx(tx, payment);
       }
 
-      this.metrics?.increment("eventhub_payment_status_transitions_total", { status });
+      this.metrics?.increment("eventflow_payment_status_transitions_total", { status });
 
       return updated;
     });
@@ -261,7 +261,7 @@ export class PaymentsService {
 
     if (tickets.length > 0) {
       await tx.ticket.createMany({ data: tickets });
-      this.metrics?.increment("eventhub_payment_tickets_emitted_total", {}, tickets.length);
+      this.metrics?.increment("eventflow_payment_tickets_emitted_total", {}, tickets.length);
     }
   }
 

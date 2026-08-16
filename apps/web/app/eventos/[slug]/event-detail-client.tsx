@@ -4,10 +4,10 @@ import { useMemo, useState } from "react";
 import { TicketSelector } from "@/components/event-page/ticket-selector";
 import { FloatingBuyBar } from "@/components/event-page/floating-buy-bar";
 import { ShareButtons } from "@/components/event-page/share-buttons";
-import type { EventHubEvent } from "@/types/eventhub";
+import type { EventFlowEvent } from "@/types/eventflow";
 
 type EventDetailClientProps = {
-  event: EventHubEvent;
+  event: EventFlowEvent;
 };
 
 export function EventDetailClient({ event }: EventDetailClientProps) {

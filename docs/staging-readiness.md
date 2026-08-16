@@ -1,4 +1,4 @@
-# EventHub - Staging Readiness Checklist
+# Event Flow - Staging Readiness Checklist
 
 Atualizado em: 2026-08-16
 
@@ -7,11 +7,11 @@ Atualizado em: 2026-08-16
 | Comando | Resultado |
 | --- | --- |
 | `git diff --check` | Limpo, sem erros de whitespace |
-| `pnpm --filter @eventhub/api test` | 18 suites, 137 testes passaram |
-| `pnpm --filter @eventhub/api build` | Prisma generate + Nest build OK |
-| `pnpm --filter @eventhub/web build` | 34 paginas otimizadas, build OK |
-| `pnpm --filter @eventhub/mobile test` | 5 testes passaram |
-| `pnpm --filter @eventhub/mobile typecheck` | Sem erros de tipo |
+| `pnpm --filter @eventflow/api test` | 18 suites, 137 testes passaram |
+| `pnpm --filter @eventflow/api build` | Prisma generate + Nest build OK |
+| `pnpm --filter @eventflow/web build` | 34 paginas otimizadas, build OK |
+| `pnpm --filter @eventflow/mobile test` | 5 testes passaram |
+| `pnpm --filter @eventflow/mobile typecheck` | Sem erros de tipo |
 
 ## Registro de Validacao Local
 
@@ -19,11 +19,11 @@ Atualizado em: 2026-08-16
 
 - Gates locais reexecutados antes do inicio operacional de staging.
 - `git diff --check`: passou sem erros.
-- `pnpm --filter @eventhub/api test`: 18 suites e 137 testes passaram.
-- `pnpm --filter @eventhub/api build`: Prisma generate e Nest build passaram.
-- `pnpm --filter @eventhub/web build`: build Next.js passou com 34 paginas geradas.
-- `pnpm --filter @eventhub/mobile test`: 5 testes passaram. O primeiro disparo falhou por restricao de sandbox ao criar pipe IPC do `tsx`; o comando foi reexecutado fora do sandbox e passou.
-- `pnpm --filter @eventhub/mobile typecheck`: passou sem erros.
+- `pnpm --filter @eventflow/api test`: 18 suites e 137 testes passaram.
+- `pnpm --filter @eventflow/api build`: Prisma generate e Nest build passaram.
+- `pnpm --filter @eventflow/web build`: build Next.js passou com 34 paginas geradas.
+- `pnpm --filter @eventflow/mobile test`: 5 testes passaram. O primeiro disparo falhou por restricao de sandbox ao criar pipe IPC do `tsx`; o comando foi reexecutado fora do sandbox e passou.
+- `pnpm --filter @eventflow/mobile typecheck`: passou sem erros.
 
 ## Registro de Infra Staging
 
@@ -31,15 +31,18 @@ Atualizado em: 2026-08-16
 
 - Vercel configurado para a web.
 - Time Vercel: `riquelmydevs-projects`.
-- Projeto Vercel: `eventhub-web`.
+- Projeto Vercel: `eventflow-web`.
 - Project ID: `prj_dw9CY4ZOjp9twqnqM1e7Gvb16rzO`.
 - Root directory: `apps/web`.
 - Framework: Next.js.
 - Install command: `pnpm install --frozen-lockfile`.
-- Build command: `pnpm --filter @eventhub/web build`.
+- Build command: `pnpm --filter @eventflow/web build`.
 - Deployment ID: `dpl_5hGH3WxivgVCJVsLGoxcVRgSjnoH`.
-- URL principal: `https://eventhub-web-ten.vercel.app`.
-- URL de deployment: `https://eventhub-39jhmq8c3-riquelmydevs-projects.vercel.app`.
+- URL principal: `https://eventflow-web.vercel.app`.
+- URL de deployment: `https://eventflow-fo9ba52au-riquelmydevs-projects.vercel.app`.
+- Alias antigo removido apos rename.
+- SSO deployment protection desativado para permitir acesso publico ao staging web.
+- Verificacao HTTP da nova home publica: status 200.
 - Verificacao HTTP da home: status 200.
 - Pendente: configurar `NEXT_PUBLIC_API_URL` quando a API staging estiver publicada.
 
@@ -50,8 +53,8 @@ Atualizado em: 2026-08-16
 - API revisada para deploy em servico Node/Docker gratuito.
 - `apps/api/Dockerfile` ajustado para usar `pnpm-lock.yaml` com `pnpm install --frozen-lockfile`.
 - Healthcheck do container ajustado para respeitar `PORT`: `/api/health`.
-- `pnpm --filter @eventhub/api test`: 18 suites e 137 testes passaram.
-- `pnpm --filter @eventhub/api build`: Prisma generate e Nest build passaram.
+- `pnpm --filter @eventflow/api test`: 18 suites e 137 testes passaram.
+- `pnpm --filter @eventflow/api build`: Prisma generate e Nest build passaram.
 - `git diff --check`: passou sem erros.
 - Build Docker local nao executado porque o Docker daemon nao estava rodando.
 - Plataforma recomendada para API staging: Koyeb Free.
@@ -66,7 +69,7 @@ Atualizado em: 2026-08-16
 ### 2026-08-16
 
 - Neon CLI autenticado localmente porque o OAuth do plugin retornou `Invalid redirect URI`.
-- Projeto Neon criado: `eventhub-staging`.
+- Projeto Neon criado: `eventflow-staging`.
 - Project ID Neon: `royal-wildflower-24974285`.
 - Organizacao Neon: `org-falling-firefly-87758675`.
 - Regiao: `aws-us-east-1`.
@@ -76,8 +79,8 @@ Atualizado em: 2026-08-16
 - Migrations aplicadas inicialmente: 8.
 - Seed inicial falhou por drift entre `schema.prisma` e migrations (`Tenant.city` ausente no banco).
 - Criada migration `20260816213000_promoters_schema_sync` para alinhar promoters, campos de tenant/user/order e indices faltantes.
-- `pnpm --filter @eventhub/api test`: 18 suites e 137 testes passaram antes da nova migration.
-- `pnpm --filter @eventhub/api build`: Prisma generate e Nest build passaram antes da nova migration.
+- `pnpm --filter @eventflow/api test`: 18 suites e 137 testes passaram antes da nova migration.
+- `pnpm --filter @eventflow/api build`: Prisma generate e Nest build passaram antes da nova migration.
 - `git diff --check`: passou sem erros.
 - Migrations aplicadas apos correcao: 9.
 - Seed staging executado com dados ficticios.
@@ -91,24 +94,24 @@ Atualizado em: 2026-08-16
 - API preparada para Cloudflare R2 usando interface S3-compatible.
 - Adicionadas variaveis `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_S3_ENDPOINT` e `AWS_S3_FORCE_PATH_STYLE`.
 - Para Cloudflare R2, usar `AWS_REGION=auto`, `AWS_S3_FORCE_PATH_STYLE=true` e endpoint `https://<ACCOUNT_ID>.r2.cloudflarestorage.com`.
-- `pnpm --filter @eventhub/api test -- upload-storage.service.spec.ts env.schema.spec.ts`: 2 suites e 13 testes passaram.
-- `pnpm --filter @eventhub/api test`: 18 suites e 140 testes passaram.
-- `pnpm --filter @eventhub/api build`: Prisma generate e Nest build passaram.
+- `pnpm --filter @eventflow/api test -- upload-storage.service.spec.ts env.schema.spec.ts`: 2 suites e 13 testes passaram.
+- `pnpm --filter @eventflow/api test`: 18 suites e 140 testes passaram.
+- `pnpm --filter @eventflow/api build`: Prisma generate e Nest build passaram.
 - `git diff --check`: passou sem erros.
 - Wrangler CLI autenticado na conta Cloudflare.
 - Account ID Cloudflare: `b77a3d86099773b5d2300baa91421517`.
-- Bucket R2 criado: `eventhub-assets-staging`.
+- Bucket R2 criado: `eventflow-assets-staging`.
 - Storage class: Standard.
 - Acesso publico `r2.dev` habilitado para staging.
-- URL publica R2 staging: `https://pub-da763cc1a8384db2b74c2f9d24821086.r2.dev`.
+- URL publica R2 staging: `https://pub-474447a5c61b4ecaa4cc55272d5c82ff.r2.dev`.
 - Bucket vazio apos criacao: 0 objetos, 0 B.
+- Bucket antigo removido apos rename para evitar recursos com nome legado.
 - Regra operacional: este bucket publico deve receber apenas assets publicos de eventos, como banners, logos e imagens de galeria.
 - Proibido armazenar documentos pessoais, relatorios, ingressos privados, comprovantes, QR payload completo ou qualquer dado sensivel neste bucket publico.
-- Credenciais R2 S3 API criadas fora do repositorio e carregadas localmente via `.env.local` gitignored.
-- Teste real R2 executado com credenciais de staging: `PutObject` em arquivo temporario, leitura publica via `r2.dev` com HTTP 200 e `DeleteObject` do arquivo temporario.
+- Pendente: regerar credenciais R2 S3 API para o bucket `eventflow-assets-staging`. As credenciais antigas estavam escopadas para o bucket removido e retornaram `AccessDenied` no bucket novo.
 - Observacao: o Wrangler nao possui comando para criar essas credenciais, e a sessao OAuth atual nao autorizou a API de tokens da Cloudflare (`Unauthorized to access requested resource`).
-- Procedimento seguro: criar a credencial em Cloudflare Dashboard > R2 > Overview > Manage API Tokens, escopo somente `eventhub-assets-staging`, copiar o Access Key ID e o Secret Access Key uma unica vez e configurar apenas como env vars da API.
-- Variaveis R2 staging esperadas na hospedagem da API: `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_S3_ENDPOINT=https://b77a3d86099773b5d2300baa91421517.r2.cloudflarestorage.com`, `AWS_REGION=auto`, `AWS_S3_FORCE_PATH_STYLE=true`, `AWS_S3_ASSETS_BUCKET=eventhub-assets-staging`, `AWS_S3_ASSETS_PUBLIC_URL=https://pub-da763cc1a8384db2b74c2f9d24821086.r2.dev`.
+- Procedimento seguro: criar a credencial em Cloudflare Dashboard > R2 > Overview > Manage API Tokens, escopo somente `eventflow-assets-staging`, copiar o Access Key ID e o Secret Access Key uma unica vez e configurar apenas como env vars da API.
+- Variaveis R2 staging esperadas na hospedagem da API: `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_S3_ENDPOINT=https://b77a3d86099773b5d2300baa91421517.r2.cloudflarestorage.com`, `AWS_REGION=auto`, `AWS_S3_FORCE_PATH_STYLE=true`, `AWS_S3_ASSETS_BUCKET=eventflow-assets-staging`, `AWS_S3_ASSETS_PUBLIC_URL=https://pub-474447a5c61b4ecaa4cc55272d5c82ff.r2.dev`.
 - Pendente: usar dominio customizado em producao caso assets publicos sejam mantidos em R2.
 
 ## Variaveis Obrigatorias de Producao
@@ -191,7 +194,7 @@ A migration `20260815120000_order_stock_reservation` adiciona:
 2. Completar pagamento no sandbox.
 3. Verificar que webhook processou: pagamento `PAID`, tickets emitidos, ledger criado.
 4. Enviar webhook duplicado: verificar idempotencia (nao cria tickets/ledger duplicados).
-5. Verificar metricas em `/api/metrics`: `eventhub_webhooks_received_total`, `eventhub_webhooks_processed_total`.
+5. Verificar metricas em `/api/metrics`: `eventflow_webhooks_received_total`, `eventflow_webhooks_processed_total`.
 
 ## Testar Upload S3
 
@@ -213,7 +216,7 @@ A migration `20260815120000_order_stock_reservation` adiciona:
 
 | Risco | Severidade | Mitigacao |
 | --- | --- | --- |
-| Webhook sem assinatura criptografica do provedor | Alta | Implementar verificacao de assinatura quando AbacatePay oferecer; monitorar `eventhub_webhooks_unmatched_total`. |
+| Webhook sem assinatura criptografica do provedor | Alta | Implementar verificacao de assinatura quando AbacatePay oferecer; monitorar `eventflow_webhooks_unmatched_total`. |
 | Conciliacao financeira manual | Media | Dashboard financeiro mostra KPIs, mas conciliacao real contra extratos do provedor ainda nao esta automatizada. |
 | Teste de carga nao executado | Media | Rodar k6/Artillery contra checkout e pagina publica antes de venda em alto volume. |
 | 2FA enterprise e fluxo real | Media | Modelo existe, mas fluxo de provisioning TOTP/app authenticator nao esta testado end-to-end. |

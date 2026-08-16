@@ -1,6 +1,6 @@
 # Database Documentation
 
-EventHub uses PostgreSQL through Prisma ORM. The data model is intentionally tenant-aware and optimized around organizer isolation, event sales, checkout throughput and operational analytics.
+Event Flow uses PostgreSQL through Prisma ORM. The data model is intentionally tenant-aware and optimized around organizer isolation, event sales, checkout throughput and operational analytics.
 
 ## Tenancy model
 

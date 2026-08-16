@@ -18,13 +18,13 @@ const strongMail = {
 const strongStorage = {
   AWS_ACCESS_KEY_ID: "storage-access-key",
   AWS_SECRET_ACCESS_KEY: "storage-secret-key",
-  AWS_S3_ASSETS_BUCKET: "eventhub-assets-prod",
+  AWS_S3_ASSETS_BUCKET: "eventflow-assets-prod",
   AWS_S3_ASSETS_PUBLIC_URL: "https://assets.example.com"
 };
 
 function baseEnv(overrides: Record<string, string | undefined> = {}) {
   return {
-    DATABASE_URL: "postgresql://eventhub:eventhub@localhost:5432/eventhub",
+    DATABASE_URL: "postgresql://eventflow:eventflow@localhost:5432/eventflow",
     ...overrides
   };
 }
@@ -77,7 +77,7 @@ describe("envSchema", () => {
       NODE_ENV: "production",
       ...strongSecrets,
       ...strongMail,
-      AWS_S3_ASSETS_BUCKET: "eventhub-assets-prod",
+      AWS_S3_ASSETS_BUCKET: "eventflow-assets-prod",
       AWS_S3_ASSETS_PUBLIC_URL: "https://assets.example.com"
     }))).toThrow(/AWS_ACCESS_KEY_ID/);
   });

@@ -55,8 +55,8 @@ export class EnterprisePublicApiService extends EnterpriseDomainService {
         oauth: "Authorization Code + Client Credentials with scoped clients"
       },
       sdk: [
-        { language: "TypeScript", packageName: "@eventhub/sdk", status: "planned in packages/sdk" },
-        { language: "React Native", packageName: "@eventhub/mobile-sdk", status: "planned in packages/sdk" }
+        { language: "TypeScript", packageName: "@eventflow/sdk", status: "planned in packages/sdk" },
+        { language: "React Native", packageName: "@eventflow/mobile-sdk", status: "planned in packages/sdk" }
       ],
       endpoints: [
         "GET /events",

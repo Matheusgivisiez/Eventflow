@@ -1,4 +1,4 @@
-# EventHub - Checklist de Correcao e Evolucao
+# Event Flow - Checklist de Correcao e Evolucao
 
 Atualizado em: 2026-08-15
 
@@ -51,7 +51,7 @@ Se algum teste nao puder ser executado, o item deve ficar `[~]` ou `[!]` com o m
   - Evidencia: `apps/web/stores/auth-store.ts`.
   - Como corrigir: refresh token em cookie `HttpOnly`, `Secure`, `SameSite`; access token em memoria ou renovacao via endpoint.
   - Criterio de aceite: `localStorage` nao contem refresh token.
-  - Resultado: refresh token agora e entregue somente em cookie `eventhub_refresh` HttpOnly; respostas de login/registro/refresh nao retornam `refreshToken`; web usa `credentials: "include"` e nao persiste refresh token.
+  - Resultado: refresh token agora e entregue somente em cookie `eventflow_refresh` HttpOnly; respostas de login/registro/refresh nao retornam `refreshToken`; web usa `credentials: "include"` e nao persiste refresh token.
 
 - [x] **Remover secrets default fracos em producao**
   - Problema: `env.schema.ts` aceita secrets default `change-me-*`.
@@ -110,12 +110,12 @@ Se algum teste nao puder ser executado, o item deve ficar `[~]` ou `[!]` com o m
   - Criterio de aceite: dashboard enterprise reflete maturidade real dos modulos.
   - Resultado: `overview.readiness` agora usa status graduado com evidencia objetiva por modulo; web exibe o status e a evidencia.
 
-- [x] **Padronizar marca EventHub**
-  - Problema: README/docs usavam EventHub, enquanto partes do web/mobile usavam outra marca.
+- [x] **Padronizar marca Event Flow**
+  - Problema: README/docs usavam Event Flow, enquanto partes do web/mobile usavam outra marca.
   - Evidencia: `README.md`, `apps/mobile/App.tsx`, `apps/mobile/src/offline-checkin.ts`.
   - Como corrigir: escolher nome oficial e ajustar textos, storage keys, app name e documentacao.
   - Criterio de aceite: uma unica marca aparece em web, API, mobile, docs e seed.
-  - Resultado: EventHub foi definido como marca oficial; textos visiveis, metadata, docs, downloads e storage keys foram alinhados.
+  - Resultado: Event Flow foi definido como marca oficial; textos visiveis, metadata, docs, downloads e storage keys foram alinhados.
 
 - [x] **Revisar documentacao para separar pronto, parcial e planejado**
   - Problema: README e docs prometem funcionalidades enterprise que ainda nao estao completas.
@@ -172,8 +172,8 @@ Se algum teste nao puder ser executado, o item deve ficar `[~]` ou `[!]` com o m
   - Cancelamento/reembolso libera estoque reservado.
   - Falha ao criar checkout no provedor externo cancela o pedido e libera a reserva.
   - Verificacoes executadas:
-    - `pnpm --filter @eventhub/api test`
-    - `pnpm --filter @eventhub/api build`
+    - `pnpm --filter @eventflow/api test`
+    - `pnpm --filter @eventflow/api build`
     - `git diff --check`
 - Concluido **Proteger consulta publica de pedido**:
   - Adicionado campo `orderAccessToken` em `Order`.
@@ -182,10 +182,10 @@ Se algum teste nao puder ser executado, o item deve ficar `[~]` ou `[!]` com o m
   - Pagina `/checkout/success` so consulta pedido quando os dois parametros existem.
   - Adicionados testes unitarios para token ausente, token invalido, token valido, retorno do token no checkout e URLs do provedor.
   - Verificacoes executadas:
-    - `pnpm --filter @eventhub/api test -- checkout.service.spec.ts payments.service.spec.ts transfers.service.spec.ts`
-    - `pnpm --filter @eventhub/api test`
-    - `pnpm --filter @eventhub/api build`
-    - `pnpm --filter @eventhub/web build`
+    - `pnpm --filter @eventflow/api test -- checkout.service.spec.ts payments.service.spec.ts transfers.service.spec.ts`
+    - `pnpm --filter @eventflow/api test`
+    - `pnpm --filter @eventflow/api build`
+    - `pnpm --filter @eventflow/web build`
     - `git diff --check`
 - Concluido **Restringir alteracao manual de status de pagamento**:
   - `PaymentsController` agora usa `JwtAuthGuard` e `RolesGuard`.
@@ -194,21 +194,21 @@ Se algum teste nao puder ser executado, o item deve ficar `[~]` ou `[!]` com o m
   - Criacao autenticada de preferencia de pagamento valida o tenant do pedido.
   - Adicionados testes para roles do controller, bloqueio por tenant errado e criacao por tenant correto.
   - Verificacoes executadas:
-    - `pnpm --filter @eventhub/api test -- payments.controller.spec.ts payments.service.spec.ts checkout.service.spec.ts`
-    - `pnpm --filter @eventhub/api test`
-    - `pnpm --filter @eventhub/api build`
+    - `pnpm --filter @eventflow/api test -- payments.controller.spec.ts payments.service.spec.ts checkout.service.spec.ts`
+    - `pnpm --filter @eventflow/api test`
+    - `pnpm --filter @eventflow/api build`
     - `git diff --check`
 - Concluido **Mover refresh token para cookie HttpOnly**:
-  - Auth API agora seta cookie `eventhub_refresh` HttpOnly em login, registro, registro de organizador, refresh e upgrade para organizador.
+  - Auth API agora seta cookie `eventflow_refresh` HttpOnly em login, registro, registro de organizador, refresh e upgrade para organizador.
   - `POST /auth/refresh` aceita refresh pelo cookie HttpOnly.
   - `POST /auth/logout` limpa cookie e revoga refresh token no banco.
   - Web nao espera nem persiste `refreshToken`; chamadas usam `credentials: "include"`.
   - Adicionados testes para cookie HttpOnly, ausencia de `refreshToken` na resposta, refresh via cookie, logout com limpeza de cookie e revogacao por hash.
   - Verificacoes executadas:
-    - `pnpm --filter @eventhub/api test -- auth.controller.spec.ts auth.service.spec.ts`
-    - `pnpm --filter @eventhub/api test`
-    - `pnpm --filter @eventhub/api build`
-    - `pnpm --filter @eventhub/web build`
+    - `pnpm --filter @eventflow/api test -- auth.controller.spec.ts auth.service.spec.ts`
+    - `pnpm --filter @eventflow/api test`
+    - `pnpm --filter @eventflow/api build`
+    - `pnpm --filter @eventflow/web build`
     - `rg -n "refreshToken" apps/web`
     - `git diff --check`
 - Concluido **Remover secrets default fracos em producao**:
@@ -218,9 +218,9 @@ Se algum teste nao puder ser executado, o item deve ficar `[~]` ou `[!]` com o m
   - Removidos fallbacks `change-me-*` de assinatura/validacao de QR Code nos servicos de pagamento, check-in e transferencia.
   - Adicionados testes para defaults de desenvolvimento, producao sem secrets, producao com secrets fracos e producao com secrets fortes.
   - Verificacoes executadas:
-    - `pnpm --filter @eventhub/api test -- env.schema.spec.ts payments.service.spec.ts transfers.service.spec.ts`
-    - `pnpm --filter @eventhub/api test`
-    - `pnpm --filter @eventhub/api build`
+    - `pnpm --filter @eventflow/api test -- env.schema.spec.ts payments.service.spec.ts transfers.service.spec.ts`
+    - `pnpm --filter @eventflow/api test`
+    - `pnpm --filter @eventflow/api build`
     - `rg -n "change-me" apps/api/src .env.example`
     - `git diff --check`
 - Concluido **Adicionar testes de checkout concorrente**:
@@ -228,26 +228,26 @@ Se algum teste nao puder ser executado, o item deve ficar `[~]` ou `[!]` com o m
   - Teste simula duas tentativas para o ultimo ingresso com leitura de estoque obsoleta e reserva atomica condicional.
   - Verifica que apenas um pedido e criado, estoque reservado fica em 1, `stockReservedAt` e `orderAccessToken` sao preenchidos, e a segunda tentativa falha.
   - Verificacoes executadas:
-    - `pnpm --filter @eventhub/api test -- create-checkout.use-case.spec.ts checkout.service.spec.ts payments.service.spec.ts`
-    - `pnpm --filter @eventhub/api test`
-    - `pnpm --filter @eventhub/api build`
+    - `pnpm --filter @eventflow/api test -- create-checkout.use-case.spec.ts checkout.service.spec.ts payments.service.spec.ts`
+    - `pnpm --filter @eventflow/api test`
+    - `pnpm --filter @eventflow/api build`
     - `git diff --check`
 - Concluido **Adicionar testes de webhook pago**:
   - Adicionado `webhooks.service.spec.ts` cobrindo pagamento pago via AbacatePay, log processado, auditoria e notificacao do comprador.
   - Adicionados testes de duplicidade para garantir que webhook ja processado nao chama pagamento nem notificacao.
   - Ampliado `payments.service.spec.ts` para cobrir `PENDING -> PAID`, emissao de tickets, ledger unico, retry idempotente e ordem legada sem reserva de estoque.
   - Verificacoes executadas:
-    - `pnpm --filter @eventhub/api test -- webhooks.service.spec.ts payments.service.spec.ts`
-    - `pnpm --filter @eventhub/api test`
-    - `pnpm --filter @eventhub/api build`
+    - `pnpm --filter @eventflow/api test -- webhooks.service.spec.ts payments.service.spec.ts`
+    - `pnpm --filter @eventflow/api test`
+    - `pnpm --filter @eventflow/api build`
     - `git diff --check`
 - Concluido **Adicionar testes de check-in duplicado e QR adulterado**:
   - Adicionado `validate-ticket.use-case.spec.ts`.
   - Testes cobrem entrada liberada, QR adulterado recusado antes de consultar ticket, duplicidade com log, ticket cancelado com log, ticket nao encontrado no tenant/evento e falha fechada sem `QR_CODE_SECRET`.
   - Verificacoes executadas:
-    - `pnpm --filter @eventhub/api test -- validate-ticket.use-case.spec.ts payments.service.spec.ts transfers.service.spec.ts`
-    - `pnpm --filter @eventhub/api test`
-    - `pnpm --filter @eventhub/api build`
+    - `pnpm --filter @eventflow/api test -- validate-ticket.use-case.spec.ts payments.service.spec.ts transfers.service.spec.ts`
+    - `pnpm --filter @eventflow/api test`
+    - `pnpm --filter @eventflow/api build`
     - `git diff --check`
 - Concluido **Corrigir recuperacao de senha para envio real**:
   - Adicionado `MailService` com envio SMTP por Nodemailer e fallback seguro de desenvolvimento quando SMTP nao esta configurado.
@@ -257,10 +257,10 @@ Se algum teste nao puder ser executado, o item deve ficar `[~]` ou `[!]` com o m
   - Criada pagina web `/reset-password` para consumir o token recebido por email.
   - Adicionados testes para envio SMTP, fallback sem SMTP, nao vazamento do token, usuario inexistente e validacao de SMTP em producao.
   - Verificacoes executadas:
-    - `pnpm --filter @eventhub/api test -- auth.service.spec.ts mail.service.spec.ts env.schema.spec.ts`
-    - `pnpm --filter @eventhub/api test`
-    - `pnpm --filter @eventhub/api build`
-    - `pnpm --filter @eventhub/web build`
+    - `pnpm --filter @eventflow/api test -- auth.service.spec.ts mail.service.spec.ts env.schema.spec.ts`
+    - `pnpm --filter @eventflow/api test`
+    - `pnpm --filter @eventflow/api build`
+    - `pnpm --filter @eventflow/web build`
     - `git diff --check`
 - Concluido **Aplicar permissoes nas rotas enterprise**:
   - Criados decorators locais para padronizar guards enterprise no controller.
@@ -269,9 +269,9 @@ Se algum teste nao puder ser executado, o item deve ficar `[~]` ou `[!]` com o m
   - Reviews e favoritos do marketplace continuam disponiveis para usuarios autenticados, sem abrir as rotas administrativas enterprise.
   - Adicionados testes de metadados e testes negativos reais dos guards para cliente comum e membro de equipe sem permissao.
   - Verificacoes executadas:
-    - `pnpm --filter @eventhub/api test -- enterprise.controller.spec.ts`
-    - `pnpm --filter @eventhub/api test`
-    - `pnpm --filter @eventhub/api build`
+    - `pnpm --filter @eventflow/api test -- enterprise.controller.spec.ts`
+    - `pnpm --filter @eventflow/api test`
+    - `pnpm --filter @eventflow/api build`
     - `git diff --check`
 - Concluido **Separar `EnterpriseService` por dominio**:
   - Criado `EnterpriseDomainService` com helpers compartilhados de tenant, strings, hash, slug e validacao de evento.
@@ -280,9 +280,9 @@ Se algum teste nao puder ser executado, o item deve ficar `[~]` ou `[!]` com o m
   - `EnterpriseModule` registra todos os providers de dominio.
   - Adicionado `enterprise.service.spec.ts` cobrindo a delegacao de todos os metodos publicos para o dominio correto.
   - Verificacoes executadas:
-    - `pnpm --filter @eventhub/api test -- enterprise.controller.spec.ts enterprise.service.spec.ts`
-    - `pnpm --filter @eventhub/api test`
-    - `pnpm --filter @eventhub/api build`
+    - `pnpm --filter @eventflow/api test -- enterprise.controller.spec.ts enterprise.service.spec.ts`
+    - `pnpm --filter @eventflow/api test`
+    - `pnpm --filter @eventflow/api build`
     - `git diff --check`
 - Concluido **Trocar readiness fake por status real**:
   - `EnterpriseOverviewService` deixou de retornar booleanos sempre verdadeiros.
@@ -291,23 +291,23 @@ Se algum teste nao puder ser executado, o item deve ficar `[~]` ou `[!]` com o m
   - Pagina web `/enterprise` foi atualizada para exibir status e evidencia por modulo.
   - Adicionado `enterprise-overview.service.spec.ts` cobrindo tenant sem dados e tenant com setup completo.
   - Verificacoes executadas:
-    - `pnpm --filter @eventhub/api test -- enterprise-overview.service.spec.ts enterprise.service.spec.ts enterprise.controller.spec.ts`
-    - `pnpm --filter @eventhub/api test`
-    - `pnpm --filter @eventhub/api build`
-    - `pnpm --filter @eventhub/web build`
+    - `pnpm --filter @eventflow/api test -- enterprise-overview.service.spec.ts enterprise.service.spec.ts enterprise.controller.spec.ts`
+    - `pnpm --filter @eventflow/api test`
+    - `pnpm --filter @eventflow/api build`
+    - `pnpm --filter @eventflow/web build`
     - `git diff --check`
-- Concluido **Padronizar marca EventHub**:
-  - EventHub foi definido como marca oficial do produto.
+- Concluido **Padronizar marca Event Flow**:
+  - Event Flow foi definido como marca oficial do produto.
   - Web atualizado em metadata, rodapes, politica de cookies, logo acessivel, texto do logo e nomes de download.
   - Mobile atualizado em textos visiveis, fallback de device ID e avatar.
   - API/docs/testes alinhados em textos financeiros, AbacatePay e dados de teste.
-  - Mantidos identificadores tecnicos `@eventhub/*`, cookies, metricas, containers e namespaces por compatibilidade.
+  - Mantidos identificadores tecnicos `@eventflow/*`, cookies, metricas, containers e namespaces por compatibilidade.
   - Verificacoes executadas:
-    - `pnpm --filter @eventhub/api test -- transfers.service.spec.ts`
-    - `pnpm --filter @eventhub/mobile typecheck`
-    - `pnpm --filter @eventhub/api test`
-    - `pnpm --filter @eventhub/api build`
-    - `pnpm --filter @eventhub/web build`
+    - `pnpm --filter @eventflow/api test -- transfers.service.spec.ts`
+    - `pnpm --filter @eventflow/mobile typecheck`
+    - `pnpm --filter @eventflow/api test`
+    - `pnpm --filter @eventflow/api build`
+    - `pnpm --filter @eventflow/web build`
     - busca por nomes antigos da marca em `apps`, `docs`, `README.md`, `package.json` e `test-abacatepay.mjs`
     - `git diff --check`
 - Concluido **Revisar documentacao para separar pronto, parcial e planejado**:
@@ -317,8 +317,8 @@ Se algum teste nao puder ser executado, o item deve ficar `[~]` ou `[!]` com o m
   - `docs/enterprise-platform.md` foi reescrito como inventario com status e lacunas, nao como promessa de prontidao.
   - Verificacoes executadas:
     - `rg -n "product-maturity|Product Maturity|Maturidade do produto|production_ready|partial|prototype|not_started" README.md docs/index.md docs/enterprise-platform.md docs/product-maturity.md docs/project-fix-checklist.md`
-    - `pnpm --filter @eventhub/api test`
-    - `pnpm --filter @eventhub/web build`
+    - `pnpm --filter @eventflow/api test`
+    - `pnpm --filter @eventflow/web build`
     - `git diff --check`
 - Concluido **Reduzir uso de `any` em areas criticas**:
   - `CreateCheckoutUseCase` agora usa `Prisma.TransactionClient` e `Prisma.EventGetPayload` nos helpers transacionais.
@@ -328,11 +328,11 @@ Se algum teste nao puder ser executado, o item deve ficar `[~]` ou `[!]` com o m
   - `apps/mobile/App.tsx` ganhou props tipadas para `CheckInTab` e `SyncTab`.
   - `AnyRecord` enterprise passou a representar payloads como `Record<string, unknown>`; o acesso Prisma dinamico ficou isolado em `DynamicPrismaClient`.
   - Verificacoes executadas:
-    - `pnpm --filter @eventhub/mobile typecheck`
-    - `pnpm --filter @eventhub/web build`
-    - `pnpm --filter @eventhub/api test`
-    - `pnpm --filter @eventhub/api test -- create-checkout.use-case.spec.ts checkout.service.spec.ts`
-    - `pnpm --filter @eventhub/api build`
+    - `pnpm --filter @eventflow/mobile typecheck`
+    - `pnpm --filter @eventflow/web build`
+    - `pnpm --filter @eventflow/api test`
+    - `pnpm --filter @eventflow/api test -- create-checkout.use-case.spec.ts checkout.service.spec.ts`
+    - `pnpm --filter @eventflow/api build`
     - `rg -n "\\bany\\b|as any|Record<string, any>" apps/api/src/modules/checkout apps/api/src/modules/enterprise apps/api/src/modules/reports apps/web/lib apps/mobile/App.tsx -g '*.ts' -g '*.tsx'`
     - `git diff --check`
 - Concluido **Configurar storage externo para uploads**:
@@ -343,9 +343,9 @@ Se algum teste nao puder ser executado, o item deve ficar `[~]` ou `[!]` com o m
   - `.env.example`, `docs/infrastructure-deploy.md` e `docs/product-maturity.md` foram atualizados.
   - Adicionados testes para S3, producao sem storage externo, arquivo adulterado, extensao invalida e controller protegido por JWT.
   - Verificacoes executadas:
-    - `pnpm --filter @eventhub/api test -- upload-storage.service.spec.ts upload.controller.spec.ts env.schema.spec.ts`
-    - `pnpm --filter @eventhub/api test`
-    - `pnpm --filter @eventhub/api build`
+    - `pnpm --filter @eventflow/api test -- upload-storage.service.spec.ts upload.controller.spec.ts env.schema.spec.ts`
+    - `pnpm --filter @eventflow/api test`
+    - `pnpm --filter @eventflow/api build`
     - `git diff --check`
 - Concluido **Fortalecer observabilidade**:
   - Criado `BusinessMetricsService` global para renderizar metricas Prometheus dinamicas em `/metrics`.
@@ -356,9 +356,9 @@ Se algum teste nao puder ser executado, o item deve ficar `[~]` ou `[!]` com o m
   - `docs/observability.md` agora lista metricas implementadas e reforca que labels nao devem conter PII, tokens ou identificadores de pagamento.
   - Adicionado teste unitario garantindo formato Prometheus e ausencia de labels como `email` e `token`.
   - Verificacoes executadas:
-    - `pnpm --filter @eventhub/api test -- business-metrics.service.spec.ts create-checkout.use-case.spec.ts payments.service.spec.ts webhooks.service.spec.ts validate-ticket.use-case.spec.ts`
-    - `pnpm --filter @eventhub/api test`
-    - `pnpm --filter @eventhub/api build`
+    - `pnpm --filter @eventflow/api test -- business-metrics.service.spec.ts create-checkout.use-case.spec.ts payments.service.spec.ts webhooks.service.spec.ts validate-ticket.use-case.spec.ts`
+    - `pnpm --filter @eventflow/api test`
+    - `pnpm --filter @eventflow/api build`
     - `git diff --check`
 - Concluido **Preparar mobile para ambiente real**:
   - Adicionado `expo-secure-store` para persistir o access token fora de storage comum.
@@ -370,8 +370,8 @@ Se algum teste nao puder ser executado, o item deve ficar `[~]` ou `[!]` com o m
   - Adicionado teste mobile com `node:test`/`tsx` para login, token sem vazamento em URL, falha fechada sem access token e registro de device.
   - Corrigido desalinhamento de `jest-mock` para manter a suite da API executavel depois da atualizacao do lockfile.
   - Verificacoes executadas:
-    - `pnpm --filter @eventhub/mobile test`
-    - `pnpm --filter @eventhub/mobile typecheck`
-    - `pnpm --filter @eventhub/api test -- auth.controller.spec.ts auth.service.spec.ts enterprise.controller.spec.ts enterprise.service.spec.ts`
-    - `pnpm --filter @eventhub/api test`
-    - `pnpm --filter @eventhub/api build`
+    - `pnpm --filter @eventflow/mobile test`
+    - `pnpm --filter @eventflow/mobile typecheck`
+    - `pnpm --filter @eventflow/api test -- auth.controller.spec.ts auth.service.spec.ts enterprise.controller.spec.ts enterprise.service.spec.ts`
+    - `pnpm --filter @eventflow/api test`
+    - `pnpm --filter @eventflow/api build`

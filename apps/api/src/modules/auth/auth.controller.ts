@@ -43,7 +43,7 @@ export class AuthController {
     @Req() request: Request,
     @Res({ passthrough: true }) response: Response
   ) {
-    const refreshToken = dto.refreshToken ?? this.readCookie(request, "eventhub_refresh");
+    const refreshToken = dto.refreshToken ?? this.readCookie(request, "eventflow_refresh");
     if (!refreshToken) {
       throw new UnauthorizedException("Refresh token invalido.");
     }
@@ -52,7 +52,7 @@ export class AuthController {
 
   @Post("logout")
   async logout(@Req() request: Request, @Res({ passthrough: true }) response: Response) {
-    const refreshToken = this.readCookie(request, "eventhub_refresh");
+    const refreshToken = this.readCookie(request, "eventflow_refresh");
     this.clearRefreshCookie(response);
     return this.auth.logout(refreshToken);
   }
@@ -99,7 +99,7 @@ export class AuthController {
   }
 
   private setRefreshCookie(response: Response, refreshToken: string) {
-    response.cookie("eventhub_refresh", refreshToken, {
+    response.cookie("eventflow_refresh", refreshToken, {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
       sameSite: "lax",
@@ -109,7 +109,7 @@ export class AuthController {
   }
 
   private clearRefreshCookie(response: Response) {
-    response.clearCookie("eventhub_refresh", {
+    response.clearCookie("eventflow_refresh", {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
       sameSite: "lax",

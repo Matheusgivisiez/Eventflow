@@ -7,11 +7,11 @@ import { EventAgenda } from "@/components/event-page/event-agenda";
 import { EventFaq } from "@/components/event-page/event-faq";
 import { OrganizerInfo } from "@/components/event-page/organizer-info";
 import { EventDetailClient } from "./event-detail-client";
-import type { EventHubEvent } from "@/types/eventhub";
+import type { EventFlowEvent } from "@/types/eventflow";
 
 // Helper function to fetch the event from the API directly.
 // We use fetch since this is a server component.
-async function getEvent(slug: string): Promise<EventHubEvent | null> {
+async function getEvent(slug: string): Promise<EventFlowEvent | null> {
   const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001/api";
   try {
     const res = await fetch(`${API_URL}/events/public/${slug}`, {
@@ -34,12 +34,12 @@ export async function generateMetadata(
 
   if (!event) {
     return {
-      title: "Evento nao encontrado | EventHub",
+      title: "Evento nao encontrado | Event Flow",
       description: "O evento procurado nao existe ou nao esta mais disponivel."
     };
   }
 
-  const title = event.seoTitle || `${event.title} | EventHub`;
+  const title = event.seoTitle || `${event.title} | Event Flow`;
   const description = event.seoDescription || event.description.substring(0, 160);
 
   return {

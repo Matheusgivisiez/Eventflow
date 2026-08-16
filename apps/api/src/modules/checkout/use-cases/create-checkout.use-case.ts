@@ -108,7 +108,7 @@ export class CreateCheckoutUseCase {
         });
       }
 
-      this.metrics?.increment("eventhub_checkout_created_total", { method: dto.paymentMethod });
+      this.metrics?.increment("eventflow_checkout_created_total", { method: dto.paymentMethod });
 
       return order;
     });
@@ -270,7 +270,7 @@ export class CreateCheckoutUseCase {
       });
 
       if (updated.count !== 1) {
-        this.metrics?.increment("eventhub_checkout_inventory_conflicts_total", { reason: "insufficient_stock" });
+        this.metrics?.increment("eventflow_checkout_inventory_conflicts_total", { reason: "insufficient_stock" });
         throw new BadRequestException(`Nao ha ingressos suficientes para ${item.ticketType.name}.`);
       }
     }

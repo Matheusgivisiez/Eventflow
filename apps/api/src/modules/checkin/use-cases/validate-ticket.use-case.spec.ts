@@ -25,7 +25,7 @@ function createTicket(overrides: Record<string, unknown> = {}) {
     eventId: "event-1",
     status: TicketStatus.AVAILABLE,
     usedAt: null,
-    event: { id: "event-1", tenantId: "tenant-1", title: "EventHub Conf" },
+    event: { id: "event-1", tenantId: "tenant-1", title: "Event Flow Conf" },
     ticketType: { id: "ticket-type-1", name: "Inteira" },
     ...overrides
   };

@@ -18,7 +18,7 @@ import dynamic from "next/dynamic";
 import { api } from "@/lib/api";
 
 const ImageUpload = dynamic(() => import("@/components/image-upload").then(m => m.ImageUpload), { ssr: false, loading: () => <Skeleton className="h-40 w-full" /> });
-import type { EventHubEvent } from "@/types/eventhub";
+import type { EventFlowEvent } from "@/types/eventflow";
 
 const schema = z.object({
   title: z.string().min(3, "Informe o nome do evento."),
@@ -58,9 +58,9 @@ export default function EditEventPage() {
   const router = useRouter();
   const queryClient = useQueryClient();
 
-  const { data: event, isLoading } = useQuery<EventHubEvent>({
+  const { data: event, isLoading } = useQuery<EventFlowEvent>({
     queryKey: ["event", id],
-    queryFn: () => api<EventHubEvent>(`/events/${id}`)
+    queryFn: () => api<EventFlowEvent>(`/events/${id}`)
   });
 
   const form = useForm<FormData>({

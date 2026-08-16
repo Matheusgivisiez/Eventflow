@@ -65,7 +65,7 @@ export class FinanceService {
     const transfer = await this.abacatePay.createPixTransfer({
       pixKey: dto.pixKey,
       amountCents: withdrawal.amountCents,
-      description: `Saque EventHub #${withdrawal.id}`
+      description: `Saque Event Flow #${withdrawal.id}`
     });
 
     // Mark as APPROVED (AbacatePay processes instantly, but we track via providerRef)

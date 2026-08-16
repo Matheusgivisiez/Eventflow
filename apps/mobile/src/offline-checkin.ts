@@ -9,7 +9,7 @@ type QueuedScan = {
   rawPayload: string;
 };
 
-const db = SQLite.openDatabaseSync("eventhub-checkin.db");
+const db = SQLite.openDatabaseSync("eventflow-checkin.db");
 
 export async function initDatabase() {
   await db.execAsync(`

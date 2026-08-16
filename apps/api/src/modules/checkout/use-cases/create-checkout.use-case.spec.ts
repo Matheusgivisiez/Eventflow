@@ -7,8 +7,8 @@ function createEvent(sold = 0) {
     id: "event-1",
     tenantId: "tenant-1",
     ownerId: "owner-1",
-    title: "EventHub Conf",
-    slug: "eventhub-conf",
+    title: "Event Flow Conf",
+    slug: "eventflow-conf",
     description: "Conference",
     category: "Tecnologia",
     startsAt: new Date(Date.now() + 1000 * 60 * 60 * 24),
@@ -114,8 +114,8 @@ describe("CreateCheckoutUseCase stock reservation", () => {
   it("reserves the last ticket atomically and blocks the next competing checkout", async () => {
     const { service, tx, orders, getSold } = createService();
 
-    const firstOrder = await service.execute("eventhub-conf", createDto() as any);
-    await expect(service.execute("eventhub-conf", createDto() as any)).rejects.toThrow(BadRequestException);
+    const firstOrder = await service.execute("eventflow-conf", createDto() as any);
+    await expect(service.execute("eventflow-conf", createDto() as any)).rejects.toThrow(BadRequestException);
 
     expect(firstOrder.status).toBe(PaymentStatus.PENDING);
     expect(firstOrder.stockReservedAt).toBeInstanceOf(Date);
@@ -130,8 +130,8 @@ describe("CreateCheckoutUseCase stock reservation", () => {
   it("does not create an order when atomic stock reservation fails", async () => {
     const { service, tx, orders } = createService();
 
-    await service.execute("eventhub-conf", createDto() as any);
-    await expect(service.execute("eventhub-conf", createDto() as any)).rejects.toThrow("Nao ha ingressos suficientes");
+    await service.execute("eventflow-conf", createDto() as any);
+    await expect(service.execute("eventflow-conf", createDto() as any)).rejects.toThrow("Nao ha ingressos suficientes");
 
     expect(tx.order.create).toHaveBeenCalledTimes(1);
     expect(orders).toHaveLength(1);

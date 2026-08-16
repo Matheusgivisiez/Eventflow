@@ -1,25 +1,25 @@
 services:
   postgres:
     image: postgres:16-alpine
-    container_name: eventhub-postgres
+    container_name: eventflow-postgres
     restart: unless-stopped
     environment:
-      POSTGRES_USER: ${POSTGRES_USER:-eventhub}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-eventhub}
-      POSTGRES_DB: ${POSTGRES_DB:-eventhub}
+      POSTGRES_USER: ${POSTGRES_USER:-eventflow}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-eventflow}
+      POSTGRES_DB: ${POSTGRES_DB:-eventflow}
     ports:
       - "5432:5432"
     volumes:
       - postgres-data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U eventhub"]
+      test: ["CMD-SHELL", "pg_isready -U eventflow"]
       interval: 10s
       timeout: 5s
       retries: 5
 
   redis:
     image: redis:7-alpine
-    container_name: eventhub-redis
+    container_name: eventflow-redis
     restart: unless-stopped
     ports:
       - "6379:6379"
@@ -39,11 +39,11 @@ services:
 
   rabbitmq:
     image: rabbitmq:3.13-management-alpine
-    container_name: eventhub-rabbitmq
+    container_name: eventflow-rabbitmq
     restart: unless-stopped
     environment:
-      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER:-eventhub}
-      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASS:-eventhub}
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER:-eventflow}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASS:-eventflow}
     ports:
       - "5672:5672"
       - "15672:15672"
@@ -64,7 +64,7 @@ services:
     build:
       context: .
       dockerfile: apps/api/Dockerfile
-    container_name: eventhub-api
+    container_name: eventflow-api
     depends_on:
       postgres:
         condition: service_healthy
@@ -89,7 +89,7 @@ services:
     build:
       context: .
       dockerfile: apps/web/Dockerfile
-    container_name: eventhub-web
+    container_name: eventflow-web
     depends_on:
       api:
         condition: service_started
@@ -106,7 +106,7 @@ services:
 
   prometheus:
     image: prom/prometheus:v2.55.1
-    container_name: eventhub-prometheus
+    container_name: eventflow-prometheus
     restart: unless-stopped
     ports:
       - "9090:9090"
@@ -120,13 +120,13 @@ services:
 
   grafana:
     image: grafana/grafana:11.3.0
-    container_name: eventhub-grafana
+    container_name: eventflow-grafana
     restart: unless-stopped
     ports:
       - "3002:3000"
     environment:
-      GF_SECURITY_ADMIN_USER: ${GRAFANA_USER:-eventhub}
-      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_PASSWORD:-eventhub}
+      GF_SECURITY_ADMIN_USER: ${GRAFANA_USER:-eventflow}
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_PASSWORD:-eventflow}
     volumes:
       - grafana-data:/var/lib/grafana
     deploy:
@@ -137,7 +137,7 @@ services:
 
   loki:
     image: grafana/loki:3.3.0
-    container_name: eventhub-loki
+    container_name: eventflow-loki
     restart: unless-stopped
     ports:
       - "3100:3100"

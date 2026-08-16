@@ -1,6 +1,6 @@
 # Infrastructure and Deploy
 
-EventHub is designed to run locally with Docker Compose and in production on a horizontally scalable cloud platform.
+Event Flow is designed to run locally with Docker Compose and in production on a horizontally scalable cloud platform.
 
 ## Local Docker Compose
 

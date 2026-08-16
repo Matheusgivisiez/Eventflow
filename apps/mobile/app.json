@@ -1,17 +1,17 @@
 {
   "expo": {
-    "name": "EventHub Check-in",
-    "slug": "eventhub-checkin",
-    "scheme": "eventhub-checkin",
+    "name": "Event Flow Check-in",
+    "slug": "eventflow-checkin",
+    "scheme": "eventflow-checkin",
     "version": "0.1.0",
     "orientation": "portrait",
     "platforms": ["android", "ios"],
     "android": {
-      "package": "app.eventhub.checkin",
+      "package": "app.eventflow.checkin",
       "permissions": ["CAMERA", "ACCESS_NETWORK_STATE"]
     },
     "ios": {
-      "bundleIdentifier": "app.eventhub.checkin",
+      "bundleIdentifier": "app.eventflow.checkin",
       "supportsTablet": true,
       "infoPlist": {
         "NSCameraUsageDescription": "Usamos a camera para ler QR Codes de ingressos no check-in."

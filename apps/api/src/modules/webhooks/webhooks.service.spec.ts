@@ -14,7 +14,7 @@ function createPayment(overrides: Record<string, unknown> = {}) {
     event: {
       id: "event-1",
       tenantId: "tenant-1",
-      title: "EventHub Conf"
+      title: "Event Flow Conf"
     },
     order: {
       id: "order-1",
@@ -99,7 +99,7 @@ describe("WebhooksService paid payment handling", () => {
       email: "buyer@example.com",
       phone: "11999999999",
       orderId: "order-1",
-      eventTitle: "EventHub Conf"
+      eventTitle: "Event Flow Conf"
     });
   });
 

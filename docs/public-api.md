@@ -1,4 +1,4 @@
-# EventHub Public API
+# Event Flow Public API
 
 The public API is designed for organizers, partners and white-label storefronts.
 
@@ -20,13 +20,13 @@ The public API is designed for organizers, partners and white-label storefronts.
 ## SDK
 
 ```ts
-import { EventHubClient } from "@eventhub/sdk";
+import { EventFlowClient } from "@eventflow/sdk";
 
-const eventhub = new EventHubClient({
+const eventflow = new EventFlowClient({
   baseUrl: "https://api.seudominio.com/api",
   apiKey: "ehk_..."
 });
 
-const events = await eventhub.listEvents({ category: "shows" });
-await eventhub.track({ type: "page_view", source: "meta", campaign: "lote-2" });
+const events = await eventflow.listEvents({ category: "shows" });
+await eventflow.track({ type: "page_view", source: "meta", campaign: "lote-2" });
 ```

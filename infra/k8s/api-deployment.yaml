@@ -1,26 +1,26 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: eventhub-api
-  namespace: eventhub
+  name: eventflow-api
+  namespace: eventflow
 spec:
   replicas: 3
   selector:
     matchLabels:
-      app: eventhub-api
+      app: eventflow-api
   template:
     metadata:
       labels:
-        app: eventhub-api
+        app: eventflow-api
     spec:
       containers:
         - name: api
-          image: ghcr.io/your-org/eventhub/api:latest
+          image: ghcr.io/your-org/eventflow/api:latest
           ports:
             - containerPort: 3001
           envFrom:
             - secretRef:
-                name: eventhub-api-secrets
+                name: eventflow-api-secrets
           resources:
             requests:
               cpu: 250m
@@ -38,11 +38,11 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  name: eventhub-api
-  namespace: eventhub
+  name: eventflow-api
+  namespace: eventflow
 spec:
   selector:
-    app: eventhub-api
+    app: eventflow-api
   ports:
     - port: 80
       targetPort: 3001
@@ -50,13 +50,13 @@ spec:
 apiVersion: autoscaling/v2
 kind: HorizontalPodAutoscaler
 metadata:
-  name: eventhub-api
-  namespace: eventhub
+  name: eventflow-api
+  namespace: eventflow
 spec:
   scaleTargetRef:
     apiVersion: apps/v1
     kind: Deployment
-    name: eventhub-api
+    name: eventflow-api
   minReplicas: 3
   maxReplicas: 30
   metrics:

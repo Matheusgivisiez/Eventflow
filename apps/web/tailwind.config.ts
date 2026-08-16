@@ -1,8 +1,8 @@
 import type { Config } from "tailwindcss";
-import { eventhubPreset } from "@eventhub/config/tailwind";
+import { eventflowPreset } from "@eventflow/config/tailwind";
 
 const config: Config = {
-  presets: [eventhubPreset],
+  presets: [eventflowPreset],
   content: ["./app/**/*.{ts,tsx}", "./components/**/*.{ts,tsx}", "./features/**/*.{ts,tsx}"],
   plugins: [require("tailwindcss-animate")]
 };

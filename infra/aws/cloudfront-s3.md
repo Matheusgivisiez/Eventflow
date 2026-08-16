@@ -2,7 +2,7 @@
 
 Use this layout for white-label event pages and organizer assets.
 
-- S3 bucket `eventhub-assets-prod` stores logos, banners, email assets and static exports.
+- S3 bucket `eventflow-assets-prod` stores logos, banners, email assets and static exports.
 - CloudFront distribution terminates custom domains with ACM certificates.
 - Route 53 creates organizer CNAMEs to the CloudFront distribution.
 - Origin access control blocks public S3 access.

@@ -28,7 +28,7 @@ export class LgpdProcessor extends WorkerHost implements OnModuleInit {
         where: { id: userId },
         data: {
           name: "Usuario Anonimo",
-          email: `${anonymized}@anon.eventhub.app`,
+          email: `${anonymized}@anon.eventflow.app`,
           phone: null,
           avatarUrl: null,
           passwordHash: anonymized
@@ -39,7 +39,7 @@ export class LgpdProcessor extends WorkerHost implements OnModuleInit {
         where: { userId },
         data: {
           buyerName: "Usuario Anonimo",
-          buyerEmail: `${anonymized}@anon.eventhub.app`,
+          buyerEmail: `${anonymized}@anon.eventflow.app`,
           buyerDocument: null,
           buyerPhone: null
         }

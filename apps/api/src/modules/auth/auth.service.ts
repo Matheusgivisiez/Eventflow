@@ -190,7 +190,7 @@ export class AuthService {
 
     await this.mail.send({
       to: user.email,
-      subject: "Recuperacao de senha EventHub",
+      subject: "Recuperacao de senha Event Flow",
       text: `Use este link para redefinir sua senha: ${this.resetPasswordUrl(token)}`,
       html: `<p>Recebemos uma solicitacao para redefinir sua senha.</p><p><a href="${this.resetPasswordUrl(token)}">Redefinir senha</a></p><p>Este link expira em 30 minutos.</p>`
     });

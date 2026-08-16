@@ -3,7 +3,7 @@ import { getNodeAutoInstrumentations } from "@opentelemetry/auto-instrumentation
 import { PrometheusExporter } from "@opentelemetry/exporter-prometheus";
 import { NodeSDK } from "@opentelemetry/sdk-node";
 
-const { endpoint = "0.0.0.0:9464", prefix = "eventhub_" } = process.env;
+const { endpoint = "0.0.0.0:9464", prefix = "eventflow_" } = process.env;
 
 diag.setLogger(new DiagConsoleLogger(), DiagLogLevel.ERROR);
 

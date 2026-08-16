@@ -8,7 +8,7 @@ function createOrder(overrides: Record<string, unknown> = {}) {
     eventId: "event-1",
     event: {
       id: "event-1",
-      title: "EventHub Conf",
+      title: "Event Flow Conf",
       startsAt: new Date("2026-09-12T18:00:00.000Z"),
       address: "Avenida Paulista, 1000"
     },
@@ -102,7 +102,7 @@ describe("CheckoutService", () => {
     createCheckout.execute.mockResolvedValue(createOrder({ status: PaymentStatus.PENDING }));
     payments.createProviderPreference.mockResolvedValue({ checkoutUrl: "https://pay.example/checkout" });
 
-    const result = await service.create("eventhub-conf", {} as any);
+    const result = await service.create("eventflow-conf", {} as any);
 
     expect(result.orderAccessToken).toBe("public-token");
     expect(result.checkoutUrl).toBe("https://pay.example/checkout");
@@ -114,7 +114,7 @@ describe("CheckoutService", () => {
     payments.createProviderPreference.mockRejectedValue(new Error("provider unavailable"));
     prisma.order.findUnique.mockResolvedValue(createOrder({ status: PaymentStatus.PENDING }));
 
-    await expect(service.create("eventhub-conf", {} as any)).rejects.toThrow("provider unavailable");
+    await expect(service.create("eventflow-conf", {} as any)).rejects.toThrow("provider unavailable");
 
     expect(prisma.ticketType.update).toHaveBeenCalledWith({
       where: { id: "ticket-type-1" },

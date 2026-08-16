@@ -53,7 +53,7 @@ describe("AuthController refresh cookie security", () => {
 
     const result = await controller.login({ email: "user@example.com", password: "password123" }, response as any);
 
-    expect(response.cookie).toHaveBeenCalledWith("eventhub_refresh", "refresh-token", expect.objectContaining({
+    expect(response.cookie).toHaveBeenCalledWith("eventflow_refresh", "refresh-token", expect.objectContaining({
       httpOnly: true,
       sameSite: "lax",
       path: "/api/auth"
@@ -70,10 +70,10 @@ describe("AuthController refresh cookie security", () => {
     const response = createResponse();
     auth.refresh.mockResolvedValue(createSession({ accessToken: "new-access-token", refreshToken: "new-refresh-token" }));
 
-    const result = await controller.refresh({}, createRequest("eventhub_refresh=refresh-token") as any, response as any);
+    const result = await controller.refresh({}, createRequest("eventflow_refresh=refresh-token") as any, response as any);
 
     expect(auth.refresh).toHaveBeenCalledWith({ refreshToken: "refresh-token" });
-    expect(response.cookie).toHaveBeenCalledWith("eventhub_refresh", "new-refresh-token", expect.objectContaining({
+    expect(response.cookie).toHaveBeenCalledWith("eventflow_refresh", "new-refresh-token", expect.objectContaining({
       httpOnly: true
     }));
     expect(result).toEqual({
@@ -95,9 +95,9 @@ describe("AuthController refresh cookie security", () => {
     const response = createResponse();
     auth.logout.mockResolvedValue({ message: "Sessao encerrada com sucesso." });
 
-    await controller.logout(createRequest("eventhub_refresh=refresh-token") as any, response as any);
+    await controller.logout(createRequest("eventflow_refresh=refresh-token") as any, response as any);
 
-    expect(response.clearCookie).toHaveBeenCalledWith("eventhub_refresh", expect.objectContaining({
+    expect(response.clearCookie).toHaveBeenCalledWith("eventflow_refresh", expect.objectContaining({
       httpOnly: true,
       sameSite: "lax",
       path: "/api/auth"

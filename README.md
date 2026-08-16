@@ -1,6 +1,6 @@
-# EventHub
+# Event Flow
 
-EventHub e uma plataforma SaaS multi-tenant para venda de ingressos online, eventos, checkout, pagamentos, QR Code, check-in, financeiro, CRM, marketplace e operacao enterprise para organizadores.
+Event Flow e uma plataforma SaaS multi-tenant para venda de ingressos online, eventos, checkout, pagamentos, QR Code, check-in, financeiro, CRM, marketplace e operacao enterprise para organizadores.
 
 ## Stack
 
@@ -15,7 +15,7 @@ EventHub e uma plataforma SaaS multi-tenant para venda de ingressos online, even
 cp .env.example .env
 docker compose up -d postgres redis rabbitmq
 pnpm install
-pnpm --filter @eventhub/api prisma:generate
+pnpm --filter @eventflow/api prisma:generate
 pnpm db:migrate
 pnpm db:seed
 pnpm dev
@@ -30,8 +30,8 @@ RabbitMQ: http://localhost:15672
 
 Credenciais seed:
 
-- Admin: admin@eventhub.local / EventHub@123
-- Organizador: organizador@eventhub.local / EventHub@123
+- Admin: admin@eventflow.local / EventFlow@123
+- Organizador: organizador@eventflow.local / EventFlow@123
 
 ## Maturidade do produto
 

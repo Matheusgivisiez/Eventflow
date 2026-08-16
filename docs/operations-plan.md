@@ -1,8 +1,8 @@
-# EventHub - Plano de Operacao
+# Event Flow - Plano de Operacao
 
 Atualizado em: 2026-08-16
 
-Este documento define como operar o EventHub em staging e producao depois do fechamento tecnico do hardening. Use junto com `docs/staging-readiness.md`, `docs/project-fix-checklist.md` e `docs/product-maturity.md`.
+Este documento define como operar o Event Flow em staging e producao depois do fechamento tecnico do hardening. Use junto com `docs/staging-readiness.md`, `docs/project-fix-checklist.md` e `docs/product-maturity.md`.
 
 ## Objetivos
 
@@ -138,11 +138,11 @@ Nenhum deploy pode seguir se algum item falhar:
 
 ```bash
 git diff --check
-pnpm --filter @eventhub/api test
-pnpm --filter @eventhub/api build
-pnpm --filter @eventhub/web build
-pnpm --filter @eventhub/mobile test
-pnpm --filter @eventhub/mobile typecheck
+pnpm --filter @eventflow/api test
+pnpm --filter @eventflow/api build
+pnpm --filter @eventflow/web build
+pnpm --filter @eventflow/mobile test
+pnpm --filter @eventflow/mobile typecheck
 ```
 
 ## Regra Obrigatoria de Testes Por Mudanca
@@ -363,17 +363,17 @@ Endpoint:
 
 Metricas criticas:
 
-- `eventhub_api_up`
-- `eventhub_checkout_created_total`
-- `eventhub_checkout_inventory_conflicts_total`
-- `eventhub_payment_status_transitions_total`
-- `eventhub_payment_tickets_emitted_total`
-- `eventhub_webhooks_received_total`
-- `eventhub_webhooks_processed_total`
-- `eventhub_webhooks_duplicates_total`
-- `eventhub_webhooks_unmatched_total`
-- `eventhub_checkin_validations_total`
-- `eventhub_checkin_signature_failures_total`
+- `eventflow_api_up`
+- `eventflow_checkout_created_total`
+- `eventflow_checkout_inventory_conflicts_total`
+- `eventflow_payment_status_transitions_total`
+- `eventflow_payment_tickets_emitted_total`
+- `eventflow_webhooks_received_total`
+- `eventflow_webhooks_processed_total`
+- `eventflow_webhooks_duplicates_total`
+- `eventflow_webhooks_unmatched_total`
+- `eventflow_checkin_validations_total`
+- `eventflow_checkin_signature_failures_total`
 
 ### Alertas Minimos
 
@@ -535,11 +535,11 @@ Validacao completa:
 
 ```bash
 git diff --check
-pnpm --filter @eventhub/api test
-pnpm --filter @eventhub/api build
-pnpm --filter @eventhub/web build
-pnpm --filter @eventhub/mobile test
-pnpm --filter @eventhub/mobile typecheck
+pnpm --filter @eventflow/api test
+pnpm --filter @eventflow/api build
+pnpm --filter @eventflow/web build
+pnpm --filter @eventflow/mobile test
+pnpm --filter @eventflow/mobile typecheck
 ```
 
 Migrations:

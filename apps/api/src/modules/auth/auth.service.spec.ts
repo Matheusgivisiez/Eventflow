@@ -87,7 +87,7 @@ describe("AuthService forgotPassword", () => {
     expect(prisma.passwordResetToken.create.mock.calls[0][0].data.tokenHash).not.toContain("user@example.com");
     expect(mail.send).toHaveBeenCalledWith(expect.objectContaining({
       to: "user@example.com",
-      subject: "Recuperacao de senha EventHub",
+      subject: "Recuperacao de senha Event Flow",
       text: expect.stringContaining("https://app.example/reset-password?token="),
       html: expect.stringContaining("https://app.example/reset-password?token=")
     }));
