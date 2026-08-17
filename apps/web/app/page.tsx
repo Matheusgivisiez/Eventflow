@@ -14,6 +14,7 @@ import { EventCard } from "@/components/event-card";
 import { BrandLogo } from "@/components/brand-logo";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { api } from "@/lib/api";
+import { getOrganizerCtaHref } from "@/lib/organizer-route";
 import { useAuthStore } from "@/stores/auth-store";
 import type { EventFlowEvent, Paginated } from "@/types/eventflow";
 
@@ -47,6 +48,7 @@ export default function CatalogPage() {
   });
 
   const events = data?.data ?? [];
+  const organizerCtaHref = getOrganizerCtaHref(user?.role);
 
   return (
     <div className="min-h-screen bg-[#F8F8F8] dark:bg-background">
@@ -234,7 +236,7 @@ export default function CatalogPage() {
               </p>
               <div className="mt-6 flex flex-col sm:flex-row gap-3">
                 <Button asChild size="lg" className="bg-white text-primary hover:bg-white/90 font-bold shadow-lg">
-                  <Link href="/register">Criar meu evento <ChevronRight className="h-4 w-4" /></Link>
+                  <Link href={organizerCtaHref}>Criar meu evento <ChevronRight className="h-4 w-4" /></Link>
                 </Button>
                 <Button asChild size="lg" variant="outline" className="border-white/50 text-white hover:bg-white/10">
                   <Link href="/login">Já tenho conta</Link>
