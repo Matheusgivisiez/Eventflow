@@ -5,7 +5,7 @@ export const eventflowPreset: Partial<Config> = {
   theme: {
     extend: {
       fontFamily: {
-        sans: ["var(--font-poppins)", "system-ui", "sans-serif"]
+        sans: ["Avenir Next", "Helvetica Neue", "ui-sans-serif", "system-ui", "sans-serif"]
       },
       colors: {
         border: "hsl(var(--border))",
@@ -38,11 +38,14 @@ export const eventflowPreset: Partial<Config> = {
           foreground: "hsl(var(--card-foreground))"
         },
         brand: {
-          deep: "#0d0b1a",
-          purple: "#5b3dff",
-          violet: "#a855f7",
-          pink: "#ec4899",
-          light: "#f2f2f7"
+          deep: "#12305f",
+          blue: "#1769e8",
+          navy: "#0f3f91",
+          sky: "#eaf3ff",
+          purple: "#1769e8",
+          violet: "#0f3f91",
+          pink: "#0ea5e9",
+          light: "#f5f9ff"
         }
       },
       borderRadius: {

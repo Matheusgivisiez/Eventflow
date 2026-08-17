@@ -31,7 +31,7 @@ export function EventCard({ event }: EventCardProps) {
             className="object-cover transition-transform duration-700 ease-out group-hover:scale-110"
           />
         ) : (
-          <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-primary/10 to-primary/5 transition-colors duration-300 group-hover:from-primary/15 group-hover:to-primary/10">
+          <div className="flex h-full w-full items-center justify-center bg-sky-50 transition-colors duration-300 group-hover:bg-blue-100 dark:bg-slate-800">
             <Ticket className="h-12 w-12 text-primary/40 stroke-[1.5] transition-transform duration-300 group-hover:scale-110" />
           </div>
         )}

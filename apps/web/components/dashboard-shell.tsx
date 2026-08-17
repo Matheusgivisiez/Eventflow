@@ -203,7 +203,7 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
             {/* Notifications bell */}
             <button className="relative flex h-9 w-9 items-center justify-center rounded-xl hover:bg-muted transition-colors text-muted-foreground hover:text-foreground">
               <Bell className="h-4 w-4" />
-              <span className="absolute top-1.5 right-1.5 h-2 w-2 rounded-full bg-brand-pink border-2 border-white dark:border-card" />
+              <span className="absolute top-1.5 right-1.5 h-2 w-2 rounded-full bg-sky-500 border-2 border-white dark:border-card" />
             </button>
 
             {/* User dropdown */}

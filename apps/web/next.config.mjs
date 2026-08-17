@@ -10,7 +10,8 @@ const nextConfig = {
       { protocol: "https", hostname: "lh3.googleusercontent.com" },
       { protocol: "https", hostname: "*.gstatic.com" },
       { protocol: "https", hostname: "*.googleusercontent.com" },
-      { protocol: "https", hostname: "*.cloudfront.net" }
+      { protocol: "https", hostname: "*.cloudfront.net" },
+      { protocol: "https", hostname: "pub-474447a5c61b4ecaa4cc55272d5c82ff.r2.dev" }
     ]
   }
 };

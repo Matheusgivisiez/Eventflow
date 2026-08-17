@@ -71,7 +71,7 @@ export default function CookiePolicyPage() {
 
               <div className="bg-card border rounded-xl p-5 shadow-sm">
                 <h3 className="font-semibold text-lg flex items-center gap-2 mb-2">
-                  <Cookie className="h-5 w-5 text-brand-pink" /> Marketing
+                  <Cookie className="h-5 w-5 text-sky-600" /> Marketing
                 </h3>
                 <p className="text-sm text-muted-foreground">
                   Utilizados para rastrear o comportamento dos visitantes em diferentes sites. A intenção é exibir anúncios que sejam relevantes e engajadores para o usuário individual, além de medir o retorno de nossas campanhas (ex: Meta Pixel).

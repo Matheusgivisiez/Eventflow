@@ -106,7 +106,7 @@ export default function AdminPage() {
       {/* KPI Summary */}
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         <KpiCard label="Usuários"     value={users.data?.length ?? 0}     icon={<Users className="h-5 w-5 text-primary" />}          loading={users.isLoading} />
-        <KpiCard label="Eventos"      value={events.data?.length ?? 0}    icon={<Calendar className="h-5 w-5 text-purple-500" />}     color="text-purple-600" loading={events.isLoading} />
+        <KpiCard label="Eventos"      value={events.data?.length ?? 0}    icon={<Calendar className="h-5 w-5 text-blue-500" />}       color="text-blue-600" loading={events.isLoading} />
         <KpiCard label="Pagamentos"   value={payments.data?.length ?? 0}  icon={<CreditCard className="h-5 w-5 text-emerald-500" />}  color="text-emerald-600" loading={payments.isLoading} />
         <KpiCard label="Receita total" value={money(totalRevenue)}         icon={<Building2 className="h-5 w-5 text-rose-500" />}      color="text-rose-600" loading={payments.isLoading} isMonetary />
       </div>

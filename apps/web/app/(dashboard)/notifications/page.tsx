@@ -26,7 +26,7 @@ type NotifLog = {
 const TYPE_CONFIG: Record<string, { label: string; icon: React.ReactNode; color: string; bg: string }> = {
   EMAIL:     { label: "E-mail",    icon: <Mail className="h-4 w-4" />,          color: "text-blue-600",   bg: "bg-blue-100 dark:bg-blue-500/20"   },
   WHATSAPP:  { label: "WhatsApp",  icon: <MessageSquare className="h-4 w-4" />, color: "text-green-600",  bg: "bg-green-100 dark:bg-green-500/20"  },
-  PUSH:      { label: "Push",      icon: <Bell className="h-4 w-4" />,          color: "text-purple-600", bg: "bg-purple-100 dark:bg-purple-500/20" },
+  PUSH:      { label: "Push",      icon: <Bell className="h-4 w-4" />,          color: "text-blue-600", bg: "bg-blue-100 dark:bg-blue-500/20" },
 };
 
 const EVENT_CONFIG: Record<string, { label: string; icon: React.ReactNode }> = {
@@ -71,7 +71,7 @@ export default function NotificationsPage() {
         <StatCard label="Total enviado" value={total} icon={<Bell className="h-5 w-5 text-primary" />} />
         <StatCard label="E-mails" value={byType.EMAIL} icon={<Mail className="h-5 w-5 text-blue-500" />} color="text-blue-600" />
         <StatCard label="WhatsApp" value={byType.WHATSAPP} icon={<MessageSquare className="h-5 w-5 text-green-500" />} color="text-green-600" />
-        <StatCard label="Push" value={byType.PUSH} icon={<Bell className="h-5 w-5 text-purple-500" />} color="text-purple-600" />
+        <StatCard label="Push" value={byType.PUSH} icon={<Bell className="h-5 w-5 text-blue-500" />} color="text-blue-600" />
       </div>
 
       {/* Filters */}

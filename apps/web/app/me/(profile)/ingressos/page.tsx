@@ -55,9 +55,9 @@ type RecipientLookup = {
 };
 
 const statusConfig = {
-  AVAILABLE: { label: "Disponível", icon: CheckCircle2, color: "text-brand-purple bg-brand-purple/10 border-brand-purple/20 dark:bg-brand-purple/20" },
-  USED: { label: "Utilizado", icon: Clock, color: "text-brand-violet bg-brand-violet/10 border-brand-violet/20 dark:bg-brand-violet/20" },
-  CANCELED: { label: "Cancelado", icon: XCircle, color: "text-brand-pink bg-brand-pink/10 border-brand-pink/20 dark:bg-brand-pink/20" },
+  AVAILABLE: { label: "Disponível", icon: CheckCircle2, color: "text-blue-700 bg-blue-50 border-blue-200 dark:bg-blue-900/20" },
+  USED: { label: "Utilizado", icon: Clock, color: "text-slate-600 bg-slate-100 border-slate-200 dark:bg-slate-800" },
+  CANCELED: { label: "Cancelado", icon: XCircle, color: "text-sky-700 bg-sky-50 border-sky-200 dark:bg-sky-900/20" },
 };
 
 export default function MyTicketsPage() {
@@ -430,7 +430,7 @@ export default function MyTicketsPage() {
             )}
 
             {createTransfer.isSuccess && (
-              <p className="rounded-lg border border-brand-purple/20 bg-brand-purple/10 p-3 text-sm text-brand-purple">
+              <p className="rounded-lg border border-blue-200 bg-blue-50 p-3 text-sm text-blue-700">
                 Transferencia criada com sucesso.
               </p>
             )}
@@ -448,7 +448,7 @@ export default function MyTicketsPage() {
 
         {/* Feedbacks */}
         {refund.isSuccess && (
-          <div className="fixed bottom-20 left-4 right-4 md:relative md:bottom-auto md:mt-4 rounded-xl bg-brand-purple/10 border border-brand-purple/20 p-3 text-sm text-brand-purple text-center">
+          <div className="fixed bottom-20 left-4 right-4 md:relative md:bottom-auto md:mt-4 rounded-xl bg-blue-50 border border-blue-200 p-3 text-sm text-blue-700 text-center">
             ✓ Solicitação de reembolso registrada.
           </div>
         )}
