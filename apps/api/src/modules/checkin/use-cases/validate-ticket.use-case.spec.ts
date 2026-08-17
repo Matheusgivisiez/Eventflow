@@ -35,7 +35,8 @@ function createService() {
   const prisma = {
     ticket: {
       findFirst: jest.fn(),
-      update: jest.fn()
+      findUnique: jest.fn(),
+      updateMany: jest.fn()
     },
     checkInLog: {
       create: jest.fn()
@@ -56,12 +57,13 @@ describe("ValidateTicketUseCase", () => {
   it("accepts a valid signed QR code and marks the ticket as used", async () => {
     const { service, prisma } = createService();
     prisma.ticket.findFirst.mockResolvedValue(createTicket());
-    prisma.ticket.update.mockResolvedValue(createTicket({ status: TicketStatus.USED, usedAt: new Date() }));
+    prisma.ticket.updateMany.mockResolvedValue({ count: 1 });
 
     const result = await service.execute("event-1", "tenant-1", "checkin-user-1", qrPayload());
 
     expect(result.status).toBe(CheckInStatus.ENTERED);
     expect(result.message).toBe("Entrada liberada.");
+    expect(result.ticket.status).toBe(TicketStatus.USED);
     expect(prisma.ticket.findFirst).toHaveBeenCalledWith({
       where: {
         eventId: "event-1",
@@ -70,14 +72,20 @@ describe("ValidateTicketUseCase", () => {
       },
       include: { event: true, ticketType: true }
     });
-    expect(prisma.ticket.update).toHaveBeenCalledWith({
-      where: { id: "ticket-1" },
+    expect(prisma.ticket.updateMany).toHaveBeenCalledWith({
+      where: { id: "ticket-1", status: TicketStatus.AVAILABLE },
       data: {
         status: TicketStatus.USED,
-        usedAt: expect.any(Date),
-        checkIns: { create: { userId: "checkin-user-1", status: CheckInStatus.ENTERED } }
-      },
-      include: { event: true, ticketType: true }
+        usedAt: expect.any(Date)
+      }
+    });
+    expect(prisma.checkInLog.create).toHaveBeenCalledWith({
+      data: {
+        ticketId: "ticket-1",
+        userId: "checkin-user-1",
+        status: CheckInStatus.ENTERED,
+        reason: undefined
+      }
     });
   });
 
@@ -92,7 +100,7 @@ describe("ValidateTicketUseCase", () => {
     await expect(service.execute("event-1", "tenant-1", "checkin-user-1", forgedQr)).rejects.toThrow(BadRequestException);
 
     expect(prisma.ticket.findFirst).not.toHaveBeenCalled();
-    expect(prisma.ticket.update).not.toHaveBeenCalled();
+    expect(prisma.ticket.updateMany).not.toHaveBeenCalled();
     expect(prisma.checkInLog.create).not.toHaveBeenCalled();
   });
 
@@ -104,7 +112,7 @@ describe("ValidateTicketUseCase", () => {
 
     expect(result.status).toBe(CheckInStatus.DUPLICATED);
     expect(result.message).toBe("Entrada duplicada.");
-    expect(prisma.ticket.update).not.toHaveBeenCalled();
+    expect(prisma.ticket.updateMany).not.toHaveBeenCalled();
     expect(prisma.checkInLog.create).toHaveBeenCalledWith({
       data: {
         ticketId: "ticket-1",
@@ -123,7 +131,7 @@ describe("ValidateTicketUseCase", () => {
 
     expect(result.status).toBe(CheckInStatus.REFUSED);
     expect(result.message).toBe("Entrada recusada.");
-    expect(prisma.ticket.update).not.toHaveBeenCalled();
+    expect(prisma.ticket.updateMany).not.toHaveBeenCalled();
     expect(prisma.checkInLog.create).toHaveBeenCalledWith({
       data: {
         ticketId: "ticket-1",
@@ -140,7 +148,7 @@ describe("ValidateTicketUseCase", () => {
 
     await expect(service.execute("event-1", "tenant-1", "checkin-user-1", qrPayload())).rejects.toThrow(NotFoundException);
 
-    expect(prisma.ticket.update).not.toHaveBeenCalled();
+    expect(prisma.ticket.updateMany).not.toHaveBeenCalled();
     expect(prisma.checkInLog.create).not.toHaveBeenCalled();
   });
 
@@ -151,6 +159,50 @@ describe("ValidateTicketUseCase", () => {
     await expect(service.execute("event-1", "tenant-1", "checkin-user-1", qrPayload())).rejects.toThrow("QR_CODE_SECRET is required.");
 
     expect(prisma.ticket.findFirst).not.toHaveBeenCalled();
-    expect(prisma.ticket.update).not.toHaveBeenCalled();
+    expect(prisma.ticket.updateMany).not.toHaveBeenCalled();
+  });
+
+  it("allows only one concurrent validation to enter", async () => {
+    const { service, prisma } = createService();
+    prisma.ticket.findFirst
+      .mockResolvedValueOnce(createTicket())
+      .mockResolvedValueOnce(createTicket());
+    prisma.ticket.updateMany
+      .mockResolvedValueOnce({ count: 1 })
+      .mockResolvedValueOnce({ count: 0 });
+    prisma.ticket.findUnique.mockResolvedValue(createTicket({ status: TicketStatus.USED, usedAt: new Date() }));
+
+    const [first, second] = await Promise.all([
+      service.execute("event-1", "tenant-1", "checkin-user-1", qrPayload()),
+      service.execute("event-1", "tenant-1", "checkin-user-2", qrPayload())
+    ]);
+
+    expect(first.status).toBe(CheckInStatus.ENTERED);
+    expect(second.status).toBe(CheckInStatus.DUPLICATED);
+    expect(prisma.ticket.updateMany).toHaveBeenCalledTimes(2);
+    expect(prisma.ticket.updateMany).toHaveBeenNthCalledWith(1, {
+      where: { id: "ticket-1", status: TicketStatus.AVAILABLE },
+      data: { status: TicketStatus.USED, usedAt: expect.any(Date) }
+    });
+    expect(prisma.ticket.updateMany).toHaveBeenNthCalledWith(2, {
+      where: { id: "ticket-1", status: TicketStatus.AVAILABLE },
+      data: { status: TicketStatus.USED, usedAt: expect.any(Date) }
+    });
+    expect(prisma.checkInLog.create).toHaveBeenCalledWith({
+      data: {
+        ticketId: "ticket-1",
+        userId: "checkin-user-1",
+        status: CheckInStatus.ENTERED,
+        reason: undefined
+      }
+    });
+    expect(prisma.checkInLog.create).toHaveBeenCalledWith({
+      data: {
+        ticketId: "ticket-1",
+        userId: "checkin-user-2",
+        status: CheckInStatus.DUPLICATED,
+        reason: "Ingresso ja utilizado."
+      }
+    });
   });
 });

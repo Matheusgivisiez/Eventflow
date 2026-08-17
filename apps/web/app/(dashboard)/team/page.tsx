@@ -133,7 +133,7 @@ export default function TeamPage() {
             <Users className="h-10 w-10 text-muted-foreground/50 mb-3" />
             <p className="text-lg font-medium">Nenhum membro na equipe</p>
             <p className="text-sm text-muted-foreground mt-1">
-              Clique em "Adicionar membro" para convidar colaboradores.
+              Clique em &quot;Adicionar membro&quot; para convidar colaboradores.
             </p>
           </CardContent>
         </Card>

@@ -67,6 +67,11 @@ function validateAbacatePaySignature(rawBody: string, signature: string | undefi
   return safeCompare(computed, signature);
 }
 
+function validateWebhookSecret(expectedSecret: string, providedSecret: string | undefined): boolean {
+  if (!expectedSecret || !providedSecret) return false;
+  return safeCompare(expectedSecret, providedSecret);
+}
+
 @SkipThrottle()
 @ApiTags("Webhooks")
 @Controller("webhooks")
@@ -134,15 +139,12 @@ export class WebhooksController {
     const providedSecret = webhookSecret ?? xSecret;
     const rawBody = req.rawBody?.toString("utf8") ?? JSON.stringify(body);
 
-    if (!this.abacatePaySecret || providedSecret !== this.abacatePaySecret) {
+    if (!validateWebhookSecret(this.abacatePaySecret, providedSecret)) {
       throw new UnauthorizedException("Secret do webhook inalterado ou invalido.");
     }
 
-    if (xSignature && this.abacatePayPublicKey) {
-      const isValidSig = validateAbacatePaySignature(rawBody, xSignature, this.abacatePayPublicKey);
-      if (!isValidSig) {
-        throw new UnauthorizedException("Assinatura HMAC do webhook invalida.");
-      }
+    if (this.abacatePayPublicKey && !validateAbacatePaySignature(rawBody, xSignature, this.abacatePayPublicKey)) {
+      throw new UnauthorizedException("Assinatura HMAC do webhook invalida.");
     }
 
     return this.webhooks.handle("abacate_pay", body);

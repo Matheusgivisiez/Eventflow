@@ -75,13 +75,30 @@ Baseline targets:
 Every pull request should pass:
 
 - `pnpm lint`
-- `pnpm build`
-- API unit tests
-- web unit/component tests
-- Prisma schema validation
+- `pnpm --filter @eventflow/api test`
+- `pnpm --filter @eventflow/api build`
+- `pnpm --filter @eventflow/web test`
+- `pnpm --filter @eventflow/web build`
+- `pnpm --filter @eventflow/mobile test`
+- `pnpm --filter @eventflow/mobile typecheck`
+- `pnpm --filter @eventflow/domain build`
+- `pnpm --filter @eventflow/sdk build`
+- Prisma schema validation through the API build, plus explicit migration review
 - migration review
 - dependency audit
 - Docker build for API and web
+
+Current critical regression coverage:
+
+- Web API client refreshes the access token once and retries concurrent 401 responses without hanging.
+- Online check-in claims a ticket with a conditional `AVAILABLE -> USED` update so duplicate concurrent scans do not both enter.
+- AbacatePay webhooks require the configured secret and a valid HMAC signature before payment state changes.
+- Payment webhooks remain idempotent and do not emit duplicate buyer notifications for already processed events.
+
+Environment notes:
+
+- Local sandboxed runners can block `tsx --test` IPC pipes. In CI, run web and mobile tests in a normal Node environment.
+- Playwright checkout E2E should run after a disposable PostgreSQL/Redis/API/web stack is available.
 
 ## Clean Code and DDD rules
 

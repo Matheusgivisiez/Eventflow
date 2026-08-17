@@ -203,7 +203,7 @@ export default function CheckInPage() {
                       />
                     </div>
                     <p className="text-xs text-muted-foreground">
-                      Dica: Leitores USB geralmente pressionam "Enter" sozinhos no final do codigo.
+                      Dica: Leitores USB geralmente pressionam &quot;Enter&quot; sozinhos no final do codigo.
                     </p>
                     <Button 
                       size="default"

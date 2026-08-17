@@ -46,19 +46,50 @@ export class ValidateTicketUseCase {
       return { status: CheckInStatus.REFUSED, message: "Entrada recusada.", ticket };
     }
 
-    const updated = await this.prisma.ticket.update({
-      where: { id: ticket.id },
+    const claimed = await this.prisma.ticket.updateMany({
+      where: { id: ticket.id, status: TicketStatus.AVAILABLE },
       data: {
         status: TicketStatus.USED,
-        usedAt: new Date(),
-        checkIns: { create: { userId, status: CheckInStatus.ENTERED } }
-      },
-      include: { event: true, ticketType: true }
+        usedAt: new Date()
+      }
     });
+
+    if (claimed.count !== 1) {
+      return this.resolveConcurrentAttempt(ticket.id, userId);
+    }
+
+    await this.logCheckIn(ticket.id, userId, CheckInStatus.ENTERED);
 
     this.metrics?.increment("eventflow_checkin_validations_total", { status: CheckInStatus.ENTERED });
 
+    const updated = {
+      ...ticket,
+      status: TicketStatus.USED,
+      usedAt: new Date()
+    };
+
     return { status: CheckInStatus.ENTERED, message: "Entrada liberada.", ticket: updated };
+  }
+
+  private async resolveConcurrentAttempt(ticketId: string, userId: string) {
+    const latest = await this.prisma.ticket.findUnique({
+      where: { id: ticketId },
+      include: { event: true, ticketType: true }
+    });
+
+    if (!latest) {
+      throw new NotFoundException("Ingresso nao encontrado.");
+    }
+
+    if (latest.status === TicketStatus.USED) {
+      await this.logCheckIn(latest.id, userId, CheckInStatus.DUPLICATED, "Ingresso ja utilizado.");
+      this.metrics?.increment("eventflow_checkin_validations_total", { status: CheckInStatus.DUPLICATED });
+      return { status: CheckInStatus.DUPLICATED, message: "Entrada duplicada.", ticket: latest };
+    }
+
+    await this.logCheckIn(latest.id, userId, CheckInStatus.REFUSED, "Ingresso cancelado ou indisponivel.");
+    this.metrics?.increment("eventflow_checkin_validations_total", { status: CheckInStatus.REFUSED });
+    return { status: CheckInStatus.REFUSED, message: "Entrada recusada.", ticket: latest };
   }
 
   private validateSignature(parsed: { uuid: string; orderId: string; signature: string }) {
@@ -75,7 +106,7 @@ export class ValidateTicketUseCase {
     }
   }
 
-  private async logCheckIn(ticketId: string, userId: string, status: CheckInStatus, reason: string) {
+  private async logCheckIn(ticketId: string, userId: string, status: CheckInStatus, reason?: string) {
     await this.prisma.checkInLog.create({
       data: { ticketId, userId, status, reason }
     });
