@@ -4,6 +4,8 @@ import { ReportsController } from "./reports.controller";
 import { ReportsService } from "./reports.service";
 import { ReportsProcessor } from "./reports.processor";
 
+const queueWorkersEnabled = process.env.QUEUE_WORKERS_ENABLED === "true";
+
 @Module({
   imports: [
     BullModule.registerQueue({
@@ -11,7 +13,7 @@ import { ReportsProcessor } from "./reports.processor";
     })
   ],
   controllers: [ReportsController],
-  providers: [ReportsService, ReportsProcessor],
+  providers: [ReportsService, ...(queueWorkersEnabled ? [ReportsProcessor] : [])],
   exports: [ReportsService]
 })
 export class ReportsModule {}
