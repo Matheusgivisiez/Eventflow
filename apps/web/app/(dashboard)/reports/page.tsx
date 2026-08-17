@@ -6,6 +6,7 @@ import { Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YA
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { api } from "@/lib/api";
+import { getApiUrl } from "@/lib/api-url";
 import { money } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { useAuthStore } from "@/stores/auth-store";
@@ -28,7 +29,7 @@ type Finance = {
 
 export default function ReportsPage() {
   const token = useAuthStore((state) => state.accessToken);
-  const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001/api";
+  const apiUrl = getApiUrl();
   const dashboard = useQuery({ queryKey: ["dashboard"], queryFn: () => api<Dashboard>("/dashboard") });
   const finance = useQuery({ queryKey: ["finance"], queryFn: () => api<Finance>("/finance/summary") });
 

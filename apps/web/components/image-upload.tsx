@@ -4,6 +4,7 @@ import { useCallback, useState } from "react";
 import { ImagePlus, Loader2, X } from "lucide-react";
 import Image from "next/image";
 import { uploadFile } from "@/lib/api";
+import { getApiUrl } from "@/lib/api-url";
 
 interface ImageUploadProps {
   value?: string;
@@ -21,7 +22,7 @@ export function ImageUpload({ value, onChange, label }: ImageUploadProps) {
     setUploading(true);
     try {
       const { url } = await uploadFile(file);
-      const baseUrl = (process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001/api").replace("/api", "");
+      const baseUrl = getApiUrl().replace("/api", "");
       const fullUrl = `${baseUrl}${url}`;
       setPreview(fullUrl);
       onChange(fullUrl);

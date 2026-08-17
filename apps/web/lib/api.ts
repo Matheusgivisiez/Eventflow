@@ -1,6 +1,7 @@
 import { useAuthStore } from "@/stores/auth-store";
+import { getApiUrl } from "./api-url";
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001/api";
+const API_URL = getApiUrl();
 
 type ApiOptions = RequestInit & { auth?: boolean };
 type ApiErrorBody = { message?: string | string[] };

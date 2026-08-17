@@ -11,6 +11,7 @@ export class CacheService implements OnModuleDestroy {
   private readonly memory = new Map<string, { value: string; expiresAt: number }>();
   private readonly redis?: Redis;
   private lastMemoryCleanupAt = 0;
+  private redisAvailable = true;
 
   constructor(config: ConfigService) {
     const url = config.get<string>("REDIS_URL");
@@ -21,35 +22,37 @@ export class CacheService implements OnModuleDestroy {
   }
 
   async get<T>(key: string): Promise<T | null> {
-    const value = this.redis?.status === "ready" ? await this.redis.get(key) : this.getMemory(key);
+    const value = this.isRedisReady() ? await this.withRedisFallback("get", () => this.redis!.get(key)) : this.getMemory(key);
     return value ? (JSON.parse(value) as T) : null;
   }
 
   async set(key: string, value: unknown, ttlSeconds = 60) {
     const serialized = JSON.stringify(value);
-    if (this.redis?.status === "ready") {
-      await this.redis.set(key, serialized, "EX", ttlSeconds);
-      return;
+    if (this.isRedisReady()) {
+      const stored = await this.withRedisFallback("set", () => this.redis!.set(key, serialized, "EX", ttlSeconds));
+      if (stored) return;
     }
     this.pruneExpiredMemory();
     this.memory.set(key, { value: serialized, expiresAt: Date.now() + ttlSeconds * 1000 });
   }
 
   async del(key: string) {
-    if (this.redis?.status === "ready") {
-      await this.redis.del(key);
+    if (this.isRedisReady()) {
+      await this.withRedisFallback("del", () => this.redis!.del(key));
     }
     this.memory.delete(key);
   }
 
   async delByPattern(pattern: string) {
-    if (this.redis?.status === "ready") {
-      const stream = this.redis.scanStream({ match: pattern, count: 100 });
-      for await (const keys of stream) {
-        if (keys.length > 0) {
-          await this.redis.del(...keys);
+    if (this.isRedisReady()) {
+      await this.withRedisFallback("delByPattern", async () => {
+        const stream = this.redis!.scanStream({ match: pattern, count: 100 });
+        for await (const keys of stream) {
+          if (keys.length > 0) {
+            await this.redis!.del(...keys);
+          }
         }
-      }
+      });
     }
     this.pruneExpiredMemory(true);
     for (const key of this.memory.keys()) {
@@ -60,12 +63,17 @@ export class CacheService implements OnModuleDestroy {
   }
 
   async increment(key: string, ttlSeconds: number) {
-    if (this.redis?.status === "ready") {
-      const value = await this.redis.incr(key);
-      if (value === 1) {
-        await this.redis.expire(key, ttlSeconds);
+    if (this.isRedisReady()) {
+      const value = await this.withRedisFallback("increment", async () => {
+        const total = await this.redis!.incr(key);
+        if (total === 1) {
+          await this.redis!.expire(key, ttlSeconds);
+        }
+        return total;
+      });
+      if (value !== null) {
+        return value;
       }
-      return value;
     }
 
     this.pruneExpiredMemory();
@@ -76,14 +84,19 @@ export class CacheService implements OnModuleDestroy {
 
   async incrementThrottle(key: string, ttlMs: number): Promise<{ totalHits: number; timeToExpire: number }> {
     const ttlSeconds = Math.max(1, Math.ceil(ttlMs / 1000));
-    if (this.redis?.status === "ready") {
-      const totalHits = await this.redis.incr(key);
-      if (totalHits === 1) {
-        await this.redis.expire(key, ttlSeconds);
+    if (this.isRedisReady()) {
+      const result = await this.withRedisFallback("incrementThrottle", async () => {
+        const totalHits = await this.redis!.incr(key);
+        if (totalHits === 1) {
+          await this.redis!.expire(key, ttlSeconds);
+        }
+        const ttlSec = await this.redis!.ttl(key);
+        const timeToExpire = ttlSec > 0 ? ttlSec * 1000 : ttlMs;
+        return { totalHits, timeToExpire };
+      });
+      if (result) {
+        return result;
       }
-      const ttlSec = await this.redis.ttl(key);
-      const timeToExpire = ttlSec > 0 ? ttlSec * 1000 : ttlMs;
-      return { totalHits, timeToExpire };
     }
 
     this.pruneExpiredMemory();
@@ -103,6 +116,21 @@ export class CacheService implements OnModuleDestroy {
 
   async onModuleDestroy() {
     await this.redis?.quit().catch(() => undefined);
+  }
+
+  private isRedisReady() {
+    return this.redisAvailable && this.redis?.status === "ready";
+  }
+
+  private async withRedisFallback<T>(operation: string, action: () => Promise<T>): Promise<T | null> {
+    try {
+      return await action();
+    } catch (error) {
+      this.redisAvailable = false;
+      const message = error instanceof Error ? error.message : String(error);
+      this.logger.warn(`Redis falhou em ${operation}; usando cache em memoria. ${message}`);
+      return null;
+    }
   }
 
   private getMemory(key: string) {
