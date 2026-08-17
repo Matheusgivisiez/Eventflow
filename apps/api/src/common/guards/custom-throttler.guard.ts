@@ -3,6 +3,8 @@ import { ThrottlerGuard, ThrottlerLimitDetail, ThrottlerRequest } from "@nestjs/
 
 @Injectable()
 export class CustomThrottlerGuard extends ThrottlerGuard {
+  private static readonly BYPASS_PATHS = new Set(["/health", "/api/health", "/metrics", "/api/metrics"]);
+
   protected async getTracker(req: Record<string, any>): Promise<string> {
     const user = req.user?.id || req.user?.sub;
     if (user) {
@@ -29,6 +31,10 @@ export class CustomThrottlerGuard extends ThrottlerGuard {
   protected async handleRequest(requestProps: ThrottlerRequest): Promise<boolean> {
     const { context, limit, ttl, throttler, blockDuration, getTracker } = requestProps;
     const req = context.switchToHttp().getRequest();
+    if (CustomThrottlerGuard.BYPASS_PATHS.has(req.path) || CustomThrottlerGuard.BYPASS_PATHS.has(req.url)) {
+      return true;
+    }
+
     const res = context.switchToHttp().getResponse();
     const tracker = await getTracker(req, context);
     const throttlerName = throttler.name ?? "default";
