@@ -14,44 +14,44 @@ html.light body {
 }
 
 :root {
-  --background: 210 40% 98%;
-  --foreground: 215 30% 17%;
+  --background: 240 24% 97%;
+  --foreground: 248 44% 7%;
   --card: 0 0% 100%;
-  --card-foreground: 215 30% 17%;
-  --primary: 214 82% 50%;
+  --card-foreground: 248 44% 7%;
+  --primary: 249 100% 62%;
   --primary-foreground: 0 0% 100%;
-  --secondary: 210 40% 96%;
+  --secondary: 270 91% 65%;
   --secondary-foreground: 0 0% 100%;
-  --muted: 210 32% 94%;
-  --muted-foreground: 215 16% 45%;
-  --accent: 199 89% 48%;
+  --muted: 240 20% 92%;
+  --muted-foreground: 248 10% 45%;
+  --accent: 330 81% 60%;
   --accent-foreground: 0 0% 100%;
   --destructive: 0 84% 60%;
   --destructive-foreground: 0 0% 98%;
-  --border: 214 25% 87%;
-  --input: 214 25% 87%;
-  --ring: 214 82% 50%;
+  --border: 240 16% 88%;
+  --input: 240 16% 88%;
+  --ring: 249 100% 62%;
   --radius: 0.5rem;
 }
 
 .dark {
-  --background: 215 32% 10%;
-  --foreground: 210 25% 96%;
-  --card: 215 28% 14%;
-  --card-foreground: 210 25% 96%;
-  --primary: 214 85% 62%;
+  --background: 248 44% 7%;
+  --foreground: 240 24% 96%;
+  --card: 248 40% 10%;
+  --card-foreground: 240 24% 96%;
+  --primary: 249 100% 62%;
   --primary-foreground: 0 0% 100%;
-  --secondary: 215 25% 20%;
+  --secondary: 270 91% 65%;
   --secondary-foreground: 0 0% 100%;
-  --muted: 215 25% 20%;
-  --muted-foreground: 214 15% 70%;
-  --accent: 199 89% 58%;
+  --muted: 248 30% 14%;
+  --muted-foreground: 240 10% 65%;
+  --accent: 330 81% 60%;
   --accent-foreground: 0 0% 100%;
   --destructive: 0 72% 51%;
   --destructive-foreground: 240 24% 96%;
-  --border: 215 24% 24%;
-  --input: 215 24% 24%;
-  --ring: 214 85% 62%;
+  --border: 248 30% 18%;
+  --input: 248 30% 18%;
+  --ring: 249 100% 62%;
 }
 
 * {
@@ -61,7 +61,7 @@ html.light body {
 body {
   background: hsl(var(--background));
   color: hsl(var(--foreground));
-  font-family: "Avenir Next", "Helvetica Neue", ui-sans-serif, system-ui, sans-serif;
+  font-family: var(--font-poppins), system-ui, sans-serif;
 }
 
 .dark body {
@@ -73,11 +73,11 @@ body {
 }
 
 .brand-gradient-soft {
-  background: #0f3f91;
+  background: #15102d;
 }
 
 .hero-gradient {
-  background: #0f3f91;
+  background: #1a1528;
 }
 
 .glass {
@@ -95,8 +95,14 @@ body {
 
 .card-hover:hover {
   transform: translateY(-2px);
-  border-color: rgb(23 105 232 / 0.38);
-  box-shadow: 0 14px 32px rgb(15 63 145 / 0.12);
+  border-color: rgb(91 61 255 / 0.38);
+  box-shadow: 0 18px 48px rgb(13 11 26 / 0.12);
+}
+
+.brand-wave {
+  background-image:
+    radial-gradient(circle at 50% 50%, rgb(168 85 247 / 0.28) 0 1px, transparent 1px),
+    repeating-linear-gradient(165deg, transparent 0 16px, rgb(168 85 247 / 0.18) 16px 17px, transparent 17px 34px);
 }
 
 .scrollbar-hide {

@@ -127,7 +127,7 @@ export default function DashboardPage() {
     month: item.month.slice(5),
     totalCents: item.totalCents
   })), [data]);
-  const barColors = ["#1769e8", "#0f3f91", "#0ea5e9", "#38bdf8", "#2563eb"];
+  const barColors = ["#5b3dff", "#a855f7", "#ec4899", "#6366f1", "#8b5cf6"];
 
   if (isLoading) return <DashboardSkeleton />;
   if (error) {
@@ -159,16 +159,16 @@ export default function DashboardPage() {
       {/* Primary KPIs */}
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4 stagger-children">
         <KpiCard label="Receita total" value={money(data?.totalRevenueCents)} icon={CircleDollarSign}
-          iconClass="bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300"
+          iconClass="bg-brand-purple/10 text-brand-purple dark:bg-brand-purple/20"
           growth={data?.monthlyRevenueGrowthPct} growthLabel="vs. mes anterior" />
         <KpiCard label="Ingressos vendidos" value={String(data?.ticketsSold ?? 0)} icon={TicketCheck}
-          iconClass="bg-sky-100 text-sky-700 dark:bg-sky-900/30 dark:text-sky-300"
+          iconClass="bg-brand-violet/10 text-brand-violet dark:bg-brand-violet/20"
           growth={data?.weeklyTicketsGrowthPct} growthLabel="vs. semana passada" />
         <KpiCard label="Eventos ativos" value={String(data?.activeEvents ?? 0)} icon={Activity}
           iconClass="bg-emerald-100 text-emerald-600 dark:bg-emerald-900/30 dark:text-emerald-400"
           sub={`${data?.closedEvents ?? 0} encerrados`} />
         <KpiCard label="Check-ins realizados" value={String(data?.checkIns ?? 0)} icon={CheckCircle2}
-          iconClass="bg-sky-100 text-sky-700 dark:bg-sky-900/30 dark:text-sky-300"
+          iconClass="bg-brand-pink/10 text-brand-pink dark:bg-brand-pink/20"
           sub={`Taxa de entrada: ${checkInRate}%`} />
       </div>
 
@@ -184,7 +184,7 @@ export default function DashboardPage() {
           iconClass="bg-amber-100 text-amber-600 dark:bg-amber-900/30 dark:text-amber-400"
           sub="Aguardando pagamento" />
         <KpiCard label="Taxa de conversao" value={`${data?.conversionRate ?? 0}%`} icon={CalendarCheck}
-          iconClass="bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300"
+          iconClass="bg-purple-100 text-purple-600 dark:bg-purple-900/30 dark:text-purple-400"
           sub={`${data?.visitorsEstimate ?? 0} visitantes estimados`} />
       </div>
 

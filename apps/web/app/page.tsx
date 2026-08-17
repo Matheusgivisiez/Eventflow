@@ -2,7 +2,6 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
-import Image from "next/image";
 import { useQuery } from "@tanstack/react-query";
 import {
   ArrowRight, CalendarPlus, ChevronRight, Compass, MapPin,
@@ -93,30 +92,35 @@ export default function CatalogPage() {
       </header>
 
       {/* ─── HERO ────────────────────────────────────────────────── */}
-      <section className="border-b bg-white dark:bg-card">
-        <div className="mx-auto grid max-w-7xl gap-10 px-4 py-14 lg:grid-cols-[1.05fr_0.95fr] lg:items-center lg:px-8 lg:py-20">
-          <div className="max-w-2xl">
+      <section className="relative overflow-hidden">
+        {/* Background laranja vibrante */}
+        <div className="absolute inset-0 hero-gradient opacity-95" />
+        <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNjAiIHZpZXdCb3g9IjAgMCA2MCA2MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48ZyBmaWxsPSJub25lIiBmaWxsLXJ1bGU9ImV2ZW5vZGQiPjxwYXRoIGQ9Ik0zNiAxOGMwLTkuOTQtOC4wNi0xOC0xOC0xOFYwaDQydjQySDM2VjE4eiIgZmlsbD0icmdiYSgyNTUsMjU1LDI1NSwwLjA0KSIvPjwvZz48L3N2Zz4=')] opacity-30" />
+
+        <div className="relative mx-auto max-w-7xl px-4 py-16 lg:py-24 lg:px-8">
+          <div className="text-center">
             <div className="animate-fade-in">
-              <Badge className="mb-5 border-blue-200 bg-blue-50 text-blue-700 hover:bg-blue-100">
-                <Star className="mr-1 h-3 w-3 fill-blue-600" />
-                Eventos que cabem na sua agenda
+              <Badge className="mb-4 bg-white/20 text-white hover:bg-white/30 border-white/30 backdrop-blur-sm">
+                <Star className="h-3 w-3 mr-1 fill-white" />
+                Plataforma líder em ingressos digitais
               </Badge>
             </div>
-            <h1 className="text-4xl font-bold tracking-tight text-slate-950 sm:text-5xl lg:text-6xl dark:text-white">
-              Encontre seu próximo evento.
+            <h1 className="text-4xl font-extrabold tracking-tight text-white sm:text-5xl lg:text-6xl drop-shadow-sm animate-slide-up" style={{ animationDelay: "0.1s" }}>
+              Encontre eventos e compre{" "}
+              <span className="block">ingressos com segurança</span>
             </h1>
-            <p className="mt-5 max-w-xl text-lg leading-8 text-slate-600 dark:text-slate-300">
-              Compre ingressos com segurança, receba seu acesso digital e viva experiências que ficam na memória.
+            <p className="mx-auto mt-5 max-w-2xl text-lg text-white/85 animate-slide-up" style={{ animationDelay: "0.2s" }}>
+              Shows, cursos, congressos, teatros e muito mais. Tudo num só lugar com checkout rápido e ingresso digital.
             </p>
 
             {/* Barra de busca */}
-            <div className="mt-8 max-w-3xl">
-              <div className="flex flex-col gap-3 rounded-xl border border-slate-200 bg-white p-3 shadow-sm sm:flex-row dark:border-slate-700 dark:bg-slate-900">
+            <div className="mx-auto mt-8 max-w-3xl animate-slide-up" style={{ animationDelay: "0.3s" }}>
+              <div className="flex flex-col gap-3 rounded-2xl bg-white p-3 shadow-2xl shadow-black/10 sm:flex-row transition-all duration-300 focus-within:shadow-primary/20 focus-within:ring-2 focus-within:ring-primary/20">
                 <div className="relative flex-1">
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                   <input
                     type="text"
-                    className="w-full rounded-lg bg-slate-50 py-3 pl-9 pr-4 text-base outline-none transition-all duration-200 focus:bg-white focus:ring-2 focus:ring-primary/30 placeholder:text-muted-foreground dark:bg-slate-800"
+                    className="w-full rounded-lg bg-muted/50 py-3 pl-9 pr-4 text-sm outline-none transition-all duration-200 focus:bg-white focus:ring-2 focus:ring-primary/30 placeholder:text-muted-foreground"
                     placeholder="Nome do evento, artista..."
                     value={search}
                     onChange={(e) => setSearch(e.target.value)}
@@ -126,13 +130,13 @@ export default function CatalogPage() {
                   <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                   <input
                     type="text"
-                    className="w-full rounded-lg bg-slate-50 py-3 pl-9 pr-4 text-base outline-none transition-all duration-200 focus:bg-white focus:ring-2 focus:ring-primary/30 placeholder:text-muted-foreground dark:bg-slate-800"
+                    className="w-full rounded-lg bg-muted/50 py-3 pl-9 pr-4 text-sm outline-none transition-all duration-200 focus:bg-white focus:ring-2 focus:ring-primary/30 placeholder:text-muted-foreground"
                     placeholder="Cidade"
                     value={city}
                     onChange={(e) => setCity(e.target.value)}
                   />
                 </div>
-                <Button asChild className="bg-primary px-6 text-white shadow-sm hover:bg-primary/90">
+                <Button asChild className="bg-primary hover:bg-primary/90 active:scale-95 transition-all text-white shadow-md px-6 rounded-xl">
                   <a href="#eventos">
                     Buscar
                     <ArrowRight className="h-4 w-4" />
@@ -141,20 +145,13 @@ export default function CatalogPage() {
               </div>
             </div>
           </div>
-          <div className="relative min-h-[280px] overflow-hidden rounded-2xl bg-blue-50 dark:bg-slate-800">
-            {events[0]?.bannerUrl ? (
-              <Image src={events[0].bannerUrl} alt={events[0].title} fill priority sizes="(max-width: 1024px) 100vw, 45vw" className="object-cover" />
-            ) : (
-              <div className="flex h-full items-center justify-center bg-blue-700 p-10 text-center text-white">
-                <div>
-                  <Ticket className="mx-auto mb-4 h-12 w-12" />
-                  <p className="text-xl font-semibold">Seu próximo momento começa aqui</p>
-                </div>
-              </div>
-            )}
-            <div className="absolute inset-0 bg-gradient-to-t from-slate-950/65 via-transparent to-transparent" />
-            {events[0] && <p className="absolute bottom-5 left-5 right-5 text-lg font-semibold text-white">{events[0].title}</p>}
-          </div>
+        </div>
+
+        {/* Wave separator */}
+        <div className="absolute bottom-0 left-0 right-0">
+          <svg viewBox="0 0 1440 60" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-full">
+            <path d="M0 60L60 50C120 40 240 20 360 15C480 10 600 20 720 28C840 36 960 42 1080 40C1200 38 1320 28 1380 23L1440 18V60H0Z" fill="#F8F8F8" className="dark:fill-background" />
+          </svg>
         </div>
       </section>
 
