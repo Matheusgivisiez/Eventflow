@@ -52,12 +52,13 @@ export class PaymentsService {
     if (tenantId && order.event.tenantId !== tenantId) {
       throw new NotFoundException("Pedido nao encontrado.");
     }
-    const appUrl = this.config.get<string>("APP_URL") ?? "http://localhost:3000";
+    const appUrl = (this.config.get<string>("APP_URL") ?? "http://localhost:3000").replace(/\/+$/, "");
     const successParams = new URLSearchParams({ orderId });
     if (order.orderAccessToken) {
       successParams.set("accessToken", order.orderAccessToken);
     }
     const successUrl = `${appUrl}/checkout/success?${successParams.toString()}`;
+    const ticketsUrl = `${appUrl}/me/ingressos`;
     const result = await this.abacatePay.createCheckout({
       orderId,
       amountCents: order.totalCents,
@@ -67,7 +68,7 @@ export class PaymentsService {
       buyerPhone: order.buyerPhone ?? undefined,
       description: order.event.title,
       paymentMethod: order.payment?.method ?? undefined,
-      returnUrl: successUrl,
+      returnUrl: ticketsUrl,
       completionUrl: `${successUrl}&status=paid`
     });
 

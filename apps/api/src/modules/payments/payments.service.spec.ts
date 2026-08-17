@@ -95,7 +95,7 @@ describe("PaymentsService", () => {
     jest.clearAllMocks();
   });
 
-  it("includes the order access token in provider return URLs", async () => {
+  it("returns buyers to their tickets and includes the order access token in the completion URL", async () => {
     const { service, prisma, abacatePay } = createService();
     prisma.order.findUnique.mockResolvedValue({
       id: "order-1",
@@ -118,7 +118,7 @@ describe("PaymentsService", () => {
     await service.createProviderPreference("order-1");
 
     expect(abacatePay.createCheckout).toHaveBeenCalledWith(expect.objectContaining({
-      returnUrl: "https://app.example/checkout/success?orderId=order-1&accessToken=public-token",
+      returnUrl: "https://app.example/me/ingressos",
       completionUrl: "https://app.example/checkout/success?orderId=order-1&accessToken=public-token&status=paid"
     }));
     expect(prisma.payment.update).toHaveBeenCalledWith(expect.objectContaining({
