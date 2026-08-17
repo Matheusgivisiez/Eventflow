@@ -15,7 +15,7 @@ export class CacheService implements OnModuleDestroy {
   constructor(config: ConfigService) {
     const url = config.get<string>("REDIS_URL");
     if (url) {
-      this.redis = new Redis(url, { lazyConnect: true, maxRetriesPerRequest: 1 });
+      this.redis = new Redis(url, { enableReadyCheck: false, lazyConnect: true, maxRetriesPerRequest: 1 });
       this.redis.connect().catch(() => this.logger.warn("Redis indisponivel. Usando cache em memoria."));
     }
   }

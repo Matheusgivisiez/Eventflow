@@ -9,6 +9,7 @@ export class RedlockService implements OnModuleDestroy {
 
   constructor(config: ConfigService) {
     this.redis = new Redis(config.get<string>("REDIS_URL") ?? "redis://localhost:6379", {
+      enableReadyCheck: false,
       lazyConnect: true,
       maxRetriesPerRequest: 3,
       retryStrategy: (times) => Math.min(times * 50, 2000)

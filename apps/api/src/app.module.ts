@@ -47,6 +47,7 @@ import { ObservabilityModule } from "./modules/observability/observability.modul
     BullModule.forRoot({
       connection: {
         url: process.env.REDIS_URL,
+        enableReadyCheck: false,
         skipVersionCheck: true
       }
     }),
