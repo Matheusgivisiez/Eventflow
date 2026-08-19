@@ -1,9 +1,9 @@
 "use client";
 
-import { Suspense } from "react";
-import { useSearchParams } from "next/navigation";
+import { useEffect, useState } from "react";
+import { useSearchParams, useRouter } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
-import { CheckCircle2, Clock, Ticket, AlertCircle, ArrowLeft } from "lucide-react";
+import { CheckCircle2, Clock, Ticket, AlertCircle, ArrowLeft, ArrowRight, Loader2 } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -37,9 +37,11 @@ type PublicOrderDetails = {
 };
 
 function SuccessContent() {
+  const router = useRouter();
   const searchParams = useSearchParams();
   const orderId = searchParams.get("orderId");
   const accessToken = searchParams.get("accessToken");
+  const [redirectCountdown, setRedirectCountdown] = useState<number | null>(null);
 
   const { data: order, isLoading, error } = useQuery({
     queryKey: ["public-order", orderId, accessToken],
@@ -47,6 +49,27 @@ function SuccessContent() {
     enabled: Boolean(orderId && accessToken),
     refetchInterval: (query) => (query.state.data?.status === "PENDING" ? 4000 : false)
   });
+
+  const isPaid = order?.status === "PAID";
+  const isPending = order?.status === "PENDING";
+
+  useEffect(() => {
+    if (isPaid) {
+      setRedirectCountdown(3);
+      const interval = setInterval(() => {
+        setRedirectCountdown((prev) => {
+          if (prev === null || prev <= 1) {
+            clearInterval(interval);
+            router.push("/me/ingressos");
+            return 0;
+          }
+          return prev - 1;
+        });
+      }, 1000);
+
+      return () => clearInterval(interval);
+    }
+  }, [isPaid, router]);
 
   if (!orderId || !accessToken) {
     return (
@@ -86,9 +109,6 @@ function SuccessContent() {
     );
   }
 
-  const isPaid = order.status === "PAID";
-  const isPending = order.status === "PENDING";
-
   return (
     <div className="max-w-xl w-full space-y-6">
       <Card>
@@ -103,13 +123,20 @@ function SuccessContent() {
           </CardTitle>
           <CardDescription>
             {isPaid
-              ? `Obrigado, ${order.buyerName}! Seus ingressos estão prontos.`
+              ? `Obrigado, ${order.buyerName}! Seu ingresso foi gerado.`
               : isPending
               ? "Estamos aguardando a confirmação do gateway. Esta página será atualizada automaticamente."
               : "Este pedido foi cancelado ou reembolsado."}
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
+          {isPaid && redirectCountdown !== null && (
+            <div className="rounded-lg border border-brand-purple/20 bg-brand-purple/10 p-3 text-center text-sm font-medium text-brand-purple flex items-center justify-center gap-2">
+              <Loader2 className="h-4 w-4 animate-spin shrink-0" />
+              <span>Redirecionando para Meus Ingressos em {redirectCountdown}s...</span>
+            </div>
+          )}
+
           <div className="rounded-lg border p-4 bg-muted/40 space-y-2 text-sm">
             <div className="flex justify-between">
               <span className="text-muted-foreground">Evento</span>
@@ -152,8 +179,16 @@ function SuccessContent() {
             </div>
           )}
 
-          <div className="pt-4 flex flex-col gap-2">
-            <Button asChild variant="outline" className="w-full gap-2">
+          <div className="pt-4 flex flex-col sm:flex-row gap-2">
+            {isPaid && (
+              <Button asChild className="flex-1 gap-2">
+                <Link href="/me/ingressos">
+                  Ir para Meus Ingressos
+                  <ArrowRight className="h-4 w-4" />
+                </Link>
+              </Button>
+            )}
+            <Button asChild variant="outline" className="flex-1 gap-2">
               <Link href="/eventos">
                 <ArrowLeft className="h-4 w-4" />
                 Voltar aos Eventos

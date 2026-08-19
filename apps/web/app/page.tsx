@@ -13,6 +13,7 @@ import { Button } from "@/components/ui/button";
 import { EventCard } from "@/components/event-card";
 import { BrandLogo } from "@/components/brand-logo";
 import { ThemeToggle } from "@/components/theme-toggle";
+import Topography from "@/components/topography/Topography";
 import { api } from "@/lib/api";
 import { useAuthStore } from "@/stores/auth-store";
 import type { EventFlowEvent, Paginated } from "@/types/eventflow";
@@ -92,15 +93,39 @@ export default function CatalogPage() {
       </header>
 
       {/* ─── HERO ────────────────────────────────────────────────── */}
-      <section className="relative overflow-hidden">
-        {/* Background laranja vibrante */}
-        <div className="absolute inset-0 hero-gradient opacity-95" />
-        <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNjAiIHZpZXdCb3g9IjAgMCA2MCA2MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48ZyBmaWxsPSJub25lIiBmaWxsLXJ1bGU9ImV2ZW5vZGQiPjxwYXRoIGQ9Ik0zNiAxOGMwLTkuOTQtOC4wNi0xOC0xOC0xOFYwaDQydjQySDM2VjE4eiIgZmlsbD0icmdiYSgyNTUsMjU1LDI1NSwwLjA0KSIvPjwvZz48L3N2Zz4=')] opacity-30" />
+      <section className="relative overflow-hidden bg-[#1a1528] min-h-[600px] flex items-center">
+        {/* Background Animation Container */}
+        <div className="absolute inset-0 z-0">
+          <Topography
+            lowColor="#5227FF"
+            midColor="#FF9FFC"
+            highColor="#FFFFFF"
+            speed={0.35}
+            morphAmount={3}
+            morphSpeed={0.05}
+            bands={2}
+            thickness={0.01}
+            scale={2}
+            pixelSize={1}
+            glow={0.5}
+            colorMode="elevation"
+            contrast={3}
+            brightness={1}
+            fillBands={false}
+            opacity={1}
+            grain={true}
+            grainIntensity={0.05}
+            mouseInteraction={true}
+            mouseRadius={0.3}
+            mouseStrength={0.4}
+          />
+        </div>
 
-        <div className="relative mx-auto max-w-7xl px-4 py-16 lg:py-24 lg:px-8">
+
+        <div className="relative z-10 mx-auto max-w-7xl px-4 py-16 lg:py-24 lg:px-8 w-full">
           <div className="text-center">
             <div className="animate-fade-in">
-              <Badge className="mb-4 bg-white/20 text-white hover:bg-white/30 border-white/30 backdrop-blur-sm">
+              <Badge className="mb-4 bg-white/10 text-white hover:bg-white/20 border-white/20 backdrop-blur-sm">
                 <Star className="h-3 w-3 mr-1 fill-white" />
                 Plataforma líder em ingressos digitais
               </Badge>

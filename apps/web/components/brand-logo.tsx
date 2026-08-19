@@ -32,7 +32,7 @@ export function BrandLogo({ className, markClassName, textClassName, iconOnly = 
       {!iconOnly && (
         <div className={cn("leading-[0.86] tracking-normal", inverted ? "text-white" : "text-brand-deep dark:text-white", textClassName)}>
           <span className="block text-[1.35rem] font-extrabold">event</span>
-          <span className="block text-[1.35rem] font-extrabold">hub</span>
+          <span className="block text-[1.35rem] font-extrabold">flow</span>
         </div>
       )}
     </div>
