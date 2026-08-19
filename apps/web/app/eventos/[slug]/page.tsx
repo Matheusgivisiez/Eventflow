@@ -7,12 +7,13 @@ import { EventAgenda } from "@/components/event-page/event-agenda";
 import { EventFaq } from "@/components/event-page/event-faq";
 import { OrganizerInfo } from "@/components/event-page/organizer-info";
 import { EventDetailClient } from "./event-detail-client";
+import { getApiUrl } from "@/lib/api-url";
 import type { EventFlowEvent } from "@/types/eventflow";
 
 // Helper function to fetch the event from the API directly.
 // We use fetch since this is a server component.
 async function getEvent(slug: string): Promise<EventFlowEvent | null> {
-  const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001/api";
+  const API_URL = getApiUrl();
   try {
     const res = await fetch(`${API_URL}/events/public/${slug}`, {
       next: { revalidate: 60 } // Cache for 60 seconds
@@ -96,7 +97,7 @@ export default async function PublicEventPage({ params }: { params: Promise<{ sl
       price: (Math.min(...event.ticketTypes.map((t) => t.priceCents)) / 100).toFixed(2),
       priceCurrency: "BRL",
       availability: "https://schema.org/InStock",
-      url: `${process.env.NEXT_PUBLIC_API_URL?.replace("/api", "") ?? "http://localhost:3000"}/eventos/${slug}`
+      url: `${getApiUrl().replace("/api", "")}/eventos/${slug}`
     } : undefined,
     organizer: {
       "@type": "Organization",

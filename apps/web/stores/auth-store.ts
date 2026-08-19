@@ -2,6 +2,7 @@
 
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
+import { getApiUrl } from "@/lib/api-url";
 
 export type AuthUser = {
   id: string;
@@ -26,7 +27,7 @@ export const useAuthStore = create<AuthState>()(
       setSession: (session) => set(session),
       updateUser: (data) => set((state) => ({ user: state.user ? { ...state.user, ...data } : undefined })),
       logout: () => {
-        void fetch(`${process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001/api"}/auth/logout`, {
+        void fetch(`${getApiUrl()}/auth/logout`, {
           method: "POST",
           credentials: "include"
         }).catch(() => undefined);

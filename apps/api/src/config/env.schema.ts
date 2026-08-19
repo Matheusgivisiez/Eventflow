@@ -31,6 +31,7 @@ export const envSchema = z.object({
   DATABASE_URL: z.string().url(),
   DATABASE_READ_URL: z.string().url().optional(),
   REDIS_URL: z.string().url().default("redis://localhost:6379"),
+  QUEUE_WORKERS_ENABLED: z.coerce.boolean().default(false),
   JWT_ACCESS_SECRET: z.string().optional(),
   JWT_REFRESH_SECRET: z.string().optional(),
   JWT_RESET_SECRET: z.string().optional(),

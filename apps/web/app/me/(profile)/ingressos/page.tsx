@@ -10,6 +10,7 @@ import {
   Send, Search, Loader2, UserPlus
 } from "lucide-react";
 import { api } from "@/lib/api";
+import { getApiUrl } from "@/lib/api-url";
 import { useAuthStore } from "@/stores/auth-store";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -68,7 +69,7 @@ export default function MyTicketsPage() {
   const [recipientLookup, setRecipientLookup] = useState<RecipientLookup | null>(null);
   const token = useAuthStore((state) => state.accessToken);
   const user = useAuthStore((state) => state.user);
-  const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001/api";
+  const apiUrl = getApiUrl();
 
   const tickets = useQuery({
     queryKey: ["my-tickets", scope],

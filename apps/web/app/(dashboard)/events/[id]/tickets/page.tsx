@@ -132,7 +132,7 @@ export default function TicketTypesPage() {
         <Card className="border-dashed">
           <CardContent className="flex flex-col items-center justify-center py-14 text-center text-muted-foreground">
             <p className="text-lg font-medium">Nenhum lote criado</p>
-            <p className="text-sm mt-1">Clique em "Novo lote" para adicionar o primeiro lote de ingressos.</p>
+            <p className="text-sm mt-1">Clique em &quot;Novo lote&quot; para adicionar o primeiro lote de ingressos.</p>
           </CardContent>
         </Card>
       )}

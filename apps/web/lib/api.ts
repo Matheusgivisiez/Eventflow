@@ -1,6 +1,7 @@
 import { useAuthStore } from "@/stores/auth-store";
+import { getApiUrl } from "./api-url";
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001/api";
+const API_URL = getApiUrl();
 
 type ApiOptions = RequestInit & { auth?: boolean };
 type ApiErrorBody = { message?: string | string[] };
@@ -12,19 +13,40 @@ export class ApiError extends Error {
   }
 }
 
-let isRefreshing = false;
-let refreshSubscribers: ((token: string) => void)[] = [];
+let refreshPromise: Promise<string> | undefined;
 
-function onRefreshed(token: string) {
-  refreshSubscribers.forEach((cb) => cb(token));
-  refreshSubscribers = [];
+async function refreshAccessToken(store: ReturnType<typeof useAuthStore.getState>) {
+  if (!refreshPromise) {
+    refreshPromise = fetch(`${API_URL}/auth/refresh`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include"
+    })
+      .then(async (res) => {
+        if (!res.ok) throw new Error("Session expired");
+
+        const data = await res.json();
+        store.setSession({ accessToken: data.accessToken, user: data.user });
+        return data.accessToken as string;
+      })
+      .catch(() => {
+        store.logout();
+        if (typeof window !== "undefined") window.location.href = "/login";
+        throw new Error("Sessão expirada. Faça login novamente.");
+      })
+      .finally(() => {
+        refreshPromise = undefined;
+      });
+  }
+
+  return refreshPromise;
 }
 
 export async function api<T>(path: string, options: ApiOptions = {}): Promise<T> {
   const store = useAuthStore.getState();
   let token = store.accessToken;
 
-  let headers: Record<string, string> = {
+  const headers: Record<string, string> = {
     "Content-Type": "application/json",
     ...(options.headers as Record<string, string>)
   };
@@ -40,38 +62,12 @@ export async function api<T>(path: string, options: ApiOptions = {}): Promise<T>
   });
 
   if (response.status === 401 && options.auth !== false && path !== "/auth/refresh") {
-    if (!isRefreshing) {
-      isRefreshing = true;
-      try {
-        const res = await fetch(`${API_URL}/auth/refresh`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          credentials: "include"
-        });
-        
-        if (!res.ok) throw new Error("Session expired");
-        
-        const data = await res.json();
-        store.setSession({ accessToken: data.accessToken, user: data.user });
-        onRefreshed(data.accessToken);
-        isRefreshing = false;
-      } catch (err) {
-        isRefreshing = false;
-        refreshSubscribers = [];
-        store.logout();
-        if (typeof window !== "undefined") window.location.href = "/login";
-        throw new Error("Sessão expirada. Faça login novamente.");
-      }
-    }
+    token = await refreshAccessToken(store);
 
-    token = await new Promise<string>((resolve) => {
-      refreshSubscribers.push(resolve);
-    });
-
-    headers["Authorization"] = `Bearer ${token}`;
+    const retryHeaders = { ...headers, Authorization: `Bearer ${token}` };
     response = await fetch(`${API_URL}${path}`, {
       ...options,
-      headers,
+      headers: retryHeaders,
       credentials: "include"
     });
   }

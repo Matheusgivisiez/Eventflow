@@ -83,4 +83,27 @@ describe("CustomThrottlerGuard", () => {
       }
     });
   });
+
+  describe("handleRequest", () => {
+    it("deve ignorar rate limit para health check", async () => {
+      const mockContext = {
+        switchToHttp: () => ({
+          getRequest: () => ({ path: "/api/health", url: "/api/health" }),
+          getResponse: () => ({ header: jest.fn() })
+        })
+      } as unknown as ExecutionContext;
+
+      const result = await (guard as any).handleRequest({
+        context: mockContext,
+        limit: 5,
+        ttl: 60000,
+        throttler: { name: "default" },
+        blockDuration: 0,
+        getTracker: jest.fn()
+      });
+
+      expect(result).toBe(true);
+      expect(mockOptions.storage.increment).not.toHaveBeenCalled();
+    });
+  });
 });
