@@ -126,6 +126,12 @@ export default function CatalogPage() {
 
         <div className="relative z-10 mx-auto max-w-7xl px-4 py-16 lg:py-24 lg:px-8 w-full">
           <div className="text-center">
+            <div className="animate-fade-in">
+              <Badge className="mb-4 bg-purple-900/50 text-purple-300 hover:bg-purple-900/70 border-purple-500/40 backdrop-blur-sm">
+                <Star className="h-3 w-3 mr-1 fill-purple-400 text-purple-400" />
+                Plataforma líder em ingressos digitais
+              </Badge>
+            </div>
 
             <h1 className="text-4xl font-extrabold tracking-tight text-white sm:text-5xl lg:text-6xl drop-shadow-sm animate-slide-up" style={{ animationDelay: "0.1s" }}>
               Encontre eventos e compre{" "}
