@@ -5,7 +5,7 @@
   "scripts": {
     "dev": "nest start --watch",
     "build": "prisma generate && nest build",
-    "start": "node dist/main.js",
+    "start": "prisma db push && node dist/main.js",
     "lint": "eslint \"src/**/*.ts\"",
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
