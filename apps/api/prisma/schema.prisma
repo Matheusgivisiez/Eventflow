@@ -302,6 +302,15 @@ model Event {
   marketplaceRank        Int          @default(0)
   analyticsJson          Json?
   seatMapEnabled         Boolean      @default(false)
+
+  // Configurações de Transferência
+  allowTicketTransfer            Boolean   @default(true)
+  ticketTransferLockTime         DateTime?
+
+  // Configurações de Liberação de QR Code
+  qrCodeReleaseMinutesBeforeStart Int?      @default(60)
+  qrCodeReleaseAt                DateTime?
+
   createdAt              DateTime     @default(now())
   updatedAt              DateTime     @updatedAt
   tenant                 Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)

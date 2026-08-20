@@ -6,6 +6,7 @@ import { CurrentUser } from "../../common/decorators/current-user.decorator";
 import { JwtAuthGuard } from "../../common/guards/jwt-auth.guard";
 import { RequestUser } from "../../common/types/request-user";
 import { AuthService } from "./auth.service";
+import { BecomeOrganizerDto } from "./dto/become-organizer.dto";
 import { ForgotPasswordDto } from "./dto/forgot-password.dto";
 import { LoginDto } from "./dto/login.dto";
 import { RefreshTokenDto } from "./dto/refresh-token.dto";
@@ -81,10 +82,10 @@ export class AuthController {
   @UseGuards(JwtAuthGuard)
   async becomeOrganizer(
     @CurrentUser() user: RequestUser,
-    @Body() body: { companyName: string },
+    @Body() dto: BecomeOrganizerDto,
     @Res({ passthrough: true }) response: Response
   ) {
-    return this.withRefreshCookie(response, await this.auth.becomeOrganizer(user.id, body.companyName));
+    return this.withRefreshCookie(response, await this.auth.becomeOrganizer(user.id, dto));
   }
 
   private withRefreshCookie(

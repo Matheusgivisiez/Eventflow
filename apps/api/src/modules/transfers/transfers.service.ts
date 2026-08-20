@@ -368,7 +368,13 @@ export class TransfersService {
     return ticket;
   }
 
-  private ensureTicketCanBeTransferred(ticket: { status: TicketStatus; usedAt: Date | null; event: { startsAt: Date; endsAt: Date | null } }) {
+  private ensureTicketCanBeTransferred(ticket: { status: TicketStatus; usedAt: Date | null; event: { startsAt: Date; endsAt: Date | null; allowTicketTransfer: boolean; ticketTransferLockTime: Date | null } }) {
+    if (!ticket.event.allowTicketTransfer) {
+      throw new BadRequestException("A transferência de ingressos não está permitida para este evento.");
+    }
+    if (ticket.event.ticketTransferLockTime && new Date() >= new Date(ticket.event.ticketTransferLockTime)) {
+      throw new BadRequestException("As transferências de ingressos para este evento já foram encerradas.");
+    }
     if (ticket.status === TicketStatus.USED || ticket.usedAt) {
       throw new BadRequestException("Nao e permitido transferir ingresso ja utilizado.");
     }

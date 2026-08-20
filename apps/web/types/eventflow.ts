@@ -52,6 +52,10 @@ export type EventFlowEvent = {
   agendaJson?: AgendaItem[];
   ticketTypes: TicketType[];
   tenant?: { name: string; logoUrl?: string };
+  allowTicketTransfer?: boolean;
+  ticketTransferLockTime?: string;
+  qrCodeReleaseMinutesBeforeStart?: number;
+  qrCodeReleaseAt?: string;
 };
 
 export type Paginated<T> = {

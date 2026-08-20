@@ -56,7 +56,11 @@ export class EventsService {
         salesStartsAt: dto.salesStartsAt ? new Date(dto.salesStartsAt) : undefined,
         salesEndsAt: dto.salesEndsAt ? new Date(dto.salesEndsAt) : undefined,
         limitPerCpf: dto.limitPerCpf,
-        feeAbsorbedByOrganizer: dto.feeAbsorbedByOrganizer ?? false
+        feeAbsorbedByOrganizer: dto.feeAbsorbedByOrganizer ?? false,
+        allowTicketTransfer: dto.allowTicketTransfer,
+        ticketTransferLockTime: dto.ticketTransferLockTime ? new Date(dto.ticketTransferLockTime) : undefined,
+        qrCodeReleaseMinutesBeforeStart: dto.qrCodeReleaseMinutesBeforeStart,
+        qrCodeReleaseAt: dto.qrCodeReleaseAt ? new Date(dto.qrCodeReleaseAt) : undefined
       }
     });
     await this.invalidatePublicCache();
@@ -99,7 +103,11 @@ export class EventsService {
         salesStartsAt: dto.salesStartsAt ? new Date(dto.salesStartsAt) : undefined,
         salesEndsAt: dto.salesEndsAt ? new Date(dto.salesEndsAt) : undefined,
         limitPerCpf: dto.limitPerCpf,
-        feeAbsorbedByOrganizer: dto.feeAbsorbedByOrganizer
+        feeAbsorbedByOrganizer: dto.feeAbsorbedByOrganizer,
+        allowTicketTransfer: dto.allowTicketTransfer,
+        ticketTransferLockTime: dto.ticketTransferLockTime ? new Date(dto.ticketTransferLockTime) : undefined,
+        qrCodeReleaseMinutesBeforeStart: dto.qrCodeReleaseMinutesBeforeStart,
+        qrCodeReleaseAt: dto.qrCodeReleaseAt ? new Date(dto.qrCodeReleaseAt) : undefined
       }
     });
     await this.invalidatePublicCache();

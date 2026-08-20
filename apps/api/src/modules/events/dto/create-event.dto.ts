@@ -115,4 +115,25 @@ export class CreateEventDto {
   @IsOptional()
   @IsBoolean()
   feeAbsorbedByOrganizer?: boolean;
+
+  @ApiPropertyOptional({ description: "Permitir transferência de ingressos" })
+  @IsOptional()
+  @IsBoolean()
+  allowTicketTransfer?: boolean;
+
+  @ApiPropertyOptional({ description: "Horário limite para transferências (ISO 8601)" })
+  @IsOptional()
+  @IsDateString()
+  ticketTransferLockTime?: string;
+
+  @ApiPropertyOptional({ description: "Minutos antes do início para liberar QR Code" })
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  qrCodeReleaseMinutesBeforeStart?: number;
+
+  @ApiPropertyOptional({ description: "Data/hora absoluta para liberar QR Code (ISO 8601)" })
+  @IsOptional()
+  @IsDateString()
+  qrCodeReleaseAt?: string;
 }

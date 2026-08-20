@@ -3,10 +3,10 @@
 import { useParams, useRouter } from "next/navigation";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ArrowLeft, Loader2, Save, Ticket, Trash2, Megaphone } from "lucide-react";
+import { ArrowLeft, Loader2, Save, Ticket, Trash2, Megaphone, Shield, Lock, QrCode } from "lucide-react";
 import Link from "next/link";
-import { useEffect, memo } from "react";
-import { useForm } from "react-hook-form";
+import { useEffect, memo, useState } from "react";
+import { useForm, Controller } from "react-hook-form";
 import { z } from "zod";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -14,6 +14,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Switch } from "@/components/ui/switch";
 import dynamic from "next/dynamic";
 import { api } from "@/lib/api";
 
@@ -37,7 +38,11 @@ const schema = z.object({
   status: z.enum(["DRAFT", "PUBLISHED", "CLOSED"]),
   seoTitle: z.string().optional(),
   seoDescription: z.string().optional(),
-  feeAbsorbedByOrganizer: z.boolean().optional()
+  feeAbsorbedByOrganizer: z.boolean().optional(),
+  allowTicketTransfer: z.boolean().optional(),
+  ticketTransferLockTime: z.string().optional(),
+  qrCodeReleaseMinutesBeforeStart: z.coerce.number().int().min(0).optional().nullable(),
+  qrCodeReleaseAt: z.string().optional()
 });
 
 type FormData = z.infer<typeof schema>;
@@ -53,10 +58,13 @@ const statusLabel: Record<string, string> = {
   CLOSED: "Encerrado"
 };
 
+type QrCodeMode = "default" | "custom_minutes" | "fixed_date";
+
 export default function EditEventPage() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
   const queryClient = useQueryClient();
+  const [qrCodeMode, setQrCodeMode] = useState<QrCodeMode>("default");
 
   const { data: event, isLoading } = useQuery<EventFlowEvent>({
     queryKey: ["event", id],
@@ -65,13 +73,23 @@ export default function EditEventPage() {
 
   const form = useForm<FormData>({
     resolver: zodResolver(schema),
-    defaultValues: { format: "IN_PERSON", status: "DRAFT" }
+    defaultValues: { format: "IN_PERSON", status: "DRAFT", allowTicketTransfer: true }
   });
 
   useEffect(() => {
     if (event) {
       const toLocal = (iso?: string) =>
         iso ? new Date(iso).toISOString().slice(0, 16) : "";
+
+      // Determine QR code mode from event data
+      if (event.qrCodeReleaseAt) {
+        setQrCodeMode("fixed_date");
+      } else if (event.qrCodeReleaseMinutesBeforeStart !== undefined && event.qrCodeReleaseMinutesBeforeStart !== null && event.qrCodeReleaseMinutesBeforeStart !== 60) {
+        setQrCodeMode("custom_minutes");
+      } else {
+        setQrCodeMode("default");
+      }
+
       form.reset({
         title: event.title,
         description: event.description,
@@ -87,16 +105,44 @@ export default function EditEventPage() {
         format: event.format,
         status: event.status,
         seoTitle: event.seoTitle ?? "",
-        seoDescription: event.seoDescription ?? ""
+        seoDescription: event.seoDescription ?? "",
+        allowTicketTransfer: event.allowTicketTransfer ?? true,
+        ticketTransferLockTime: toLocal(event.ticketTransferLockTime),
+        qrCodeReleaseMinutesBeforeStart: event.qrCodeReleaseMinutesBeforeStart ?? 60,
+        qrCodeReleaseAt: toLocal(event.qrCodeReleaseAt)
       });
     }
   }, [event, form]);
+
+  function prepareSubmit(data: FormData) {
+    const payload: Record<string, unknown> = {
+      ...data,
+      bannerUrl: data.bannerUrl || undefined
+    };
+
+    // Handle QR code mode
+    if (qrCodeMode === "default") {
+      payload.qrCodeReleaseMinutesBeforeStart = 60;
+      payload.qrCodeReleaseAt = undefined;
+    } else if (qrCodeMode === "custom_minutes") {
+      payload.qrCodeReleaseAt = undefined;
+    } else if (qrCodeMode === "fixed_date") {
+      payload.qrCodeReleaseMinutesBeforeStart = undefined;
+    }
+
+    // Clear lock time if empty
+    if (!data.ticketTransferLockTime) {
+      payload.ticketTransferLockTime = undefined;
+    }
+
+    return payload;
+  }
 
   const updateMutation = useMutation({
     mutationFn: (data: FormData) =>
       api(`/events/${id}`, {
         method: "PATCH",
-        body: JSON.stringify({ ...data, bannerUrl: data.bannerUrl || undefined })
+        body: JSON.stringify(prepareSubmit(data))
       }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["events"] });
@@ -293,6 +339,109 @@ export default function EditEventPage() {
               {updateMutation.isSuccess && (
                 <p className="text-sm text-primary">Evento atualizado com sucesso!</p>
               )}
+            </CardContent>
+          </Card>
+
+          {/* Segurança e Transferência */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Shield className="h-4 w-4 text-primary" />
+                Segurança e Transferência
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-5">
+              {/* Permitir Transferência */}
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <Label className="text-sm font-medium">Permitir transferência</Label>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    Habilite ou desabilite a transferência de ingressos
+                  </p>
+                </div>
+                <Controller
+                  control={form.control}
+                  name="allowTicketTransfer"
+                  render={({ field }) => (
+                    <Switch
+                      checked={field.value ?? true}
+                      onCheckedChange={field.onChange}
+                    />
+                  )}
+                />
+              </div>
+
+              {/* Limite de Transferência */}
+              {form.watch("allowTicketTransfer") !== false && (
+                <div className="space-y-2 rounded-lg border bg-muted/30 p-3">
+                  <div className="flex items-center gap-2">
+                    <Lock className="h-3.5 w-3.5 text-muted-foreground" />
+                    <Label className="text-sm">Limite de transferência</Label>
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    Após essa data, transferências serão bloqueadas automaticamente
+                  </p>
+                  <Input
+                    type="datetime-local"
+                    {...form.register("ticketTransferLockTime")}
+                  />
+                </div>
+              )}
+
+              <hr className="border-border" />
+
+              {/* Trava de QR Code */}
+              <div className="space-y-3">
+                <div className="flex items-center gap-2">
+                  <QrCode className="h-3.5 w-3.5 text-primary" />
+                  <Label className="text-sm font-medium">Liberação do QR Code</Label>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Defina quando o QR Code ficará visível para os compradores
+                </p>
+                <select
+                  className="h-10 w-full rounded-md border bg-background px-3 text-sm"
+                  value={qrCodeMode}
+                  onChange={(e) => {
+                    const mode = e.target.value as QrCodeMode;
+                    setQrCodeMode(mode);
+                    if (mode === "default") {
+                      form.setValue("qrCodeReleaseMinutesBeforeStart", 60);
+                      form.setValue("qrCodeReleaseAt", "");
+                    } else if (mode === "custom_minutes") {
+                      form.setValue("qrCodeReleaseAt", "");
+                    } else if (mode === "fixed_date") {
+                      form.setValue("qrCodeReleaseMinutesBeforeStart", null);
+                    }
+                  }}
+                >
+                  <option value="default">Padrão (1 hora antes do início)</option>
+                  <option value="custom_minutes">Personalizado (minutos antes)</option>
+                  <option value="fixed_date">Data/hora fixa</option>
+                </select>
+
+                {qrCodeMode === "custom_minutes" && (
+                  <div className="space-y-1">
+                    <Label className="text-xs text-muted-foreground">Minutos antes do início</Label>
+                    <Input
+                      type="number"
+                      min={0}
+                      placeholder="Ex: 120 (2 horas)"
+                      {...form.register("qrCodeReleaseMinutesBeforeStart", { valueAsNumber: true })}
+                    />
+                  </div>
+                )}
+
+                {qrCodeMode === "fixed_date" && (
+                  <div className="space-y-1">
+                    <Label className="text-xs text-muted-foreground">Data e hora de liberação</Label>
+                    <Input
+                      type="datetime-local"
+                      {...form.register("qrCodeReleaseAt")}
+                    />
+                  </div>
+                )}
+              </div>
             </CardContent>
           </Card>
 

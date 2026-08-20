@@ -3,6 +3,7 @@ import { PaymentStatus, TicketStatus } from "@prisma/client";
 import { AuditService } from "../audit/audit.service";
 import { PaymentsService } from "../payments/payments.service";
 import { PrismaService } from "../../prisma/prisma.service";
+import { getQrCodeReleaseTime, isQrCodeLocked } from "../../common/utils/qr-code.utils";
 
 @Injectable()
 export class BuyerService {
@@ -12,10 +13,10 @@ export class BuyerService {
     private readonly payments: PaymentsService
   ) {}
 
-  listTickets(userId: string, email: string, scope?: "future" | "past") {
+  async listTickets(userId: string, email: string, scope?: "future" | "past") {
     const now = new Date();
     const normalizedEmail = email.toLowerCase();
-    return this.prisma.ticket.findMany({
+    const tickets = await this.prisma.ticket.findMany({
       where: {
         OR: [
           { ownerId: userId },
@@ -32,6 +33,25 @@ export class BuyerService {
         order: { include: { payment: true } }
       },
       orderBy: { event: { startsAt: "asc" } }
+    });
+
+    return tickets.map((ticket) => {
+      const locked = isQrCodeLocked(ticket.event);
+      const releaseTime = getQrCodeReleaseTime(ticket.event);
+
+      return {
+        ...ticket,
+        qrCodeDataUrl: locked ? null : ticket.qrCodeDataUrl,
+        uuid: locked ? null : ticket.uuid,
+        signature: locked ? null : ticket.signature,
+        qrCodeLocked: locked,
+        qrCodeReleaseAt: releaseTime?.toISOString() ?? null,
+        event: {
+          ...ticket.event,
+          allowTicketTransfer: ticket.event.allowTicketTransfer,
+          ticketTransferLockTime: ticket.event.ticketTransferLockTime?.toISOString() ?? null
+        }
+      };
     });
   }
 
@@ -66,6 +86,11 @@ export class BuyerService {
 
   async ticketPdf(userId: string, email: string, ticketId: string) {
     const ticket = await this.findOwnedTicket(userId, email, ticketId);
+
+    if (isQrCodeLocked(ticket.event)) {
+      throw new BadRequestException("O QR Code ainda não está disponível. Aguarde a liberação próxima ao evento.");
+    }
+
     const content = [
       `Event Flow - Ingresso`,
       `Evento: ${ticket.event.title}`,
@@ -80,6 +105,11 @@ export class BuyerService {
 
   async walletPayload(userId: string, email: string, ticketId: string, provider: "google" | "apple") {
     const ticket = await this.findOwnedTicket(userId, email, ticketId);
+
+    if (isQrCodeLocked(ticket.event)) {
+      throw new BadRequestException("O QR Code ainda não está disponível. Aguarde a liberação próxima ao evento.");
+    }
+
     return {
       provider,
       passType: "event_ticket",

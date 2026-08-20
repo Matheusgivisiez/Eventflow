@@ -6,6 +6,7 @@ import * as bcrypt from "bcryptjs";
 import { createHash, randomUUID } from "crypto";
 import { PrismaService } from "../../prisma/prisma.service";
 import { MailService } from "../../common/services/mail.service";
+import { BecomeOrganizerDto } from "./dto/become-organizer.dto";
 import { ForgotPasswordDto } from "./dto/forgot-password.dto";
 import { LoginDto } from "./dto/login.dto";
 import { RefreshTokenDto } from "./dto/refresh-token.dto";
@@ -104,7 +105,7 @@ export class AuthService {
     return this.issueSession(user);
   }
 
-  async becomeOrganizer(userId: string, companyName: string) {
+  async becomeOrganizer(userId: string, dto: BecomeOrganizerDto) {
     const user = await this.prisma.user.findUnique({ where: { id: userId } });
     if (!user) {
       throw new NotFoundException("Usuario nao encontrado.");
@@ -113,8 +114,23 @@ export class AuthService {
       throw new ConflictException("Voce ja e um organizador.");
     }
 
+    const cnpjClean = dto.cnpj.replace(/\D/g, "");
+    const cnpjExists = await this.prisma.tenant.findFirst({ where: { document: cnpjClean } });
+    if (cnpjExists) {
+      throw new ConflictException("Ja existe uma empresa cadastrada com este CNPJ.");
+    }
+
     const updated = await this.prisma.$transaction(async (tx) => {
-      const tenant = await tx.tenant.create({ data: { name: companyName } });
+      const tenant = await tx.tenant.create({
+        data: {
+          name: dto.companyName,
+          document: cnpjClean,
+          city: dto.city,
+          state: dto.state.toUpperCase(),
+          website: dto.website?.trim() || null,
+          instagram: dto.instagram?.trim().replace(/^@/, "") || null,
+        }
+      });
       return tx.user.update({
         where: { id: userId },
         data: {

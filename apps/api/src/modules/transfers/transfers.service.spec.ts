@@ -36,7 +36,9 @@ function createTicket(overrides: Record<string, unknown> = {}) {
       id: "event-1",
       title: "Event Flow Conf",
       startsAt: new Date(Date.now() + 1000 * 60 * 60 * 24),
-      endsAt: null
+      endsAt: null,
+      allowTicketTransfer: true,
+      ticketTransferLockTime: null
     },
     ticketType: { name: "Inteira" },
     order: { id: "order-1", buyerEmail: sender.email, status: "PAID" },

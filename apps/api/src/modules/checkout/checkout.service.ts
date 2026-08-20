@@ -1,6 +1,7 @@
 import { Injectable, NotFoundException, UnauthorizedException } from "@nestjs/common";
 import { PaymentStatus } from "@prisma/client";
 import { RequestUser } from "../../common/types/request-user";
+import { getQrCodeReleaseTime, isQrCodeLocked } from "../../common/utils/qr-code.utils";
 import { PrismaService } from "../../prisma/prisma.service";
 import { PaymentsService } from "../payments/payments.service";
 import { CreateCheckoutDto } from "./dto/create-checkout.dto";
@@ -51,6 +52,9 @@ export class CheckoutService {
       throw new UnauthorizedException("Token de acesso do pedido invalido.");
     }
 
+    const locked = isQrCodeLocked(order.event);
+    const releaseTime = getQrCodeReleaseTime(order.event);
+
     return {
       id: order.id,
       eventId: order.eventId,
@@ -69,11 +73,13 @@ export class CheckoutService {
         totalCents: i.totalCents
       })),
       tickets: order.tickets.map((t) => ({
-        uuid: t.uuid,
+        uuid: locked ? null : t.uuid,
         attendeeName: t.attendeeName,
-        qrCodeDataUrl: t.qrCodeDataUrl,
+        qrCodeDataUrl: locked ? null : t.qrCodeDataUrl,
         status: t.status
-      }))
+      })),
+      qrCodeLocked: locked,
+      qrCodeReleaseAt: releaseTime?.toISOString() ?? null
     };
   }
 

@@ -1,13 +1,13 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import Image from "next/image";
 import Link from "next/link";
 import {
   Calendar, Download, MapPin, RefreshCcw, Smartphone,
   Ticket, WalletCards, QrCode, CheckCircle2, XCircle, Clock,
-  Send, Search, Loader2, UserPlus
+  Send, Search, Loader2, UserPlus, Lock, Timer
 } from "lucide-react";
 import { api } from "@/lib/api";
 import { getApiUrl } from "@/lib/api-url";
@@ -22,9 +22,11 @@ import { dateTime } from "@/lib/utils";
 
 type MyTicket = {
   id: string;
-  uuid: string;
+  uuid: string | null;
   status: "AVAILABLE" | "USED" | "CANCELED";
-  qrCodeDataUrl?: string;
+  qrCodeDataUrl?: string | null;
+  qrCodeLocked?: boolean;
+  qrCodeReleaseAt?: string | null;
   event: {
     title: string;
     slug: string;
@@ -33,6 +35,8 @@ type MyTicket = {
     city?: string;
     state?: string;
     format?: string;
+    allowTicketTransfer?: boolean;
+    ticketTransferLockTime?: string | null;
   };
   ticketType: {
     name: string;
@@ -60,6 +64,102 @@ const statusConfig = {
   USED: { label: "Utilizado", icon: Clock, color: "text-brand-violet bg-brand-violet/10 border-brand-violet/20 dark:bg-brand-violet/20" },
   CANCELED: { label: "Cancelado", icon: XCircle, color: "text-brand-pink bg-brand-pink/10 border-brand-pink/20 dark:bg-brand-pink/20" },
 };
+
+function useCountdown(targetDate: string | null | undefined, onExpire?: () => void) {
+  const [remaining, setRemaining] = useState<{ h: number; m: number; s: number; total: number } | null>(null);
+
+  useEffect(() => {
+    if (!targetDate) {
+      setRemaining(null);
+      return;
+    }
+
+    const target = new Date(targetDate).getTime();
+
+    function calculate() {
+      const diff = target - Date.now();
+      if (diff <= 0) {
+        setRemaining(null);
+        onExpire?.();
+        return false;
+      }
+      const totalSeconds = Math.floor(diff / 1000);
+      setRemaining({
+        h: Math.floor(totalSeconds / 3600),
+        m: Math.floor((totalSeconds % 3600) / 60),
+        s: totalSeconds % 60,
+        total: totalSeconds
+      });
+      return true;
+    }
+
+    if (!calculate()) return;
+
+    const interval = setInterval(() => {
+      if (!calculate()) clearInterval(interval);
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, [targetDate, onExpire]);
+
+  return remaining;
+}
+
+function CountdownTimer({ releaseAt, onExpire }: { releaseAt: string; onExpire: () => void }) {
+  const stableOnExpire = useCallback(onExpire, [onExpire]);
+  const remaining = useCountdown(releaseAt, stableOnExpire);
+
+  if (!remaining) return null;
+
+  const pad = (n: number) => String(n).padStart(2, "0");
+
+  return (
+    <div className="mb-3 rounded-2xl border-2 border-dashed border-amber-400/40 bg-gradient-to-br from-amber-50 to-orange-50 dark:from-amber-950/30 dark:to-orange-950/30 p-5">
+      <div className="flex items-center justify-center gap-2 mb-3">
+        <div className="flex h-8 w-8 items-center justify-center rounded-full bg-amber-100 dark:bg-amber-900/50">
+          <Lock className="h-4 w-4 text-amber-600 dark:text-amber-400" />
+        </div>
+        <span className="text-sm font-semibold text-amber-700 dark:text-amber-300">
+          QR Code bloqueado
+        </span>
+      </div>
+      <div className="flex items-center justify-center gap-1.5">
+        {[
+          { value: pad(remaining.h), label: "h" },
+          { value: pad(remaining.m), label: "m" },
+          { value: pad(remaining.s), label: "s" },
+        ].map((unit, i) => (
+          <div key={unit.label} className="flex items-center gap-1.5">
+            {i > 0 && <span className="text-lg font-bold text-amber-500/60">:</span>}
+            <div className="flex flex-col items-center">
+              <span className="rounded-lg bg-white dark:bg-card px-3 py-1.5 font-mono text-xl font-bold text-amber-700 dark:text-amber-300 shadow-sm border border-amber-200/50 dark:border-amber-800/50 min-w-[48px] text-center tabular-nums">
+                {unit.value}
+              </span>
+              <span className="mt-0.5 text-[10px] uppercase tracking-wider text-amber-500/80">
+                {unit.label}
+              </span>
+            </div>
+          </div>
+        ))}
+      </div>
+      <p className="mt-3 text-center text-xs text-amber-600/80 dark:text-amber-400/80">
+        Será liberado em {new Date(releaseAt).toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })}
+      </p>
+    </div>
+  );
+}
+
+function isTransferLocked(ticket: MyTicket): boolean {
+  if (ticket.event.allowTicketTransfer === false) return true;
+  if (ticket.event.ticketTransferLockTime && new Date() >= new Date(ticket.event.ticketTransferLockTime)) return true;
+  return false;
+}
+
+function getTransferLockReason(ticket: MyTicket): string | null {
+  if (ticket.event.allowTicketTransfer === false) return "Transferências desabilitadas para este evento";
+  if (ticket.event.ticketTransferLockTime && new Date() >= new Date(ticket.event.ticketTransferLockTime)) return "Prazo de transferência encerrado";
+  return null;
+}
 
 export default function MyTicketsPage() {
   const [scope, setScope] = useState<"future" | "past">("future");
@@ -205,6 +305,9 @@ export default function MyTicketsPage() {
               const cfg = statusConfig[ticket.status];
               const StatusIcon = cfg.icon;
               const isExpanded = expandedTicket === ticket.id;
+              const qrLocked = ticket.qrCodeLocked === true;
+              const transferLocked = isTransferLocked(ticket);
+              const transferReason = getTransferLockReason(ticket);
 
               return (
                 <div key={ticket.id} className="overflow-hidden rounded-2xl border bg-white dark:bg-card shadow-sm">
@@ -259,8 +362,16 @@ export default function MyTicketsPage() {
                       </div>
                     </div>
 
-                    {/* QR Code — expandível */}
-                    {ticket.status === "AVAILABLE" && ticket.qrCodeDataUrl && (
+                    {/* QR Code — countdown timer when locked */}
+                    {ticket.status === "AVAILABLE" && qrLocked && ticket.qrCodeReleaseAt && (
+                      <CountdownTimer
+                        releaseAt={ticket.qrCodeReleaseAt}
+                        onExpire={() => tickets.refetch()}
+                      />
+                    )}
+
+                    {/* QR Code — expandível quando desbloqueado */}
+                    {ticket.status === "AVAILABLE" && !qrLocked && ticket.qrCodeDataUrl && (
                       <>
                         <button
                           onClick={() => setExpandedTicket(isExpanded ? null : ticket.id)}
@@ -279,7 +390,7 @@ export default function MyTicketsPage() {
                               className="rounded-xl"
                             />
                             <p className="mt-3 rounded-lg bg-slate-100 dark:bg-slate-800 px-3 py-1.5 font-mono text-sm text-slate-600 dark:text-slate-400 tracking-wider">
-                              {ticket.uuid.slice(0, 8).toUpperCase()}
+                              {ticket.uuid?.slice(0, 8).toUpperCase() ?? "---"}
                             </p>
                             <p className="mt-2 text-xs text-muted-foreground">Apresente este QR Code na entrada do evento</p>
                           </div>
@@ -293,8 +404,9 @@ export default function MyTicketsPage() {
                         size="sm"
                         variant="outline"
                         className="rounded-xl gap-1.5"
-                        disabled={ticket.status === "CANCELED"}
+                        disabled={ticket.status === "CANCELED" || qrLocked}
                         onClick={() => downloadPdf(ticket.id)}
+                        title={qrLocked ? "QR Code bloqueado — aguarde a liberação" : undefined}
                       >
                         <Download className="h-3.5 w-3.5" />
                         Baixar PDF
@@ -304,7 +416,9 @@ export default function MyTicketsPage() {
                           size="sm"
                           variant="outline"
                           className="rounded-xl text-xs px-2"
+                          disabled={qrLocked}
                           onClick={() => wallet.mutate({ ticketId: ticket.id, provider: "google" })}
+                          title={qrLocked ? "QR Code bloqueado — aguarde a liberação" : undefined}
                         >
                           <WalletCards className="h-3.5 w-3.5" />
                         </Button>
@@ -312,7 +426,9 @@ export default function MyTicketsPage() {
                           size="sm"
                           variant="outline"
                           className="rounded-xl text-xs px-2"
+                          disabled={qrLocked}
                           onClick={() => wallet.mutate({ ticketId: ticket.id, provider: "apple" })}
+                          title={qrLocked ? "QR Code bloqueado — aguarde a liberação" : undefined}
                         >
                           <Smartphone className="h-3.5 w-3.5" />
                         </Button>
@@ -321,15 +437,28 @@ export default function MyTicketsPage() {
 
                     {ticket.status === "AVAILABLE" && (
                       <div className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-2">
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          className="rounded-xl gap-1.5 text-xs"
-                          onClick={() => openTransferModal(ticket)}
-                        >
-                          <Send className="h-3.5 w-3.5" />
-                          Transferir
-                        </Button>
+                        {!transferLocked ? (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="rounded-xl gap-1.5 text-xs"
+                            onClick={() => openTransferModal(ticket)}
+                          >
+                            <Send className="h-3.5 w-3.5" />
+                            Transferir
+                          </Button>
+                        ) : (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="rounded-xl gap-1.5 text-xs opacity-50 cursor-not-allowed"
+                            disabled
+                            title={transferReason ?? "Transferência indisponível"}
+                          >
+                            <Lock className="h-3.5 w-3.5" />
+                            Transferir
+                          </Button>
+                        )}
                         <Button
                           size="sm"
                           variant="ghost"
