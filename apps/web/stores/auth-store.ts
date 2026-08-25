@@ -10,7 +10,7 @@ export type AuthUser = {
   name: string;
   email: string;
   phone?: string;
-  role: "ADMIN" | "ORGANIZER" | "TEAM" | "CHECKIN" | "CUSTOMER";
+  role: "ADMIN" | "ORGANIZER" | "TEAM" | "CHECKIN" | "PROMOTER" | "CUSTOMER";
 };
 
 type AuthState = {

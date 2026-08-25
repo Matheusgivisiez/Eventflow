@@ -58,6 +58,18 @@ function CheckoutForm() {
 
   const [quantities, setQuantities] = useState<Record<string, number>>(initialItems);
 
+  // Read promoter code from URL (?p=CODE or ?promoter=CODE) and persist in sessionStorage
+  // so attribution survives any navigation within the checkout flow.
+  const promoterCode = useMemo(() => {
+    if (typeof window === "undefined") return undefined;
+    const fromUrl = searchParams.get("p") ?? searchParams.get("promoter") ?? undefined;
+    if (fromUrl) {
+      sessionStorage.setItem(`promoter_code_${slug}`, fromUrl);
+      return fromUrl;
+    }
+    return sessionStorage.getItem(`promoter_code_${slug}`) ?? undefined;
+  }, [searchParams, slug]);
+
   const { data: event, isLoading } = useQuery({
     queryKey: ["checkout-event", slug],
     queryFn: () => api<EventFlowEvent>(`/events/public/${slug}`, { auth: false })
@@ -74,6 +86,7 @@ function CheckoutForm() {
         method: "POST",
         body: JSON.stringify({
           ...data,
+          promoterCode, // Sends the tracked promoter code to backend for attribution
           items: Object.entries(quantities)
             .filter(([, quantity]) => quantity > 0)
             .map(([ticketTypeId, quantity]) => ({ ticketTypeId, quantity }))
@@ -81,11 +94,14 @@ function CheckoutForm() {
         auth: false
       }),
     onSuccess: (data) => {
+      // Clear promoter session after successful order creation
+      sessionStorage.removeItem(`promoter_code_${slug}`);
       if (data.checkoutUrl) {
         window.location.assign(data.checkoutUrl);
       }
     }
   });
+
 
   const subtotal = useMemo(() => {
     return event?.ticketTypes.reduce((sum, ticket) => sum + (quantities[ticket.id] ?? 0) * ticket.priceCents, 0) ?? 0;

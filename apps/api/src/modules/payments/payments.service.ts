@@ -118,7 +118,9 @@ export class PaymentsService {
       });
       if (!payment) throw new NotFoundException("Pagamento nao encontrado.");
 
-      if (payment.status !== PaymentStatus.PAID) {
+      const wasAlreadyPaid = payment.status === PaymentStatus.PAID;
+
+      if (!wasAlreadyPaid) {
         await tx.payment.update({
           where: { id: paymentId },
           data: {
@@ -129,6 +131,19 @@ export class PaymentsService {
           }
         });
         this.metrics?.increment("eventflow_payment_status_transitions_total", { status: PaymentStatus.PAID });
+
+        // Credit promoter commission only when payment transitions to PAID (idempotent).
+        // Commission was calculated at checkout and stored in order.promoterCommissionCents.
+        if (payment.order.promoterLinkId && payment.order.promoterCommissionCents > 0) {
+          await tx.promoterLink.update({
+            where: { id: payment.order.promoterLinkId },
+            data: {
+              conversions: { increment: 1 },
+              revenueCents: { increment: payment.order.totalCents },
+              commissionAcumCents: { increment: payment.order.promoterCommissionCents }
+            }
+          });
+        }
       }
 
       await this.ensurePaidFulfillmentTx(tx, payment);
@@ -164,6 +179,20 @@ export class PaymentsService {
 
       if (payment.order.stockReservedAt || wasPaid) {
         await this.releaseReservedStockTx(tx, payment);
+      }
+
+      // Reverse promoter commission if the order was previously PAID.
+      // This handles REFUNDED scenarios — commission was already credited and must be reversed.
+      // For orders cancelled from PENDING, commission was never credited so no reversal needed.
+      if (wasPaid && payment.order.promoterLinkId && payment.order.promoterCommissionCents > 0) {
+        await tx.promoterLink.update({
+          where: { id: payment.order.promoterLinkId },
+          data: {
+            conversions: { decrement: 1 },
+            revenueCents: { decrement: payment.order.totalCents },
+            commissionAcumCents: { decrement: payment.order.promoterCommissionCents }
+          }
+        });
       }
 
       this.metrics?.increment("eventflow_payment_status_transitions_total", { status });

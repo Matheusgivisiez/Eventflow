@@ -1318,6 +1318,7 @@ model PromoterLink {
   event          Event        @relation(fields: [eventId], references: [id], onDelete: Cascade)
   orders         Order[]
 
+  @@unique([promoterId, eventId])
   @@index([eventId, promoterId])
   @@index([code])
 }

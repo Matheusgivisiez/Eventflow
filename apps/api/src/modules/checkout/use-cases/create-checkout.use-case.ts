@@ -101,12 +101,9 @@ export class CreateCheckoutUseCase {
         await this.createAffiliateCommission(tx, event.tenantId, affiliateResult as { affiliateLinkId: string; affiliateCommissionBps: number }, order.id, totalCents);
       }
 
-      if (promoterResult.promoterLinkId && promoterResult.promoterCommissionCents > 0) {
-        await tx.promoterLink.update({
-          where: { id: promoterResult.promoterLinkId },
-          data: { conversions: { increment: 1 }, revenueCents: { increment: totalCents }, commissionAcumCents: { increment: promoterResult.promoterCommissionCents } }
-        });
-      }
+      // NOTE: Promoter commission (commissionAcumCents, conversions, revenueCents) is credited
+      // only when payment is confirmed as PAID in PaymentsService.markPaid().
+      // This ensures financial integrity — no commission for unpaid or cancelled orders.
 
       this.metrics?.increment("eventflow_checkout_created_total", { method: dto.paymentMethod });
 
