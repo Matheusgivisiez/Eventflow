@@ -15,22 +15,29 @@ import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { api } from "@/lib/api";
 import { money } from "@/lib/utils";
-import type { EventFlowEvent, PaymentMethod } from "@/types/eventflow";
+import type { EventFlowEvent } from "@/types/eventflow";
 
 type CheckoutResponse = {
   id: string;
   orderId: string;
+  orderAccessToken?: string;
   status: string;
   totalCents: number;
   checkoutUrl?: string;
 };
 
+const onlyDigits = (value: string) => value.replace(/\D/g, "");
+
 const buyerSchema = z.object({
   buyerName: z.string().min(2, "Informe seu nome."),
   buyerEmail: z.string().email("Informe um e-mail valido."),
-  buyerDocument: z.string().optional(),
-  buyerPhone: z.string().optional(),
-  paymentMethod: z.enum(["PIX", "CREDIT_CARD"])
+  buyerDocument: z.string()
+    .min(1, "Informe seu CPF ou CNPJ.")
+    .refine((value) => [11, 14].includes(onlyDigits(value).length), "Informe um CPF ou CNPJ valido."),
+  buyerPhone: z.string()
+    .min(1, "Informe seu telefone.")
+    .refine((value) => [10, 11].includes(onlyDigits(value).length), "Informe um telefone com DDD."),
+  paymentMethod: z.literal("PIX")
 });
 
 /** Parse items from query string: "id1:qty1,id2:qty2" */
@@ -86,16 +93,27 @@ function CheckoutForm() {
         method: "POST",
         body: JSON.stringify({
           ...data,
-          promoterCode, // Sends the tracked promoter code to backend for attribution
+          promoterCode,
+          buyerDocument: onlyDigits(data.buyerDocument),
+          buyerPhone: onlyDigits(data.buyerPhone),
           items: Object.entries(quantities)
             .filter(([, quantity]) => quantity > 0)
             .map(([ticketTypeId, quantity]) => ({ ticketTypeId, quantity }))
         }),
         auth: false
-      }),
+    }),
     onSuccess: (data) => {
-      // Clear promoter session after successful order creation
       sessionStorage.removeItem(`promoter_code_${slug}`);
+      if (data.orderId && data.orderAccessToken) {
+        window.localStorage.setItem(
+          "eventflow:last-checkout",
+          JSON.stringify({
+            orderId: data.orderId,
+            accessToken: data.orderAccessToken,
+            createdAt: Date.now()
+          })
+        );
+      }
       if (data.checkoutUrl) {
         window.location.assign(data.checkoutUrl);
       }
@@ -206,16 +224,15 @@ function CheckoutForm() {
               <Field label="E-mail" error={form.formState.errors.buyerEmail?.message}>
                 <Input type="email" {...form.register("buyerEmail")} />
               </Field>
-              <Field label="Documento">
-                <Input {...form.register("buyerDocument")} />
+              <Field label="CPF/CNPJ" error={form.formState.errors.buyerDocument?.message}>
+                <Input inputMode="numeric" autoComplete="off" {...form.register("buyerDocument")} />
               </Field>
-              <Field label="Telefone">
-                <Input {...form.register("buyerPhone")} />
+              <Field label="Telefone" error={form.formState.errors.buyerPhone?.message}>
+                <Input inputMode="tel" autoComplete="tel" {...form.register("buyerPhone")} />
               </Field>
               <Field label="Pagamento">
                 <select className="h-10 w-full rounded-md border bg-background px-3 text-sm" {...form.register("paymentMethod")}>
                   <option value="PIX">PIX</option>
-                  <option value="CREDIT_CARD">Cartao</option>
                 </select>
               </Field>
             </CardContent>

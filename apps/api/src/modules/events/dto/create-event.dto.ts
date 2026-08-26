@@ -1,6 +1,30 @@
 import { EventFormat, EventStatus } from "@prisma/client";
-import { IsArray, IsBoolean, IsDateString, IsEnum, IsInt, IsNotEmpty, IsOptional, IsString, Min } from "class-validator";
+import { Type } from "class-transformer";
+import { IsArray, IsBoolean, IsDateString, IsEnum, IsInt, IsNotEmpty, IsOptional, IsString, Min, ValidateNested } from "class-validator";
 import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger";
+
+export class CreateEventFirstTicketDto {
+  @ApiProperty({ description: "Nome do primeiro lote" })
+  @IsString()
+  @IsNotEmpty()
+  name!: string;
+
+  @ApiProperty({ description: "Quantidade total do primeiro lote" })
+  @IsInt()
+  @Min(1)
+  quantity!: number;
+
+  @ApiProperty({ description: "Preco em centavos do primeiro lote" })
+  @IsInt()
+  @Min(0)
+  priceCents!: number;
+
+  @ApiPropertyOptional({ description: "Limite por compra" })
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  limitPerBuy?: number;
+}
 
 export class CreateEventDto {
   @ApiProperty({ description: "Título do evento" })
@@ -136,4 +160,10 @@ export class CreateEventDto {
   @IsOptional()
   @IsDateString()
   qrCodeReleaseAt?: string;
+
+  @ApiPropertyOptional({ description: "Primeiro lote de ingressos criado junto com o evento", type: CreateEventFirstTicketDto })
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => CreateEventFirstTicketDto)
+  firstTicket?: CreateEventFirstTicketDto;
 }

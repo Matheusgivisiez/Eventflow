@@ -70,7 +70,7 @@ export class AbacatePayGateway {
           return body.data;
         }
 
-        const msg = body?.error ?? `AbacatePay error: HTTP ${res.status}`;
+        const msg = this.formatGatewayError(body?.error, res.status);
         if (attempt === 1 && (res.status === 429 || res.status >= 500)) {
           this.logger.warn(`Retrying AbacatePay API call [${path}] after ${res.status}: ${msg}`);
           continue;
@@ -95,6 +95,17 @@ export class AbacatePayGateway {
     throw new InternalServerErrorException("Falha temporaria no gateway de pagamento.");
   }
 
+  private formatGatewayError(error: unknown, status: number) {
+    if (typeof error === "string" && error.trim()) return error;
+    if (Array.isArray(error) && error.length) {
+      return error.map((item) => typeof item === "string" ? item : JSON.stringify(item)).join("; ");
+    }
+    if (error && typeof error === "object") {
+      return JSON.stringify(error);
+    }
+    return `AbacatePay error: HTTP ${status}`;
+  }
+
   /**
    * Cria (ou retorna existente) um Customer na AbacatePay.
    * Customers são únicos por CPF/CNPJ — taxId duplicado retorna o cliente já cadastrado.
@@ -109,7 +120,7 @@ export class AbacatePayGateway {
       customerPayload.taxId = input.buyerDocument.replace(/\D/g, "");
     }
     if (input.buyerPhone?.trim()) {
-      customerPayload.cellphone = input.buyerPhone.trim();
+      customerPayload.cellphone = input.buyerPhone.replace(/\D/g, "");
     }
 
     const customer = await this.request<{ id: string }>("/customers/create", {

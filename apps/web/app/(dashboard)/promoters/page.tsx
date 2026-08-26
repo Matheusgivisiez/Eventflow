@@ -38,8 +38,15 @@ const STATUS_CONFIG: Record<string, { label: string; variant: "default" | "secon
 export default function PromotersManagementPage() {
   const qc = useQueryClient();
   const [search, setSearch] = useState("");
-  const [createOpen, setCreateOpen] = useState(false);
-  const [form, setForm] = useState({ name: "", email: "", phone: "", password: "" });
+  const [inviteOpen, setInviteOpen] = useState(false);
+  const [inviteForm, setInviteForm] = useState({
+    name: "",
+    email: "",
+    phone: "",
+    document: "",
+    pixKey: "",
+    password: ""
+  });
 
   const { data: promoters, isLoading } = useQuery<Promoter[]>({
     queryKey: ["admin-promoters"],
@@ -52,16 +59,26 @@ export default function PromotersManagementPage() {
     onSuccess: () => qc.invalidateQueries({ queryKey: ["admin-promoters"] })
   });
 
-  const createMutation = useMutation({
-    mutationFn: () => api("/promoters", { method: "POST", body: JSON.stringify(form) }),
+  const invitePromoter = useMutation({
+    mutationFn: () => api("/promoters", {
+      method: "POST",
+      body: JSON.stringify({
+        name: inviteForm.name,
+        email: inviteForm.email,
+        phone: inviteForm.phone || undefined,
+        document: inviteForm.document || undefined,
+        pixKey: inviteForm.pixKey || undefined,
+        password: inviteForm.password || undefined
+      })
+    }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["admin-promoters"] });
-      setCreateOpen(false);
-      setForm({ name: "", email: "", phone: "", password: "" });
+      setInviteOpen(false);
+      setInviteForm({ name: "", email: "", phone: "", document: "", pixKey: "", password: "" });
     }
   });
 
-  const filtered = (promoters ?? []).filter(p =>
+  const filtered = (promoters ?? []).filter(p => 
     !search || p.user.name.toLowerCase().includes(search.toLowerCase()) || p.user.email.toLowerCase().includes(search.toLowerCase())
   );
 
@@ -74,51 +91,47 @@ export default function PromotersManagementPage() {
           <h1 className="text-2xl font-extrabold tracking-tight">Gestão de Promoters</h1>
           <p className="text-sm text-muted-foreground mt-1">Gerencie sua equipe de vendas e comissionados.</p>
         </div>
-        <Dialog open={createOpen} onOpenChange={setCreateOpen}>
+        <Dialog open={inviteOpen} onOpenChange={setInviteOpen}>
           <DialogTrigger asChild>
             <Button className="gap-2">
-              <Plus className="h-4 w-4" /> Novo Promoter
+              <Plus className="h-4 w-4" /> Convidar Promoter
             </Button>
           </DialogTrigger>
           <DialogContent>
             <DialogHeader>
-              <DialogTitle>Adicionar Promoter</DialogTitle>
-              <DialogDescription>
-                Preencha os dados do promoter. Ele receberá status Pendente e precisará ser aprovado antes de ser vinculado a eventos.
-              </DialogDescription>
+              <DialogTitle>Convidar promoter</DialogTitle>
+              <DialogDescription>Crie um promoter ativo para sua conta. Para e-mails ainda sem cadastro, informe uma senha inicial.</DialogDescription>
             </DialogHeader>
-            <div className="space-y-4 py-2">
-              <div className="space-y-2">
-                <Label>Nome completo</Label>
-                <Input placeholder="João Silva" value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} />
+            <form className="grid gap-4" onSubmit={(event) => { event.preventDefault(); invitePromoter.mutate(); }}>
+              <div className="grid gap-3 sm:grid-cols-2">
+                <Field label="Nome">
+                  <Input required value={inviteForm.name} onChange={(event) => setInviteForm((form) => ({ ...form, name: event.target.value }))} />
+                </Field>
+                <Field label="E-mail">
+                  <Input required type="email" value={inviteForm.email} onChange={(event) => setInviteForm((form) => ({ ...form, email: event.target.value }))} />
+                </Field>
+                <Field label="Telefone">
+                  <Input value={inviteForm.phone} onChange={(event) => setInviteForm((form) => ({ ...form, phone: event.target.value }))} />
+                </Field>
+                <Field label="CPF">
+                  <Input value={inviteForm.document} onChange={(event) => setInviteForm((form) => ({ ...form, document: event.target.value }))} />
+                </Field>
+                <Field label="Chave PIX">
+                  <Input value={inviteForm.pixKey} onChange={(event) => setInviteForm((form) => ({ ...form, pixKey: event.target.value }))} />
+                </Field>
+                <Field label="Senha inicial">
+                  <Input type="password" value={inviteForm.password} onChange={(event) => setInviteForm((form) => ({ ...form, password: event.target.value }))} />
+                </Field>
               </div>
-              <div className="space-y-2">
-                <Label>E-mail</Label>
-                <Input type="email" placeholder="joao@email.com" value={form.email} onChange={e => setForm(f => ({ ...f, email: e.target.value }))} />
-              </div>
-              <div className="space-y-2">
-                <Label>Telefone (opcional)</Label>
-                <Input placeholder="(11) 99999-9999" value={form.phone} onChange={e => setForm(f => ({ ...f, phone: e.target.value }))} />
-              </div>
-              <div className="space-y-2">
-                <Label>Senha de acesso</Label>
-                <Input type="password" placeholder="Mínimo 8 caracteres" value={form.password} onChange={e => setForm(f => ({ ...f, password: e.target.value }))} />
-                <p className="text-xs text-muted-foreground">O promoter usará este e-mail e senha para acessar o portal.</p>
-              </div>
-            </div>
-            {createMutation.isError && (
-              <p className="text-sm text-destructive">{(createMutation.error as any)?.message ?? "Erro ao criar promoter."}</p>
-            )}
-            <DialogFooter>
-              <Button variant="outline" onClick={() => setCreateOpen(false)}>Cancelar</Button>
-              <Button
-                disabled={!form.name || !form.email || !form.password || createMutation.isPending}
-                onClick={() => createMutation.mutate()}
-              >
-                {createMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                Criar Promoter
-              </Button>
-            </DialogFooter>
+              {invitePromoter.error && <p className="text-sm text-destructive">{invitePromoter.error.message}</p>}
+              <DialogFooter>
+                <Button type="button" variant="outline" onClick={() => setInviteOpen(false)}>Cancelar</Button>
+                <Button disabled={invitePromoter.isPending}>
+                  {invitePromoter.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
+                  Convidar
+                </Button>
+              </DialogFooter>
+            </form>
           </DialogContent>
         </Dialog>
       </div>
@@ -216,6 +229,7 @@ export default function PromotersManagementPage() {
           )}
         </CardContent>
       </Card>
+
     </div>
   );
 }
@@ -228,6 +242,15 @@ function KpiCard({ label, value, icon, color, loading }: { label: string; value:
         <p className="text-xs text-muted-foreground">{label}</p>
         {loading ? <Skeleton className="h-6 w-16 mt-1" /> : <p className={cn("text-xl font-extrabold", color)}>{value}</p>}
       </div>
+    </div>
+  );
+}
+
+function Field({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div className="space-y-2">
+      <Label>{label}</Label>
+      {children}
     </div>
   );
 }

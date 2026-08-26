@@ -1,15 +1,18 @@
 "use client";
 
+import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Download } from "lucide-react";
+import { Download, Filter } from "lucide-react";
 import { Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Input } from "@/components/ui/input";
 import { api } from "@/lib/api";
 import { getApiUrl } from "@/lib/api-url";
 import { money } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { useAuthStore } from "@/stores/auth-store";
+import type { EventFlowEvent, Paginated } from "@/types/eventflow";
 
 type Dashboard = {
   totalRevenueCents: number;
@@ -30,11 +33,23 @@ type Finance = {
 export default function ReportsPage() {
   const token = useAuthStore((state) => state.accessToken);
   const apiUrl = getApiUrl();
+  const [from, setFrom] = useState("");
+  const [to, setTo] = useState("");
+  const [eventId, setEventId] = useState("");
   const dashboard = useQuery({ queryKey: ["dashboard"], queryFn: () => api<Dashboard>("/dashboard") });
   const finance = useQuery({ queryKey: ["finance"], queryFn: () => api<Finance>("/finance/summary") });
+  const events = useQuery({
+    queryKey: ["events", "report-filter"],
+    queryFn: () => api<Paginated<EventFlowEvent>>("/events?perPage=100")
+  });
 
   async function download(format: "csv" | "excel" | "pdf", type: "sales" | "participants" = "sales") {
-    const response = await fetch(`${apiUrl}/reports/export?format=${format}&type=${type}`, {
+    const params = new URLSearchParams({ format, type });
+    if (from) params.set("from", new Date(`${from}T00:00:00`).toISOString());
+    if (to) params.set("to", new Date(`${to}T23:59:59`).toISOString());
+    if (eventId) params.set("eventId", eventId);
+
+    const response = await fetch(`${apiUrl}/reports/export?${params.toString()}`, {
       headers: token ? { Authorization: `Bearer ${token}` } : undefined
     });
     if (!response.ok) return;
@@ -77,6 +92,29 @@ export default function ReportsPage() {
           </Button>
         </div>
       </div>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-base">
+            <Filter className="h-4 w-4" />
+            Filtros de exportacao
+          </CardTitle>
+          <CardDescription>Aplicados aos arquivos CSV, Excel e PDF baixados nesta tela.</CardDescription>
+        </CardHeader>
+        <CardContent className="grid gap-3 md:grid-cols-[1fr_1fr_2fr_auto]">
+          <Input type="date" value={from} onChange={(event) => setFrom(event.target.value)} />
+          <Input type="date" value={to} onChange={(event) => setTo(event.target.value)} />
+          <select className="h-10 rounded-md border bg-background px-3 text-sm" value={eventId} onChange={(event) => setEventId(event.target.value)}>
+            <option value="">Todos os eventos</option>
+            {events.data?.data.map((event) => (
+              <option key={event.id} value={event.id}>{event.title}</option>
+            ))}
+          </select>
+          <Button type="button" variant="outline" onClick={() => { setFrom(""); setTo(""); setEventId(""); }}>
+            Limpar
+          </Button>
+        </CardContent>
+      </Card>
 
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <Metric label="Faturamento" value={money(dashboard.data?.totalRevenueCents)} />

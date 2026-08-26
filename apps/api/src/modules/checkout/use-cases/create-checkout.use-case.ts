@@ -1,5 +1,5 @@
 import { BadRequestException, Injectable, NotFoundException, Optional } from "@nestjs/common";
-import { EventStatus, PaymentStatus, Prisma } from "@prisma/client";
+import { EventStatus, PaymentMethod, PaymentStatus, Prisma } from "@prisma/client";
 import { randomBytes } from "crypto";
 import { CouponsService } from "../../coupons/coupons.service";
 import { PrismaService } from "../../../prisma/prisma.service";
@@ -31,6 +31,22 @@ export class CreateCheckoutUseCase {
     if (!dto.items.length) {
       throw new BadRequestException("Selecione pelo menos um ingresso.");
     }
+    const normalizedBuyerDocument = this.onlyDigits(dto.buyerDocument ?? "");
+    const normalizedBuyerPhone = this.onlyDigits(dto.buyerPhone ?? "");
+
+    if (!this.isValidCpfOrCnpj(normalizedBuyerDocument)) {
+      throw new BadRequestException("Informe um CPF ou CNPJ valido.");
+    }
+    if (!this.isValidBrazilianPhone(normalizedBuyerPhone)) {
+      throw new BadRequestException("Informe um telefone com DDD.");
+    }
+
+    const normalizedDto = {
+      ...dto,
+      buyerDocument: normalizedBuyerDocument,
+      buyerPhone: normalizedBuyerPhone,
+      paymentMethod: PaymentMethod.PIX
+    };
 
     return this.prisma.$transaction(async (tx) => {
       const event = await tx.event.findFirst({
@@ -43,12 +59,12 @@ export class CreateCheckoutUseCase {
       }
 
       this.validateSalesPeriod(event);
-      await this.validateCpfLimit(tx, event, dto);
-      const couponResult = await this.processCoupon(tx, event, dto);
-      const affiliateResult = await this.processAffiliate(tx, event, dto);
-      const promoterResult = await this.processPromoter(tx, event, dto);
+      await this.validateCpfLimit(tx, event, normalizedDto);
+      const couponResult = await this.processCoupon(tx, event, normalizedDto);
+      const affiliateResult = await this.processAffiliate(tx, event, normalizedDto);
+      const promoterResult = await this.processPromoter(tx, event, normalizedDto);
 
-      const items = this.validateAndPrepareItems(event, dto, couponResult.couponDiscount);
+      const items = this.validateAndPrepareItems(event, normalizedDto, couponResult.couponDiscount);
       const { subtotalCents, discountCents, feeCents, totalCents } = this.calculatePricing(
         items, couponResult.couponDiscount, event.feeAbsorbedByOrganizer
       );
@@ -59,10 +75,10 @@ export class CreateCheckoutUseCase {
           eventId: event.id,
           userId: user?.id,
           couponId: couponResult.couponId,
-          buyerName: dto.buyerName,
-          buyerEmail: dto.buyerEmail.toLowerCase(),
-          buyerDocument: dto.buyerDocument,
-          buyerPhone: dto.buyerPhone,
+          buyerName: normalizedDto.buyerName,
+          buyerEmail: normalizedDto.buyerEmail.toLowerCase(),
+          buyerDocument: normalizedDto.buyerDocument,
+          buyerPhone: normalizedDto.buyerPhone,
           affiliateLinkId: affiliateResult.affiliateLinkId,
           promoterLinkId: promoterResult.promoterLinkId,
           promoterCommissionCents: promoterResult.promoterCommissionCents,
@@ -88,7 +104,7 @@ export class CreateCheckoutUseCase {
           payment: {
             create: {
               eventId: event.id,
-              method: dto.paymentMethod,
+              method: normalizedDto.paymentMethod,
               amountCents: totalCents,
               provider: "abacate_pay"
             }
@@ -105,7 +121,7 @@ export class CreateCheckoutUseCase {
       // only when payment is confirmed as PAID in PaymentsService.markPaid().
       // This ensures financial integrity — no commission for unpaid or cancelled orders.
 
-      this.metrics?.increment("eventflow_checkout_created_total", { method: dto.paymentMethod });
+      this.metrics?.increment("eventflow_checkout_created_total", { method: normalizedDto.paymentMethod });
 
       return order;
     });
@@ -119,6 +135,40 @@ export class CreateCheckoutUseCase {
     if (event.salesEndsAt && now > event.salesEndsAt) {
       throw new BadRequestException("As vendas para este evento ja foram encerradas.");
     }
+  }
+
+  private onlyDigits(value: string) {
+    return value.replace(/\D/g, "");
+  }
+
+  private isValidBrazilianPhone(value: string) {
+    return /^\d{10,11}$/.test(value);
+  }
+
+  private isValidCpfOrCnpj(value: string) {
+    return this.isValidCpf(value) || this.isValidCnpj(value);
+  }
+
+  private isValidCpf(value: string) {
+    if (!/^\d{11}$/.test(value) || /^(\d)\1+$/.test(value)) return false;
+    const calc = (factor: number) => {
+      const total = value.slice(0, factor - 1).split("").reduce((sum, digit, index) => sum + Number(digit) * (factor - index), 0);
+      const rest = (total * 10) % 11;
+      return rest === 10 ? 0 : rest;
+    };
+    return calc(10) === Number(value[9]) && calc(11) === Number(value[10]);
+  }
+
+  private isValidCnpj(value: string) {
+    if (!/^\d{14}$/.test(value) || /^(\d)\1+$/.test(value)) return false;
+    const calc = (base: string, weights: number[]) => {
+      const total = base.split("").reduce((sum, digit, index) => sum + Number(digit) * weights[index], 0);
+      const rest = total % 11;
+      return rest < 2 ? 0 : 11 - rest;
+    };
+    const first = calc(value.slice(0, 12), [5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2]);
+    const second = calc(value.slice(0, 12) + first, [6, 5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2]);
+    return first === Number(value[12]) && second === Number(value[13]);
   }
 
   private async validateCpfLimit(tx: CheckoutTx, event: CheckoutEvent, dto: CreateCheckoutDto) {

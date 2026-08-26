@@ -1,5 +1,5 @@
-import { Injectable, NotFoundException } from "@nestjs/common";
-import { EventStatus } from "@prisma/client";
+import { BadRequestException, Injectable, NotFoundException } from "@nestjs/common";
+import { EventFormat, EventStatus } from "@prisma/client";
 import { nanoid } from "nanoid";
 import { PrismaService } from "../../prisma/prisma.service";
 import { CacheService } from "../cache/cache.service";
@@ -41,27 +41,49 @@ export class EventsService {
   }
 
   async create(tenantId: string, ownerId: string, dto: CreateEventDto) {
-    const event = await this.prisma.event.create({
-      data: {
-        ...dto,
-        tenantId,
-        ownerId,
-        slug: await this.uniqueSlug(dto.title),
-        startsAt: new Date(dto.startsAt),
-        endsAt: dto.endsAt ? new Date(dto.endsAt) : undefined,
-        galleryUrls: dto.galleryUrls ?? [],
-        onlineUrl: dto.onlineUrl,
-        faqJson: dto.faqJson,
-        agendaJson: dto.agendaJson,
-        salesStartsAt: dto.salesStartsAt ? new Date(dto.salesStartsAt) : undefined,
-        salesEndsAt: dto.salesEndsAt ? new Date(dto.salesEndsAt) : undefined,
-        limitPerCpf: dto.limitPerCpf,
-        feeAbsorbedByOrganizer: dto.feeAbsorbedByOrganizer ?? false,
-        allowTicketTransfer: dto.allowTicketTransfer,
-        ticketTransferLockTime: dto.ticketTransferLockTime ? new Date(dto.ticketTransferLockTime) : undefined,
-        qrCodeReleaseMinutesBeforeStart: dto.qrCodeReleaseMinutesBeforeStart,
-        qrCodeReleaseAt: dto.qrCodeReleaseAt ? new Date(dto.qrCodeReleaseAt) : undefined
+    this.validateCreation(dto);
+    const { firstTicket, ...eventDto } = dto;
+    const startsAt = new Date(dto.startsAt);
+    const event = await this.prisma.$transaction(async (tx) => {
+      const createdEvent = await tx.event.create({
+        data: {
+          ...eventDto,
+          tenantId,
+          ownerId,
+          slug: await this.uniqueSlug(dto.title),
+          startsAt,
+          endsAt: dto.endsAt ? new Date(dto.endsAt) : undefined,
+          galleryUrls: dto.galleryUrls ?? [],
+          onlineUrl: dto.onlineUrl,
+          faqJson: dto.faqJson,
+          agendaJson: dto.agendaJson,
+          salesStartsAt: dto.salesStartsAt ? new Date(dto.salesStartsAt) : undefined,
+          salesEndsAt: dto.salesEndsAt ? new Date(dto.salesEndsAt) : undefined,
+          limitPerCpf: dto.limitPerCpf,
+          feeAbsorbedByOrganizer: dto.feeAbsorbedByOrganizer ?? false,
+          allowTicketTransfer: dto.allowTicketTransfer,
+          ticketTransferLockTime: dto.ticketTransferLockTime ? new Date(dto.ticketTransferLockTime) : undefined,
+          qrCodeReleaseMinutesBeforeStart: dto.qrCodeReleaseMinutesBeforeStart,
+          qrCodeReleaseAt: dto.qrCodeReleaseAt ? new Date(dto.qrCodeReleaseAt) : undefined
+        }
+      });
+
+      if (firstTicket) {
+        await tx.ticketType.create({
+          data: {
+            eventId: createdEvent.id,
+            name: firstTicket.name,
+            quantity: firstTicket.quantity,
+            priceCents: firstTicket.priceCents,
+            limitPerBuy: firstTicket.limitPerBuy ?? 5,
+            startsAt: new Date(),
+            endsAt: startsAt,
+            isActive: true
+          }
+        });
       }
+
+      return createdEvent;
     });
     await this.invalidatePublicCache();
     return event;
@@ -149,6 +171,34 @@ export class EventsService {
 
   private async invalidatePublicCache() {
     await this.cache.delByPattern("events:public:*");
+  }
+
+  private validateCreation(dto: CreateEventDto) {
+    const startsAt = new Date(dto.startsAt);
+    if (Number.isNaN(startsAt.getTime())) {
+      throw new BadRequestException("Informe uma data de inicio valida.");
+    }
+    if (startsAt <= new Date()) {
+      throw new BadRequestException("A data de inicio deve ser futura.");
+    }
+    if (dto.endsAt && new Date(dto.endsAt) <= startsAt) {
+      throw new BadRequestException("A data de fim deve ser posterior ao inicio.");
+    }
+    if (dto.format === EventFormat.IN_PERSON) {
+      const required = [dto.zipCode, dto.city, dto.state, dto.address];
+      if (required.some((value) => !value?.trim())) {
+        throw new BadRequestException("Eventos presenciais precisam de CEP, cidade, estado e endereco.");
+      }
+    }
+    if (dto.format === EventFormat.ONLINE && !dto.onlineUrl?.trim()) {
+      throw new BadRequestException("Eventos online precisam do link de transmissao.");
+    }
+    if (dto.status === EventStatus.PUBLISHED && !dto.firstTicket) {
+      throw new BadRequestException("Publique o evento somente com ao menos um lote de ingressos.");
+    }
+    if (dto.firstTicket && dto.firstTicket.quantity < 1) {
+      throw new BadRequestException("O primeiro lote precisa ter quantidade maior que zero.");
+    }
   }
 
   private async uniqueSlug(title: string) {

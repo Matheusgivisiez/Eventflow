@@ -118,7 +118,7 @@ describe("PaymentsService", () => {
     await service.createProviderPreference("order-1");
 
     expect(abacatePay.createCheckout).toHaveBeenCalledWith(expect.objectContaining({
-      returnUrl: "https://app.example/me/ingressos",
+      returnUrl: "https://app.example/checkout/success?orderId=order-1&accessToken=public-token",
       completionUrl: "https://app.example/checkout/success?orderId=order-1&accessToken=public-token&status=paid"
     }));
     expect(prisma.payment.update).toHaveBeenCalledWith(expect.objectContaining({

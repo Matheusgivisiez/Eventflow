@@ -3,8 +3,13 @@
  * Rode com: node test-abacatepay.mjs
  */
 
-const API_KEY = "abc_dev_NjHH6pQn2fyj0zQH1gh11jWM";
+const API_KEY = process.env.ABACATE_API_KEY ?? process.env.ABACATEPAY_API_KEY;
 const BASE_URL = "https://api.abacatepay.com/v2";
+
+if (!API_KEY) {
+  console.error("Defina ABACATE_API_KEY ou ABACATEPAY_API_KEY para rodar o diagnostico.");
+  process.exit(1);
+}
 
 async function req(path, body) {
   const url = `${BASE_URL}${path}`;

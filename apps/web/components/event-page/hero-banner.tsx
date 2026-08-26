@@ -1,12 +1,12 @@
 "use client";
 
-import Image from "next/image";
 import Link from "next/link";
 import { ArrowLeft, CalendarDays, MapPin, Ticket } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { BrandLogo } from "@/components/brand-logo";
 import { dateTime } from "@/lib/utils";
+import { publicAssetUrl } from "@/lib/public-asset-url";
 import type { EventFlowEvent } from "@/types/eventflow";
 
 type HeroBannerProps = {
@@ -14,6 +14,7 @@ type HeroBannerProps = {
 };
 
 export function HeroBanner({ event }: HeroBannerProps) {
+  const bannerUrl = publicAssetUrl(event.bannerUrl);
   const location =
     event.format === "ONLINE"
       ? "Evento online"
@@ -48,13 +49,12 @@ export function HeroBanner({ event }: HeroBannerProps) {
 
       {/* Banner image */}
       <div className="relative w-full aspect-[16/7] sm:aspect-[16/6] lg:aspect-[16/5] max-h-[480px] overflow-hidden bg-muted">
-        {event.bannerUrl ? (
-          <Image
-            src={event.bannerUrl}
+        {bannerUrl ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={bannerUrl}
             alt={event.title}
-            fill
-            priority
-            className="object-cover"
+            className="h-full w-full object-cover"
           />
         ) : (
           <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-primary/20 to-primary/5">

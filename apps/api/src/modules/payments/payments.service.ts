@@ -58,7 +58,6 @@ export class PaymentsService {
       successParams.set("accessToken", order.orderAccessToken);
     }
     const successUrl = `${appUrl}/checkout/success?${successParams.toString()}`;
-    const ticketsUrl = `${appUrl}/me/ingressos`;
     const result = await this.abacatePay.createCheckout({
       orderId,
       amountCents: order.totalCents,
@@ -68,7 +67,7 @@ export class PaymentsService {
       buyerPhone: order.buyerPhone ?? undefined,
       description: order.event.title,
       paymentMethod: order.payment?.method ?? undefined,
-      returnUrl: ticketsUrl,
+      returnUrl: successUrl,
       completionUrl: `${successUrl}&status=paid`
     });
 

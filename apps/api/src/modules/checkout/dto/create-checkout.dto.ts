@@ -1,6 +1,6 @@
 import { PaymentMethod } from "@prisma/client";
 import { Type } from "class-transformer";
-import { IsArray, IsEmail, IsEnum, IsInt, IsNotEmpty, IsOptional, IsString, Min, ValidateNested } from "class-validator";
+import { IsArray, IsEmail, IsEnum, IsInt, IsNotEmpty, IsOptional, IsString, Matches, Min, ValidateNested } from "class-validator";
 import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger";
 
 export class CheckoutItemDto {
@@ -30,15 +30,17 @@ export class CreateCheckoutDto {
   @IsEmail()
   buyerEmail!: string;
 
-  @ApiPropertyOptional({ description: "Documento (CPF/CNPJ) do comprador" })
-  @IsOptional()
+  @ApiProperty({ description: "Documento (CPF/CNPJ) do comprador" })
   @IsString()
-  buyerDocument?: string;
+  @IsNotEmpty()
+  @Matches(/^\D*(\d\D*){11}$|^\D*(\d\D*){14}$/, { message: "Informe um CPF ou CNPJ valido." })
+  buyerDocument!: string;
 
-  @ApiPropertyOptional({ description: "Telefone do comprador" })
-  @IsOptional()
+  @ApiProperty({ description: "Telefone do comprador" })
   @IsString()
-  buyerPhone?: string;
+  @IsNotEmpty()
+  @Matches(/^\D*(\d\D*){10,11}$/, { message: "Informe um telefone com DDD." })
+  buyerPhone!: string;
 
   @ApiPropertyOptional({ description: "Código do cupom de desconto" })
   @IsOptional()

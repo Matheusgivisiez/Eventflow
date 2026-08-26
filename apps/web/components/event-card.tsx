@@ -1,11 +1,11 @@
 "use client";
 
-import Image from "next/image";
 import Link from "next/link";
 import { Calendar, MapPin, Ticket, ChevronRight } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { dateTime, money } from "@/lib/utils";
+import { publicAssetUrl } from "@/lib/public-asset-url";
 import type { EventFlowEvent } from "@/types/eventflow";
 
 interface EventCardProps {
@@ -16,19 +16,18 @@ export function EventCard({ event }: EventCardProps) {
   const activeTicketTypes = event.ticketTypes?.filter((ticket) => ticket.isActive) ?? [];
   const minPrice = activeTicketTypes.length ? Math.min(...activeTicketTypes.map((ticket) => ticket.priceCents)) : null;
   const location = event.format === "ONLINE" ? "Evento online" : `${event.city ?? "Local não definido"}${event.state ? `, ${event.state}` : ""}`;
+  const bannerUrl = publicAssetUrl(event.bannerUrl);
 
   return (
     <div className="group flex h-full flex-col overflow-hidden rounded-2xl border bg-white dark:bg-card shadow-sm card-hover">
       {/* Banner */}
       <div className="relative h-44 w-full overflow-hidden bg-muted">
-        {event.bannerUrl ? (
-          <Image
-            src={event.bannerUrl}
+        {bannerUrl ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={bannerUrl}
             alt={event.title}
-            fill
-            sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
-            quality={80}
-            className="object-cover transition-transform duration-700 ease-out group-hover:scale-110"
+            className="h-full w-full object-cover transition-transform duration-700 ease-out group-hover:scale-110"
           />
         ) : (
           <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-primary/10 to-primary/5 transition-colors duration-300 group-hover:from-primary/15 group-hover:to-primary/10">

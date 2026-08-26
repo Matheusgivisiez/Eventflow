@@ -39,9 +39,25 @@ type PublicOrderDetails = {
 function SuccessContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const orderId = searchParams.get("orderId");
-  const accessToken = searchParams.get("accessToken");
+  const [storedCheckout, setStoredCheckout] = useState<{ orderId: string; accessToken: string } | null>(null);
+  const orderId = searchParams.get("orderId") ?? storedCheckout?.orderId;
+  const accessToken = searchParams.get("accessToken") ?? storedCheckout?.accessToken;
   const [redirectCountdown, setRedirectCountdown] = useState<number | null>(null);
+
+  useEffect(() => {
+    const stored = window.localStorage.getItem("eventflow:last-checkout");
+    if (!stored) return;
+
+    try {
+      const parsed = JSON.parse(stored) as { orderId?: string; accessToken?: string; createdAt?: number };
+      const isRecent = !parsed.createdAt || Date.now() - parsed.createdAt < 1000 * 60 * 60 * 24;
+      if (parsed.orderId && parsed.accessToken && isRecent) {
+        setStoredCheckout({ orderId: parsed.orderId, accessToken: parsed.accessToken });
+      }
+    } catch {
+      window.localStorage.removeItem("eventflow:last-checkout");
+    }
+  }, []);
 
   const { data: order, isLoading, error } = useQuery({
     queryKey: ["public-order", orderId, accessToken],
@@ -55,6 +71,7 @@ function SuccessContent() {
 
   useEffect(() => {
     if (isPaid) {
+      window.localStorage.removeItem("eventflow:last-checkout");
       setRedirectCountdown(3);
       const interval = setInterval(() => {
         setRedirectCountdown((prev) => {

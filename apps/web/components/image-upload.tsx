@@ -2,7 +2,6 @@
 
 import { useCallback, useState } from "react";
 import { ImagePlus, Loader2, X } from "lucide-react";
-import Image from "next/image";
 import { uploadFile } from "@/lib/api";
 import { getApiUrl } from "@/lib/api-url";
 
@@ -22,8 +21,7 @@ export function ImageUpload({ value, onChange, label }: ImageUploadProps) {
     setUploading(true);
     try {
       const { url } = await uploadFile(file);
-      const baseUrl = getApiUrl().replace("/api", "");
-      const fullUrl = `${baseUrl}${url}`;
+      const fullUrl = toPublicAssetUrl(url);
       setPreview(fullUrl);
       onChange(fullUrl);
     } catch {
@@ -53,11 +51,10 @@ export function ImageUpload({ value, onChange, label }: ImageUploadProps) {
   if (preview) {
     return (
       <div className="relative overflow-hidden rounded-md border">
-        <Image
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
           src={preview}
           alt="Preview"
-          width={640}
-          height={360}
           className="h-40 w-full object-cover"
         />
         <button
@@ -94,4 +91,13 @@ export function ImageUpload({ value, onChange, label }: ImageUploadProps) {
       />
     </label>
   );
+}
+
+function toPublicAssetUrl(url: string) {
+  if (/^https?:\/\//i.test(url)) return url;
+  const apiUrl = getApiUrl();
+  const origin = /^https?:\/\//i.test(apiUrl)
+    ? new URL(apiUrl).origin
+    : window.location.origin;
+  return `${origin}${url.startsWith("/") ? url : `/${url}`}`;
 }

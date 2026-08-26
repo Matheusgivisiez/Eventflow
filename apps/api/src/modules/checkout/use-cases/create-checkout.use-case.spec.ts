@@ -41,7 +41,7 @@ function createDto() {
   return {
     buyerName: "Buyer",
     buyerEmail: "buyer@example.com",
-    buyerDocument: "12345678900",
+    buyerDocument: "12201513600",
     buyerPhone: "11999999999",
     paymentMethod: PaymentMethod.PIX,
     items: [{ ticketTypeId: "ticket-type-1", quantity: 1 }]
