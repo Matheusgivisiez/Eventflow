@@ -32,7 +32,7 @@ export class EventsController {
   @UseGuards(JwtAuthGuard)
   list(
     @CurrentUser() user: RequestUser,
-    @Query() query: { page?: string; perPage?: string; search?: string; status?: EventStatus }
+    @Query() query: { page?: string; perPage?: string; search?: string; status?: EventStatus; summary?: string }
   ) {
     return this.events.list(user.tenantId!, query);
   }

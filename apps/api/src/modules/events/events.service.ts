@@ -15,12 +15,15 @@ export class EventsService {
     private readonly cache: CacheService
   ) {}
 
-  list(tenantId: string, query: { page?: string; perPage?: string; search?: string; status?: EventStatus }) {
+  list(tenantId: string, query: { page?: string; perPage?: string; search?: string; status?: EventStatus; summary?: string }) {
+    const page = Math.max(1, Number(query.page ?? 1) || 1);
+    const perPage = Math.min(100, Math.max(1, Number(query.perPage ?? 10) || 10));
     return this.events.list(tenantId, {
-      page: Number(query.page ?? 1),
-      perPage: Number(query.perPage ?? 10),
+      page,
+      perPage,
       search: query.search,
-      status: query.status
+      status: query.status,
+      summary: query.summary === "1" || query.summary === "true"
     });
   }
 

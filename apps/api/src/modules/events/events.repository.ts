@@ -8,7 +8,7 @@ import { PrismaService } from "../../prisma/prisma.service";
 export class EventsRepository implements IEventsRepository {
   constructor(private readonly prisma: PrismaService) {}
 
-  async list(tenantId: string, options: { page: number; perPage: number; search?: string; status?: EventStatus }) {
+  async list(tenantId: string, options: { page: number; perPage: number; search?: string; status?: EventStatus; summary?: boolean }) {
     const where: Prisma.EventWhereInput = {
       tenantId,
       status: options.status,
@@ -20,16 +20,29 @@ export class EventsRepository implements IEventsRepository {
           ]
         : undefined
     };
-    const [data, total] = await this.prisma.$transaction([
-      this.prisma.event.findMany({
-        where,
-        include: { ticketTypes: true },
-        orderBy: { startsAt: "desc" },
-        skip: (options.page - 1) * options.perPage,
-        take: options.perPage
-      }),
-      this.prisma.event.count({ where })
-    ]);
+    const query = options.summary
+      ? this.prisma.event.findMany({
+          where,
+          select: {
+            id: true, title: true, slug: true, category: true, bannerUrl: true,
+            startsAt: true, endsAt: true, city: true, state: true, format: true, status: true,
+            ticketTypes: {
+              select: { id: true, name: true, quantity: true, sold: true, priceCents: true, isActive: true },
+              orderBy: { priceCents: "asc" }
+            }
+          },
+          orderBy: { startsAt: "desc" },
+          skip: (options.page - 1) * options.perPage,
+          take: options.perPage
+        })
+      : this.prisma.event.findMany({
+          where,
+          include: { ticketTypes: true },
+          orderBy: { startsAt: "desc" },
+          skip: (options.page - 1) * options.perPage,
+          take: options.perPage
+        });
+    const [data, total] = await this.prisma.$transaction([query, this.prisma.event.count({ where })]);
     return paginate(data, total, options.page, options.perPage);
   }
 

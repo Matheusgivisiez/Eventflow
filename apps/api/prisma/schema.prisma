@@ -322,6 +322,7 @@ model Event {
   promoterLinks          PromoterLink[]
 
   @@index([tenantId, status])
+  @@index([tenantId, startsAt])
   @@index([startsAt])
   @@index([category, status])
   @@index([slug, status])

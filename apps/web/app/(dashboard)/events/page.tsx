@@ -2,12 +2,11 @@
 
 import Link from "next/link";
 import { useState, useEffect } from "react";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { keepPreviousData, useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   CalendarPlus, ExternalLink, Pencil, Search, Ticket,
   Copy, XCircle, MoreVertical, Filter, TrendingUp, Clock, CheckCircle2
 } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
@@ -46,10 +45,14 @@ export default function EventsPage() {
     queryKey: ["events", debouncedSearch, activeTab],
     queryFn: () => {
       const params = new URLSearchParams();
+      params.set("summary", "1");
       if (debouncedSearch) params.set("search", debouncedSearch);
       if (activeTab !== "all") params.set("status", activeTab);
       return api<Paginated<EventFlowEvent>>(`/events?${params}`);
-    }
+    },
+    placeholderData: keepPreviousData,
+    staleTime: 30_000,
+    refetchOnWindowFocus: false
   });
 
   const duplicateMutation = useMutation({
