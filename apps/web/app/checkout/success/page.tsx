@@ -98,7 +98,7 @@ function SuccessContent() {
         </CardHeader>
         <CardContent>
           <Button asChild className="w-full">
-            <Link href="/eventos">Explorar Eventos</Link>
+            <Link href="/">Explorar Eventos</Link>
           </Button>
         </CardContent>
       </Card>
@@ -119,7 +119,7 @@ function SuccessContent() {
         </CardHeader>
         <CardContent>
           <Button asChild className="w-full">
-            <Link href="/eventos">Voltar aos Eventos</Link>
+            <Link href="/me/ingressos">Ir para Meus Ingressos</Link>
           </Button>
         </CardContent>
       </Card>
@@ -206,9 +206,9 @@ function SuccessContent() {
               </Button>
             )}
             <Button asChild variant="outline" className="flex-1 gap-2">
-              <Link href="/eventos">
+              <Link href="/me/ingressos">
                 <ArrowLeft className="h-4 w-4" />
-                Voltar aos Eventos
+                Ir para Meus Ingressos
               </Link>
             </Button>
           </div>
