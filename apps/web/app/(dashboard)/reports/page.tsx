@@ -24,6 +24,14 @@ type Dashboard = {
   revenueByMonth: { month: string; totalCents: number }[];
 };
 
+type ReportSummary = {
+  revenueCents: number;
+  paidOrders: number;
+  ticketsSold: number;
+  visitors: number;
+  conversionRate: number;
+};
+
 type Finance = {
   balanceCents: number;
   totalFeesCents: number;
@@ -38,6 +46,10 @@ export default function ReportsPage() {
   const [eventId, setEventId] = useState("");
   const dashboard = useQuery({ queryKey: ["dashboard"], queryFn: () => api<Dashboard>("/dashboard") });
   const finance = useQuery({ queryKey: ["finance"], queryFn: () => api<Finance>("/finance/summary") });
+  const report = useQuery({
+    queryKey: ["report-summary", from, to, eventId],
+    queryFn: () => api<ReportSummary>(`/reports?${new URLSearchParams({ ...(from ? { from: new Date(`${from}T00:00:00`).toISOString() } : {}), ...(to ? { to: new Date(`${to}T23:59:59`).toISOString() } : {}), ...(eventId ? { eventId } : {}) }).toString()}`)
+  });
   const events = useQuery({
     queryKey: ["events", "report-filter"],
     queryFn: () => api<Paginated<EventFlowEvent>>("/events?perPage=100")
@@ -67,8 +79,7 @@ export default function ReportsPage() {
     return <Skeleton className="h-[520px] w-full" />;
   }
 
-  const conversionBase = (dashboard.data?.paidOrders ?? 0) + 42;
-  const conversionRate = conversionBase ? Math.round(((dashboard.data?.paidOrders ?? 0) / conversionBase) * 100) : 0;
+  const summary = report.data;
 
   return (
     <div className="space-y-6">
@@ -117,9 +128,9 @@ export default function ReportsPage() {
       </Card>
 
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <Metric label="Faturamento" value={money(dashboard.data?.totalRevenueCents)} />
-        <Metric label="Ingressos vendidos" value={dashboard.data?.ticketsSold ?? 0} />
-        <Metric label="Taxa de conversao" value={`${conversionRate}%`} />
+        <Metric label="Faturamento" value={money(summary?.revenueCents ?? dashboard.data?.totalRevenueCents)} />
+        <Metric label="Ingressos vendidos" value={summary?.ticketsSold ?? dashboard.data?.ticketsSold ?? 0} />
+        <Metric label="Taxa de conversao" value={summary ? `${summary.conversionRate}%` : "—"} />
         <Metric label="Saldo disponivel" value={money(finance.data?.balanceCents)} />
       </div>
 
@@ -148,7 +159,8 @@ export default function ReportsPage() {
             <CardDescription>Indicadores para tomada de decisao.</CardDescription>
           </CardHeader>
           <CardContent className="space-y-3">
-            <Row label="Pedidos pagos" value={dashboard.data?.paidOrders ?? 0} />
+            <Row label="Pedidos pagos" value={summary?.paidOrders ?? dashboard.data?.paidOrders ?? 0} />
+            <Row label="Visitantes" value={summary?.visitors ?? 0} />
             <Row label="Eventos ativos" value={dashboard.data?.activeEvents ?? 0} />
             <Row label="Eventos encerrados" value={dashboard.data?.closedEvents ?? 0} />
             <Row label="Taxas acumuladas" value={money(dashboard.data?.totalFeesCents)} />

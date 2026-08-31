@@ -114,7 +114,8 @@ export class EventsService {
   }
 
   async update(id: string, tenantId: string, dto: UpdateEventDto) {
-    await this.findOne(id, tenantId);
+    const current = await this.findOne(id, tenantId);
+    this.validateUpdate(current, dto);
     const event = await this.prisma.event.update({
       where: { id },
       data: {
@@ -192,6 +193,9 @@ export class EventsService {
       if (required.some((value) => !value?.trim())) {
         throw new BadRequestException("Eventos presenciais precisam de CEP, cidade, estado e endereco.");
       }
+      if (!/^\d{5}-?\d{3}$/.test(dto.zipCode!.trim())) {
+        throw new BadRequestException("Informe um CEP valido com 8 digitos.");
+      }
     }
     if (dto.format === EventFormat.ONLINE && !dto.onlineUrl?.trim()) {
       throw new BadRequestException("Eventos online precisam do link de transmissao.");
@@ -202,6 +206,32 @@ export class EventsService {
     if (dto.firstTicket && dto.firstTicket.quantity < 1) {
       throw new BadRequestException("O primeiro lote precisa ter quantidade maior que zero.");
     }
+  }
+
+  private validateUpdate(current: { format: EventFormat; city: string | null; state: string | null; zipCode: string | null; address: string | null; onlineUrl: string | null; startsAt: Date; endsAt: Date | null }, dto: UpdateEventDto) {
+    const format = dto.format ?? current.format;
+    const city = dto.city ?? current.city;
+    const state = dto.state ?? current.state;
+    const zipCode = dto.zipCode ?? current.zipCode;
+    const address = dto.address ?? current.address;
+    const onlineUrl = dto.onlineUrl ?? current.onlineUrl;
+
+    if (format === EventFormat.IN_PERSON) {
+      if ([zipCode, city, state, address].some((value) => !value?.trim())) {
+        throw new BadRequestException("Eventos presenciais precisam de CEP, cidade, estado e endereco.");
+      }
+      if (!/^\d{5}-?\d{3}$/.test(zipCode!.trim())) {
+        throw new BadRequestException("Informe um CEP valido com 8 digitos.");
+      }
+    }
+    if (format === EventFormat.ONLINE && !onlineUrl?.trim()) {
+      throw new BadRequestException("Eventos online precisam do link de transmissao.");
+    }
+
+    const startsAt = dto.startsAt ? new Date(dto.startsAt) : current.startsAt;
+    const endsAt = dto.endsAt ? new Date(dto.endsAt) : current.endsAt;
+    if (Number.isNaN(startsAt.getTime())) throw new BadRequestException("Informe uma data de inicio valida.");
+    if (endsAt && endsAt <= startsAt) throw new BadRequestException("A data de fim deve ser posterior ao inicio.");
   }
 
   private async uniqueSlug(title: string) {

@@ -43,6 +43,17 @@ const schema = z.object({
   ticketTransferLockTime: z.string().optional(),
   qrCodeReleaseMinutesBeforeStart: z.coerce.number().int().min(0).optional().nullable(),
   qrCodeReleaseAt: z.string().optional()
+}).superRefine((data, ctx) => {
+  if (data.format === "IN_PERSON") {
+    if (!/^\d{5}-?\d{3}$/.test(data.zipCode?.replace(/\D/g, "") ?? "")) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["zipCode"], message: "Informe um CEP válido com 8 dígitos." });
+    }
+    for (const field of ["city", "state", "address"] as const) {
+      if (!data[field]?.trim()) ctx.addIssue({ code: z.ZodIssueCode.custom, path: [field], message: "Campo obrigatório para evento presencial." });
+    }
+  } else if (!data.onlineUrl?.trim()) {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["onlineUrl"], message: "Informe o link do evento online." });
+  }
 });
 
 type FormData = z.infer<typeof schema>;
@@ -280,12 +291,14 @@ export default function EditEventPage() {
               <CardTitle>Local e online</CardTitle>
             </CardHeader>
             <CardContent className="grid gap-3 sm:grid-cols-2">
-              <Input placeholder="Cidade" {...form.register("city")} />
-              <Input placeholder="Estado" {...form.register("state")} />
-              <Input placeholder="CEP" {...form.register("zipCode")} />
-              <Input placeholder="Endereço" {...form.register("address")} />
+              <Field label="Cidade" error={form.formState.errors.city?.message}><Input placeholder="Cidade" {...form.register("city")} /></Field>
+              <Field label="Estado" error={form.formState.errors.state?.message}><Input placeholder="Estado" {...form.register("state")} /></Field>
+              <Field label="CEP" error={form.formState.errors.zipCode?.message}><Input placeholder="00000-000" {...form.register("zipCode")} /></Field>
+              <Field label="Endereço" error={form.formState.errors.address?.message}><Input placeholder="Endereço" {...form.register("address")} /></Field>
               <Input placeholder="Google Maps (URL)" className="sm:col-span-2" {...form.register("mapUrl")} />
-              <Input placeholder="Link do evento online" className="sm:col-span-2" {...form.register("onlineUrl")} />
+              <Field label="Link do evento online" error={form.formState.errors.onlineUrl?.message}>
+                <Input placeholder="https://..." className="sm:col-span-2" {...form.register("onlineUrl")} />
+              </Field>
             </CardContent>
           </Card>
 

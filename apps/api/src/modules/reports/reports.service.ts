@@ -17,6 +17,7 @@ type ReportSummary = {
   paidOrders: number;
   ticketsSold: number;
   checkIns: number;
+  visitors: number;
   conversionRate: number;
   revenueByPeriod: { period: string; totalCents: number }[];
   participants: ReportParticipant[];
@@ -48,7 +49,7 @@ export class ReportsService {
 
     const dateFilter = this.dateFilter(query);
     const eventFilter = { tenantId, id: query.eventId || undefined };
-    const [orders, checkIns, tickets, participants] = await Promise.all([
+    const [orders, checkIns, tickets, participants, visitorSessions] = await Promise.all([
       this.prismaRead.order.findMany({
         where: { event: eventFilter, status: PaymentStatus.PAID, createdAt: dateFilter },
         select: { createdAt: true, discountCents: true, feeCents: true, totalCents: true }
@@ -61,6 +62,11 @@ export class ReportsService {
         where: { event: eventFilter, createdAt: dateFilter },
         include: { event: { select: { title: true } }, ticketType: { select: { name: true, priceCents: true } }, order: { select: { id: true } } },
         take: 5000
+      }),
+      this.prismaRead.analyticsEvent.findMany({
+        where: { tenantId, eventId: query.eventId || undefined, type: "page_view", createdAt: dateFilter },
+        select: { sessionId: true },
+        distinct: ["sessionId"]
       })
     ]);
 
@@ -75,7 +81,7 @@ export class ReportsService {
       acc[key] = (acc[key] ?? 0) + order.totalCents;
       return acc;
     }, {});
-    const visitorsEstimate = orders.length + Math.max(25, Math.round(orders.length * 1.8));
+    const visitors = visitorSessions.filter((visitor) => visitor.sessionId).length;
     const report = {
       revenueCents,
       discountsCents,
@@ -83,7 +89,8 @@ export class ReportsService {
       paidOrders: orders.length,
       ticketsSold: tickets,
       checkIns,
-      conversionRate: visitorsEstimate ? Math.round((orders.length / visitorsEstimate) * 100) : 0,
+      visitors,
+      conversionRate: visitors ? Math.round((orders.length / visitors) * 100) : 0,
       revenueByPeriod: Object.entries(revenueByPeriod).map(([period, totalCents]) => ({ period, totalCents })),
       participants
     };
@@ -158,17 +165,30 @@ export class ReportsService {
   }
 
   private toPdf(rows: Record<string, unknown>[]) {
-    const text = this.toCsv(rows).replace(/[()\\]/g, "");
-    const stream = `BT /F1 10 Tf 40 780 Td (${text.slice(0, 3500).replace(/\n/g, ") Tj 0 -14 Td (")}) Tj ET`;
+    const headers = rows[0] ? Object.keys(rows[0]) : ["sem_dados"];
+    const values = rows.length ? rows.map((row) => headers.map((header) => String(row[header] ?? ""))) : [["Nenhum dado encontrado"]];
+    const lines = [headers, ...values].map((row) => row.join(" | ").normalize("NFD").replace(/[\u0300-\u036f]/g, "").slice(0, 115));
+    const pageSize = 48;
+    const pages: string[] = [];
+    for (let offset = 0; offset < lines.length || offset === 0; offset += pageSize) {
+      const pageLines = lines.slice(offset, offset + pageSize);
+      pages.push(["BT", "/F1 9 Tf", "40 800 Td", ...pageLines.map((line) => `(${this.pdfEscape(line)}) Tj 0 -15 Td`), "ET"].join(" "));
+    }
+    const pageObjects = pages.map((_, index) => `${3 + index} 0 obj << /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 ${3 + pages.length} 0 R >> >> /Contents ${4 + pages.length + index} 0 R >> endobj`);
+    const contentObjects = pages.map((stream, index) => `${4 + pages.length + index} 0 obj << /Length ${Buffer.byteLength(stream)} >> stream\n${stream}\nendstream endobj`);
     const objects = [
       "1 0 obj << /Type /Catalog /Pages 2 0 R >> endobj",
-      "2 0 obj << /Type /Pages /Kids [3 0 R] /Count 1 >> endobj",
-      "3 0 obj << /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 4 0 R >> >> /Contents 5 0 R >> endobj",
-      "4 0 obj << /Type /Font /Subtype /Type1 /BaseFont /Helvetica >> endobj",
-      `5 0 obj << /Length ${Buffer.byteLength(stream)} >> stream\n${stream}\nendstream endobj`
+      `2 0 obj << /Type /Pages /Kids [${pages.map((_, index) => `${3 + index} 0 R`).join(" ")}] /Count ${pages.length} >> endobj`,
+      ...pageObjects,
+      `${3 + pages.length} 0 obj << /Type /Font /Subtype /Type1 /BaseFont /Helvetica >> endobj`,
+      ...contentObjects
     ];
     const body = objects.join("\n");
     return Buffer.from(`%PDF-1.4\n${body}\ntrailer << /Root 1 0 R >>\n%%EOF`, "utf8");
+  }
+
+  private pdfEscape(value: string) {
+    return value.replace(/[()\\]/g, "\\$&");
   }
 
   private xml(value: string) {
