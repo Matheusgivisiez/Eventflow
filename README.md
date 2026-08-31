@@ -9,6 +9,18 @@ Event Flow e uma plataforma SaaS multi-tenant para venda de ingressos online, ev
 - Mobile: React Native/Expo com SQLite para check-in offline.
 - Infra: Docker Compose, Kubernetes manifests, GitHub Actions, Prometheus, Grafana e Loki.
 
+## Serviços externos em uso
+
+Serviços confirmados no ambiente atual:
+
+- **Vercel** — hospedagem do frontend `eventflow-web`: https://eventflow-web.vercel.app
+- **Render** — hospedagem da API NestJS `eventflow-api-staging`: https://eventflow-ctdc.onrender.com
+- **Neon** — PostgreSQL do projeto `eventflow-staging`.
+- **Cloudflare R2** — armazenamento de banners, logos e imagens públicas de eventos.
+- **AbacatePay** — checkout, pagamentos PIX e webhooks de pagamento.
+
+Redis e RabbitMQ fazem parte da arquitetura da API e são executados pelo Docker Compose no ambiente local. As instâncias externas desses serviços são configuradas por variáveis de ambiente e não devem ter credenciais registradas neste arquivo.
+
 ## Como rodar
 
 ```bash

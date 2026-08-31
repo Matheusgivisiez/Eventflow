@@ -44,25 +44,25 @@ Atualizado em: 2026-08-16
 - SSO deployment protection desativado para permitir acesso publico ao staging web.
 - Verificacao HTTP da nova home publica: status 200.
 - Verificacao HTTP da home: status 200.
-- Pendente: configurar `NEXT_PUBLIC_API_URL` quando a API staging estiver publicada.
+- API publicada no Render e acessível pelo frontend através do proxy `/api/backend`.
 
 ## Registro de Preparacao da API Staging
 
 ### 2026-08-16
 
-- API revisada para deploy em servico Node/Docker gratuito.
+- API revisada para deploy em servico Node/Docker.
 - `apps/api/Dockerfile` ajustado para usar `pnpm-lock.yaml` com `pnpm install --frozen-lockfile`.
 - Healthcheck do container ajustado para respeitar `PORT`: `/api/health`.
 - `pnpm --filter @eventflow/api test`: 18 suites e 137 testes passaram.
 - `pnpm --filter @eventflow/api build`: Prisma generate e Nest build passaram.
 - `git diff --check`: passou sem erros.
 - Build Docker local nao executado porque o Docker daemon nao estava rodando.
-- Plataforma recomendada para API staging: Koyeb Free.
-- Koyeb CLI instalada localmente: `5.10.2`.
-- Pendente: autenticar a Koyeb CLI com `koyeb login` no terminal local do operador. O Personal Access Token nao deve ser colado em chat, docs ou commit.
-- Pendente: criar/configurar app e service Koyeb Free para a API.
-- Pendente: provisionar `DATABASE_URL`, `REDIS_URL`, `RABBITMQ_URL`, SMTP, S3/CDN e credenciais AbacatePay sandbox.
-- Pendente: configurar env vars da API staging e executar migrations.
+- API hospedada no Render: serviço `eventflow-api-staging`, URL `https://eventflow-ctdc.onrender.com`.
+- Render configurado para auto-deploy a partir da branch `master`, usando o `Dockerfile` da raiz.
+- Healthcheck do serviço: `/api/health`.
+- Banco PostgreSQL provisionado no Neon no projeto `eventflow-staging`.
+- Storage público de assets provisionado no Cloudflare R2 no bucket `eventflow-assets-staging`.
+- Pendente: confirmar e registrar apenas nas variáveis de ambiente as instâncias externas de Redis, RabbitMQ, SMTP e as credenciais AbacatePay sandbox.
 
 ## Registro de Banco Staging
 
