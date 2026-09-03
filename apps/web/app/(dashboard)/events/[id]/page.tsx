@@ -269,6 +269,7 @@ export default function EditEventPage() {
                 <div className="sm:col-span-2">
                   <Field label="Banner" error={form.formState.errors.bannerUrl?.message}>
                     <ImageUpload
+                      aspect={16 / 5}
                       value={form.watch("bannerUrl")}
                       onChange={(url) => form.setValue("bannerUrl", url)}
                     />

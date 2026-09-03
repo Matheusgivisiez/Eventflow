@@ -50,7 +50,7 @@ export default function ProfilePage() {
           <CardContent className="grid gap-4">
             <Field label="Nome da empresa"><Input {...form.register("companyName")} /></Field>
             <Field label="Logo">
-              <ImageUpload value={form.watch("logoUrl")} onChange={(url) => form.setValue("logoUrl", url ?? "")} />
+              <ImageUpload aspect={1} value={form.watch("logoUrl")} onChange={(url) => form.setValue("logoUrl", url ?? "")} />
             </Field>
             <Button>Salvar perfil</Button>
             {mutation.error && <p className="text-sm text-destructive">{mutation.error.message}</p>}

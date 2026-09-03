@@ -241,7 +241,7 @@ export default function NewEventPage() {
                   </Field>
                 </div>
                 <Field label="Banner" error={form.formState.errors.bannerUrl?.message}>
-                  <ImageUpload value={form.watch("bannerUrl")} onChange={(url) => form.setValue("bannerUrl", url)} />
+                  <ImageUpload aspect={16 / 5} value={form.watch("bannerUrl")} onChange={(url) => form.setValue("bannerUrl", url)} />
                 </Field>
                 <div className="grid gap-4 sm:grid-cols-2">
                   <Field label="Inicio" error={form.formState.errors.startsAt?.message}>
