@@ -4,6 +4,7 @@ import { PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
 import { randomBytes } from "crypto";
 import * as fs from "fs/promises";
 import { extname, join } from "path";
+import sharp from "sharp";
 
 const ALLOWED_EXTENSIONS = new Set([".jpg", ".jpeg", ".png", ".gif", ".webp"]);
 const ALLOWED_MIME_TYPES = new Set(["image/jpeg", "image/png", "image/gif", "image/webp"]);
@@ -24,7 +25,8 @@ export class UploadStorageService {
   async store(file: Express.Multer.File): Promise<StoredUpload> {
     this.validate(file);
 
-    const key = this.createObjectKey(file.originalname);
+    const optimized = await this.optimize(file.buffer);
+    const key = this.createObjectKey();
     const bucket = this.config.get<string>("AWS_S3_ASSETS_BUCKET");
     const publicUrl = this.config.get<string>("AWS_S3_ASSETS_PUBLIC_URL");
     const nodeEnv = this.config.get<string>("NODE_ENV") ?? "development";
@@ -33,8 +35,8 @@ export class UploadStorageService {
       await this.s3Client().send(new PutObjectCommand({
         Bucket: bucket,
         Key: key,
-        Body: file.buffer,
-        ContentType: file.mimetype,
+        Body: optimized,
+        ContentType: "image/webp",
         CacheControl: "public, max-age=31536000, immutable"
       }));
 
@@ -90,12 +92,19 @@ export class UploadStorageService {
     return this.s3;
   }
 
-  private createObjectKey(originalName: string) {
-    const ext = extname(originalName).toLowerCase();
+  private createObjectKey() {
     const now = new Date();
     const year = now.getUTCFullYear();
     const month = String(now.getUTCMonth() + 1).padStart(2, "0");
-    return `assets/${year}/${month}/${randomBytes(16).toString("hex")}${ext}`;
+    return `assets/${year}/${month}/${randomBytes(16).toString("hex")}.webp`;
+  }
+
+  private optimize(buffer: Buffer) {
+    return sharp(buffer)
+      .rotate()
+      .resize({ width: 1920, height: 1080, fit: "inside", withoutEnlargement: true })
+      .webp({ quality: 82 })
+      .toBuffer();
   }
 
   private hasValidMagicNumber(buffer: Buffer) {

@@ -2,6 +2,7 @@
 
 import { useCallback, useState } from "react";
 import { ImagePlus, Loader2, X } from "lucide-react";
+import Image from "next/image";
 import { uploadFile } from "@/lib/api";
 import { getApiUrl } from "@/lib/api-url";
 
@@ -13,19 +14,22 @@ interface ImageUploadProps {
 
 export function ImageUpload({ value, onChange, label }: ImageUploadProps) {
   const [uploading, setUploading] = useState(false);
+  const [error, setError] = useState<string>();
   const [preview, setPreview] = useState(value);
   const [dragOver, setDragOver] = useState(false);
 
   const handleUpload = useCallback(async (file: File) => {
     if (!file.type.startsWith("image/")) return;
     setUploading(true);
+    setError(undefined);
     try {
       const { url } = await uploadFile(file);
       const fullUrl = toPublicAssetUrl(url);
       setPreview(fullUrl);
       onChange(fullUrl);
-    } catch {
+    } catch (uploadError) {
       onChange(undefined);
+      setError(uploadError instanceof Error ? uploadError.message : "Não foi possível enviar a imagem.");
     } finally {
       setUploading(false);
     }
@@ -50,12 +54,13 @@ export function ImageUpload({ value, onChange, label }: ImageUploadProps) {
 
   if (preview) {
     return (
-      <div className="relative overflow-hidden rounded-md border">
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
+      <div className="relative h-40 overflow-hidden rounded-md border">
+        <Image
           src={preview}
           alt="Preview"
-          className="h-40 w-full object-cover"
+          fill
+          sizes="(max-width: 768px) 100vw, 640px"
+          className="object-cover"
         />
         <button
           type="button"
@@ -82,6 +87,7 @@ export function ImageUpload({ value, onChange, label }: ImageUploadProps) {
       )}
       {label && <span>{label}</span>}
       {uploading ? <span>Enviando...</span> : <span>Clique ou arraste uma imagem</span>}
+      {error && <span className="text-center text-xs text-destructive">{error}</span>}
       <input
         type="file"
         accept="image/*"

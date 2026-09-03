@@ -3,6 +3,16 @@ import { PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
 import * as fs from "fs/promises";
 import { UploadStorageService } from "./upload-storage.service";
 
+jest.mock("sharp", () => ({
+  __esModule: true,
+  default: jest.fn(() => ({
+    rotate: jest.fn().mockReturnThis(),
+    resize: jest.fn().mockReturnThis(),
+    webp: jest.fn().mockReturnThis(),
+    toBuffer: jest.fn().mockResolvedValue(Buffer.from("optimized-webp"))
+  }))
+}));
+
 jest.mock("@aws-sdk/client-s3", () => ({
   PutObjectCommand: jest.fn((input) => ({ input })),
   S3Client: jest.fn().mockImplementation(() => ({
@@ -64,11 +74,11 @@ describe("UploadStorageService", () => {
     });
     expect(PutObjectCommand).toHaveBeenCalledWith(expect.objectContaining({
       Bucket: "eventflow-assets",
-      ContentType: "image/png",
+      ContentType: "image/webp",
       CacheControl: "public, max-age=31536000, immutable"
     }));
     expect(result.storage).toBe("s3");
-    expect(result.url).toMatch(/^https:\/\/cdn\.example\.com\/assets\/assets\/\d{4}\/\d{2}\/[a-f0-9]{32}\.png$/);
+    expect(result.url).toMatch(/^https:\/\/cdn\.example\.com\/assets\/assets\/\d{4}\/\d{2}\/[a-f0-9]{32}\.webp$/);
   });
 
   it("supports Cloudflare R2 S3-compatible endpoints", async () => {
@@ -110,9 +120,9 @@ describe("UploadStorageService", () => {
     const result = await service.store(pngFile());
 
     expect(S3Client).not.toHaveBeenCalled();
-    expect(fs.writeFile).toHaveBeenCalledWith(expect.stringMatching(/uploads\/assets-\d{4}-\d{2}-[a-f0-9]{32}\.png$/), expect.any(Buffer));
+    expect(fs.writeFile).toHaveBeenCalledWith(expect.stringMatching(/uploads\/assets-\d{4}-\d{2}-[a-f0-9]{32}\.webp$/), expect.any(Buffer));
     expect(result.storage).toBe("local");
-    expect(result.url).toMatch(/^\/uploads\/assets-\d{4}-\d{2}-[a-f0-9]{32}\.png$/);
+    expect(result.url).toMatch(/^\/uploads\/assets-\d{4}-\d{2}-[a-f0-9]{32}\.webp$/);
   });
 
   it("rejects files when extension or magic number is invalid", async () => {

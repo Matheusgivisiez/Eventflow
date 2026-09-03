@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { ArrowLeft, CalendarDays, MapPin, Ticket } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -50,11 +51,13 @@ export function HeroBanner({ event }: HeroBannerProps) {
       {/* Banner image */}
       <div className="relative w-full aspect-[16/7] sm:aspect-[16/6] lg:aspect-[16/5] max-h-[480px] overflow-hidden bg-muted">
         {bannerUrl ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
+          <Image
             src={bannerUrl}
             alt={event.title}
-            className="h-full w-full object-cover"
+            fill
+            priority
+            sizes="(max-width: 640px) 100vw, (max-width: 1024px) 90vw, 1200px"
+            className="object-cover"
           />
         ) : (
           <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-primary/20 to-primary/5">
