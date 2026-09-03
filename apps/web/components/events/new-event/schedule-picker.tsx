@@ -34,7 +34,7 @@ export function SchedulePicker({ startsAt, endsAt, startError, endError, onStart
   }
 
   return (
-    <section className="space-y-4 rounded-2xl border border-primary/15 bg-gradient-to-br from-primary/[0.08] via-card to-secondary/[0.06] p-4 shadow-[0_18px_60px_rgba(17,10,48,0.12)] sm:p-5" aria-labelledby="schedule-heading">
+    <section className="space-y-4 rounded-2xl border border-primary/15 bg-[#171331] p-4 shadow-[0_18px_60px_rgba(17,10,48,0.2)] sm:p-5" aria-labelledby="schedule-heading">
       <div className="flex items-start gap-3">
         <div className="rounded-xl border border-primary/20 bg-primary/10 p-2.5 text-primary shadow-inner"><CalendarDays className="h-5 w-5" aria-hidden="true" /></div>
         <div><h2 id="schedule-heading" className="font-semibold">Quando acontece?</h2><p className="text-sm text-muted-foreground">Defina a data e o horário em controles separados. O término respeita automaticamente o início.</p></div>
@@ -56,7 +56,7 @@ function ScheduleField({ label, date, time, error, optional, minDate, minTime, o
   onDateChange: (value: string) => void; onTimeChange: (value: string) => void;
 }) {
   return (
-    <div className="rounded-2xl border border-white/10 bg-background/55 p-3.5 shadow-[0_10px_35px_rgba(17,10,48,0.1)] backdrop-blur-xl sm:p-4">
+    <div className="rounded-2xl border border-white/10 bg-[#100d22] p-3.5 shadow-[0_10px_35px_rgba(17,10,48,0.18)] sm:p-4">
       <div className="mb-3 flex items-center justify-between gap-2"><span className="font-medium">{label}</span>{optional && <span className="rounded-full border border-primary/15 bg-primary/10 px-2 py-1 text-[11px] font-medium text-primary">Opcional</span>}</div>
       <div className="grid gap-3 sm:grid-cols-[1fr_132px]">
         <CalendarControl label={label + ": data"} value={date} minDate={minDate} onChange={onDateChange} />
@@ -84,7 +84,7 @@ function CalendarControl({ label, value, minDate, onChange }: { label: string; v
     <div className="relative space-y-1.5">
       <span className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground"><CalendarDays className="h-3.5 w-3.5" aria-hidden="true" /> Data</span>
       <button type="button" aria-label={label} aria-expanded={open} onClick={() => setOpen((current) => !current)} className="flex h-11 w-full items-center justify-between gap-2 rounded-xl border bg-background px-3 text-left text-sm transition hover:border-primary/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"><span className={value ? "font-medium" : "text-muted-foreground"}>{displayValue}</span><CalendarDays className="h-4 w-4 shrink-0 text-primary" aria-hidden="true" /></button>
-      {open && <div className="absolute z-30 mt-2 w-[min(276px,calc(100vw-3rem))] rounded-2xl border border-white/15 bg-[hsl(var(--card)/.9)] p-3 shadow-[0_22px_70px_rgba(10,5,30,.38)] backdrop-blur-2xl" role="dialog" aria-label={"Calendário de " + label}>
+      {open && <div className="absolute z-30 mt-2 w-[min(276px,calc(100vw-3rem))] rounded-2xl border border-white/15 bg-[#121027] p-3 shadow-[0_22px_70px_rgba(10,5,30,.55)]" role="dialog" aria-label={"Calendário de " + label}>
         <div className="mb-3 flex items-center justify-between gap-2"><button type="button" className="rounded-lg p-2 transition hover:bg-primary/10" aria-label="Mês anterior" onClick={() => setMonth(new Date(month.getFullYear(), month.getMonth() - 1, 1))}><ChevronLeft className="h-4 w-4" /></button><span className="capitalize text-sm font-semibold">{monthLabel}</span><button type="button" className="rounded-lg p-2 transition hover:bg-primary/10" aria-label="Próximo mês" onClick={() => setMonth(new Date(month.getFullYear(), month.getMonth() + 1, 1))}><ChevronRight className="h-4 w-4" /></button></div>
         <div className="mb-1 grid grid-cols-7 text-center text-[10px] font-semibold uppercase tracking-wider text-muted-foreground"><span>Dom</span><span>Seg</span><span>Ter</span><span>Qua</span><span>Qui</span><span>Sex</span><span>Sáb</span></div>
         <div className="grid grid-cols-7 gap-1">{getCalendarDays(month).map((day) => { const dateValue = formatDate(day); const disabled = Boolean(minDate && dateValue < minDate); const selected = dateValue === value; const outsideMonth = day.getMonth() !== month.getMonth(); return <button key={dateValue} type="button" disabled={disabled} aria-label={dateValue} aria-pressed={selected} onClick={() => { onChange(dateValue); setOpen(false); }} className={"flex aspect-square items-center justify-center rounded-lg text-xs transition " + (selected ? "bg-primary font-semibold text-primary-foreground shadow-md" : disabled ? "cursor-not-allowed text-muted-foreground/25" : outsideMonth ? "text-muted-foreground/45 hover:bg-primary/10" : "hover:bg-primary/15 hover:text-primary")}>{day.getDate()}</button>; })}</div>
@@ -123,7 +123,7 @@ function TimeControl({ label, value, minTime, minDate, date, onChange }: { label
     <div className="relative space-y-1.5">
       <span className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground"><Clock3 className="h-3.5 w-3.5" aria-hidden="true" /> Horário</span>
       <button type="button" aria-label={label} aria-expanded={open} onClick={() => setOpen((currentOpen) => !currentOpen)} className="flex h-11 w-full items-center justify-between gap-2 rounded-xl border bg-background px-3 text-left text-sm transition hover:border-primary/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"><span className={value ? "font-medium" : "text-muted-foreground"}>{value || "Escolher horário"}</span><Clock3 className="h-4 w-4 shrink-0 text-primary" aria-hidden="true" /></button>
-      {open && <div className="absolute right-0 z-30 mt-2 w-[min(230px,calc(100vw-3rem))] rounded-2xl border border-white/15 bg-[hsl(var(--card)/.92)] p-3 shadow-[0_22px_70px_rgba(10,5,30,.38)] backdrop-blur-2xl" role="dialog" aria-label={"Seletor de " + label}>
+      {open && <div className="absolute right-0 z-30 mt-2 w-[min(230px,calc(100vw-3rem))] rounded-2xl border border-white/15 bg-[#121027] p-3 shadow-[0_22px_70px_rgba(10,5,30,.55)]" role="dialog" aria-label={"Seletor de " + label}>
         <div className="mb-2 flex items-center gap-2"><span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Escolha o horário</span>{sameDay && <span className="text-[10px] text-primary">após {minTime}</span>}</div>
         <div className="grid grid-cols-3 gap-2 border-y border-white/10 py-2">
           <WheelColumn label="Hora" value={String(hour12).padStart(2, "0")} onUp={() => step("hour", 1)} onDown={() => step("hour", -1)} />
@@ -144,4 +144,10 @@ function WheelColumn({ label, value, onUp, onDown }: { label: string; value: str
 function parseDate(value: string) { const [year, month, day] = value.split("-").map(Number); return new Date(year, month - 1, day); }
 function formatDate(date: Date) { return date.getFullYear() + "-" + String(date.getMonth() + 1).padStart(2, "0") + "-" + String(date.getDate()).padStart(2, "0"); }
 function formatDateForHumans(value: string) { return new Intl.DateTimeFormat("pt-BR", { dateStyle: "medium" }).format(parseDate(value)); }
-function getCalendarDays(month: Date) { const firstDay = new Date(month.getFullYear(), month.getMonth(), 1); const start = new Date(month.getFullYear(), month.getMonth(), 1 - firstDay.getDay()); return Array.from({ length: 42 }, (_, index) => new Date(start.getFullYear(), start.getMonth(), start.getDate() + index)); }
+function getCalendarDays(month: Date) {
+  const firstDay = new Date(month.getFullYear(), month.getMonth(), 1);
+  const daysInMonth = new Date(month.getFullYear(), month.getMonth() + 1, 0).getDate();
+  const totalCells = Math.ceil((firstDay.getDay() + daysInMonth) / 7) * 7;
+  const start = new Date(month.getFullYear(), month.getMonth(), 1 - firstDay.getDay());
+  return Array.from({ length: totalCells }, (_, index) => new Date(start.getFullYear(), start.getMonth(), start.getDate() + index));
+}
