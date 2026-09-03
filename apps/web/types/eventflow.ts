@@ -12,6 +12,7 @@ export type TicketType = {
   priceCents: number;
   startsAt: string;
   endsAt: string;
+  salesEndQuantity?: number;
   limitPerBuy: number;
   isActive: boolean;
 };

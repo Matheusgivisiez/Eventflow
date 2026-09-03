@@ -1,0 +1,3 @@
+ALTER TABLE "TicketType" ADD COLUMN "priceMode" TEXT NOT NULL DEFAULT 'FIXED';
+ALTER TABLE "TicketType" ADD COLUMN "priceAdjustmentPercent" DOUBLE PRECISION;
+

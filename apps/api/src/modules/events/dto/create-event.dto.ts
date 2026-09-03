@@ -19,11 +19,37 @@ export class CreateEventFirstTicketDto {
   @Min(0)
   priceCents!: number;
 
+  @ApiPropertyOptional({ description: "Modo de preço do lote", enum: ["FIXED", "PERCENTAGE"] })
+  @IsOptional()
+  @IsEnum(["FIXED", "PERCENTAGE"])
+  priceMode?: "FIXED" | "PERCENTAGE";
+
+  @ApiPropertyOptional({ description: "Percentual sobre o lote anterior" })
+  @IsOptional()
+  @Min(0)
+  priceAdjustmentPercent?: number;
+
   @ApiPropertyOptional({ description: "Limite por compra" })
   @IsOptional()
   @IsInt()
   @Min(1)
   limitPerBuy?: number;
+
+  @ApiPropertyOptional({ description: "Início das vendas do lote (ISO 8601)" })
+  @IsOptional()
+  @IsDateString()
+  startsAt?: string;
+
+  @ApiPropertyOptional({ description: "Fim das vendas do lote (ISO 8601)" })
+  @IsOptional()
+  @IsDateString()
+  endsAt?: string;
+
+  @ApiPropertyOptional({ description: "Quantidade vendida que encerra o lote" })
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  salesEndQuantity?: number;
 }
 
 export class CreateEventDto {
@@ -166,4 +192,11 @@ export class CreateEventDto {
   @ValidateNested()
   @Type(() => CreateEventFirstTicketDto)
   firstTicket?: CreateEventFirstTicketDto;
+
+  @ApiPropertyOptional({ description: "Lotes adicionais criados junto com o evento", type: [CreateEventFirstTicketDto] })
+  @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => CreateEventFirstTicketDto)
+  additionalTicketTypes?: CreateEventFirstTicketDto[];
 }

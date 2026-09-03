@@ -1,6 +1,5 @@
 "use client";
 
-import type React from "react";
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -12,13 +11,23 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { ImageUpload } from "@/components/image-upload";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { api } from "@/lib/api";
+import { SchedulePicker } from "@/components/events/new-event/schedule-picker";
+import { StepNavigation } from "@/components/events/new-event/step-navigation";
+import { Field, Summary } from "@/components/events/new-event/form-primitives";
+import { CategorySelector } from "@/components/events/new-event/category-selector";
+import { resolveEventCategory } from "@/lib/event-category";
+import { LocationFields } from "@/components/events/new-event/location-fields";
+import { formatCep } from "@/lib/cep";
+import { formatScheduleValue } from "@/lib/new-event-schedule";
+import { TicketLotEditor } from "@/components/events/new-event/ticket-lot-editor";
+import { AdditionalTicketLots } from "@/components/events/new-event/additional-ticket-lots";
 
 const schema = z.object({
   title: z.string().min(3, "Informe o nome do evento."),
   description: z.string().min(20, "Descreva melhor o evento."),
   category: z.string().min(2, "Informe a categoria."),
+  categoryOther: z.string().optional(),
   startsAt: z.string().min(1, "Informe data e horario."),
   endsAt: z.string().optional(),
   bannerUrl: z.string().optional(),
@@ -38,6 +47,24 @@ const schema = z.object({
   firstTicketPrice: z.coerce.number().min(0, "Informe um preco valido."),
   firstTicketQuantity: z.coerce.number().int().min(1, "Informe ao menos 1 ingresso."),
   firstTicketLimitPerBuy: z.coerce.number().int().min(1, "Informe um limite valido."),
+  firstTicketStartsAt: z.string().optional(),
+  firstTicketEndsAt: z.string().optional(),
+  firstTicketClosingRule: z.enum(["DATE", "SOLD", "BOTH"]).default("DATE"),
+  firstTicketSalesEndQuantity: z.coerce.number().int().min(1, "Informe uma quantidade valida.").optional(),
+  firstTicketPriceMode: z.enum(["FIXED", "PERCENTAGE"]).default("FIXED"),
+  firstTicketPriceAdjustmentPercent: z.coerce.number().min(0).optional(),
+  additionalTicketLots: z.array(z.object({
+    name: z.string().min(2, "Informe o nome do lote."),
+    price: z.coerce.number().min(0, "Informe um preco valido."),
+    quantity: z.coerce.number().int().min(1, "Informe ao menos 1 ingresso."),
+    limitPerBuy: z.coerce.number().int().min(1, "Informe um limite valido."),
+    startsAt: z.string().optional(),
+    endsAt: z.string().optional(),
+    closingRule: z.enum(["DATE", "SOLD", "BOTH"]).default("DATE"),
+    salesEndQuantity: z.coerce.number().int().min(1, "Informe uma quantidade valida.").optional(),
+    priceMode: z.enum(["FIXED", "PERCENTAGE"]).default("FIXED"),
+    priceAdjustmentPercent: z.coerce.number().min(0).optional()
+  })).default([]),
   feePayer: z.enum(["BUYER", "ORGANIZER"]),
   allowTicketTransfer: z.boolean(),
   transferLockHours: z.coerce.number().int().min(0),
@@ -65,6 +92,20 @@ const schema = z.object({
   if (data.format === "ONLINE" && !data.onlineUrl?.trim()) {
     ctx.addIssue({ code: "custom", path: ["onlineUrl"], message: "Informe o link da transmissao." });
   }
+  if (data.category === "__OTHER__" && !data.categoryOther?.trim()) {
+    ctx.addIssue({ code: "custom", path: ["categoryOther"], message: "Informe o tipo do evento." });
+  }
+  if (data.firstTicketClosingRule !== "DATE" && !data.firstTicketSalesEndQuantity) {
+    ctx.addIssue({ code: "custom", path: ["firstTicketSalesEndQuantity"], message: "Informe a quantidade que encerra o lote." });
+  }
+  data.additionalTicketLots.forEach((lot, index) => {
+    if (lot.closingRule !== "DATE" && !lot.salesEndQuantity) {
+      ctx.addIssue({ code: "custom", path: ["additionalTicketLots", index, "salesEndQuantity"], message: "Informe a quantidade que encerra o lote." });
+    }
+    if (lot.priceMode === "PERCENTAGE" && lot.priceAdjustmentPercent === undefined) {
+      ctx.addIssue({ code: "custom", path: ["additionalTicketLots", index, "priceAdjustmentPercent"], message: "Informe o percentual do lote." });
+    }
+  });
 });
 
 type FormData = z.infer<typeof schema>;
@@ -91,6 +132,9 @@ export default function NewEventPage() {
       firstTicketPrice: 0,
       firstTicketQuantity: 100,
       firstTicketLimitPerBuy: 5,
+      firstTicketClosingRule: "DATE",
+      firstTicketPriceMode: "FIXED",
+      additionalTicketLots: [],
       feePayer: "BUYER",
       allowTicketTransfer: true,
       transferLockHours: 24,
@@ -101,7 +145,6 @@ export default function NewEventPage() {
   const format = form.watch("format");
   const zipCode = form.watch("zipCode");
   const allowTicketTransfer = form.watch("allowTicketTransfer");
-  const { ref: numberFormRef, ...numberField } = form.register("number");
 
   useEffect(() => {
     const cep = zipCode?.replace(/\D/g, "");
@@ -145,7 +188,7 @@ export default function NewEventPage() {
         body: JSON.stringify({
           title: data.title,
           description: data.description,
-          category: data.category,
+          category: resolveEventCategory(data.category, data.categoryOther),
           startsAt: startsAt.toISOString(),
           endsAt: data.endsAt ? new Date(data.endsAt).toISOString() : undefined,
           bannerUrl: data.bannerUrl || undefined,
@@ -168,8 +211,24 @@ export default function NewEventPage() {
             name: data.firstTicketName,
             priceCents: Math.round(data.firstTicketPrice * 100),
             quantity: data.firstTicketQuantity,
-            limitPerBuy: data.firstTicketLimitPerBuy
-          }
+            limitPerBuy: data.firstTicketLimitPerBuy,
+            startsAt: data.firstTicketStartsAt ? new Date(data.firstTicketStartsAt).toISOString() : undefined,
+            endsAt: data.firstTicketEndsAt ? new Date(data.firstTicketEndsAt).toISOString() : undefined,
+            salesEndQuantity: data.firstTicketClosingRule !== "DATE" ? data.firstTicketSalesEndQuantity : undefined
+            ,priceMode: data.firstTicketPriceMode
+            ,priceAdjustmentPercent: data.firstTicketPriceMode === "PERCENTAGE" ? data.firstTicketPriceAdjustmentPercent : undefined
+          },
+          additionalTicketTypes: data.additionalTicketLots.map((lot) => ({
+            name: lot.name,
+            priceCents: Math.round(lot.price * 100),
+            quantity: lot.quantity,
+            limitPerBuy: lot.limitPerBuy,
+            startsAt: lot.startsAt ? new Date(lot.startsAt).toISOString() : undefined,
+            endsAt: lot.endsAt ? new Date(lot.endsAt).toISOString() : undefined,
+            salesEndQuantity: lot.closingRule !== "DATE" ? lot.salesEndQuantity : undefined
+            ,priceMode: lot.priceMode
+            ,priceAdjustmentPercent: lot.priceMode === "PERCENTAGE" ? lot.priceAdjustmentPercent : undefined
+          }))
         })
       });
     },
@@ -179,14 +238,38 @@ export default function NewEventPage() {
   async function nextStep() {
     const fieldsByStep: Record<Step, (keyof FormData)[]> = {
       0: format === "IN_PERSON"
-        ? ["title", "description", "category", "startsAt", "endsAt", "zipCode", "city", "state", "address", "number"]
-        : ["title", "description", "category", "startsAt", "endsAt", "onlineUrl"],
-      1: ["firstTicketName", "firstTicketPrice", "firstTicketQuantity", "firstTicketLimitPerBuy"],
+        ? ["title", "description", "category", "categoryOther", "startsAt", "endsAt", "zipCode", "city", "state", "address", "number"]
+        : ["title", "description", "category", "categoryOther", "startsAt", "endsAt", "onlineUrl"],
+      1: ["firstTicketName", "firstTicketPrice", "firstTicketQuantity", "firstTicketLimitPerBuy", "firstTicketStartsAt", "firstTicketEndsAt", "firstTicketClosingRule", "firstTicketSalesEndQuantity", "additionalTicketLots"],
       2: ["feePayer", "allowTicketTransfer", "transferLockHours", "qrCodeReleaseMinutesBeforeStart"]
     };
     const valid = await form.trigger(fieldsByStep[step]);
-    if (valid) setStep((current) => Math.min(current + 1, 2) as Step);
+    if (valid) {
+      setStep((current) => Math.min(current + 1, 2) as Step);
+      return;
+    }
+
+    const firstInvalidField = fieldsByStep[step].find((field) => form.getFieldState(field).invalid);
+    if (firstInvalidField) {
+      form.setFocus(firstInvalidField);
+      requestAnimationFrame(() => {
+        const fieldName = String(firstInvalidField);
+        const element = document.querySelector(`[name="${fieldName}"], [aria-label="${fieldName}"], [aria-label*="${fieldName}"]`) as HTMLElement | null;
+        element?.scrollIntoView({ behavior: "smooth", block: "center" });
+        element?.focus();
+      });
+    }
   }
+
+  function handleStepChange(targetStep: number) {
+    if (targetStep <= step) {
+      setStep(targetStep as Step);
+      return;
+    }
+    void nextStep();
+  }
+
+  const additionalLots = form.watch("additionalTicketLots");
 
   return (
     <div className="space-y-6">
@@ -194,27 +277,12 @@ export default function NewEventPage() {
         <div>
           <h1 className="text-2xl font-semibold tracking-normal">Novo evento</h1>
           <p className="text-sm text-muted-foreground">Crie a pagina, o primeiro lote e as regras de venda no mesmo fluxo.</p>
+          <p className="mt-1 text-xs font-medium text-primary sm:hidden" aria-live="polite">Etapa {step + 1} de {steps.length}</p>
         </div>
-        <div className="grid grid-cols-3 gap-2 rounded-lg border bg-card p-1">
-          {steps.map((item, index) => {
-            const Icon = item.icon;
-            const active = step === index;
-            return (
-              <button
-                key={item.title}
-                type="button"
-                onClick={() => setStep(index as Step)}
-                className={`flex min-h-11 items-center justify-center gap-2 rounded-md px-3 text-xs font-medium transition-colors ${active ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-muted"}`}
-              >
-                <Icon className="h-4 w-4" />
-                <span className="hidden sm:inline">{item.title}</span>
-              </button>
-            );
-          })}
-        </div>
+        <StepNavigation steps={steps} currentStep={step} onStepChange={handleStepChange} />
       </div>
 
-      <form className="grid gap-6 lg:grid-cols-[1fr_360px]" onSubmit={form.handleSubmit((data) => mutation.mutate(data))}>
+      <form className="new-event-form grid gap-6 lg:grid-cols-[1fr_360px]" onSubmit={form.handleSubmit((data) => mutation.mutate(data))}>
         <Card>
           <CardHeader>
             <CardTitle>{steps[step].title}</CardTitle>
@@ -230,9 +298,14 @@ export default function NewEventPage() {
                   <textarea className="min-h-32 w-full rounded-md border bg-background px-3 py-2 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring" {...form.register("description")} />
                 </Field>
                 <div className="grid gap-4 sm:grid-cols-2">
-                  <Field label="Categoria" error={form.formState.errors.category?.message}>
-                    <Input {...form.register("category")} />
-                  </Field>
+                  <CategorySelector
+                    value={form.watch("category")}
+                    otherValue={form.watch("categoryOther")}
+                    error={form.formState.errors.category?.message}
+                    otherError={form.formState.errors.categoryOther?.message}
+                    onChange={(value) => form.setValue("category", value, { shouldValidate: true })}
+                    onOtherChange={(value) => form.setValue("categoryOther", value, { shouldValidate: true })}
+                  />
                   <Field label="Formato">
                     <select className="h-10 w-full rounded-md border bg-background px-3 text-sm" {...form.register("format")}>
                       <option value="IN_PERSON">Presencial</option>
@@ -243,54 +316,32 @@ export default function NewEventPage() {
                 <Field label="Banner" error={form.formState.errors.bannerUrl?.message}>
                   <ImageUpload aspect={16 / 5} value={form.watch("bannerUrl")} onChange={(url) => form.setValue("bannerUrl", url)} />
                 </Field>
-                <div className="grid gap-4 sm:grid-cols-2">
-                  <Field label="Inicio" error={form.formState.errors.startsAt?.message}>
-                    <Input type="datetime-local" {...form.register("startsAt")} />
-                  </Field>
-                  <Field label="Fim" error={form.formState.errors.endsAt?.message}>
-                    <Input type="datetime-local" {...form.register("endsAt")} />
-                  </Field>
-                </div>
+                <SchedulePicker
+                  startsAt={form.watch("startsAt")}
+                  endsAt={form.watch("endsAt")}
+                  startError={form.formState.errors.startsAt?.message}
+                  endError={form.formState.errors.endsAt?.message}
+                  onStartsAtChange={(value) => form.setValue("startsAt", value, { shouldValidate: true })}
+                  onEndsAtChange={(value) => form.setValue("endsAt", value, { shouldValidate: true })}
+                />
                 {format === "ONLINE" ? (
                   <Field label="Link online" error={form.formState.errors.onlineUrl?.message}>
                     <Input placeholder="https://meet.google.com/..." {...form.register("onlineUrl")} />
                   </Field>
                 ) : (
-                  <div className="grid gap-4 sm:grid-cols-2">
-                    <Field label="CEP" error={form.formState.errors.zipCode?.message}>
-                      <Input
-                        placeholder="00000-000"
-                        {...form.register("zipCode")}
-                        onChange={(event) => {
-                          const digits = event.target.value.replace(/\D/g, "").slice(0, 8);
-                          const masked = digits.replace(/^(\d{5})(\d)/, "$1-$2");
-                          form.setValue("zipCode", masked, { shouldValidate: true });
-                        }}
-                      />
-                      {cepStatus === "loading" && <p className="text-xs text-muted-foreground">Buscando endereco...</p>}
-                      {cepStatus === "error" && <p className="text-xs text-destructive">CEP nao encontrado.</p>}
-                    </Field>
-                    <Field label="Numero" error={form.formState.errors.number?.message}>
-                      <Input {...numberField} ref={(element) => { numberFormRef(element); numberRef.current = element; }} />
-                    </Field>
-                    <Field label="Endereco" error={form.formState.errors.address?.message}>
-                      <Input {...form.register("address")} />
-                    </Field>
-                    <Field label="Bairro">
-                      <Input {...form.register("neighborhood")} />
-                    </Field>
-                    <Field label="Cidade" error={form.formState.errors.city?.message}>
-                      <Input {...form.register("city")} />
-                    </Field>
-                    <Field label="Estado" error={form.formState.errors.state?.message}>
-                      <Input maxLength={2} {...form.register("state")} />
-                    </Field>
-                    <div className="sm:col-span-2">
-                      <Field label="Google Maps">
-                        <Input {...form.register("mapUrl")} />
-                      </Field>
-                    </div>
-                  </div>
+                  <LocationFields
+                    values={{
+                      zipCode: form.watch("zipCode"), number: form.watch("number"), address: form.watch("address"),
+                      neighborhood: form.watch("neighborhood"), city: form.watch("city"), state: form.watch("state"), mapUrl: form.watch("mapUrl")
+                    }}
+                    errors={{
+                      zipCode: form.formState.errors.zipCode?.message, number: form.formState.errors.number?.message,
+                      address: form.formState.errors.address?.message, city: form.formState.errors.city?.message, state: form.formState.errors.state?.message
+                    }}
+                    cepStatus={cepStatus}
+                    numberRef={numberRef}
+                    onChange={(field, value) => form.setValue(field, field === "zipCode" ? formatCep(value) : value, { shouldValidate: true })}
+                  />
                 )}
               </>
             )}
@@ -300,20 +351,31 @@ export default function NewEventPage() {
                 <div className="rounded-lg border bg-muted/40 p-4 text-sm text-muted-foreground">
                   O primeiro lote e obrigatorio para evitar evento publicado sem ingressos no checkout.
                 </div>
-                <Field label="Nome do lote" error={form.formState.errors.firstTicketName?.message}>
-                  <Input {...form.register("firstTicketName")} />
-                </Field>
-                <div className="grid gap-4 sm:grid-cols-3">
-                  <Field label="Preco (R$)" error={form.formState.errors.firstTicketPrice?.message}>
-                    <Input type="number" min="0" step="0.01" {...form.register("firstTicketPrice")} />
-                  </Field>
-                  <Field label="Quantidade" error={form.formState.errors.firstTicketQuantity?.message}>
-                    <Input type="number" min="1" {...form.register("firstTicketQuantity", { valueAsNumber: true })} />
-                  </Field>
-                  <Field label="Limite por compra" error={form.formState.errors.firstTicketLimitPerBuy?.message}>
-                    <Input type="number" min="1" {...form.register("firstTicketLimitPerBuy", { valueAsNumber: true })} />
-                  </Field>
-                </div>
+                <TicketLotEditor
+                  values={{
+                    name: form.watch("firstTicketName"), price: form.watch("firstTicketPrice"), quantity: form.watch("firstTicketQuantity"),
+                    limitPerBuy: form.watch("firstTicketLimitPerBuy"), startsAt: form.watch("firstTicketStartsAt"), endsAt: form.watch("firstTicketEndsAt"),
+                    closingRule: form.watch("firstTicketClosingRule"), salesEndQuantity: form.watch("firstTicketSalesEndQuantity"),
+                    priceMode: form.watch("firstTicketPriceMode"), priceAdjustmentPercent: form.watch("firstTicketPriceAdjustmentPercent")
+                  }}
+                  errors={{
+                    name: form.formState.errors.firstTicketName?.message, price: form.formState.errors.firstTicketPrice?.message,
+                    quantity: form.formState.errors.firstTicketQuantity?.message, limitPerBuy: form.formState.errors.firstTicketLimitPerBuy?.message,
+                    salesEndQuantity: form.formState.errors.firstTicketSalesEndQuantity?.message
+                  }}
+                  onChange={(field, value) => {
+                    const formField = ({ name: "firstTicketName", price: "firstTicketPrice", quantity: "firstTicketQuantity", limitPerBuy: "firstTicketLimitPerBuy", startsAt: "firstTicketStartsAt", endsAt: "firstTicketEndsAt", closingRule: "firstTicketClosingRule", salesEndQuantity: "firstTicketSalesEndQuantity", priceMode: "firstTicketPriceMode", priceAdjustmentPercent: "firstTicketPriceAdjustmentPercent" } as const)[field];
+                    form.setValue(formField, value as never, { shouldValidate: true });
+                  }}
+                />
+                <AdditionalTicketLots
+                  lots={form.watch("additionalTicketLots")}
+                  basePrice={form.watch("firstTicketPrice")}
+                  onChange={(lots) => form.setValue("additionalTicketLots", lots.map((lot) => ({
+                    name: lot.name ?? "", price: lot.price ?? 0, quantity: lot.quantity ?? 0,
+                    limitPerBuy: lot.limitPerBuy ?? 0, startsAt: lot.startsAt, endsAt: lot.endsAt, closingRule: lot.closingRule ?? "DATE", salesEndQuantity: lot.salesEndQuantity, priceMode: lot.priceMode ?? "FIXED", priceAdjustmentPercent: lot.priceAdjustmentPercent
+                  })), { shouldValidate: true })}
+                />
               </>
             )}
 
@@ -364,7 +426,13 @@ export default function NewEventPage() {
             <CardContent className="space-y-3 text-sm">
               <Summary icon={<CalendarClock className="h-4 w-4" />} label="Inicio" value={form.watch("startsAt") || "Nao informado"} />
               <Summary icon={format === "ONLINE" ? <Radio className="h-4 w-4" /> : <MapPin className="h-4 w-4" />} label="Formato" value={format === "ONLINE" ? "Online" : "Presencial"} />
-              <Summary icon={<Ticket className="h-4 w-4" />} label="Lote" value={`${form.watch("firstTicketQuantity") || 0} ingressos`} />
+              <Summary icon={<Ticket className="h-4 w-4" />} label="Lotes" value={`${1 + additionalLots.length} configurado${additionalLots.length === 0 ? "" : "s"}`} />
+              <div className="space-y-1.5 rounded-md border bg-background p-3 text-xs">
+                <p className="font-medium">Resumo dos lotes</p>
+                <p className="flex justify-between gap-2"><span>{form.watch("firstTicketName") || "Primeiro lote"}</span><span>{Number(form.watch("firstTicketPrice") || 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}</span></p>
+                {additionalLots.map((lot, index) => <p key={`${lot.name}-${index}`} className="flex justify-between gap-2 text-muted-foreground"><span>{lot.name || `Lote ${index + 2}`}</span><span>{lot.priceMode === "PERCENTAGE" ? `${lot.priceAdjustmentPercent || 0}% sobre anterior` : Number(lot.price || 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}</span></p>)}
+              </div>
+              <Summary icon={<CalendarClock className="h-4 w-4" />} label="Programação" value={formatScheduleValue(form.watch("startsAt"))} />
               <div className="flex gap-2 pt-3">
                 {step > 0 && (
                   <Button type="button" variant="outline" className="flex-1" onClick={() => setStep((current) => Math.max(current - 1, 0) as Step)}>
@@ -397,25 +465,6 @@ export default function NewEventPage() {
           </Card>
         </div>
       </form>
-    </div>
-  );
-}
-
-function Field({ label, error, children }: { label: string; error?: string; children: React.ReactNode }) {
-  return (
-    <div className="space-y-2">
-      <Label>{label}</Label>
-      {children}
-      {error && <p className="text-sm text-destructive">{error}</p>}
-    </div>
-  );
-}
-
-function Summary({ icon, label, value }: { icon: React.ReactNode; label: string; value: string }) {
-  return (
-    <div className="flex items-center justify-between gap-3 rounded-md bg-muted px-3 py-2">
-      <span className="flex items-center gap-2 text-muted-foreground">{icon}{label}</span>
-      <span className="max-w-40 truncate font-medium">{value}</span>
     </div>
   );
 }

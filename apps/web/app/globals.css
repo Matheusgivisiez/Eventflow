@@ -64,6 +64,26 @@ body {
   font-family: var(--font-poppins), system-ui, sans-serif;
 }
 
+@media (max-width: 639px) {
+  .new-event-form input,
+  .new-event-form select,
+  .new-event-form textarea,
+  .new-event-form button {
+    min-height: 44px;
+    font-size: 16px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
 .dark body {
   background: hsl(var(--background));
 }

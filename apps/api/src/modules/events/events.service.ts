@@ -45,7 +45,7 @@ export class EventsService {
 
   async create(tenantId: string, ownerId: string, dto: CreateEventDto) {
     this.validateCreation(dto);
-    const { firstTicket, ...eventDto } = dto;
+    const { firstTicket, additionalTicketTypes, ...eventDto } = dto;
     const startsAt = new Date(dto.startsAt);
     const event = await this.prisma.$transaction(async (tx) => {
       const createdEvent = await tx.event.create({
@@ -71,19 +71,32 @@ export class EventsService {
         }
       });
 
-      if (firstTicket) {
+      const ticketTypes = [firstTicket, ...(additionalTicketTypes ?? [])].filter(Boolean);
+      let previousPriceCents: number | undefined;
+      for (const ticket of ticketTypes) {
+        const priceMode = ticket!.priceMode ?? "FIXED";
+        if (priceMode === "PERCENTAGE" && previousPriceCents === undefined) {
+          throw new BadRequestException("O primeiro lote precisa usar um preço fixo.");
+        }
+        const priceCents = priceMode === "PERCENTAGE" && previousPriceCents !== undefined && ticket!.priceAdjustmentPercent !== undefined
+          ? Math.round(previousPriceCents * (1 + ticket!.priceAdjustmentPercent / 100))
+          : ticket!.priceCents;
         await tx.ticketType.create({
           data: {
             eventId: createdEvent.id,
-            name: firstTicket.name,
-            quantity: firstTicket.quantity,
-            priceCents: firstTicket.priceCents,
-            limitPerBuy: firstTicket.limitPerBuy ?? 5,
-            startsAt: new Date(),
-            endsAt: startsAt,
+            name: ticket!.name,
+            quantity: ticket!.quantity,
+            priceCents,
+            priceMode,
+            priceAdjustmentPercent: ticket!.priceAdjustmentPercent,
+            limitPerBuy: ticket!.limitPerBuy ?? 5,
+            startsAt: ticket!.startsAt ? new Date(ticket!.startsAt) : new Date(),
+            endsAt: ticket!.endsAt ? new Date(ticket!.endsAt) : startsAt,
+            salesEndQuantity: ticket!.salesEndQuantity,
             isActive: true
           }
         });
+        previousPriceCents = priceCents;
       }
 
       return createdEvent;
@@ -200,11 +213,34 @@ export class EventsService {
     if (dto.format === EventFormat.ONLINE && !dto.onlineUrl?.trim()) {
       throw new BadRequestException("Eventos online precisam do link de transmissao.");
     }
-    if (dto.status === EventStatus.PUBLISHED && !dto.firstTicket) {
+    if (dto.status === EventStatus.PUBLISHED && !dto.firstTicket && !dto.additionalTicketTypes?.length) {
       throw new BadRequestException("Publique o evento somente com ao menos um lote de ingressos.");
     }
     if (dto.firstTicket && dto.firstTicket.quantity < 1) {
       throw new BadRequestException("O primeiro lote precisa ter quantidade maior que zero.");
+    }
+    if (dto.firstTicket?.salesEndQuantity && dto.firstTicket.salesEndQuantity > dto.firstTicket.quantity) {
+      throw new BadRequestException("A quantidade de encerramento do lote não pode superar o estoque.");
+    }
+    if (dto.firstTicket?.startsAt && dto.firstTicket?.endsAt && new Date(dto.firstTicket.endsAt) <= new Date(dto.firstTicket.startsAt)) {
+      throw new BadRequestException("O fim das vendas do lote deve ser posterior ao início.");
+    }
+    if (dto.firstTicket?.endsAt && new Date(dto.firstTicket.endsAt) > startsAt) {
+      throw new BadRequestException("O lote deve terminar até o início do evento.");
+    }
+    for (const lot of dto.additionalTicketTypes ?? []) {
+      if (lot.priceMode === "PERCENTAGE" && lot.priceAdjustmentPercent === undefined) {
+        throw new BadRequestException("Informe o percentual do lote.");
+      }
+      if (lot.salesEndQuantity && lot.salesEndQuantity > lot.quantity) {
+        throw new BadRequestException("A quantidade de encerramento do lote não pode superar o estoque.");
+      }
+      if (lot.endsAt && new Date(lot.endsAt) > startsAt) {
+        throw new BadRequestException("Os lotes devem terminar até o início do evento.");
+      }
+      if (lot.startsAt && lot.endsAt && new Date(lot.endsAt) <= new Date(lot.startsAt)) {
+        throw new BadRequestException("O fim das vendas do lote deve ser posterior ao início.");
+      }
     }
   }
 

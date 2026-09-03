@@ -336,8 +336,11 @@ model TicketType {
   quantity    Int
   sold        Int         @default(0)
   priceCents  Int
+  priceMode   String   @default("FIXED")
+  priceAdjustmentPercent Float?
   startsAt    DateTime
   endsAt      DateTime
+  salesEndQuantity Int?
   limitPerBuy Int         @default(5)
   isActive    Boolean     @default(true)
   createdAt   DateTime    @default(now())

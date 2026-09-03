@@ -23,6 +23,11 @@ export class CreateTicketTypeDto {
   @IsDateString()
   endsAt!: string;
 
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  salesEndQuantity?: number;
+
   @IsInt()
   @Min(1)
   limitPerBuy!: number;

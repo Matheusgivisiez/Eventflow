@@ -6,6 +6,7 @@ import { PrismaService } from "../../../prisma/prisma.service";
 import { RequestUser } from "../../../common/types/request-user";
 import { BusinessMetricsService } from "../../observability/business-metrics.service";
 import type { CreateCheckoutDto } from "../dto/create-checkout.dto";
+import { hasReachedSalesEnd } from "../sales-limit";
 
 const PLATFORM_FEE_RATE = 0.08;
 
@@ -287,6 +288,9 @@ export class CreateCheckoutUseCase {
       }
       if (now < ticketType.startsAt || now > ticketType.endsAt) {
         throw new BadRequestException(`As vendas do lote ${ticketType.name} nao estao abertas.`);
+      }
+      if (hasReachedSalesEnd(ticketType.sold, ticketType.salesEndQuantity)) {
+        throw new BadRequestException(`O lote ${ticketType.name} atingiu o limite de vendas.`);
       }
       if (ticketType.quantity - ticketType.sold < item.quantity) {
         throw new BadRequestException(`Nao ha ingressos suficientes para ${ticketType.name}.`);
