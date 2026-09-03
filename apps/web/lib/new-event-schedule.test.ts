@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { formatScheduleValue, joinScheduleValue, splitScheduleValue } from "./new-event-schedule";
+import { compareScheduleValues, formatScheduleValue, getTodayDateValue, joinScheduleValue, splitScheduleValue } from "./new-event-schedule";
 
 describe("new event schedule helpers", () => {
   it("separa data e horário para edição independente", () => {
@@ -17,5 +17,15 @@ describe("new event schedule helpers", () => {
     assert.equal(formatScheduleValue(), "Não informado");
     assert.equal(formatScheduleValue("invalid"), "Não informado");
     assert.match(formatScheduleValue("2026-10-24T19:30"), /24 de outubro de 2026/);
+  });
+
+  it("compara início e término para bloquear horários inválidos", () => {
+    assert.ok(compareScheduleValues("2026-09-16T13:00", "2026-09-16T13:05") < 0);
+    assert.ok(compareScheduleValues("2026-09-16T13:00", "2026-09-16T12:59") > 0);
+    assert.equal(compareScheduleValues("2026-09-16T13:00", "invalid"), 0);
+  });
+
+  it("gera a data mínima no formato aceito pelo calendário", () => {
+    assert.equal(getTodayDateValue(new Date(2026, 8, 3)), "2026-09-03");
   });
 });

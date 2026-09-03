@@ -3,6 +3,21 @@ export type ScheduleValue = {
   time: string;
 };
 
+export function getTodayDateValue(now = new Date()): string {
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, "0");
+  const day = String(now.getDate()).padStart(2, "0");
+  return year + "-" + month + "-" + day;
+}
+
+export function compareScheduleValues(left?: string | null, right?: string | null): number {
+  if (!left || !right) return 0;
+  const leftTime = new Date(left).getTime();
+  const rightTime = new Date(right).getTime();
+  if (Number.isNaN(leftTime) || Number.isNaN(rightTime)) return 0;
+  return leftTime - rightTime;
+}
+
 export function splitScheduleValue(value?: string | null): ScheduleValue {
   if (!value) return { date: "", time: "" };
   const [date = "", time = ""] = value.split("T");
@@ -24,4 +39,3 @@ export function formatScheduleValue(value?: string | null): string {
     timeStyle: "short"
   }).format(date);
 }
-
