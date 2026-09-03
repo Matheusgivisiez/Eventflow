@@ -4,7 +4,8 @@ import { PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
 import { randomBytes } from "crypto";
 import * as fs from "fs/promises";
 import { extname, join } from "path";
-import sharp from "sharp";
+import sharp = require("sharp");
+import type { Sharp } from "sharp";
 
 const ALLOWED_EXTENSIONS = new Set([".jpg", ".jpeg", ".png", ".gif", ".webp"]);
 const ALLOWED_MIME_TYPES = new Set(["image/jpeg", "image/png", "image/gif", "image/webp"]);
@@ -100,7 +101,8 @@ export class UploadStorageService {
   }
 
   private optimize(buffer: Buffer) {
-    return sharp(buffer)
+    const sharpFactory = sharp as unknown as (input: Buffer) => Sharp;
+    return sharpFactory(buffer)
       .rotate()
       .resize({ width: 1920, height: 1080, fit: "inside", withoutEnlargement: true })
       .webp({ quality: 82 })

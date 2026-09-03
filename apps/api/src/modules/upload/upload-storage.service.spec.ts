@@ -3,15 +3,12 @@ import { PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
 import * as fs from "fs/promises";
 import { UploadStorageService } from "./upload-storage.service";
 
-jest.mock("sharp", () => ({
-  __esModule: true,
-  default: jest.fn(() => ({
+jest.mock("sharp", () => jest.fn(() => ({
     rotate: jest.fn().mockReturnThis(),
     resize: jest.fn().mockReturnThis(),
     webp: jest.fn().mockReturnThis(),
     toBuffer: jest.fn().mockResolvedValue(Buffer.from("optimized-webp"))
-  }))
-}));
+  })));
 
 jest.mock("@aws-sdk/client-s3", () => ({
   PutObjectCommand: jest.fn((input) => ({ input })),
