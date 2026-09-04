@@ -27,4 +27,11 @@ export class CheckoutController {
   getOrderStatus(@Param("orderId") orderId: string, @Query("accessToken") accessToken?: string) {
     return this.checkout.getOrderStatus(orderId, accessToken);
   }
+
+  @Post("order/:orderId/confirm-simulation")
+  @Throttle({ default: { limit: 10, ttl: 60000 } })
+  @ApiOperation({ summary: "Confirmar pagamento simulado no sandbox" })
+  confirmSimulation(@Param("orderId") orderId: string, @Query("accessToken") accessToken?: string) {
+    return this.checkout.confirmSimulation(orderId, accessToken);
+  }
 }

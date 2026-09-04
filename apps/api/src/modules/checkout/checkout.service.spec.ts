@@ -55,9 +55,10 @@ function createService() {
     $transaction: jest.fn((callback) => callback(prisma))
   };
   const createCheckout = { execute: jest.fn() };
-  const payments = { createProviderPreference: jest.fn() };
-  const service = new CheckoutService(prisma as any, createCheckout as any, payments as any);
-  return { service, prisma, createCheckout, payments };
+  const payments = { createProviderPreference: jest.fn(), updateStatus: jest.fn() };
+  const config = { get: jest.fn((key: string) => key === "NODE_ENV" ? "development" : "sandbox") };
+  const service = new CheckoutService(prisma as any, createCheckout as any, payments as any, config as any);
+  return { service, prisma, createCheckout, payments, config };
 }
 
 describe("CheckoutService", () => {
@@ -127,6 +128,22 @@ describe("CheckoutService", () => {
     expect(prisma.payment.update).toHaveBeenCalledWith({
       where: { orderId: "order-1" },
       data: { status: PaymentStatus.CANCELED, canceledAt: expect.any(Date) }
+    });
+  });
+
+  it("confirms a sandbox return and delegates fulfillment to PaymentsService", async () => {
+    const { service, prisma, payments } = createService();
+    prisma.order.findUnique.mockResolvedValue(createOrder({
+      status: PaymentStatus.PENDING,
+      payment: { id: "payment-1", method: PaymentMethod.PIX },
+      event: { id: "event-1", tenantId: "tenant-1", title: "Event Flow Conf" },
+    }));
+    payments.updateStatus.mockResolvedValue({ status: PaymentStatus.PAID });
+
+    await expect(service.confirmSimulation("order-1", "public-token")).resolves.toEqual({ status: PaymentStatus.PAID });
+    expect(payments.updateStatus).toHaveBeenCalledWith("payment-1", "tenant-1", {
+      status: PaymentStatus.PAID,
+      providerRef: "sandbox:order-1",
     });
   });
 });

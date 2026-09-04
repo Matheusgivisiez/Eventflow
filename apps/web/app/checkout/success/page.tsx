@@ -62,6 +62,8 @@ function SuccessContent() {
   const orderId = searchParams.get("orderId") ?? storedCheckout?.orderId;
   const accessToken =
     searchParams.get("accessToken") ?? storedCheckout?.accessToken;
+  const isSimulatedPayment = searchParams.get("status") === "paid";
+  const [simulationRequested, setSimulationRequested] = useState(false);
   const [redirectCountdown, setRedirectCountdown] = useState<number | null>(
     null,
   );
@@ -105,6 +107,20 @@ function SuccessContent() {
     refetchInterval: (query) =>
       query.state.data?.status === "PENDING" ? 4000 : false,
   });
+
+  useEffect(() => {
+    if (!isSimulatedPayment || simulationRequested || !orderId || !accessToken || order?.status !== "PENDING") {
+      return;
+    }
+
+    setSimulationRequested(true);
+    void api(
+      `/checkout/order/${orderId}/confirm-simulation?accessToken=${encodeURIComponent(accessToken)}`,
+      { method: "POST", auth: false },
+    )
+      .then(() => queryClient.invalidateQueries({ queryKey: ["public-order", orderId, accessToken] }))
+      .catch(() => setSimulationRequested(false));
+  }, [accessToken, isSimulatedPayment, order?.status, orderId, queryClient, simulationRequested]);
 
   const isPaid = order?.status === "PAID";
   const isPending = order?.status === "PENDING";

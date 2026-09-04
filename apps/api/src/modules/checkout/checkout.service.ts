@@ -1,4 +1,5 @@
-import { Injectable, NotFoundException, UnauthorizedException } from "@nestjs/common";
+import { ForbiddenException, Injectable, NotFoundException, UnauthorizedException } from "@nestjs/common";
+import { ConfigService } from "@nestjs/config";
 import { PaymentStatus } from "@prisma/client";
 import { RequestUser } from "../../common/types/request-user";
 import { getQrCodeReleaseTime, isQrCodeLocked } from "../../common/utils/qr-code.utils";
@@ -12,7 +13,8 @@ export class CheckoutService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly createCheckout: CreateCheckoutUseCase,
-    private readonly payments: PaymentsService
+    private readonly payments: PaymentsService,
+    private readonly config: ConfigService
   ) {}
 
   async create(slug: string, dto: CreateCheckoutDto, user?: RequestUser) {
@@ -81,6 +83,37 @@ export class CheckoutService {
       qrCodeLocked: locked,
       qrCodeReleaseAt: releaseTime?.toISOString() ?? null
     };
+  }
+
+  async confirmSimulation(orderId: string, accessToken?: string) {
+    const nodeEnv = this.config.get<string>("NODE_ENV") ?? "development";
+    const paymentEnvironment = this.config.get<string>("ABACATE_ENVIRONMENT") ?? "sandbox";
+    if (nodeEnv === "production" || paymentEnvironment === "production") {
+      throw new ForbiddenException("A confirmação simulada está disponível somente no sandbox.");
+    }
+
+    const order = await this.prisma.order.findUnique({
+      where: { id: orderId },
+      include: { event: true, payment: true },
+    });
+    if (!order || !order.orderAccessToken || order.orderAccessToken !== accessToken) {
+      throw new UnauthorizedException("Token de acesso do pedido inválido.");
+    }
+    if (!order.payment) {
+      throw new NotFoundException("Pagamento do pedido não encontrado.");
+    }
+    if (order.status === PaymentStatus.PAID) {
+      return { status: PaymentStatus.PAID };
+    }
+    if (order.status !== PaymentStatus.PENDING) {
+      throw new ForbiddenException("Este pedido não pode ser confirmado.");
+    }
+
+    await this.payments.updateStatus(order.payment.id, order.event.tenantId, {
+      status: PaymentStatus.PAID,
+      providerRef: `sandbox:${order.id}`,
+    });
+    return { status: PaymentStatus.PAID };
   }
 
   private async cancelOrderAfterProviderFailure(orderId: string) {
