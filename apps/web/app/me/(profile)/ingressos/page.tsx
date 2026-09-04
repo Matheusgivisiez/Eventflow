@@ -23,6 +23,7 @@ import {
   ArrowUpRight,
   CircleAlert,
   RotateCw,
+  ChevronDown,
 } from "lucide-react";
 import { api } from "@/lib/api";
 import { getApiUrl } from "@/lib/api-url";
@@ -164,45 +165,27 @@ function CountdownTimer({
   const pad = (n: number) => String(n).padStart(2, "0");
 
   return (
-    <div className="rounded-2xl border border-amber-300/20 bg-amber-300/[0.07] p-4">
-      <div className="mb-3 flex items-center justify-center gap-2">
-        <div className="flex h-8 w-8 items-center justify-center rounded-full bg-amber-300/10">
-          <Lock className="h-4 w-4 text-amber-200" />
-        </div>
-        <span className="text-sm font-semibold text-amber-100">
+    <div className="flex min-h-12 items-center gap-2.5 rounded-xl border border-amber-300/20 bg-amber-300/[0.07] px-3 py-2">
+      <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-amber-300/10">
+        <Lock className="h-3.5 w-3.5 text-amber-200" />
+      </span>
+      <div className="min-w-0">
+        <p className="truncate text-[11px] font-semibold text-amber-100 sm:text-xs">
           QR Code disponível em breve
-        </span>
+        </p>
+        <p className="truncate text-[9px] text-amber-100/50 sm:text-[10px]">
+          Liberação em{" "}
+          {new Date(releaseAt).toLocaleString("pt-BR", {
+            day: "2-digit",
+            month: "2-digit",
+            hour: "2-digit",
+            minute: "2-digit",
+          })}
+        </p>
       </div>
-      <div className="flex items-center justify-center gap-1.5">
-        {[
-          { value: pad(remaining.h), label: "h" },
-          { value: pad(remaining.m), label: "m" },
-          { value: pad(remaining.s), label: "s" },
-        ].map((unit, i) => (
-          <div key={unit.label} className="flex items-center gap-1.5">
-            {i > 0 && (
-              <span className="text-lg font-bold text-amber-200/40">:</span>
-            )}
-            <div className="flex flex-col items-center">
-              <span className="min-w-[48px] rounded-lg border border-white/10 bg-white/[0.07] px-3 py-1.5 text-center font-mono text-xl font-bold tabular-nums text-amber-100">
-                {unit.value}
-              </span>
-              <span className="mt-0.5 text-[10px] uppercase tracking-wider text-amber-200/60">
-                {unit.label}
-              </span>
-            </div>
-          </div>
-        ))}
-      </div>
-      <p className="mt-3 text-center text-xs text-amber-100/60">
-        Será liberado em{" "}
-        {new Date(releaseAt).toLocaleString("pt-BR", {
-          day: "2-digit",
-          month: "2-digit",
-          hour: "2-digit",
-          minute: "2-digit",
-        })}
-      </p>
+      <span className="ml-auto shrink-0 font-mono text-xs font-bold tabular-nums text-amber-100 sm:text-sm">
+        {remaining.h}h {pad(remaining.m)}m {pad(remaining.s)}s
+      </span>
     </div>
   );
 }
@@ -264,7 +247,7 @@ type EventTicketCardProps = {
   ticket: MyTicket;
   expanded: boolean;
   refundPending: boolean;
-  onToggleQr: () => void;
+  onToggleDetails: () => void;
   onQrRelease: () => void;
   onDownload: () => void;
   onWallet: (provider: "google" | "apple") => void;
@@ -276,7 +259,7 @@ function EventTicketCard({
   ticket,
   expanded,
   refundPending,
-  onToggleQr,
+  onToggleDetails,
   onQrRelease,
   onDownload,
   onWallet,
@@ -292,23 +275,30 @@ function EventTicketCard({
   const transferLocked = isTransferLocked(ticket);
   const transferReason = getTransferLockReason(ticket);
   const bannerUrl = publicAssetUrl(ticket.event.bannerUrl);
-  const qrPanelId = `ticket-qr-${ticket.id}`;
+  const detailsPanelId = `ticket-details-${ticket.id}`;
 
   return (
     <article className="group animate-slide-up">
       <div className="relative isolate overflow-hidden rounded-[28px] border border-white/[0.08] bg-[#191725] text-[#f7f5ff] shadow-[0_22px_55px_rgba(15,10,35,0.18)] dark:shadow-[0_22px_60px_rgba(0,0,0,0.38)]">
-        <div className="relative grid min-h-[190px] grid-cols-[92px_minmax(0,1fr)_58px] sm:min-h-[210px] sm:grid-cols-[180px_minmax(0,1fr)_104px]">
-          <Link
-            href={`/eventos/${ticket.event.slug}`}
-            aria-label={`Abrir evento ${ticket.event.title}`}
-            className="relative overflow-hidden bg-[#28223d]"
-          >
+        <button
+          type="button"
+          aria-controls={detailsPanelId}
+          aria-expanded={expanded}
+          aria-label={`${expanded ? "Recolher" : "Abrir"} ingresso de ${ticket.event.title}`}
+          onClick={onToggleDetails}
+          className={`relative grid w-full grid-cols-[82px_minmax(0,1fr)_52px] overflow-hidden text-left transition-[min-height,background-color] duration-300 hover:bg-white/[0.025] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-violet-400 sm:grid-cols-[160px_minmax(0,1fr)_82px] ${
+            expanded
+              ? "min-h-[172px] sm:min-h-[194px]"
+              : "min-h-[104px] sm:min-h-[120px]"
+          }`}
+        >
+          <span className="relative overflow-hidden bg-[#28223d]">
             {bannerUrl ? (
               <Image
                 src={bannerUrl}
                 alt={`Capa do evento ${ticket.event.title}`}
                 fill
-                sizes="(min-width: 640px) 180px, 92px"
+                sizes="(min-width: 640px) 160px, 82px"
                 className="object-cover transition-transform duration-500 group-hover:scale-[1.03]"
               />
             ) : (
@@ -320,67 +310,60 @@ function EventTicketCard({
             <span className="absolute bottom-3 left-1/2 -translate-x-1/2 rounded-full border border-white/15 bg-black/35 px-2 py-1 text-[9px] font-semibold uppercase tracking-[0.16em] text-white/80 backdrop-blur-sm sm:bottom-4 sm:px-3 sm:text-[10px]">
               Event Flow
             </span>
-          </Link>
+          </span>
 
-          <div className="min-w-0 px-3 py-4 sm:px-6 sm:py-5">
-            <div className="flex flex-wrap items-center gap-1.5 text-[9px] font-semibold uppercase tracking-[0.13em] text-violet-200/80 sm:text-xs sm:tracking-[0.16em]">
-              <span>{schedule.weekday}</span>
-              <span className="text-white/25">•</span>
-              <span>{schedule.dayAndMonth}</span>
-              <span className="text-white/25">•</span>
-              <span>{schedule.time}</span>
-            </div>
+          <span
+            className={`min-w-0 px-3 py-3.5 sm:px-5 sm:py-5 ${expanded ? "" : "flex items-center"}`}
+          >
+            {expanded && (
+              <span className="flex flex-wrap items-center gap-1.5 text-[9px] font-semibold uppercase tracking-[0.13em] text-violet-200/80 sm:text-xs sm:tracking-[0.16em]">
+                <span>{schedule.weekday}</span>
+                <span className="text-white/25">•</span>
+                <span>{schedule.dayAndMonth}</span>
+                <span className="text-white/25">•</span>
+                <span>{schedule.time}</span>
+              </span>
+            )}
 
-            <h3 className="mt-2 line-clamp-3 text-sm font-bold leading-[1.22] tracking-[-0.02em] text-white sm:mt-3 sm:line-clamp-2 sm:text-xl">
-              <Link
-                href={`/eventos/${ticket.event.slug}`}
-                className="transition-colors hover:text-violet-200"
-              >
-                {ticket.event.title}
-              </Link>
+            <h3
+              className={`line-clamp-2 text-sm font-bold leading-[1.22] tracking-[-0.02em] text-white sm:text-xl ${expanded ? "mt-2 sm:mt-3" : ""}`}
+            >
+              {ticket.event.title}
             </h3>
 
-            <p className="mt-2 flex min-w-0 items-start gap-1.5 text-[10px] leading-relaxed text-white/55 sm:mt-3 sm:text-sm">
-              <MapPin className="mt-0.5 h-3 w-3 shrink-0 text-violet-300 sm:h-4 sm:w-4" />
-              <span className="line-clamp-2">{eventLocation(ticket)}</span>
-            </p>
+            {expanded && (
+              <span className="mt-2 flex min-w-0 items-start gap-1.5 text-[10px] leading-relaxed text-white/55 sm:mt-3 sm:text-sm">
+                <MapPin className="mt-0.5 h-3 w-3 shrink-0 text-violet-300 sm:h-4 sm:w-4" />
+                <span className="line-clamp-2">{eventLocation(ticket)}</span>
+              </span>
+            )}
 
-            <div className="mt-3 border-t border-white/10 pt-3 sm:mt-4 sm:flex sm:items-end sm:justify-between sm:gap-3">
-              <div className="min-w-0">
-                <p className="text-[8px] font-semibold uppercase tracking-[0.17em] text-white/35 sm:text-[10px]">
-                  Titular
-                </p>
-                <p className="mt-0.5 truncate text-[11px] font-semibold text-white/90 sm:text-sm">
-                  {ticket.attendeeName}
-                </p>
-              </div>
-              <div className="mt-2 flex flex-wrap items-center gap-1.5 sm:mt-0 sm:justify-end">
-                <span className="max-w-full truncate rounded-full border border-violet-300/15 bg-violet-300/10 px-2 py-1 text-[9px] font-semibold text-violet-100 sm:max-w-[150px] sm:px-2.5 sm:text-[10px]">
-                  {ticket.ticketType.name}
+            {expanded && (
+              <span className="mt-3 block border-t border-white/10 pt-3 sm:mt-4 sm:flex sm:items-end sm:justify-between sm:gap-3">
+                <span className="block min-w-0">
+                  <p className="text-[8px] font-semibold uppercase tracking-[0.17em] text-white/35 sm:text-[10px]">
+                    Titular
+                  </p>
+                  <p className="mt-0.5 truncate text-[11px] font-semibold text-white/90 sm:text-sm">
+                    {ticket.attendeeName}
+                  </p>
                 </span>
-                <span
-                  className={`inline-flex items-center gap-1 rounded-full border px-2 py-1 text-[9px] font-semibold sm:text-[10px] ${cfg.color}`}
-                >
-                  <StatusIcon className="h-2.5 w-2.5" />
-                  {cfg.label}
+                <span className="mt-2 flex flex-wrap items-center gap-1.5 sm:mt-0 sm:justify-end">
+                  <span className="max-w-full truncate rounded-full border border-violet-300/15 bg-violet-300/10 px-2 py-1 text-[9px] font-semibold text-violet-100 sm:max-w-[150px] sm:px-2.5 sm:text-[10px]">
+                    {ticket.ticketType.name}
+                  </span>
+                  <span
+                    className={`inline-flex items-center gap-1 rounded-full border px-2 py-1 text-[9px] font-semibold sm:text-[10px] ${cfg.color}`}
+                  >
+                    <StatusIcon className="h-2.5 w-2.5" />
+                    {cfg.label}
+                  </span>
                 </span>
-              </div>
-            </div>
-          </div>
+              </span>
+            )}
+          </span>
 
-          <button
-            type="button"
-            aria-controls={canOpenQr ? qrPanelId : undefined}
-            aria-expanded={canOpenQr ? expanded : undefined}
-            aria-label={
-              canOpenQr
-                ? `${expanded ? "Ocultar" : "Mostrar"} QR Code de entrada`
-                : "QR Code indisponível"
-            }
-            disabled={!canOpenQr}
-            onClick={onToggleQr}
-            className="relative flex min-h-11 flex-col items-center justify-center gap-2 border-l border-dashed border-white/20 bg-[#211e31] px-1 text-center transition-colors hover:bg-[#2a2540] disabled:cursor-default disabled:opacity-75 sm:gap-3 sm:px-3"
-          >
+          <span className="relative flex flex-col items-center justify-center gap-2 border-l border-dashed border-white/20 bg-[#211e31] px-1 text-center sm:gap-3 sm:px-3">
             <span className="flex h-9 w-9 items-center justify-center rounded-xl border border-violet-300/20 bg-violet-300/10 text-violet-200 sm:h-12 sm:w-12 sm:rounded-2xl">
               {qrLocked ? (
                 <Lock className="h-4 w-4 sm:h-5 sm:w-5" />
@@ -389,135 +372,137 @@ function EventTicketCard({
               )}
             </span>
             <span className="text-[8px] font-bold uppercase leading-tight tracking-[0.12em] text-white/55 sm:text-[10px]">
-              {canOpenQr
-                ? expanded
-                  ? "Fechar"
-                  : "Entrada"
-                : qrLocked
-                  ? "Em breve"
-                  : "Indisponível"}
+              {qrLocked ? "Em breve" : canOpenQr ? "Entrada" : "Indisponível"}
             </span>
-          </button>
+            <ChevronDown
+              className={`h-3.5 w-3.5 text-white/45 transition-transform duration-300 ${expanded ? "rotate-180" : ""}`}
+            />
+          </span>
 
-          <span className="pointer-events-none absolute -left-3 top-1/2 z-20 h-6 w-6 -translate-y-1/2 rounded-full bg-[#F8F8F8] dark:bg-background" />
-          <span className="pointer-events-none absolute -right-3 top-1/2 z-20 h-6 w-6 -translate-y-1/2 rounded-full bg-[#F8F8F8] dark:bg-background" />
-        </div>
+          <span className="pointer-events-none absolute -left-3 top-1/3 z-20 h-6 w-6 -translate-y-1/2 rounded-full bg-[#F8F8F8] dark:bg-background" />
+          <span className="pointer-events-none absolute -left-3 top-2/3 z-20 h-6 w-6 -translate-y-1/2 rounded-full bg-[#F8F8F8] dark:bg-background" />
+          <span className="pointer-events-none absolute -right-3 top-1/3 z-20 h-6 w-6 -translate-y-1/2 rounded-full bg-[#F8F8F8] dark:bg-background" />
+          <span className="pointer-events-none absolute -right-3 top-2/3 z-20 h-6 w-6 -translate-y-1/2 rounded-full bg-[#F8F8F8] dark:bg-background" />
+        </button>
 
-        {ticket.status === "AVAILABLE" &&
-          qrLocked &&
-          ticket.qrCodeReleaseAt && (
-            <div className="border-t border-dashed border-white/15 bg-[#14121f] p-3 sm:p-5">
-              <CountdownTimer
-                releaseAt={ticket.qrCodeReleaseAt}
-                onExpire={onQrRelease}
-              />
-            </div>
-          )}
+        {expanded && (
+          <div id={detailsPanelId} className="animate-slide-up">
+            {ticket.status === "AVAILABLE" &&
+              qrLocked &&
+              ticket.qrCodeReleaseAt && (
+                <div className="border-t border-dashed border-white/15 bg-[#14121f] p-3 sm:p-4">
+                  <CountdownTimer
+                    releaseAt={ticket.qrCodeReleaseAt}
+                    onExpire={onQrRelease}
+                  />
+                </div>
+              )}
 
-        {canOpenQr && expanded && (
-          <div
-            id={qrPanelId}
-            className="border-t border-dashed border-white/15 bg-[#111019] px-4 py-6 sm:px-6"
-          >
-            <div className="mx-auto flex max-w-sm flex-col items-center text-center">
-              <div className="rounded-[22px] bg-white p-3 shadow-[0_14px_35px_rgba(0,0,0,0.32)]">
-                <Image
-                  src={ticket.qrCodeDataUrl!}
-                  alt={`QR Code do ingresso para ${ticket.event.title}`}
-                  width={208}
-                  height={208}
-                  unoptimized
-                  className="h-44 w-44 rounded-xl sm:h-52 sm:w-52"
-                />
+            {canOpenQr && (
+              <div className="border-t border-dashed border-white/15 bg-[#111019] px-4 py-6 sm:px-6">
+                <div className="mx-auto flex max-w-sm flex-col items-center text-center">
+                  <div className="rounded-[22px] bg-white p-3 shadow-[0_14px_35px_rgba(0,0,0,0.32)]">
+                    <Image
+                      src={ticket.qrCodeDataUrl!}
+                      alt={`QR Code do ingresso para ${ticket.event.title}`}
+                      width={208}
+                      height={208}
+                      unoptimized
+                      className="h-44 w-44 rounded-xl sm:h-52 sm:w-52"
+                    />
+                  </div>
+                  <p className="mt-4 font-mono text-sm font-semibold tracking-[0.18em] text-violet-200">
+                    {ticket.uuid?.slice(0, 8).toUpperCase() ?? "---"}
+                  </p>
+                  <p className="mt-2 text-xs leading-relaxed text-white/50">
+                    Apresente este código na entrada. Evite compartilhar a tela
+                    com outras pessoas.
+                  </p>
+                </div>
               </div>
-              <p className="mt-4 font-mono text-sm font-semibold tracking-[0.18em] text-violet-200">
-                {ticket.uuid?.slice(0, 8).toUpperCase() ?? "---"}
-              </p>
-              <p className="mt-2 text-xs leading-relaxed text-white/50">
-                Apresente este código na entrada. Evite compartilhar a tela com
-                outras pessoas.
-              </p>
+            )}
+
+            <div className="border-t border-dashed border-white/15 bg-[#14121f] p-3 sm:p-4">
+              <div className="grid grid-cols-2 gap-2 sm:grid-cols-[1fr_1fr_44px_44px]">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="min-h-11 gap-1.5 rounded-xl border-white/10 bg-white/[0.05] text-xs text-white hover:bg-white/10 hover:text-white"
+                  disabled={ticket.status === "CANCELED" || qrLocked}
+                  onClick={onDownload}
+                  title={
+                    qrLocked
+                      ? "QR Code bloqueado — aguarde a liberação"
+                      : undefined
+                  }
+                >
+                  <Download className="h-3.5 w-3.5" />
+                  Baixar ingresso
+                </Button>
+
+                {ticket.status === "AVAILABLE" ? (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="min-h-11 gap-1.5 rounded-xl border-white/10 bg-white/[0.05] text-xs text-white hover:bg-white/10 hover:text-white"
+                    disabled={transferLocked}
+                    onClick={onTransfer}
+                    title={transferReason ?? undefined}
+                  >
+                    {transferLocked ? (
+                      <Lock className="h-3.5 w-3.5" />
+                    ) : (
+                      <Send className="h-3.5 w-3.5" />
+                    )}
+                    Transferir
+                  </Button>
+                ) : (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="min-h-11 rounded-xl border-white/10 bg-white/[0.03] text-xs text-white/35"
+                    disabled
+                  >
+                    Transferência indisponível
+                  </Button>
+                )}
+
+                <Button
+                  size="icon"
+                  variant="outline"
+                  aria-label="Adicionar ao Google Wallet"
+                  className="min-h-11 w-full rounded-xl border-white/10 bg-white/[0.05] text-white hover:bg-white/10 hover:text-white sm:w-11"
+                  disabled={ticket.status !== "AVAILABLE" || qrLocked}
+                  onClick={() => onWallet("google")}
+                >
+                  <WalletCards className="h-4 w-4" />
+                </Button>
+                <Button
+                  size="icon"
+                  variant="outline"
+                  aria-label="Adicionar à Apple Wallet"
+                  className="min-h-11 w-full rounded-xl border-white/10 bg-white/[0.05] text-white hover:bg-white/10 hover:text-white sm:w-11"
+                  disabled={ticket.status !== "AVAILABLE" || qrLocked}
+                  onClick={() => onWallet("apple")}
+                >
+                  <Smartphone className="h-4 w-4" />
+                </Button>
+              </div>
+
+              {ticket.status === "AVAILABLE" && (
+                <button
+                  type="button"
+                  className="mt-3 flex min-h-11 w-full items-center justify-center gap-1.5 rounded-xl text-xs text-white/40 transition-colors hover:bg-rose-300/[0.06] hover:text-rose-200 disabled:opacity-50"
+                  disabled={refundPending}
+                  onClick={onRefund}
+                >
+                  <RefreshCcw className="h-3.5 w-3.5" />
+                  Solicitar reembolso
+                </button>
+              )}
             </div>
           </div>
         )}
-
-        <div className="border-t border-dashed border-white/15 bg-[#14121f] p-3 sm:p-4">
-          <div className="grid grid-cols-2 gap-2 sm:grid-cols-[1fr_1fr_44px_44px]">
-            <Button
-              size="sm"
-              variant="outline"
-              className="min-h-11 gap-1.5 rounded-xl border-white/10 bg-white/[0.05] text-xs text-white hover:bg-white/10 hover:text-white"
-              disabled={ticket.status === "CANCELED" || qrLocked}
-              onClick={onDownload}
-              title={
-                qrLocked ? "QR Code bloqueado — aguarde a liberação" : undefined
-              }
-            >
-              <Download className="h-3.5 w-3.5" />
-              Baixar ingresso
-            </Button>
-
-            {ticket.status === "AVAILABLE" ? (
-              <Button
-                size="sm"
-                variant="outline"
-                className="min-h-11 gap-1.5 rounded-xl border-white/10 bg-white/[0.05] text-xs text-white hover:bg-white/10 hover:text-white"
-                disabled={transferLocked}
-                onClick={onTransfer}
-                title={transferReason ?? undefined}
-              >
-                {transferLocked ? (
-                  <Lock className="h-3.5 w-3.5" />
-                ) : (
-                  <Send className="h-3.5 w-3.5" />
-                )}
-                Transferir
-              </Button>
-            ) : (
-              <Button
-                size="sm"
-                variant="outline"
-                className="min-h-11 rounded-xl border-white/10 bg-white/[0.03] text-xs text-white/35"
-                disabled
-              >
-                Transferência indisponível
-              </Button>
-            )}
-
-            <Button
-              size="icon"
-              variant="outline"
-              aria-label="Adicionar ao Google Wallet"
-              className="min-h-11 w-full rounded-xl border-white/10 bg-white/[0.05] text-white hover:bg-white/10 hover:text-white sm:w-11"
-              disabled={ticket.status !== "AVAILABLE" || qrLocked}
-              onClick={() => onWallet("google")}
-            >
-              <WalletCards className="h-4 w-4" />
-            </Button>
-            <Button
-              size="icon"
-              variant="outline"
-              aria-label="Adicionar à Apple Wallet"
-              className="min-h-11 w-full rounded-xl border-white/10 bg-white/[0.05] text-white hover:bg-white/10 hover:text-white sm:w-11"
-              disabled={ticket.status !== "AVAILABLE" || qrLocked}
-              onClick={() => onWallet("apple")}
-            >
-              <Smartphone className="h-4 w-4" />
-            </Button>
-          </div>
-
-          {ticket.status === "AVAILABLE" && (
-            <button
-              type="button"
-              className="mt-3 flex min-h-11 w-full items-center justify-center gap-1.5 rounded-xl text-xs text-white/40 transition-colors hover:bg-rose-300/[0.06] hover:text-rose-200 disabled:opacity-50"
-              disabled={refundPending}
-              onClick={onRefund}
-            >
-              <RefreshCcw className="h-3.5 w-3.5" />
-              Solicitar reembolso
-            </button>
-          )}
-        </div>
       </div>
     </article>
   );
@@ -654,17 +639,15 @@ export default function MyTicketsPage() {
                 key={i}
                 className="overflow-hidden rounded-[28px] border bg-[#191725]"
               >
-                <div className="grid min-h-[190px] grid-cols-[92px_minmax(0,1fr)_58px] sm:min-h-[210px] sm:grid-cols-[180px_minmax(0,1fr)_104px]">
+                <div className="grid min-h-[104px] grid-cols-[82px_minmax(0,1fr)_52px] sm:min-h-[120px] sm:grid-cols-[160px_minmax(0,1fr)_82px]">
                   <Skeleton className="h-full w-full rounded-none bg-white/10" />
-                  <div className="space-y-3 p-4 sm:p-6">
+                  <div className="space-y-3 p-3.5 sm:p-5">
                     <Skeleton className="h-3 w-2/3 bg-white/10" />
                     <Skeleton className="h-5 w-full bg-white/10" />
                     <Skeleton className="h-4 w-4/5 bg-white/10" />
-                    <Skeleton className="mt-7 h-8 w-full bg-white/10" />
                   </div>
                   <div className="border-l border-dashed border-white/15 bg-white/[0.03]" />
                 </div>
-                <Skeleton className="h-[72px] w-full rounded-none border-t border-dashed border-white/15 bg-white/[0.04]" />
               </div>
             ))}
           </div>
@@ -746,7 +729,7 @@ export default function MyTicketsPage() {
                   refundPending={
                     refund.isPending && refund.variables === ticket.id
                   }
-                  onToggleQr={() =>
+                  onToggleDetails={() =>
                     setExpandedTicket((current) =>
                       current === ticket.id ? null : ticket.id,
                     )
