@@ -1,5 +1,10 @@
 import { BadRequestException } from "@nestjs/common";
-import { EventFormat, EventStatus, PaymentMethod, PaymentStatus } from "@prisma/client";
+import {
+  EventFormat,
+  EventStatus,
+  PaymentMethod,
+  PaymentStatus,
+} from "@prisma/client";
 import { CreateCheckoutUseCase } from "./create-checkout.use-case";
 
 function createEvent(sold = 0) {
@@ -31,9 +36,9 @@ function createEvent(sold = 0) {
         startsAt: new Date(Date.now() - 1000 * 60 * 60),
         endsAt: new Date(Date.now() + 1000 * 60 * 60),
         limitPerBuy: 5,
-        isActive: true
-      }
-    ]
+        isActive: true,
+      },
+    ],
   };
 }
 
@@ -44,7 +49,7 @@ function createDto() {
     buyerDocument: "12201513600",
     buyerPhone: "11999999999",
     paymentMethod: PaymentMethod.PIX,
-    items: [{ ticketTypeId: "ticket-type-1", quantity: 1 }]
+    items: [{ ticketTypeId: "ticket-type-1", quantity: 1 }],
   };
 }
 
@@ -53,7 +58,7 @@ function createService() {
   const orders: any[] = [];
   const tx = {
     event: {
-      findFirst: jest.fn(async () => createEvent(0))
+      findFirst: jest.fn(async () => createEvent(0)),
     },
     order: {
       findMany: jest.fn().mockResolvedValue([]),
@@ -62,26 +67,26 @@ function createService() {
           id: `order-${orders.length + 1}`,
           ...data,
           items: data.items.create,
-          payment: data.payment.create
+          payment: data.payment.create,
         };
         orders.push(order);
         return order;
-      })
+      }),
     },
     coupon: {
       findUnique: jest.fn(),
-      update: jest.fn()
+      update: jest.fn(),
     },
     affiliateLink: {
       findFirst: jest.fn(),
-      update: jest.fn()
+      update: jest.fn(),
     },
     promoterLink: {
       findFirst: jest.fn(),
-      update: jest.fn()
+      update: jest.fn(),
     },
     affiliateCommission: {
-      create: jest.fn()
+      create: jest.fn(),
     },
     ticketType: {
       updateMany: jest.fn(async ({ where, data }) => {
@@ -92,14 +97,14 @@ function createService() {
           return { count: 1 };
         }
         return { count: 0 };
-      })
-    }
+      }),
+    },
   };
   const prisma = {
-    $transaction: jest.fn((callback) => callback(tx))
+    $transaction: jest.fn((callback) => callback(tx)),
   };
   const coupons = {
-    calculateDiscount: jest.fn().mockReturnValue(0)
+    calculateDiscount: jest.fn().mockReturnValue(0),
   };
   const service = new CreateCheckoutUseCase(prisma as any, coupons as any);
 
@@ -114,8 +119,13 @@ describe("CreateCheckoutUseCase stock reservation", () => {
   it("reserves the last ticket atomically and blocks the next competing checkout", async () => {
     const { service, tx, orders, getSold } = createService();
 
-    const firstOrder = await service.execute("eventflow-conf", createDto() as any);
-    await expect(service.execute("eventflow-conf", createDto() as any)).rejects.toThrow(BadRequestException);
+    const firstOrder = await service.execute(
+      "eventflow-conf",
+      createDto() as any,
+    );
+    await expect(
+      service.execute("eventflow-conf", createDto() as any),
+    ).rejects.toThrow(BadRequestException);
 
     expect(firstOrder.status).toBe(PaymentStatus.PENDING);
     expect(firstOrder.stockReservedAt).toBeInstanceOf(Date);
@@ -131,9 +141,32 @@ describe("CreateCheckoutUseCase stock reservation", () => {
     const { service, tx, orders } = createService();
 
     await service.execute("eventflow-conf", createDto() as any);
-    await expect(service.execute("eventflow-conf", createDto() as any)).rejects.toThrow("Nao ha ingressos suficientes");
+    await expect(
+      service.execute("eventflow-conf", createDto() as any),
+    ).rejects.toThrow("Nao ha ingressos suficientes");
 
     expect(tx.order.create).toHaveBeenCalledTimes(1);
     expect(orders).toHaveLength(1);
+  });
+
+  it("links an authenticated checkout to the purchaser account", async () => {
+    const { service, tx } = createService();
+
+    await service.execute(
+      "eventflow-conf",
+      createDto() as any,
+      {
+        id: "buyer-user-1",
+        tenantId: null,
+        email: "account@example.com",
+        role: "CUSTOMER",
+      } as any,
+    );
+
+    expect(tx.order.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ userId: "buyer-user-1" }),
+      }),
+    );
   });
 });

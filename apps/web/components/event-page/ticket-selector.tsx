@@ -59,9 +59,9 @@ export function TicketSelector({ ticketTypes, quantities, onQuantityChange }: Ti
               <div className="flex items-start justify-between gap-4">
                 {/* Info */}
                 <div className="flex-1 min-w-0">
-                  <p className="font-semibold text-foreground text-base">{ticket.name}</p>
+                  <p className="break-words text-base font-semibold text-foreground [overflow-wrap:anywhere]">{ticket.name}</p>
                   {ticket.description && (
-                    <p className="mt-1 text-sm text-muted-foreground line-clamp-2">
+                    <p className="mt-1 break-words text-sm text-muted-foreground [overflow-wrap:anywhere] line-clamp-2">
                       {ticket.description}
                     </p>
                   )}

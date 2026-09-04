@@ -25,30 +25,30 @@ export function FloatingBuyBar({ slug, totalCents, totalItems, selectedItems }: 
   return (
     <div className="fixed bottom-0 inset-x-0 z-50 animate-slide-up">
       <div className="glass border-t shadow-[0_-4px_24px_rgb(0,0,0,0.08)]">
-        <div className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-5 py-3 lg:px-8">
+        <div className="mx-auto flex w-full min-w-0 max-w-7xl items-center justify-between gap-3 px-4 py-3 sm:gap-4 sm:px-5 lg:px-8">
           {/* Info de preço */}
-          <div className="flex items-center gap-3">
+          <div className="flex min-w-0 flex-1 items-center gap-3">
             <div className="hidden sm:flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10">
               <Ticket className="h-5 w-5 text-primary" />
             </div>
-            <div>
+            <div className="min-w-0">
               {totalItems > 0 ? (
                 <>
-                  <p className="text-sm font-semibold text-foreground">
+                  <p className="truncate text-sm font-semibold text-foreground">
                     {money(totalCents)}
                   </p>
-                  <p className="text-xs text-muted-foreground">
+                  <p className="truncate text-xs text-muted-foreground">
                     {totalItems} {totalItems === 1 ? "ingresso" : "ingressos"}
                   </p>
                 </>
               ) : (
                 <>
-                  <p className="text-sm font-medium text-foreground">
+                  <p className="truncate text-sm font-medium text-foreground">
                     Selecione seus ingressos
                   </p>
-                  <p className="text-xs text-muted-foreground flex items-center gap-1">
-                    <ShieldCheck className="h-3 w-3" />
-                    Pagamento seguro
+                  <p className="flex items-center gap-1 truncate text-xs text-muted-foreground">
+                    <ShieldCheck className="h-3 w-3 shrink-0" />
+                    <span className="truncate">Pagamento seguro</span>
                   </p>
                 </>
               )}
@@ -60,17 +60,19 @@ export function FloatingBuyBar({ slug, totalCents, totalItems, selectedItems }: 
             asChild
             size="lg"
             disabled={totalItems === 0}
-            className="h-12 px-6 text-base font-bold shadow-lg shadow-primary/25 transition-all hover:scale-[1.02] active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed rounded-xl"
+            className="h-12 shrink-0 rounded-xl px-4 text-base font-bold shadow-lg shadow-primary/25 transition-all hover:scale-[1.02] active:scale-95 disabled:cursor-not-allowed disabled:opacity-50 sm:px-6"
           >
             {totalItems > 0 ? (
               <Link href={checkoutUrl}>
                 <Ticket className="mr-2 h-5 w-5" />
-                Garantir meu ingresso
+                <span className="sm:hidden">Garantir</span>
+                <span className="hidden sm:inline">Garantir meu ingresso</span>
               </Link>
             ) : (
               <span>
                 <Ticket className="mr-2 h-5 w-5" />
-                Garantir meu ingresso
+                <span className="sm:hidden">Garantir</span>
+                <span className="hidden sm:inline">Garantir meu ingresso</span>
               </span>
             )}
           </Button>

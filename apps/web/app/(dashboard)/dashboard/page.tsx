@@ -13,7 +13,6 @@ import {
   Area, AreaChart, CartesianGrid, ResponsiveContainer,
   Tooltip, XAxis, YAxis, BarChart, Bar, Cell
 } from "recharts";
-import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { api } from "@/lib/api";
 import { money, dateTime } from "@/lib/utils";
@@ -189,7 +188,7 @@ export default function DashboardPage() {
       </div>
 
       {/* Charts Row */}
-      <div className="grid gap-5 lg:grid-cols-[1fr_320px] stagger-children">
+      <div className="grid grid-cols-1 gap-5 lg:grid-cols-[1fr_320px] stagger-children">
         <div className="rounded-2xl glass-premium p-6 flex flex-col hover-glow transition-all duration-300">
           <div className="flex items-center justify-between mb-2">
             <div className="flex items-center gap-2">
@@ -312,7 +311,7 @@ export default function DashboardPage() {
       )}
 
       {/* Bottom Row */}
-      <div className="grid gap-5 lg:grid-cols-[1fr_300px] stagger-children">
+      <div className="grid grid-cols-1 gap-5 lg:grid-cols-[1fr_300px] stagger-children">
         {(data?.upcomingEvents ?? []).length > 0 && (
           <div className="rounded-2xl glass-premium p-6 shadow-sm flex flex-col">
             <div className="flex items-center justify-between mb-5">

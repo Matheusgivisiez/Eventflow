@@ -4,12 +4,24 @@ import { Suspense, useMemo, useState } from "react";
 import { useParams, useSearchParams } from "next/navigation";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { ArrowLeft, CheckCircle2, ExternalLink, Loader2, ShieldCheck } from "lucide-react";
+import {
+  ArrowLeft,
+  CheckCircle2,
+  ExternalLink,
+  Loader2,
+  ShieldCheck,
+} from "lucide-react";
 import Link from "next/link";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -31,13 +43,21 @@ const onlyDigits = (value: string) => value.replace(/\D/g, "");
 const buyerSchema = z.object({
   buyerName: z.string().min(2, "Informe seu nome."),
   buyerEmail: z.string().email("Informe um e-mail valido."),
-  buyerDocument: z.string()
+  buyerDocument: z
+    .string()
     .min(1, "Informe seu CPF ou CNPJ.")
-    .refine((value) => [11, 14].includes(onlyDigits(value).length), "Informe um CPF ou CNPJ valido."),
-  buyerPhone: z.string()
+    .refine(
+      (value) => [11, 14].includes(onlyDigits(value).length),
+      "Informe um CPF ou CNPJ valido.",
+    ),
+  buyerPhone: z
+    .string()
     .min(1, "Informe seu telefone.")
-    .refine((value) => [10, 11].includes(onlyDigits(value).length), "Informe um telefone com DDD."),
-  paymentMethod: z.literal("PIX")
+    .refine(
+      (value) => [10, 11].includes(onlyDigits(value).length),
+      "Informe um telefone com DDD.",
+    ),
+  paymentMethod: z.literal("PIX"),
 });
 
 /** Parse items from query string: "id1:qty1,id2:qty2" */
@@ -61,15 +81,20 @@ function parseItemsParam(raw: string | null): Record<string, number> {
 function CheckoutForm() {
   const { slug } = useParams<{ slug: string }>();
   const searchParams = useSearchParams();
-  const initialItems = useMemo(() => parseItemsParam(searchParams.get("items")), [searchParams]);
+  const initialItems = useMemo(
+    () => parseItemsParam(searchParams.get("items")),
+    [searchParams],
+  );
 
-  const [quantities, setQuantities] = useState<Record<string, number>>(initialItems);
+  const [quantities, setQuantities] =
+    useState<Record<string, number>>(initialItems);
 
   // Read promoter code from URL (?p=CODE or ?promoter=CODE) and persist in sessionStorage
   // so attribution survives any navigation within the checkout flow.
   const promoterCode = useMemo(() => {
     if (typeof window === "undefined") return undefined;
-    const fromUrl = searchParams.get("p") ?? searchParams.get("promoter") ?? undefined;
+    const fromUrl =
+      searchParams.get("p") ?? searchParams.get("promoter") ?? undefined;
     if (fromUrl) {
       sessionStorage.setItem(`promoter_code_${slug}`, fromUrl);
       return fromUrl;
@@ -79,12 +104,13 @@ function CheckoutForm() {
 
   const { data: event, isLoading } = useQuery({
     queryKey: ["checkout-event", slug],
-    queryFn: () => api<EventFlowEvent>(`/events/public/${slug}`, { auth: false })
+    queryFn: () =>
+      api<EventFlowEvent>(`/events/public/${slug}`, { auth: false }),
   });
 
   const form = useForm<z.infer<typeof buyerSchema>>({
     resolver: zodResolver(buyerSchema),
-    defaultValues: { paymentMethod: "PIX" }
+    defaultValues: { paymentMethod: "PIX" },
   });
 
   const mutation = useMutation({
@@ -98,10 +124,9 @@ function CheckoutForm() {
           buyerPhone: onlyDigits(data.buyerPhone),
           items: Object.entries(quantities)
             .filter(([, quantity]) => quantity > 0)
-            .map(([ticketTypeId, quantity]) => ({ ticketTypeId, quantity }))
+            .map(([ticketTypeId, quantity]) => ({ ticketTypeId, quantity })),
         }),
-        auth: false
-    }),
+      }),
     onSuccess: (data) => {
       sessionStorage.removeItem(`promoter_code_${slug}`);
       if (data.orderId && data.orderAccessToken) {
@@ -110,19 +135,23 @@ function CheckoutForm() {
           JSON.stringify({
             orderId: data.orderId,
             accessToken: data.orderAccessToken,
-            createdAt: Date.now()
-          })
+            createdAt: Date.now(),
+          }),
         );
       }
       if (data.checkoutUrl) {
         window.location.assign(data.checkoutUrl);
       }
-    }
+    },
   });
 
-
   const subtotal = useMemo(() => {
-    return event?.ticketTypes.reduce((sum, ticket) => sum + (quantities[ticket.id] ?? 0) * ticket.priceCents, 0) ?? 0;
+    return (
+      event?.ticketTypes.reduce(
+        (sum, ticket) => sum + (quantities[ticket.id] ?? 0) * ticket.priceCents,
+        0,
+      ) ?? 0
+    );
   }, [event, quantities]);
   const fee = Math.round(subtotal * 0.08);
 
@@ -135,7 +164,10 @@ function CheckoutForm() {
           <CardHeader>
             <CheckCircle2 className="h-10 w-10 text-primary" />
             <CardTitle>Pedido criado</CardTitle>
-            <CardDescription>Seu pagamento esta pendente. A confirmacao emitira seus QR Codes automaticamente.</CardDescription>
+            <CardDescription>
+              Seu pagamento esta pendente. A confirmacao emitira seus QR Codes
+              automaticamente.
+            </CardDescription>
           </CardHeader>
           <CardContent className="space-y-3 text-sm">
             <p>Pedido: {mutation.data.orderId ?? mutation.data.id}</p>
@@ -159,7 +191,12 @@ function CheckoutForm() {
       {/* Header */}
       <div className="sticky top-0 z-30 glass border-b">
         <div className="mx-auto flex h-14 max-w-6xl items-center gap-4 px-5">
-          <Button asChild variant="ghost" size="sm" className="gap-2 text-muted-foreground hover:text-foreground">
+          <Button
+            asChild
+            variant="ghost"
+            size="sm"
+            className="gap-2 text-muted-foreground hover:text-foreground"
+          >
             <Link href={`/eventos/${slug}`}>
               <ArrowLeft className="h-4 w-4" />
               Voltar ao evento
@@ -173,7 +210,10 @@ function CheckoutForm() {
       </div>
 
       <div className="mx-auto grid max-w-6xl gap-6 px-5 py-8 lg:grid-cols-[1fr_380px]">
-        <form className="space-y-6" onSubmit={form.handleSubmit((data) => mutation.mutate(data))}>
+        <form
+          className="space-y-6"
+          onSubmit={form.handleSubmit((data) => mutation.mutate(data))}
+        >
           <div>
             <h1 className="text-2xl font-semibold tracking-normal">Checkout</h1>
             <p className="text-sm text-muted-foreground">{event?.title}</p>
@@ -187,10 +227,15 @@ function CheckoutForm() {
                 const qty = quantities[ticket.id] ?? 0;
                 if (qty <= 0) return null;
                 return (
-                  <div key={ticket.id} className="flex items-center justify-between gap-4 rounded-xl border p-4">
+                  <div
+                    key={ticket.id}
+                    className="flex items-center justify-between gap-4 rounded-xl border p-4"
+                  >
                     <div>
                       <p className="font-medium">{ticket.name}</p>
-                      <p className="text-sm text-muted-foreground">{money(ticket.priceCents)} × {qty}</p>
+                      <p className="text-sm text-muted-foreground">
+                        {money(ticket.priceCents)} × {qty}
+                      </p>
                     </div>
                     <Input
                       className="w-20 text-center"
@@ -198,7 +243,12 @@ function CheckoutForm() {
                       min={0}
                       max={ticket.limitPerBuy}
                       value={qty}
-                      onChange={(e) => setQuantities((state) => ({ ...state, [ticket.id]: Number(e.target.value) }))}
+                      onChange={(e) =>
+                        setQuantities((state) => ({
+                          ...state,
+                          [ticket.id]: Number(e.target.value),
+                        }))
+                      }
                     />
                   </div>
                 );
@@ -206,7 +256,10 @@ function CheckoutForm() {
               {Object.values(quantities).every((q) => q <= 0) && (
                 <p className="py-4 text-center text-sm text-muted-foreground">
                   Nenhum ingresso selecionado.{" "}
-                  <Link href={`/eventos/${slug}`} className="text-primary hover:underline">
+                  <Link
+                    href={`/eventos/${slug}`}
+                    className="text-primary hover:underline"
+                  >
                     Voltar ao evento
                   </Link>
                 </p>
@@ -218,20 +271,43 @@ function CheckoutForm() {
               <CardTitle>Dados pessoais</CardTitle>
             </CardHeader>
             <CardContent className="grid gap-4 sm:grid-cols-2">
-              <Field label="Nome" error={form.formState.errors.buyerName?.message}>
+              <Field
+                label="Nome"
+                error={form.formState.errors.buyerName?.message}
+              >
                 <Input {...form.register("buyerName")} />
               </Field>
-              <Field label="E-mail" error={form.formState.errors.buyerEmail?.message}>
+              <Field
+                label="E-mail"
+                error={form.formState.errors.buyerEmail?.message}
+              >
                 <Input type="email" {...form.register("buyerEmail")} />
               </Field>
-              <Field label="CPF/CNPJ" error={form.formState.errors.buyerDocument?.message}>
-                <Input inputMode="numeric" autoComplete="off" {...form.register("buyerDocument")} />
+              <Field
+                label="CPF/CNPJ"
+                error={form.formState.errors.buyerDocument?.message}
+              >
+                <Input
+                  inputMode="numeric"
+                  autoComplete="off"
+                  {...form.register("buyerDocument")}
+                />
               </Field>
-              <Field label="Telefone" error={form.formState.errors.buyerPhone?.message}>
-                <Input inputMode="tel" autoComplete="tel" {...form.register("buyerPhone")} />
+              <Field
+                label="Telefone"
+                error={form.formState.errors.buyerPhone?.message}
+              >
+                <Input
+                  inputMode="tel"
+                  autoComplete="tel"
+                  {...form.register("buyerPhone")}
+                />
               </Field>
               <Field label="Pagamento">
-                <select className="h-10 w-full rounded-md border bg-background px-3 text-sm" {...form.register("paymentMethod")}>
+                <select
+                  className="h-10 w-full rounded-md border bg-background px-3 text-sm"
+                  {...form.register("paymentMethod")}
+                >
                   <option value="PIX">PIX</option>
                 </select>
               </Field>
@@ -241,7 +317,9 @@ function CheckoutForm() {
         <Card className="h-fit sticky top-20">
           <CardHeader>
             <CardTitle>Resumo</CardTitle>
-            <CardDescription>Revise os valores antes de confirmar.</CardDescription>
+            <CardDescription>
+              Revise os valores antes de confirmar.
+            </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <Summary label="Subtotal" value={money(subtotal)} />
@@ -249,7 +327,9 @@ function CheckoutForm() {
             <Summary label="Total" value={money(subtotal + fee)} strong />
             {mutation.error && (
               <div className="space-y-2 rounded-md border border-destructive/30 bg-destructive/10 p-3">
-                <p className="text-sm text-destructive">{mutation.error.message}</p>
+                <p className="text-sm text-destructive">
+                  {mutation.error.message}
+                </p>
                 <Button
                   type="button"
                   size="sm"
@@ -262,8 +342,14 @@ function CheckoutForm() {
                 </Button>
               </div>
             )}
-            <Button className="w-full" disabled={mutation.isPending || subtotal === 0} onClick={form.handleSubmit((data) => mutation.mutate(data))}>
-              {mutation.isPending && <Loader2 className="h-4 w-4 animate-spin" />}
+            <Button
+              className="w-full"
+              disabled={mutation.isPending || subtotal === 0}
+              onClick={form.handleSubmit((data) => mutation.mutate(data))}
+            >
+              {mutation.isPending && (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              )}
               {mutation.isPending ? "Criando checkout..." : "Confirmar compra"}
             </Button>
           </CardContent>
@@ -273,7 +359,15 @@ function CheckoutForm() {
   );
 }
 
-function Field({ label, error, children }: { label: string; error?: string; children: React.ReactNode }) {
+function Field({
+  label,
+  error,
+  children,
+}: {
+  label: string;
+  error?: string;
+  children: React.ReactNode;
+}) {
   return (
     <div className="space-y-2">
       <Label>{label}</Label>
@@ -283,22 +377,34 @@ function Field({ label, error, children }: { label: string; error?: string; chil
   );
 }
 
-function Summary({ label, value, strong }: { label: string; value: string; strong?: boolean }) {
+function Summary({
+  label,
+  value,
+  strong,
+}: {
+  label: string;
+  value: string;
+  strong?: boolean;
+}) {
   return (
     <div className="flex items-center justify-between text-sm">
       <span className="text-muted-foreground">{label}</span>
-      <span className={strong ? "text-lg font-semibold" : "font-medium"}>{value}</span>
+      <span className={strong ? "text-lg font-semibold" : "font-medium"}>
+        {value}
+      </span>
     </div>
   );
 }
 
 export default function CheckoutPage() {
   return (
-    <Suspense fallback={
-      <div className="min-h-screen bg-background p-6 flex justify-center">
-        <Skeleton className="h-[620px] w-full max-w-6xl" />
-      </div>
-    }>
+    <Suspense
+      fallback={
+        <div className="min-h-screen bg-background p-6 flex justify-center">
+          <Skeleton className="h-[620px] w-full max-w-6xl" />
+        </div>
+      }
+    >
       <CheckoutForm />
     </Suspense>
   );

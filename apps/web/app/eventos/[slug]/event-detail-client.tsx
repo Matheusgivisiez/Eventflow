@@ -34,7 +34,7 @@ export function EventDetailClient({ event }: EventDetailClientProps) {
   return (
     <>
       {/* Sticky sidebar com ingressos + compartilhar */}
-      <div className="sticky top-20 space-y-6">
+      <div className="sticky top-20 min-w-0 space-y-6">
         {/* Compartilhar */}
         <ShareButtons title={event.title} slug={event.slug} />
 

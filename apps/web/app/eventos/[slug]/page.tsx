@@ -106,7 +106,7 @@ export default async function PublicEventPage({ params }: { params: Promise<{ sl
   };
 
   return (
-    <main className="min-h-screen bg-background pb-24">
+    <main className="min-h-screen bg-background pb-32 sm:pb-24">
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
@@ -116,14 +116,14 @@ export default async function PublicEventPage({ params }: { params: Promise<{ sl
       <HeroBanner event={event} />
 
       {/* Conteúdo principal: detalhes + ingressos (client-side) */}
-      <div className="mx-auto max-w-7xl px-5 lg:px-8">
-        <div className="grid gap-12 lg:grid-cols-[1fr_420px]">
+      <div className="mx-auto w-full max-w-7xl px-4 sm:px-5 lg:px-8">
+        <div className="grid min-w-0 grid-cols-1 gap-10 lg:grid-cols-[minmax(0,1fr)_minmax(0,420px)] lg:gap-12">
           {/* Coluna esquerda: informações */}
-          <div className="space-y-12">
+          <div className="min-w-0 space-y-10 sm:space-y-12">
             {/* Sobre o evento */}
             <section className="space-y-4 animate-fade-in">
               <h2 className="text-xl font-bold tracking-tight">Sobre o Evento</h2>
-              <p className="whitespace-pre-line text-base leading-relaxed text-muted-foreground">
+              <p className="whitespace-pre-line break-words text-base leading-relaxed text-muted-foreground [overflow-wrap:anywhere]">
                 {event.description}
               </p>
             </section>
@@ -148,7 +148,7 @@ export default async function PublicEventPage({ params }: { params: Promise<{ sl
           </div>
 
           {/* Coluna direita: seletor de ingressos + share (client) */}
-          <div className="relative">
+          <div className="relative min-w-0">
             <EventDetailClient event={event} />
           </div>
         </div>

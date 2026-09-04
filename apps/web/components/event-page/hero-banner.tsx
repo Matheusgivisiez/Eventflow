@@ -25,7 +25,7 @@ export function HeroBanner({ event }: HeroBannerProps) {
     <section className="relative overflow-hidden">
       {/* Top navigation bar */}
       <div className="sticky top-0 z-40 glass border-b">
-        <div className="mx-auto flex h-14 max-w-7xl items-center justify-between px-4 lg:px-8">
+        <div className="mx-auto flex h-14 w-full min-w-0 max-w-7xl items-center justify-between px-4 lg:px-8">
           <Button
             asChild
             variant="ghost"
@@ -38,7 +38,7 @@ export function HeroBanner({ event }: HeroBannerProps) {
             </Link>
           </Button>
 
-          <Link href="/" className="group hover:opacity-90 transition-opacity">
+          <Link href="/" className="group shrink-0 transition-opacity hover:opacity-90">
             <BrandLogo />
           </Link>
 
@@ -67,20 +67,20 @@ export function HeroBanner({ event }: HeroBannerProps) {
       </div>
 
       {/* Event info */}
-      <div className="mx-auto max-w-7xl px-5 lg:px-8">
+      <div className="mx-auto w-full max-w-7xl px-4 sm:px-5 lg:px-8">
         <div className="py-6 space-y-4">
-          <h1 className="text-2xl font-extrabold tracking-tight text-foreground sm:text-3xl lg:text-4xl animate-slide-up">
+          <h1 className="animate-slide-up break-words text-2xl font-extrabold tracking-tight text-foreground [overflow-wrap:anywhere] sm:text-3xl lg:text-4xl">
             {event.title}
           </h1>
 
-          <div className="flex flex-wrap gap-3 text-sm text-muted-foreground animate-slide-up" style={{ animationDelay: "0.1s" }}>
-            <span className="inline-flex items-center gap-2 rounded-full bg-muted/60 px-4 py-2 font-medium">
-              <CalendarDays className="h-4 w-4 text-primary" />
-              {dateTime(event.startsAt)}
+          <div className="animate-slide-up flex w-full max-w-full flex-wrap gap-3 text-sm text-muted-foreground" style={{ animationDelay: "0.1s" }}>
+            <span className="inline-flex max-w-full items-start gap-2 rounded-full bg-muted/60 px-4 py-2 font-medium">
+              <CalendarDays className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
+              <span className="min-w-0 break-words [overflow-wrap:anywhere]">{dateTime(event.startsAt)}</span>
             </span>
-            <span className="inline-flex items-center gap-2 rounded-full bg-muted/60 px-4 py-2 font-medium">
-              <MapPin className="h-4 w-4 text-primary" />
-              {location}
+            <span className="inline-flex max-w-full items-start gap-2 rounded-full bg-muted/60 px-4 py-2 font-medium">
+              <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
+              <span className="min-w-0 break-words [overflow-wrap:anywhere]">{location}</span>
             </span>
           </div>
 

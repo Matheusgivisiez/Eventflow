@@ -16,15 +16,15 @@ export function EventAgenda({ agendaJson }: { agendaJson?: any }) {
             <div className="absolute -left-[35px] flex h-8 w-8 items-center justify-center rounded-full bg-background border shadow-sm">
               <Clock className="h-4 w-4 text-primary" />
             </div>
-            <div className="rounded-xl border bg-card p-5 shadow-sm transition-colors hover:border-primary/30">
-              <div className="flex items-center gap-3">
-                <span className="rounded bg-primary/10 px-2.5 py-1 text-sm font-semibold text-primary">
+            <div className="min-w-0 rounded-xl border bg-card p-5 shadow-sm transition-colors hover:border-primary/30">
+              <div className="flex min-w-0 items-center gap-3">
+                <span className="shrink-0 rounded bg-primary/10 px-2.5 py-1 text-sm font-semibold text-primary">
                   {item.time}
                 </span>
-                <h3 className="font-semibold text-foreground">{item.title}</h3>
+                <h3 className="min-w-0 break-words font-semibold text-foreground [overflow-wrap:anywhere]">{item.title}</h3>
               </div>
               {item.description && (
-                <p className="mt-3 text-sm text-muted-foreground leading-relaxed">
+                <p className="mt-3 break-words text-sm leading-relaxed text-muted-foreground [overflow-wrap:anywhere]">
                   {item.description}
                 </p>
               )}

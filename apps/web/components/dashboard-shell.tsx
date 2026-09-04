@@ -5,14 +5,15 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import {
   BarChart3, Building2, CalendarDays, CreditCard, DoorOpen,
-  FileBarChart2, LogOut, Shield, Tag, Ticket, UserCheck,
+  FileBarChart2, LogOut, Shield, Tag, UserCheck,
   UserCircle, Users, ChevronRight, Bell, Menu, X, Settings,
   ChevronDown, Megaphone, Search, PanelLeftClose, PanelLeftOpen
 } from "lucide-react";
-import { Button } from "@/components/ui/button";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { BrandLogo } from "@/components/brand-logo";
+import { MobileAccountNavigation } from "@/components/mobile-account-navigation";
 import { PageAnimation } from "@/components/page-animation";
+import { useAuthHydration } from "@/hooks/use-auth-hydration";
 import { cn } from "@/lib/utils";
 import { useAuthStore } from "@/stores/auth-store";
 import { useQueryClient } from "@tanstack/react-query";
@@ -75,20 +76,22 @@ function NavItem({ item, active, isCollapsed }: { item: typeof nav[0]; active: b
 export function DashboardShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
+  const hasHydrated = useAuthHydration();
   const { user, logout } = useAuthStore();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const [isCollapsed, setIsCollapsed] = useState(false);
 
   useEffect(() => {
-    if (!user) { router.push("/login"); return; }
-    if (user.role === "CUSTOMER") { router.push("/me/ingressos"); }
-  }, [user, router]);
+    if (!hasHydrated) return;
+    if (!user) { router.replace("/login"); return; }
+    if (user.role === "CUSTOMER") { router.replace("/me/ingressos"); }
+  }, [hasHydrated, user, router]);
 
   // Close mobile nav on route change
   useEffect(() => { setMobileOpen(false); }, [pathname]);
 
-  if (!user || user.role === "CUSTOMER") return null;
+  if (!hasHydrated || !user || user.role === "CUSTOMER") return null;
 
   const filteredNav = nav.filter((item) => item.roles.includes(user.role));
   const initials = (user?.name ?? "U").split(" ").map((w: string) => w[0]).slice(0, 2).join("").toUpperCase();
@@ -137,7 +140,7 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
   );
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-background pb-[calc(4rem+env(safe-area-inset-bottom))] md:pb-0">
       {/* ─── Desktop Sidebar ──────────────────────── */}
       <aside className={cn(
         "fixed inset-y-0 left-0 hidden border-r border-border/60 bg-white dark:bg-card shadow-sm lg:flex flex-col transition-all duration-300 z-30",
@@ -249,7 +252,7 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
           </div>
         </header>
 
-        <main className="mx-auto max-w-7xl px-4 py-6 lg:px-8 flex-grow">
+        <main className="mx-auto w-full min-w-0 max-w-7xl flex-grow px-4 py-6 lg:px-8">
           <PageAnimation>{children}</PageAnimation>
         </main>
         
@@ -271,6 +274,8 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
           </div>
         </footer>
       </div>
+
+      <MobileAccountNavigation />
     </div>
   );
 }

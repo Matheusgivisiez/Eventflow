@@ -1,38 +1,66 @@
-import { BadRequestException, Injectable, NotFoundException } from "@nestjs/common";
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+} from "@nestjs/common";
 import { PaymentStatus, TicketStatus } from "@prisma/client";
 import { AuditService } from "../audit/audit.service";
 import { PaymentsService } from "../payments/payments.service";
 import { PrismaService } from "../../prisma/prisma.service";
-import { getQrCodeReleaseTime, isQrCodeLocked } from "../../common/utils/qr-code.utils";
+import {
+  getQrCodeReleaseTime,
+  isQrCodeLocked,
+} from "../../common/utils/qr-code.utils";
 
 @Injectable()
 export class BuyerService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly audit: AuditService,
-    private readonly payments: PaymentsService
+    private readonly payments: PaymentsService,
   ) {}
 
   async listTickets(userId: string, email: string, scope?: "future" | "past") {
     const now = new Date();
     const normalizedEmail = email.toLowerCase();
+    const eventScope =
+      scope === "future"
+        ? {
+            OR: [
+              { endsAt: { gte: now } },
+              { endsAt: null, startsAt: { gte: now } },
+            ],
+          }
+        : scope === "past"
+          ? {
+              OR: [
+                { endsAt: { lt: now } },
+                { endsAt: null, startsAt: { lt: now } },
+              ],
+            }
+          : undefined;
+
     const tickets = await this.prisma.ticket.findMany({
       where: {
         OR: [
           { ownerId: userId },
           {
             ownerId: null,
-            OR: [{ attendeeEmail: normalizedEmail }, { order: { buyerEmail: normalizedEmail } }]
-          }
+            OR: [
+              { order: { userId } },
+              { attendeeEmail: normalizedEmail },
+              { order: { buyerEmail: normalizedEmail } },
+            ],
+          },
         ],
-        event: scope === "future" ? { startsAt: { gte: now } } : scope === "past" ? { startsAt: { lt: now } } : undefined
+        event: eventScope,
       },
       include: {
         event: true,
         ticketType: true,
-        order: { include: { payment: true } }
+        order: { include: { payment: true } },
       },
-      orderBy: { event: { startsAt: "asc" } }
+      orderBy: { event: { startsAt: scope === "past" ? "desc" : "asc" } },
     });
 
     return tickets.map((ticket) => {
@@ -49,8 +77,9 @@ export class BuyerService {
         event: {
           ...ticket.event,
           allowTicketTransfer: ticket.event.allowTicketTransfer,
-          ticketTransferLockTime: ticket.event.ticketTransferLockTime?.toISOString() ?? null
-        }
+          ticketTransferLockTime:
+            ticket.event.ticketTransferLockTime?.toISOString() ?? null,
+        },
       };
     });
   }
@@ -58,12 +87,14 @@ export class BuyerService {
   async requestRefund(userId: string, email: string, ticketId: string) {
     const ticket = await this.findOwnedTicket(userId, email, ticketId);
     if (ticket.status !== TicketStatus.AVAILABLE) {
-      throw new BadRequestException("Somente ingressos disponiveis podem solicitar reembolso.");
+      throw new BadRequestException(
+        "Somente ingressos disponiveis podem solicitar reembolso.",
+      );
     }
 
     const payment = await this.prisma.payment.findFirst({
       where: { orderId: ticket.orderId },
-      include: { event: true }
+      include: { event: true },
     });
 
     if (!payment) {
@@ -71,7 +102,9 @@ export class BuyerService {
     }
 
     if (payment.status === PaymentStatus.PAID) {
-      await this.payments.updateStatus(payment.id, payment.event.tenantId, { status: PaymentStatus.REFUNDED });
+      await this.payments.updateStatus(payment.id, payment.event.tenantId, {
+        status: PaymentStatus.REFUNDED,
+      });
     }
 
     await this.audit.log({
@@ -79,7 +112,11 @@ export class BuyerService {
       action: "refund.requested",
       entity: "ticket",
       entityId: ticket.id,
-      metadata: { orderId: ticket.orderId, eventId: ticket.eventId, paymentId: payment.id }
+      metadata: {
+        orderId: ticket.orderId,
+        eventId: ticket.eventId,
+        paymentId: payment.id,
+      },
     });
     return { message: "Reembolso processado.", status: "REFUNDED" };
   }
@@ -88,7 +125,9 @@ export class BuyerService {
     const ticket = await this.findOwnedTicket(userId, email, ticketId);
 
     if (isQrCodeLocked(ticket.event)) {
-      throw new BadRequestException("O QR Code ainda não está disponível. Aguarde a liberação próxima ao evento.");
+      throw new BadRequestException(
+        "O QR Code ainda não está disponível. Aguarde a liberação próxima ao evento.",
+      );
     }
 
     const content = [
@@ -98,16 +137,23 @@ export class BuyerService {
       `Email: ${ticket.attendeeEmail}`,
       `Lote: ${ticket.ticketType.name}`,
       `Codigo: ${ticket.uuid}`,
-      `Status: ${ticket.status}`
+      `Status: ${ticket.status}`,
     ].join("\n");
     return this.simplePdf(content);
   }
 
-  async walletPayload(userId: string, email: string, ticketId: string, provider: "google" | "apple") {
+  async walletPayload(
+    userId: string,
+    email: string,
+    ticketId: string,
+    provider: "google" | "apple",
+  ) {
     const ticket = await this.findOwnedTicket(userId, email, ticketId);
 
     if (isQrCodeLocked(ticket.event)) {
-      throw new BadRequestException("O QR Code ainda não está disponível. Aguarde a liberação próxima ao evento.");
+      throw new BadRequestException(
+        "O QR Code ainda não está disponível. Aguarde a liberação próxima ao evento.",
+      );
     }
 
     return {
@@ -117,15 +163,28 @@ export class BuyerService {
       eventName: ticket.event.title,
       holderName: ticket.attendeeName,
       startsAt: ticket.event.startsAt,
-      venue: ticket.event.format === "ONLINE" ? "Online" : [ticket.event.address, ticket.event.city, ticket.event.state].filter(Boolean).join(", "),
+      venue:
+        ticket.event.format === "ONLINE"
+          ? "Online"
+          : [ticket.event.address, ticket.event.city, ticket.event.state]
+              .filter(Boolean)
+              .join(", "),
       barcode: {
         format: "QR_CODE",
-        message: JSON.stringify({ uuid: ticket.uuid, orderId: ticket.orderId, signature: ticket.signature })
-      }
+        message: JSON.stringify({
+          uuid: ticket.uuid,
+          orderId: ticket.orderId,
+          signature: ticket.signature,
+        }),
+      },
     };
   }
 
-  private async findOwnedTicket(userId: string, email: string, ticketId: string) {
+  private async findOwnedTicket(
+    userId: string,
+    email: string,
+    ticketId: string,
+  ) {
     const normalizedEmail = email.toLowerCase();
     const ticket = await this.prisma.ticket.findFirst({
       where: {
@@ -134,11 +193,14 @@ export class BuyerService {
           { ownerId: userId },
           {
             ownerId: null,
-            OR: [{ attendeeEmail: normalizedEmail }, { order: { buyerEmail: normalizedEmail } }]
-          }
-        ]
+            OR: [
+              { attendeeEmail: normalizedEmail },
+              { order: { buyerEmail: normalizedEmail } },
+            ],
+          },
+        ],
       },
-      include: { event: true, ticketType: true, order: true }
+      include: { event: true, ticketType: true, order: true },
     });
     if (!ticket) {
       throw new NotFoundException("Ingresso nao encontrado.");
@@ -149,17 +211,20 @@ export class BuyerService {
   private simplePdf(text: string) {
     const safe = text.replace(/[()\\]/g, "").replace(/\\n/g, "\n");
     const lines = safe.split("\n");
-    const contentLines = lines.map((line, i) => {
-      const y = 780 - i * 18;
-      return y >= 40 ? `BT /F1 12 Tf 40 ${y} Td (${line}) Tj ET` : "";
-    }).filter(Boolean).join("\n");
+    const contentLines = lines
+      .map((line, i) => {
+        const y = 780 - i * 18;
+        return y >= 40 ? `BT /F1 12 Tf 40 ${y} Td (${line}) Tj ET` : "";
+      })
+      .filter(Boolean)
+      .join("\n");
     const streamLength = Buffer.byteLength(contentLines, "utf8");
     const objects = [
       "1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj",
       "2 0 obj\n<< /Type /Pages /Kids [3 0 R] /Count 1 >>\nendobj",
       "3 0 obj\n<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 4 0 R >> >> /Contents 5 0 R >>\nendobj",
       "4 0 obj\n<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>\nendobj",
-      `5 0 obj\n<< /Length ${streamLength} >>\nstream\n${contentLines}\nendstream\nendobj`
+      `5 0 obj\n<< /Length ${streamLength} >>\nstream\n${contentLines}\nendstream\nendobj`,
     ];
     const body = objects.join("\n");
     const xrefOffset = `%PDF-1.4\n${body}\n`.length;

@@ -6,14 +6,16 @@ import { useQuery } from "@tanstack/react-query";
 import {
   ArrowRight, CalendarPlus, ChevronRight, Compass, MapPin,
   Music, GraduationCap, Dumbbell, Theater, Users, Briefcase,
-  Search, ShieldCheck, UserCircle, Zap, TrendingDown
+  Search, ShieldCheck, Zap, TrendingDown
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { EventCard } from "@/components/event-card";
 import { BrandLogo } from "@/components/brand-logo";
 import { ThemeToggle } from "@/components/theme-toggle";
+import { MobileAccountNavigation } from "@/components/mobile-account-navigation";
 import Topography from "@/components/topography/Topography";
+import { useAuthHydration } from "@/hooks/use-auth-hydration";
 import { api } from "@/lib/api";
 import { getOrganizerCtaHref } from "@/lib/organizer-route";
 import { useAuthStore } from "@/stores/auth-store";
@@ -30,7 +32,9 @@ const categories = [
 ];
 
 export default function CatalogPage() {
-  const { user, logout } = useAuthStore();
+  const hasHydrated = useAuthHydration();
+  const { user: storedUser, logout } = useAuthStore();
+  const user = hasHydrated ? storedUser : undefined;
   const [search, setSearch] = useState("");
   const [city, setCity] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("all");
@@ -50,6 +54,13 @@ export default function CatalogPage() {
 
   const events = data?.data ?? [];
   const organizerCtaHref = getOrganizerCtaHref(user?.role);
+  const userInitials = (user?.name ?? "U")
+    .split(" ")
+    .filter(Boolean)
+    .map((part) => part[0])
+    .slice(0, 2)
+    .join("")
+    .toUpperCase();
   const hasActiveFilters = Boolean(search || city || selectedCategory !== "all");
 
   function handleShowAllEvents() {
@@ -62,7 +73,7 @@ export default function CatalogPage() {
   }
 
   return (
-    <div className="min-h-screen bg-[#F8F8F8] dark:bg-background">
+    <div className={`min-h-screen bg-[#F8F8F8] dark:bg-background ${user ? "pb-[calc(4rem+env(safe-area-inset-bottom))] md:pb-0" : ""}`}>
       {/* ─── HEADER ─────────────────────────────────────────────── */}
       <header className="sticky top-0 z-30 glass border-b shadow-sm">
         <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 lg:px-8">
@@ -72,21 +83,28 @@ export default function CatalogPage() {
 
           <nav className="hidden items-center gap-6 text-sm font-medium text-muted-foreground md:flex">
             <a href="#eventos" className="hover:text-foreground transition-colors">Comprar ingressos</a>
-            <a href="#vender" className="hover:text-foreground transition-colors">Para organizadores</a>
-            <Link href="/me" className="hover:text-foreground transition-colors">Perfil</Link>
+            {user && <Link href="/me/ingressos" className="hover:text-foreground transition-colors">Meus ingressos</Link>}
+            <Link href={user ? organizerCtaHref : "#vender"} className="hover:text-foreground transition-colors">Para organizadores</Link>
+            {user && <Link href="/me/conta" className="hover:text-foreground transition-colors">Perfil</Link>}
           </nav>
 
           <div className="flex items-center gap-2">
             <ThemeToggle />
             {user ? (
               <>
-                <Button asChild variant="ghost" size="sm" className="hidden sm:inline-flex gap-2">
-                  <Link href="/me">
-                    <UserCircle className="h-4 w-4" />
-                    Perfil
-                  </Link>
-                </Button>
-                <Button variant="outline" size="sm" onClick={logout} className="border-primary/30 text-primary hover:bg-primary hover:text-white transition-colors">
+                <Link
+                  href="/me"
+                  aria-label={`Abrir perfil de ${user.name}`}
+                  className="flex h-11 w-11 items-center justify-center rounded-full border border-primary/25 bg-primary/10 text-xs font-bold text-primary transition-colors hover:border-primary/50 hover:bg-primary/15 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 md:hidden"
+                >
+                  {userInitials}
+                </Link>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={logout}
+                  className="hidden border-primary/30 text-primary transition-colors hover:bg-primary hover:text-white md:inline-flex"
+                >
                   Sair
                 </Button>
               </>
@@ -270,9 +288,11 @@ export default function CatalogPage() {
                 <Button asChild size="lg" className="bg-white text-primary hover:bg-white/90 font-bold shadow-lg">
                   <Link href={organizerCtaHref}>Criar meu evento <ChevronRight className="h-4 w-4" /></Link>
                 </Button>
-                <Button asChild size="lg" variant="outline" className="border-white/50 text-white hover:bg-white/10">
-                  <Link href="/login">Já tenho conta</Link>
-                </Button>
+                {!user && (
+                  <Button asChild size="lg" variant="outline" className="border-white/50 text-white hover:bg-white/10">
+                    <Link href="/login">Já tenho conta</Link>
+                  </Button>
+                )}
               </div>
               <div className="mt-8 grid grid-cols-3 gap-4">
                 {[
@@ -313,6 +333,8 @@ export default function CatalogPage() {
           </div>
         </div>
       </footer>
+
+      <MobileAccountNavigation />
     </div>
   );
 }

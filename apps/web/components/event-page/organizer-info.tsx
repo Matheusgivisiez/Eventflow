@@ -5,15 +5,15 @@ export function OrganizerInfo({ name, description }: { name: string; description
   return (
     <Card className="overflow-hidden border-border/50 bg-muted/20">
       <CardContent className="p-6">
-        <div className="flex items-start gap-5">
+        <div className="flex min-w-0 items-start gap-5">
           <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
             <Building2 className="h-8 w-8" />
           </div>
-          <div className="space-y-2">
+          <div className="min-w-0 space-y-2">
             <h3 className="font-semibold text-foreground">Organizado por</h3>
-            <p className="text-lg font-bold text-foreground">{name}</p>
+            <p className="break-words text-lg font-bold text-foreground [overflow-wrap:anywhere]">{name}</p>
             {description && (
-              <p className="text-sm text-muted-foreground leading-relaxed">
+              <p className="break-words text-sm leading-relaxed text-muted-foreground [overflow-wrap:anywhere]">
                 {description}
               </p>
             )}

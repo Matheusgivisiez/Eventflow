@@ -3,41 +3,52 @@
 import { useEffect } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { Ticket, LogOut, Compass, LayoutDashboard, UserCheck2, Home, QrCode, User } from "lucide-react";
+import { Compass, LayoutDashboard, LogOut, Ticket, User, UserCheck2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { BrandLogo } from "@/components/brand-logo";
+import { MobileAccountNavigation } from "@/components/mobile-account-navigation";
+import { useAuthHydration } from "@/hooks/use-auth-hydration";
 import { useAuthStore } from "@/stores/auth-store";
 import { cn } from "@/lib/utils";
 
 export default function ClientLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
+  const hasHydrated = useAuthHydration();
   const { user, logout } = useAuthStore();
 
   useEffect(() => {
+    if (!hasHydrated) return;
     if (!user) {
-      router.push("/login");
+      router.replace("/login");
     }
-  }, [user, router]);
+  }, [hasHydrated, user, router]);
 
-  if (!user) {
+  if (!hasHydrated || !user) {
     return null;
   }
 
   const isOrganizerOrAdmin = ["ORGANIZER", "ADMIN"].includes(user.role);
-
   const navItems = [
     { href: "/", icon: Compass, label: "Explorar" },
-    { href: "/me", icon: User, label: "Perfil" },
+    { href: "/me/ingressos", icon: Ticket, label: "Ingressos" },
+    { href: "/me/conta", icon: User, label: "Perfil" },
     ...(isOrganizerOrAdmin
       ? [{ href: "/dashboard", icon: LayoutDashboard, label: "Painel" }]
-      : [{ href: "/me/organizador", icon: UserCheck2, label: "Organizar" }]
-    ),
+      : [{ href: "/me/organizador", icon: UserCheck2, label: "Ser produtor" }]
+    )
   ];
+  const initials = user.name
+    .split(" ")
+    .filter(Boolean)
+    .map((part) => part[0])
+    .slice(0, 2)
+    .join("")
+    .toUpperCase();
 
   return (
-    <div className="min-h-screen bg-[#F8F8F8] dark:bg-background flex flex-col">
+    <div className="flex min-h-screen flex-col bg-[#F8F8F8] pb-[calc(4rem+env(safe-area-inset-bottom))] dark:bg-background md:pb-0">
       {/* Header */}
       <header className="sticky top-0 z-30 w-full border-b bg-white/95 dark:bg-card/95 backdrop-blur shadow-sm">
         <div className="mx-auto max-w-5xl px-4 h-16 flex items-center justify-between">
@@ -73,19 +84,22 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
           </nav>
 
           <div className="flex items-center gap-2">
-            {/* Avatar */}
-            <div className="hidden sm:flex items-center gap-2 rounded-xl bg-muted px-3 py-1.5">
-              <div className="flex h-7 w-7 items-center justify-center rounded-full bg-primary/10 text-primary font-bold text-xs">
-                {user?.name?.charAt(0).toUpperCase() ?? "U"}
-              </div>
-              <span className="text-sm font-medium max-w-[100px] truncate">{user?.name?.split(" ")[0]}</span>
-            </div>
             <ThemeToggle />
+            <Link
+              href="/me/conta"
+              aria-label={`Abrir dados da conta de ${user.name}`}
+              className="flex h-11 items-center gap-2 rounded-full px-1 text-sm font-medium transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 sm:h-10 sm:rounded-xl sm:bg-muted sm:px-2.5"
+            >
+              <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/10 text-xs font-bold text-primary">
+                {initials}
+              </div>
+              <span className="hidden max-w-[100px] truncate sm:inline">{user.name.split(" ")[0]}</span>
+            </Link>
             <Button
               variant="ghost"
               size="icon"
               title="Sair"
-              className="text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-xl"
+              className="hidden rounded-xl text-muted-foreground hover:bg-destructive/10 hover:text-destructive md:inline-flex"
               onClick={() => { logout(); router.push("/login"); }}
             >
               <LogOut className="h-4 w-4" />
@@ -119,36 +133,7 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
         </footer>
       </div>
 
-      {/* Bottom nav — mobile */}
-      <nav className="md:hidden sticky bottom-0 z-30 border-t bg-white dark:bg-card shadow-[0_-4px_12px_rgba(0,0,0,0.06)]">
-        <div className="grid h-16" style={{ gridTemplateColumns: `repeat(${navItems.length + 1}, 1fr)` }}>
-          {navItems.map((item) => {
-            const Icon = item.icon;
-            const isActive = pathname === item.href || (item.href !== "/" && pathname.startsWith(item.href));
-            return (
-              <Link
-                key={item.href}
-                href={item.href}
-                className={cn(
-                  "flex flex-col items-center justify-center gap-1 text-xs font-medium transition-colors",
-                  isActive ? "text-primary" : "text-muted-foreground"
-                )}
-              >
-                <Icon className={cn("h-5 w-5", isActive && "text-primary")} />
-                <span className="text-[10px]">{item.label}</span>
-              </Link>
-            );
-          })}
-          {/* Botão de sair mobile */}
-          <button
-            onClick={() => { logout(); router.push("/login"); }}
-            className="flex flex-col items-center justify-center gap-1 text-xs font-medium text-muted-foreground"
-          >
-            <LogOut className="h-5 w-5" />
-            <span className="text-[10px]">Sair</span>
-          </button>
-        </div>
-      </nav>
+      <MobileAccountNavigation />
     </div>
   );
 }
