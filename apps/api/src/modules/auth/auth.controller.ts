@@ -103,7 +103,7 @@ export class AuthController {
     response.cookie("eventflow_refresh", refreshToken, {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
-      sameSite: "lax",
+      sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
       path: "/api/auth",
       maxAge: 1000 * 60 * 60 * 24 * 7
     });
@@ -113,7 +113,7 @@ export class AuthController {
     response.clearCookie("eventflow_refresh", {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
-      sameSite: "lax",
+      sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
       path: "/api/auth"
     });
   }

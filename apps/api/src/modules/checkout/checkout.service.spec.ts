@@ -56,7 +56,7 @@ function createService() {
   };
   const createCheckout = { execute: jest.fn() };
   const payments = { createProviderPreference: jest.fn(), updateStatus: jest.fn() };
-  const config = { get: jest.fn((key: string) => key === "NODE_ENV" ? "development" : "sandbox") };
+  const config = { get: jest.fn((key: string) => key === "PAYMENT_SIMULATION_ENABLED" ? true : undefined) };
   const service = new CheckoutService(prisma as any, createCheckout as any, payments as any, config as any);
   return { service, prisma, createCheckout, payments, config };
 }

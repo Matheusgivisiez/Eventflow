@@ -23,16 +23,27 @@ async function refreshAccessToken(store: ReturnType<typeof useAuthStore.getState
       credentials: "include"
     })
       .then(async (res) => {
-        if (!res.ok) throw new Error("Session expired");
+        if (!res.ok) {
+          // Only a definitive auth rejection should clear the session. A
+          // network failure must not log the user out while the page reloads.
+          if (res.status === 401 || res.status === 403) {
+            store.logout();
+          }
+          throw new Error("Session refresh unavailable");
+        }
 
         const data = await res.json();
         store.setSession({ accessToken: data.accessToken, user: data.user });
         return data.accessToken as string;
       })
-      .catch(() => {
-        store.logout();
-        if (typeof window !== "undefined") window.location.href = "/login";
-        throw new Error("Sessão expirada. Faça login novamente.");
+      .catch((error) => {
+        if (error instanceof Error && error.message === "Session refresh unavailable") {
+          if (typeof window !== "undefined" && !useAuthStore.getState().user) {
+            window.location.href = "/login";
+          }
+          throw new Error("Não foi possível renovar a sessão.");
+        }
+        throw new Error("Não foi possível renovar a sessão. Verifique sua conexão.");
       })
       .finally(() => {
         refreshPromise = undefined;

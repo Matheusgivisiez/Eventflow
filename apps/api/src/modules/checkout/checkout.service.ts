@@ -86,10 +86,9 @@ export class CheckoutService {
   }
 
   async confirmSimulation(orderId: string, accessToken?: string) {
-    const nodeEnv = this.config.get<string>("NODE_ENV") ?? "development";
-    const paymentEnvironment = this.config.get<string>("ABACATE_ENVIRONMENT") ?? "sandbox";
-    if (nodeEnv === "production" || paymentEnvironment === "production") {
-      throw new ForbiddenException("A confirmação simulada está disponível somente no sandbox.");
+    const simulationEnabled = this.config.get<boolean>("PAYMENT_SIMULATION_ENABLED") ?? false;
+    if (!simulationEnabled) {
+      throw new ForbiddenException("A confirmação simulada está desabilitada neste ambiente.");
     }
 
     const order = await this.prisma.order.findUnique({
