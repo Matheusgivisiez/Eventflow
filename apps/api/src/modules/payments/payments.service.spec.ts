@@ -1,11 +1,10 @@
 import { NotFoundException } from "@nestjs/common";
 import { PaymentMethod, PaymentStatus } from "@prisma/client";
-import QRCode from "qrcode";
+import * as QRCode from "qrcode";
 import { PaymentsService } from "./payments.service";
 
 jest.mock("qrcode", () => ({
-  __esModule: true,
-  default: { toDataURL: jest.fn().mockResolvedValue("data:image/png;base64,ticket-qr") }
+  toDataURL: jest.fn().mockResolvedValue("data:image/png;base64,ticket-qr")
 }));
 
 function createService() {

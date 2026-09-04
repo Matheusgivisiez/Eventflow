@@ -2,7 +2,7 @@ import { BadRequestException, Injectable, NotFoundException, Optional } from "@n
 import { PaymentStatus, TicketStatus } from "@prisma/client";
 import { createHash, createHmac, randomUUID } from "crypto";
 import { ConfigService } from "@nestjs/config";
-import QRCode from "qrcode";
+import * as QRCode from "qrcode";
 import { PrismaService } from "../../prisma/prisma.service";
 import { UpdatePaymentStatusDto } from "./dto/update-payment-status.dto";
 import { AbacatePayGateway } from "./abacate-pay.gateway";
