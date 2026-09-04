@@ -1,4 +1,4 @@
-import { IsEmail, IsString, ValidateIf } from "class-validator";
+import { IsEmail, IsString, MinLength, ValidateIf } from "class-validator";
 
 export class CreateTransferDto {
   @IsString()
@@ -11,6 +11,10 @@ export class CreateTransferDto {
   @ValidateIf((dto: CreateTransferDto) => !dto.receiverEmail)
   @IsString()
   receiverCpf?: string;
+
+  @IsString()
+  @MinLength(8)
+  password!: string;
 }
 
 export class ResolveTransferRecipientDto {

@@ -2,7 +2,9 @@ import {
   BadRequestException,
   Injectable,
   NotFoundException,
+  UnauthorizedException,
 } from "@nestjs/common";
+import * as bcrypt from "bcryptjs";
 import { PaymentStatus, TicketStatus } from "@prisma/client";
 import { AuditService } from "../audit/audit.service";
 import { PaymentsService } from "../payments/payments.service";
@@ -117,7 +119,8 @@ export class BuyerService {
     }));
   }
 
-  async requestRefund(userId: string, email: string, ticketId: string) {
+  async requestRefund(userId: string, email: string, ticketId: string, password: string) {
+    await this.confirmPassword(userId, password);
     const ticket = await this.findOwnedTicket(userId, email, ticketId);
     if (ticket.status !== TicketStatus.AVAILABLE) {
       throw new BadRequestException(
@@ -125,20 +128,34 @@ export class BuyerService {
       );
     }
 
-    const payment = await this.prisma.payment.findFirst({
-      where: { orderId: ticket.orderId },
-      include: { event: true },
-    });
-
-    if (!payment) {
-      throw new NotFoundException("Pagamento do pedido nao encontrado.");
-    }
-
-    if (payment.status === PaymentStatus.PAID) {
-      await this.payments.updateStatus(payment.id, payment.event.tenantId, {
-        status: PaymentStatus.REFUNDED,
+    await this.prisma.$transaction(async (tx) => {
+      const canceled = await tx.ticket.updateMany({
+        where: { id: ticket.id, status: TicketStatus.AVAILABLE },
+        data: { status: TicketStatus.CANCELED },
       });
-    }
+      if (canceled.count !== 1) {
+        throw new BadRequestException("Este ingresso já foi cancelado.");
+      }
+
+      const stockReleased = await tx.ticketType.updateMany({
+        where: { id: ticket.ticketTypeId, sold: { gt: 0 } },
+        data: { sold: { decrement: 1 } },
+      });
+      if (stockReleased.count !== 1) {
+        throw new BadRequestException("Não foi possível liberar a vaga deste ingresso.");
+      }
+
+      if (ticket.seatId) {
+        await tx.seat.updateMany({
+          where: { id: ticket.seatId, status: "SOLD" },
+          data: { status: "AVAILABLE" },
+        });
+        await tx.seatReservation.updateMany({
+          where: { seatId: ticket.seatId, eventId: ticket.eventId, orderId: ticket.orderId },
+          data: { status: "AVAILABLE" },
+        });
+      }
+    });
 
     await this.audit.log({
       userId,
@@ -148,10 +165,13 @@ export class BuyerService {
       metadata: {
         orderId: ticket.orderId,
         eventId: ticket.eventId,
-        paymentId: payment.id,
+        scope: "individual_ticket",
       },
     });
-    return { message: "Reembolso processado.", status: "REFUNDED" };
+    return {
+      message: "Ingresso cancelado individualmente. A solicitação de reembolso foi registrada.",
+      status: "REFUND_REQUESTED",
+    };
   }
 
   async ticketPdf(userId: string, email: string, ticketId: string) {
@@ -239,6 +259,16 @@ export class BuyerService {
       throw new NotFoundException("Ingresso nao encontrado.");
     }
     return ticket;
+  }
+
+  private async confirmPassword(userId: string, password: string) {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { passwordHash: true },
+    });
+    if (!user || !(await bcrypt.compare(password, user.passwordHash))) {
+      throw new UnauthorizedException("Senha inválida.");
+    }
   }
 
   private simplePdf(text: string) {

@@ -1,10 +1,12 @@
-import { Controller, Get, Param, Post, Query, Res, StreamableFile, UseGuards } from "@nestjs/common";
+import { Body, Controller, Get, Param, Post, Query, Res, StreamableFile, UseGuards } from "@nestjs/common";
 import { ApiBearerAuth, ApiTags } from "@nestjs/swagger";
+import { Throttle } from "@nestjs/throttler";
 import { Response } from "express";
 import { CurrentUser } from "../../common/decorators/current-user.decorator";
 import { JwtAuthGuard } from "../../common/guards/jwt-auth.guard";
 import { RequestUser } from "../../common/types/request-user";
 import { BuyerService } from "./buyer.service";
+import { RequestRefundDto } from "./dto/request-refund.dto";
 
 @ApiTags("Area do comprador")
 @ApiBearerAuth()
@@ -19,8 +21,9 @@ export class BuyerController {
   }
 
   @Post("tickets/:id/refund")
-  refund(@CurrentUser() user: RequestUser, @Param("id") id: string) {
-    return this.buyer.requestRefund(user.id, user.email, id);
+  @Throttle({ sensitive: { limit: 5, ttl: 60000 } })
+  refund(@CurrentUser() user: RequestUser, @Param("id") id: string, @Body() dto: RequestRefundDto) {
+    return this.buyer.requestRefund(user.id, user.email, id, dto.password);
   }
 
   @Get("tickets/:id/pdf")

@@ -469,6 +469,9 @@ export default function MyTicketsPage() {
   const [expandedTicket, setExpandedTicket] = useState<string | null>(null);
   const [transferTicket, setTransferTicket] = useState<MyTicket | null>(null);
   const [recipient, setRecipient] = useState("");
+  const [transferPassword, setTransferPassword] = useState("");
+  const [refundTicket, setRefundTicket] = useState<MyTicket | null>(null);
+  const [refundPassword, setRefundPassword] = useState("");
   const [recipientLookup, setRecipientLookup] =
     useState<RecipientLookup | null>(null);
   const token = useAuthStore((state) => state.accessToken);
@@ -485,9 +488,22 @@ export default function MyTicketsPage() {
   const ticketItems = tickets.data ?? [];
 
   const refund = useMutation({
-    mutationFn: (ticketId: string) =>
-      api(`/buyer/tickets/${ticketId}/refund`, { method: "POST" }),
-    onSuccess: () => tickets.refetch(),
+    mutationFn: ({
+      ticketId,
+      password,
+    }: {
+      ticketId: string;
+      password: string;
+    }) =>
+      api(`/buyer/tickets/${ticketId}/refund`, {
+        method: "POST",
+        body: JSON.stringify({ password }),
+      }),
+    onSuccess: () => {
+      setRefundTicket(null);
+      setRefundPassword("");
+      tickets.refetch();
+    },
   });
 
   const wallet = useMutation({
@@ -517,12 +533,14 @@ export default function MyTicketsPage() {
         body: JSON.stringify({
           ticketId: transferTicket.id,
           ...recipientPayload(recipient),
+          password: transferPassword,
         }),
       });
     },
     onSuccess: () => {
       setTransferTicket(null);
       setRecipient("");
+      setTransferPassword("");
       setRecipientLookup(null);
       tickets.refetch();
     },
@@ -531,9 +549,31 @@ export default function MyTicketsPage() {
   function openTransferModal(ticket: MyTicket) {
     setTransferTicket(ticket);
     setRecipient("");
+    setTransferPassword("");
     setRecipientLookup(null);
     resolveRecipient.reset();
     createTransfer.reset();
+  }
+
+  function closeTransferModal() {
+    setTransferTicket(null);
+    setRecipient("");
+    setTransferPassword("");
+    setRecipientLookup(null);
+    resolveRecipient.reset();
+    createTransfer.reset();
+  }
+
+  function openRefundDialog(ticket: MyTicket) {
+    setRefundTicket(ticket);
+    setRefundPassword("");
+    refund.reset();
+  }
+
+  function closeRefundDialog() {
+    setRefundTicket(null);
+    setRefundPassword("");
+    refund.reset();
   }
 
   function recipientPayload(value: string) {
@@ -684,7 +724,7 @@ export default function MyTicketsPage() {
                   ticket={ticket}
                   expanded={expandedTicket === ticket.id}
                   refundPending={
-                    refund.isPending && refund.variables === ticket.id
+                    refund.isPending && refund.variables?.ticketId === ticket.id
                   }
                   onToggleDetails={() =>
                     setExpandedTicket((current) =>
@@ -697,7 +737,7 @@ export default function MyTicketsPage() {
                     wallet.mutate({ ticketId: ticket.id, provider })
                   }
                   onTransfer={() => openTransferModal(ticket)}
-                  onRefund={() => refund.mutate(ticket.id)}
+                  onRefund={() => openRefundDialog(ticket)}
                 />
               ))}
             </div>
@@ -705,8 +745,79 @@ export default function MyTicketsPage() {
         )}
 
         <Dialog
+          open={Boolean(refundTicket)}
+          onOpenChange={(open) => !open && closeRefundDialog()}
+        >
+          <DialogContent className="sm:max-w-md">
+            <DialogHeader>
+              <DialogTitle>Confirmar cancelamento do ingresso</DialogTitle>
+              <DialogDescription>
+                Para sua segurança, confirme sua senha antes de solicitar o
+                reembolso.
+              </DialogDescription>
+            </DialogHeader>
+
+            {refundTicket && (
+              <div className="rounded-xl border bg-muted/40 p-3 text-sm">
+                <p className="font-semibold">{refundTicket.event.title}</p>
+                <p className="text-muted-foreground">
+                  {refundTicket.ticketType.name} · {refundTicket.attendeeName}
+                </p>
+              </div>
+            )}
+
+            <p className="rounded-xl border border-amber-300/25 bg-amber-300/10 p-3 text-sm leading-relaxed text-amber-950 dark:text-amber-100">
+              Esta ação cancela somente este ingresso. Os demais ingressos da
+              mesma compra continuarão válidos.
+            </p>
+
+            <div className="space-y-2">
+              <Label htmlFor="refund-password">Senha da conta</Label>
+              <Input
+                id="refund-password"
+                type="password"
+                autoComplete="current-password"
+                value={refundPassword}
+                onChange={(event) => {
+                  setRefundPassword(event.target.value);
+                  refund.reset();
+                }}
+                placeholder="Digite sua senha para confirmar"
+              />
+            </div>
+
+            {refund.isError && (
+              <p className="rounded-lg border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive">
+                {(refund.error as Error).message}
+              </p>
+            )}
+
+            <Button
+              className="w-full rounded-xl bg-rose-600 text-white hover:bg-rose-700"
+              disabled={
+                !refundTicket || refundPassword.length < 8 || refund.isPending
+              }
+              onClick={() =>
+                refundTicket &&
+                refund.mutate({
+                  ticketId: refundTicket.id,
+                  password: refundPassword,
+                })
+              }
+            >
+              {refund.isPending ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : (
+                <RefreshCcw className="mr-2 h-4 w-4" />
+              )}
+              Confirmar cancelamento e solicitar reembolso
+            </Button>
+          </DialogContent>
+        </Dialog>
+
+        <Dialog
           open={Boolean(transferTicket)}
-          onOpenChange={(open) => !open && setTransferTicket(null)}
+          onOpenChange={(open) => !open && closeTransferModal()}
         >
           <DialogContent className="sm:max-w-md">
             <DialogHeader>
@@ -811,9 +922,32 @@ export default function MyTicketsPage() {
               </p>
             )}
 
+            <div className="space-y-2">
+              <Label htmlFor="transfer-password">Senha da conta</Label>
+              <Input
+                id="transfer-password"
+                type="password"
+                autoComplete="current-password"
+                value={transferPassword}
+                onChange={(event) => {
+                  setTransferPassword(event.target.value);
+                  createTransfer.reset();
+                }}
+                placeholder="Digite sua senha para confirmar"
+              />
+              <p className="text-xs leading-relaxed text-muted-foreground">
+                Confirme o destinatário acima. A transferência será enviada para
+                esta pessoa e só poderá ser desfeita antes da aceitação.
+              </p>
+            </div>
+
             <Button
               className="w-full rounded-xl"
-              disabled={!recipientLookup || createTransfer.isPending}
+              disabled={
+                !recipientLookup ||
+                transferPassword.length < 8 ||
+                createTransfer.isPending
+              }
               onClick={() => createTransfer.mutate()}
             >
               {createTransfer.isPending ? (
@@ -829,7 +963,8 @@ export default function MyTicketsPage() {
         {/* Feedbacks */}
         {refund.isSuccess && (
           <div className="fixed bottom-20 left-4 right-4 md:relative md:bottom-auto md:mt-4 rounded-xl bg-brand-purple/10 border border-brand-purple/20 p-3 text-sm text-brand-purple text-center">
-            ✓ Solicitação de reembolso registrada.
+            ✓ Cancelamento individual registrado. Sua solicitação de reembolso
+            foi enviada.
           </div>
         )}
         {wallet.isSuccess && (

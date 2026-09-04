@@ -22,7 +22,7 @@ export class TransfersController {
   }
 
   @Post()
-  @Throttle({ sensitive: { limit: 15, ttl: 60000 } })
+  @Throttle({ sensitive: { limit: 5, ttl: 60000 } })
   create(@CurrentUser() user: RequestUser, @Body() dto: CreateTransferDto) {
     return this.transfers.create(user, dto);
   }

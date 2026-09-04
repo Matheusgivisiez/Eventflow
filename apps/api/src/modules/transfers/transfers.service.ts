@@ -1,5 +1,6 @@
 import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
+import * as bcrypt from "bcryptjs";
 import { NotificationEvent, NotificationType, Prisma, TicketStatus, TransferStatus, User, UserRole } from "@prisma/client";
 import QRCode from "qrcode";
 import { createHash, createHmac, randomUUID } from "crypto";
@@ -45,6 +46,7 @@ export class TransfersService {
   }
 
   async create(sender: RequestUser, dto: CreateTransferDto) {
+    await this.confirmPassword(sender.id, dto.password);
     await this.expirePendingTransfers();
 
     const recipient = await this.lookupRecipient(dto);
@@ -413,6 +415,16 @@ export class TransfersService {
   private ensureNotSelf(sender: RequestUser, recipient: RecipientLookup) {
     if (recipient.receiverId === sender.id || recipient.receiverEmail === sender.email.toLowerCase()) {
       throw new BadRequestException("Nao e permitido transferir um ingresso para si mesmo.");
+    }
+  }
+
+  private async confirmPassword(userId: string, password: string) {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { passwordHash: true },
+    });
+    if (!user || !(await bcrypt.compare(password, user.passwordHash))) {
+      throw new ForbiddenException("Senha inválida.");
     }
   }
 
