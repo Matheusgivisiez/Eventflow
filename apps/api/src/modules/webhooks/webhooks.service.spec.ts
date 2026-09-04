@@ -65,8 +65,11 @@ describe("WebhooksService paid payment handling", () => {
       id: "webhook-1",
       event: "checkout.completed",
       data: {
-        id: "checkout-1",
-        metadata: { orderId: "order-1" }
+        checkout: {
+          id: "checkout-1",
+          externalId: "order-1",
+          status: "PAID"
+        }
       }
     });
 

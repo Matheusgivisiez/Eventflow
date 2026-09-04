@@ -23,6 +23,12 @@ export type AbacateCheckoutResult = {
   checkoutUrl: string;
 };
 
+export type AbacateCheckoutStatus = {
+  id: string;
+  externalId?: string;
+  status: "PENDING" | "PAID" | "EXPIRED" | "CANCELLED" | "REFUNDED";
+};
+
 export type AbacatePixTransferInput = {
   pixKey: string;
   amountCents: number;
@@ -181,6 +187,12 @@ export class AbacatePayGateway {
       transactionId: checkout.transactionId,
       checkoutUrl: checkout.url
     };
+  }
+
+  getCheckout(id: string) {
+    return this.request<AbacateCheckoutStatus>(`/checkouts/get?id=${encodeURIComponent(id)}`, {
+      method: "GET"
+    });
   }
 
   /**

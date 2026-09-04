@@ -109,6 +109,37 @@ export class PaymentsService {
     return this.markTerminal(payment.id, tenantId, dto.status, dto.providerRef ?? payment.providerRef ?? undefined);
   }
 
+  async reconcileProviderStatus(id: string, tenantId: string) {
+    const payment = await this.prisma.payment.findFirst({
+      where: { id, event: { tenantId } },
+      include: { event: true }
+    });
+    if (!payment) {
+      throw new NotFoundException("Pagamento nao encontrado.");
+    }
+    if (payment.provider !== "abacate_pay" || !payment.providerRef) {
+      return payment;
+    }
+
+    const checkout = await this.abacatePay.getCheckout(payment.providerRef);
+    const status = checkout.status === "PAID"
+      ? PaymentStatus.PAID
+      : checkout.status === "REFUNDED"
+        ? PaymentStatus.REFUNDED
+        : checkout.status === "EXPIRED" || checkout.status === "CANCELLED"
+          ? PaymentStatus.CANCELED
+          : PaymentStatus.PENDING;
+
+    if (status === payment.status && status !== PaymentStatus.PAID) {
+      return payment;
+    }
+
+    return this.updateStatus(payment.id, tenantId, {
+      status,
+      providerRef: checkout.id
+    });
+  }
+
   private async markPaid(paymentId: string, tenantId: string, providerRef?: string) {
     return this.prisma.$transaction(async (tx) => {
       const payment = await tx.payment.findFirst({

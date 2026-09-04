@@ -23,7 +23,7 @@ export class BuyerService {
   async listTickets(userId: string, email: string, scope?: "future" | "past") {
     const now = new Date();
     const normalizedEmail = email.toLowerCase();
-    await this.repairPaidOrdersWithoutTickets(userId, normalizedEmail);
+    await this.reconcileOwnedOrders(userId, normalizedEmail);
     const eventScope =
       scope === "future"
         ? {
@@ -85,10 +85,10 @@ export class BuyerService {
     });
   }
 
-  private async repairPaidOrdersWithoutTickets(userId: string, email: string) {
+  private async reconcileOwnedOrders(userId: string, email: string) {
     const orders = await this.prisma.order.findMany({
       where: {
-        status: PaymentStatus.PAID,
+        status: { in: [PaymentStatus.PENDING, PaymentStatus.PAID] },
         OR: [
           { userId },
           { userId: null, buyerEmail: email },
@@ -96,21 +96,25 @@ export class BuyerService {
       },
       select: {
         id: true,
+        status: true,
         event: { select: { tenantId: true } },
         payment: { select: { id: true } },
         _count: { select: { tickets: true } },
       },
     });
 
-    await Promise.all(
-      orders
-        .filter((order) => order.payment && order._count.tickets === 0)
-        .map((order) =>
-          this.payments.updateStatus(order.payment!.id, order.event.tenantId, {
-            status: PaymentStatus.PAID,
-          }),
-        ),
-    );
+    await Promise.all(orders.map(async (order) => {
+      if (!order.payment || order._count.tickets > 0) return;
+
+      if (order.status === PaymentStatus.PENDING) {
+        await this.payments.reconcileProviderStatus(order.payment.id, order.event.tenantId);
+        return;
+      }
+
+      await this.payments.updateStatus(order.payment.id, order.event.tenantId, {
+        status: PaymentStatus.PAID,
+      });
+    }));
   }
 
   async requestRefund(userId: string, email: string, ticketId: string) {

@@ -37,7 +37,7 @@ export class CheckoutService {
   }
 
   async getOrderStatus(orderId: string, accessToken?: string) {
-    const order = await this.prisma.order.findUnique({
+    let order = await this.prisma.order.findUnique({
       where: { id: orderId },
       include: {
         event: true,
@@ -52,6 +52,27 @@ export class CheckoutService {
     }
     if (!order.orderAccessToken || !accessToken || order.orderAccessToken !== accessToken) {
       throw new UnauthorizedException("Token de acesso do pedido invalido.");
+    }
+
+    if (order.status === PaymentStatus.PENDING && order.payment) {
+      try {
+        await this.payments.reconcileProviderStatus(order.payment.id, order.event.tenantId);
+        order = await this.prisma.order.findUnique({
+          where: { id: orderId },
+          include: {
+            event: true,
+            items: { include: { ticketType: true } },
+            tickets: true,
+            payment: true
+          }
+        });
+      } catch {
+        // Return the locally known state if the provider is temporarily unavailable.
+      }
+    }
+
+    if (!order) {
+      throw new NotFoundException("Pedido nao encontrado.");
     }
 
     const locked = isQrCodeLocked(order.event);

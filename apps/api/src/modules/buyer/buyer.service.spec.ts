@@ -41,7 +41,7 @@ function createService() {
     },
   };
   const audit = { log: jest.fn() };
-  const payments = { updateStatus: jest.fn() };
+  const payments = { updateStatus: jest.fn(), reconcileProviderStatus: jest.fn() };
   const service = new BuyerService(
     prisma as any,
     audit as any,
@@ -97,6 +97,7 @@ describe("BuyerService.listTickets", () => {
     prisma.order.findMany.mockResolvedValue([
       {
         id: "order-1",
+        status: PaymentStatus.PAID,
         event: { tenantId: "tenant-1" },
         payment: { id: "payment-1" },
         _count: { tickets: 0 },
@@ -109,6 +110,24 @@ describe("BuyerService.listTickets", () => {
     expect(service["payments"].updateStatus).toHaveBeenCalledWith("payment-1", "tenant-1", {
       status: PaymentStatus.PAID,
     });
+  });
+
+  it("reconciles pending orders with the provider before listing the wallet", async () => {
+    const { service, prisma } = createService();
+    prisma.order.findMany.mockResolvedValue([
+      {
+        id: "order-1",
+        status: PaymentStatus.PENDING,
+        event: { tenantId: "tenant-1" },
+        payment: { id: "payment-1" },
+        _count: { tickets: 0 },
+      },
+    ]);
+    prisma.ticket.findMany.mockResolvedValue([]);
+
+    await service.listTickets("user-1", "buyer@example.com");
+
+    expect(service["payments"].reconcileProviderStatus).toHaveBeenCalledWith("payment-1", "tenant-1");
   });
 
   it("keeps an event that already started in the future scope until its endsAt", async () => {

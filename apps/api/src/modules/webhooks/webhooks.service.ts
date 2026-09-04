@@ -105,7 +105,7 @@ export class WebhooksService {
 
   private extractOrderId(provider: string, payload: Record<string, any>): string | undefined {
     const value = provider === "abacate_pay"
-      ? payload.data?.metadata?.orderId ?? payload.data?.externalId ?? payload.metadata?.orderId ?? payload.externalId
+      ? payload.data?.checkout?.externalId ?? payload.data?.checkout?.metadata?.orderId ?? payload.data?.metadata?.orderId ?? payload.data?.externalId ?? payload.metadata?.orderId ?? payload.externalId
       : payload.orderId ?? payload.metadata?.orderId;
     return value ? String(value) : undefined;
   }
@@ -114,6 +114,7 @@ export class WebhooksService {
     if (provider === "abacate_pay") {
       const value =
         payload.providerRef ??
+        payload.data?.checkout?.id ??
         payload.data?.id ??
         payload.data?.checkoutId ??
         payload.data?.billId ??
