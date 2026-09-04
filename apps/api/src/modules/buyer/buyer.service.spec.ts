@@ -1,3 +1,4 @@
+import { PaymentStatus } from "@prisma/client";
 import { BuyerService } from "./buyer.service";
 
 const now = new Date("2026-09-04T15:00:00.000Z");
@@ -32,6 +33,9 @@ function createTicket(overrides: Record<string, unknown> = {}) {
 
 function createService() {
   const prisma = {
+    order: {
+      findMany: jest.fn().mockResolvedValue([]),
+    },
     ticket: {
       findMany: jest.fn(),
     },
@@ -85,6 +89,25 @@ describe("BuyerService.listTickets", () => {
         order: { include: { payment: true } },
       },
       orderBy: { event: { startsAt: "asc" } },
+    });
+  });
+
+  it("repairs paid orders that never emitted tickets before listing the wallet", async () => {
+    const { service, prisma } = createService();
+    prisma.order.findMany.mockResolvedValue([
+      {
+        id: "order-1",
+        event: { tenantId: "tenant-1" },
+        payment: { id: "payment-1" },
+        _count: { tickets: 0 },
+      },
+    ]);
+    prisma.ticket.findMany.mockResolvedValue([]);
+
+    await service.listTickets("user-1", "buyer@example.com");
+
+    expect(service["payments"].updateStatus).toHaveBeenCalledWith("payment-1", "tenant-1", {
+      status: PaymentStatus.PAID,
     });
   });
 

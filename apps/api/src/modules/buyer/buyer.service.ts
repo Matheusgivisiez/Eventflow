@@ -23,6 +23,7 @@ export class BuyerService {
   async listTickets(userId: string, email: string, scope?: "future" | "past") {
     const now = new Date();
     const normalizedEmail = email.toLowerCase();
+    await this.repairPaidOrdersWithoutTickets(userId, normalizedEmail);
     const eventScope =
       scope === "future"
         ? {
@@ -82,6 +83,34 @@ export class BuyerService {
         },
       };
     });
+  }
+
+  private async repairPaidOrdersWithoutTickets(userId: string, email: string) {
+    const orders = await this.prisma.order.findMany({
+      where: {
+        status: PaymentStatus.PAID,
+        OR: [
+          { userId },
+          { userId: null, buyerEmail: email },
+        ],
+      },
+      select: {
+        id: true,
+        event: { select: { tenantId: true } },
+        payment: { select: { id: true } },
+        _count: { select: { tickets: true } },
+      },
+    });
+
+    await Promise.all(
+      orders
+        .filter((order) => order.payment && order._count.tickets === 0)
+        .map((order) =>
+          this.payments.updateStatus(order.payment!.id, order.event.tenantId, {
+            status: PaymentStatus.PAID,
+          }),
+        ),
+    );
   }
 
   async requestRefund(userId: string, email: string, ticketId: string) {
