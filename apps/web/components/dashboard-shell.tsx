@@ -4,8 +4,8 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import {
-  BarChart3, Building2, CalendarDays, CreditCard, DoorOpen,
-  FileBarChart2, LogOut, Shield, Tag, UserCheck,
+  BarChart3, Building2, CalendarDays, Compass, CreditCard, DoorOpen,
+  FileBarChart2, LogOut, Shield, Tag, Ticket, UserCheck,
   UserCircle, Users, ChevronRight, Bell, Menu, X, Settings,
   ChevronDown, Megaphone, Search, PanelLeftClose, PanelLeftOpen
 } from "lucide-react";
@@ -199,6 +199,31 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
               </div>
             </div>
           </div>
+
+          {/* Client navigation links (desktop) */}
+          <nav className="hidden lg:flex items-center gap-1 ml-auto mr-2">
+            <Link
+              href="/#eventos"
+              className="flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-sm font-medium text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+            >
+              <Compass className="h-4 w-4" />
+              Eventos
+            </Link>
+            <Link
+              href="/me/ingressos"
+              className="flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-sm font-medium text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+            >
+              <Ticket className="h-4 w-4" />
+              Ingressos
+            </Link>
+            <Link
+              href="/me/conta"
+              className="flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-sm font-medium text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+            >
+              <UserCircle className="h-4 w-4" />
+              Meu Perfil
+            </Link>
+          </nav>
 
           <div className="flex items-center gap-2">
             <ThemeToggle />
