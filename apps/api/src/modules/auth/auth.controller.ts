@@ -104,7 +104,10 @@ export class AuthController {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
       sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
-      path: "/api/auth",
+      // The web app reaches the API through /api/backend in production.
+      // A narrower /api/auth path would prevent the browser from sending
+      // this cookie to the refresh endpoint behind that proxy.
+      path: "/",
       maxAge: 1000 * 60 * 60 * 24 * 7
     });
   }
@@ -114,7 +117,7 @@ export class AuthController {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
       sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
-      path: "/api/auth"
+      path: "/"
     });
   }
 

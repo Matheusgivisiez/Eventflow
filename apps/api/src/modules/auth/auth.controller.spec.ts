@@ -56,7 +56,7 @@ describe("AuthController refresh cookie security", () => {
     expect(response.cookie).toHaveBeenCalledWith("eventflow_refresh", "refresh-token", expect.objectContaining({
       httpOnly: true,
       sameSite: "lax",
-      path: "/api/auth"
+      path: "/"
     }));
     expect(result).toEqual({
       accessToken: "access-token",
@@ -100,7 +100,7 @@ describe("AuthController refresh cookie security", () => {
     expect(response.clearCookie).toHaveBeenCalledWith("eventflow_refresh", expect.objectContaining({
       httpOnly: true,
       sameSite: "lax",
-      path: "/api/auth"
+      path: "/"
     }));
     expect(auth.logout).toHaveBeenCalledWith("refresh-token");
   });
