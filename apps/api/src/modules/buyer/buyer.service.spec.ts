@@ -1,11 +1,5 @@
-import { UnauthorizedException } from "@nestjs/common";
 import { PaymentStatus, TicketStatus } from "@prisma/client";
-import * as bcrypt from "bcryptjs";
 import { BuyerService } from "./buyer.service";
-
-jest.mock("bcryptjs", () => ({
-  compare: jest.fn(),
-}));
 
 const now = new Date("2026-09-04T15:00:00.000Z");
 
@@ -201,13 +195,11 @@ describe("BuyerService.listTickets", () => {
   it("cancels only the selected ticket and preserves the order payment", async () => {
     const { service, prisma } = createService();
     const ticket = createTicket({ status: TicketStatus.AVAILABLE, seatId: null });
-    (bcrypt.compare as jest.Mock).mockResolvedValue(true);
-    prisma.user.findUnique.mockResolvedValue({ passwordHash: "hash" });
     prisma.ticket.findFirst.mockResolvedValue(ticket);
     prisma.ticket.updateMany.mockResolvedValue({ count: 1 });
     prisma.ticketType.updateMany.mockResolvedValue({ count: 1 });
 
-    const result = await service.requestRefund("user-1", "buyer@example.com", "ticket-1", "password-123");
+    const result = await service.requestRefund("user-1", "buyer@example.com", "ticket-1", "CONFIRMAR");
 
     expect(prisma.ticket.updateMany).toHaveBeenCalledWith({
       where: { id: "ticket-1", status: TicketStatus.AVAILABLE },
@@ -221,14 +213,12 @@ describe("BuyerService.listTickets", () => {
     expect(result.status).toBe("REFUND_REQUESTED");
   });
 
-  it("requires the account password before cancelling a ticket", async () => {
+  it("requires the CONFIRMAR phrase before cancelling a ticket", async () => {
     const { service, prisma } = createService();
-    (bcrypt.compare as jest.Mock).mockResolvedValue(false);
-    prisma.user.findUnique.mockResolvedValue({ passwordHash: "hash" });
 
     await expect(
-      service.requestRefund("user-1", "buyer@example.com", "ticket-1", "wrong-password"),
-    ).rejects.toThrow(UnauthorizedException);
+      service.requestRefund("user-1", "buyer@example.com", "ticket-1", "cancelar"),
+    ).rejects.toThrow("Digite CONFIRMAR");
     expect(prisma.ticket.findFirst).not.toHaveBeenCalled();
   });
 });

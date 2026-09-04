@@ -2,9 +2,7 @@ import {
   BadRequestException,
   Injectable,
   NotFoundException,
-  UnauthorizedException,
 } from "@nestjs/common";
-import * as bcrypt from "bcryptjs";
 import { PaymentStatus, TicketStatus } from "@prisma/client";
 import { AuditService } from "../audit/audit.service";
 import { PaymentsService } from "../payments/payments.service";
@@ -119,8 +117,8 @@ export class BuyerService {
     }));
   }
 
-  async requestRefund(userId: string, email: string, ticketId: string, password: string) {
-    await this.confirmPassword(userId, password);
+  async requestRefund(userId: string, email: string, ticketId: string, confirmation: string) {
+    this.confirmSensitiveAction(confirmation);
     const ticket = await this.findOwnedTicket(userId, email, ticketId);
     if (ticket.status !== TicketStatus.AVAILABLE) {
       throw new BadRequestException(
@@ -261,13 +259,9 @@ export class BuyerService {
     return ticket;
   }
 
-  private async confirmPassword(userId: string, password: string) {
-    const user = await this.prisma.user.findUnique({
-      where: { id: userId },
-      select: { passwordHash: true },
-    });
-    if (!user || !(await bcrypt.compare(password, user.passwordHash))) {
-      throw new UnauthorizedException("Senha inválida.");
+  private confirmSensitiveAction(confirmation: string) {
+    if (confirmation.trim().toUpperCase() !== "CONFIRMAR") {
+      throw new BadRequestException("Digite CONFIRMAR para concluir esta ação.");
     }
   }
 

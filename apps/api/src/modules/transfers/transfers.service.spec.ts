@@ -1,16 +1,11 @@
-import { BadRequestException, ForbiddenException } from "@nestjs/common";
+import { BadRequestException } from "@nestjs/common";
 import { NotificationEvent, TicketStatus, TransferStatus, UserRole } from "@prisma/client";
 import QRCode from "qrcode";
-import * as bcrypt from "bcryptjs";
 import { TransfersService } from "./transfers.service";
 
 jest.mock("qrcode", () => ({
   __esModule: true,
   default: { toDataURL: jest.fn().mockResolvedValue("data:image/png;base64,new-qr") }
-}));
-
-jest.mock("bcryptjs", () => ({
-  compare: jest.fn().mockResolvedValue(true),
 }));
 
 const sender = {
@@ -101,7 +96,6 @@ function createService() {
 describe("TransfersService", () => {
   beforeEach(() => {
     jest.clearAllMocks();
-    (bcrypt.compare as jest.Mock).mockResolvedValue(true);
   });
 
   it("creates a pending transfer for a valid available ticket", async () => {
@@ -111,7 +105,7 @@ describe("TransfersService", () => {
     prisma.transfer.findFirst.mockResolvedValue(null);
     prisma.transfer.create.mockResolvedValue(createTransfer());
 
-    const result = await service.create(sender, { ticketId: "ticket-1", receiverEmail: receiver.email, password: "password-123" });
+    const result = await service.create(sender, { ticketId: "ticket-1", receiverEmail: receiver.email, confirmation: "CONFIRMAR" });
 
     expect(result.status).toBe(TransferStatus.PENDING);
     expect(prisma.transfer.create).toHaveBeenCalledWith(expect.objectContaining({
@@ -133,7 +127,7 @@ describe("TransfersService", () => {
     prisma.ticket.findFirst.mockResolvedValue(createTicket());
     prisma.transfer.findFirst.mockResolvedValue(createTransfer());
 
-    await expect(service.create(sender, { ticketId: "ticket-1", receiverEmail: receiver.email, password: "password-123" })).rejects.toThrow(BadRequestException);
+    await expect(service.create(sender, { ticketId: "ticket-1", receiverEmail: receiver.email, confirmation: "CONFIRMAR" })).rejects.toThrow(BadRequestException);
   });
 
   it("blocks transfers for used tickets", async () => {
@@ -141,17 +135,15 @@ describe("TransfersService", () => {
     prisma.user.findUnique.mockResolvedValue({ id: receiver.id, name: "Receiver", email: receiver.email, avatarUrl: null });
     prisma.ticket.findFirst.mockResolvedValue(createTicket({ status: TicketStatus.USED, usedAt: new Date() }));
 
-    await expect(service.create(sender, { ticketId: "ticket-1", receiverEmail: receiver.email, password: "password-123" })).rejects.toThrow(BadRequestException);
+    await expect(service.create(sender, { ticketId: "ticket-1", receiverEmail: receiver.email, confirmation: "CONFIRMAR" })).rejects.toThrow(BadRequestException);
   });
 
-  it("requires the sender password before creating a transfer", async () => {
+  it("requires the CONFIRMAR phrase before creating a transfer", async () => {
     const { service, prisma } = createService();
-    (bcrypt.compare as jest.Mock).mockResolvedValue(false);
-    prisma.user.findUnique.mockResolvedValue({ passwordHash: "hash" });
 
     await expect(
-      service.create(sender, { ticketId: "ticket-1", receiverEmail: receiver.email, password: "wrong-password" }),
-    ).rejects.toThrow(ForbiddenException);
+      service.create(sender, { ticketId: "ticket-1", receiverEmail: receiver.email, confirmation: "cancelar" }),
+    ).rejects.toThrow("Digite CONFIRMAR");
     expect(prisma.ticket.findFirst).not.toHaveBeenCalled();
   });
 

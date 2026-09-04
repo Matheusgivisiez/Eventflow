@@ -23,7 +23,7 @@ export class BuyerController {
   @Post("tickets/:id/refund")
   @Throttle({ sensitive: { limit: 5, ttl: 60000 } })
   refund(@CurrentUser() user: RequestUser, @Param("id") id: string, @Body() dto: RequestRefundDto) {
-    return this.buyer.requestRefund(user.id, user.email, id, dto.password);
+    return this.buyer.requestRefund(user.id, user.email, id, dto.confirmation);
   }
 
   @Get("tickets/:id/pdf")

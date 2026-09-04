@@ -1,7 +1,6 @@
-import { IsString, MinLength } from "class-validator";
+import { IsString } from "class-validator";
 
 export class RequestRefundDto {
   @IsString()
-  @MinLength(8)
-  password!: string;
+  confirmation!: string;
 }

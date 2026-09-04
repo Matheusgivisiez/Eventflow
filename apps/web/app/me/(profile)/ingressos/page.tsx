@@ -469,9 +469,9 @@ export default function MyTicketsPage() {
   const [expandedTicket, setExpandedTicket] = useState<string | null>(null);
   const [transferTicket, setTransferTicket] = useState<MyTicket | null>(null);
   const [recipient, setRecipient] = useState("");
-  const [transferPassword, setTransferPassword] = useState("");
+  const [transferConfirmation, setTransferConfirmation] = useState("");
   const [refundTicket, setRefundTicket] = useState<MyTicket | null>(null);
-  const [refundPassword, setRefundPassword] = useState("");
+  const [refundConfirmation, setRefundConfirmation] = useState("");
   const [recipientLookup, setRecipientLookup] =
     useState<RecipientLookup | null>(null);
   const token = useAuthStore((state) => state.accessToken);
@@ -490,18 +490,18 @@ export default function MyTicketsPage() {
   const refund = useMutation({
     mutationFn: ({
       ticketId,
-      password,
+      confirmation,
     }: {
       ticketId: string;
-      password: string;
+      confirmation: string;
     }) =>
       api(`/buyer/tickets/${ticketId}/refund`, {
         method: "POST",
-        body: JSON.stringify({ password }),
+        body: JSON.stringify({ confirmation }),
       }),
     onSuccess: () => {
       setRefundTicket(null);
-      setRefundPassword("");
+      setRefundConfirmation("");
       tickets.refetch();
     },
   });
@@ -533,14 +533,14 @@ export default function MyTicketsPage() {
         body: JSON.stringify({
           ticketId: transferTicket.id,
           ...recipientPayload(recipient),
-          password: transferPassword,
+          confirmation: transferConfirmation,
         }),
       });
     },
     onSuccess: () => {
       setTransferTicket(null);
       setRecipient("");
-      setTransferPassword("");
+      setTransferConfirmation("");
       setRecipientLookup(null);
       tickets.refetch();
     },
@@ -549,7 +549,7 @@ export default function MyTicketsPage() {
   function openTransferModal(ticket: MyTicket) {
     setTransferTicket(ticket);
     setRecipient("");
-    setTransferPassword("");
+    setTransferConfirmation("");
     setRecipientLookup(null);
     resolveRecipient.reset();
     createTransfer.reset();
@@ -558,7 +558,7 @@ export default function MyTicketsPage() {
   function closeTransferModal() {
     setTransferTicket(null);
     setRecipient("");
-    setTransferPassword("");
+    setTransferConfirmation("");
     setRecipientLookup(null);
     resolveRecipient.reset();
     createTransfer.reset();
@@ -566,13 +566,13 @@ export default function MyTicketsPage() {
 
   function openRefundDialog(ticket: MyTicket) {
     setRefundTicket(ticket);
-    setRefundPassword("");
+    setRefundConfirmation("");
     refund.reset();
   }
 
   function closeRefundDialog() {
     setRefundTicket(null);
-    setRefundPassword("");
+    setRefundConfirmation("");
     refund.reset();
   }
 
@@ -752,7 +752,7 @@ export default function MyTicketsPage() {
             <DialogHeader>
               <DialogTitle>Confirmar cancelamento do ingresso</DialogTitle>
               <DialogDescription>
-                Para sua segurança, confirme sua senha antes de solicitar o
+                Para sua segurança, digite CONFIRMAR antes de solicitar o
                 reembolso.
               </DialogDescription>
             </DialogHeader>
@@ -772,17 +772,17 @@ export default function MyTicketsPage() {
             </p>
 
             <div className="space-y-2">
-              <Label htmlFor="refund-password">Senha da conta</Label>
+              <Label htmlFor="refund-confirmation">
+                Digite CONFIRMAR para continuar
+              </Label>
               <Input
-                id="refund-password"
-                type="password"
-                autoComplete="current-password"
-                value={refundPassword}
+                id="refund-confirmation"
+                value={refundConfirmation}
                 onChange={(event) => {
-                  setRefundPassword(event.target.value);
+                  setRefundConfirmation(event.target.value.toUpperCase());
                   refund.reset();
                 }}
-                placeholder="Digite sua senha para confirmar"
+                placeholder="CONFIRMAR"
               />
             </div>
 
@@ -795,13 +795,15 @@ export default function MyTicketsPage() {
             <Button
               className="w-full rounded-xl bg-rose-600 text-white hover:bg-rose-700"
               disabled={
-                !refundTicket || refundPassword.length < 8 || refund.isPending
+                !refundTicket ||
+                refundConfirmation !== "CONFIRMAR" ||
+                refund.isPending
               }
               onClick={() =>
                 refundTicket &&
                 refund.mutate({
                   ticketId: refundTicket.id,
-                  password: refundPassword,
+                  confirmation: refundConfirmation,
                 })
               }
             >
@@ -923,17 +925,17 @@ export default function MyTicketsPage() {
             )}
 
             <div className="space-y-2">
-              <Label htmlFor="transfer-password">Senha da conta</Label>
+              <Label htmlFor="transfer-confirmation">
+                Digite CONFIRMAR para continuar
+              </Label>
               <Input
-                id="transfer-password"
-                type="password"
-                autoComplete="current-password"
-                value={transferPassword}
+                id="transfer-confirmation"
+                value={transferConfirmation}
                 onChange={(event) => {
-                  setTransferPassword(event.target.value);
+                  setTransferConfirmation(event.target.value.toUpperCase());
                   createTransfer.reset();
                 }}
-                placeholder="Digite sua senha para confirmar"
+                placeholder="CONFIRMAR"
               />
               <p className="text-xs leading-relaxed text-muted-foreground">
                 Confirme o destinatário acima. A transferência será enviada para
@@ -945,7 +947,7 @@ export default function MyTicketsPage() {
               className="w-full rounded-xl"
               disabled={
                 !recipientLookup ||
-                transferPassword.length < 8 ||
+                transferConfirmation !== "CONFIRMAR" ||
                 createTransfer.isPending
               }
               onClick={() => createTransfer.mutate()}

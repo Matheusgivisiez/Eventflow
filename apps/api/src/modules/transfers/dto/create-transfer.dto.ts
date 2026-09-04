@@ -1,4 +1,4 @@
-import { IsEmail, IsString, MinLength, ValidateIf } from "class-validator";
+import { IsEmail, IsString, ValidateIf } from "class-validator";
 
 export class CreateTransferDto {
   @IsString()
@@ -13,8 +13,7 @@ export class CreateTransferDto {
   receiverCpf?: string;
 
   @IsString()
-  @MinLength(8)
-  password!: string;
+  confirmation!: string;
 }
 
 export class ResolveTransferRecipientDto {
