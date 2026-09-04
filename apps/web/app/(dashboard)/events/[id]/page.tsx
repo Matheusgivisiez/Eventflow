@@ -20,6 +20,7 @@ import { api } from "@/lib/api";
 
 const ImageUpload = dynamic(() => import("@/components/image-upload").then(m => m.ImageUpload), { ssr: false, loading: () => <Skeleton className="h-40 w-full" /> });
 import type { EventFlowEvent } from "@/types/eventflow";
+import { ArtistManager } from "@/components/events/artist-manager";
 
 const schema = z.object({
   title: z.string().min(3, "Informe o nome do evento."),
@@ -312,6 +313,8 @@ export default function EditEventPage() {
               <Input placeholder="Descrição SEO" {...form.register("seoDescription")} />
             </CardContent>
           </Card>
+
+          <ArtistManager eventId={id} initialArtists={event.artists} />
         </div>
 
         <div className="space-y-6">

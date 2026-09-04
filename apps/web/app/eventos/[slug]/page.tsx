@@ -6,6 +6,7 @@ import { LocationMap } from "@/components/event-page/location-map";
 import { EventAgenda } from "@/components/event-page/event-agenda";
 import { EventFaq } from "@/components/event-page/event-faq";
 import { OrganizerInfo } from "@/components/event-page/organizer-info";
+import { EventArtists } from "@/components/event-page/event-artists";
 import { EventDetailClient } from "./event-detail-client";
 import { getApiUrl } from "@/lib/api-url";
 import type { EventFlowEvent } from "@/types/eventflow";
@@ -136,6 +137,8 @@ export default async function PublicEventPage({ params }: { params: Promise<{ sl
 
             {/* Agenda */}
             <EventAgenda agendaJson={event.agendaJson} />
+
+            <EventArtists artists={event.artists} />
 
             {/* FAQ */}
             <EventFaq faqJson={event.faqJson} />

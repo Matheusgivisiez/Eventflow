@@ -37,6 +37,7 @@ import { PromotersModule } from "./modules/promoters/promoters.module";
 import { UploadModule } from "./modules/upload/upload.module";
 import { TransfersModule } from "./modules/transfers/transfers.module";
 import { ObservabilityModule } from "./modules/observability/observability.module";
+import { ArtistsModule } from "./modules/artists/artists.module";
 
 @Module({
   imports: [
@@ -101,7 +102,8 @@ import { ObservabilityModule } from "./modules/observability/observability.modul
     OrdersModule,
     UploadModule,
     PromotersModule,
-    TransfersModule
+    TransfersModule,
+    ArtistsModule
   ],
   controllers: [AppController],
   providers: [

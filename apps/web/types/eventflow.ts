@@ -29,6 +29,9 @@ export type AgendaItem = {
   description?: string;
 };
 
+export type Artist = { id: string; stageName: string; imageUrl?: string; instagramUrl?: string; spotifyUrl?: string; bio?: string; genre?: string };
+export type EventArtist = { artistId?: string; position: number; artist: Artist };
+
 export type EventFlowEvent = {
   id: string;
   title: string;
@@ -52,6 +55,7 @@ export type EventFlowEvent = {
   faqJson?: FaqItem[];
   agendaJson?: AgendaItem[];
   ticketTypes: TicketType[];
+  artists?: EventArtist[];
   tenant?: { name: string; logoUrl?: string };
   allowTicketTransfer?: boolean;
   ticketTransferLockTime?: string;

@@ -47,13 +47,16 @@ export class EventsRepository implements IEventsRepository {
   }
 
   findByIdForTenant(id: string, tenantId: string) {
-    return this.prisma.event.findFirst({ where: { id, tenantId }, include: { ticketTypes: true } });
+    return this.prisma.event.findFirst({
+      where: { id, tenantId },
+      include: { ticketTypes: true, artists: { include: { artist: { select: { id: true, stageName: true, imageUrl: true, instagramUrl: true, spotifyUrl: true, bio: true, genre: true } } }, orderBy: { position: "asc" } } }
+    });
   }
 
   findPublicBySlug(slug: string) {
     return this.prisma.event.findFirst({
       where: { slug, status: EventStatus.PUBLISHED },
-      include: { ticketTypes: { where: { isActive: true }, orderBy: { priceCents: "asc" } } }
+      include: { ticketTypes: { where: { isActive: true }, orderBy: { priceCents: "asc" } }, artists: { select: { position: true, artist: { select: { id: true, stageName: true, imageUrl: true, instagramUrl: true, spotifyUrl: true, bio: true, genre: true } } }, orderBy: { position: "asc" } } }
     });
   }
 

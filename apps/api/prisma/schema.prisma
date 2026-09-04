@@ -231,6 +231,7 @@ model User {
   sentTransfers Transfer[] @relation("TransferSender")
   receivedTransfers Transfer[] @relation("TransferReceiver")
   transferHistory TransferHistory[]
+  createdArtists Artist[] @relation("ArtistCreator")
 }
 
 model RefreshToken {
@@ -320,12 +321,46 @@ model Event {
   payments               Payment[]
   tickets                Ticket[]
   promoterLinks          PromoterLink[]
+  artists                EventArtist[]
 
   @@index([tenantId, status])
   @@index([tenantId, startsAt])
   @@index([startsAt])
   @@index([category, status])
   @@index([slug, status])
+}
+
+// ─── Artists ─────────────────────────────────────────────────────
+
+model Artist {
+  id           String        @id @default(cuid())
+  stageName    String
+  imageUrl     String?
+  instagramUrl String?
+  spotifyUrl   String?
+  bio          String?
+  genre        String?
+  createdById  String?
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+  createdBy    User?         @relation("ArtistCreator", fields: [createdById], references: [id], onDelete: SetNull)
+  events       EventArtist[]
+
+  @@index([stageName])
+  @@index([createdById])
+}
+
+model EventArtist {
+  eventId   String
+  artistId  String
+  position  Int      @default(0)
+  createdAt DateTime @default(now())
+  event     Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  artist    Artist   @relation(fields: [artistId], references: [id], onDelete: Restrict)
+
+  @@id([eventId, artistId])
+  @@index([eventId, position])
+  @@index([artistId])
 }
 
 model TicketType {
