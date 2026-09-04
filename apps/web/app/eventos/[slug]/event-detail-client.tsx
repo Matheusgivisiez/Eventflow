@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import { TicketSelector } from "@/components/event-page/ticket-selector";
 import { FloatingBuyBar } from "@/components/event-page/floating-buy-bar";
 import { ShareButtons } from "@/components/event-page/share-buttons";
+import { EventArtists } from "@/components/event-page/event-artists";
 import type { EventFlowEvent } from "@/types/eventflow";
 
 type EventDetailClientProps = {
@@ -43,6 +44,8 @@ export function EventDetailClient({ event }: EventDetailClientProps) {
           quantities={quantities}
           onQuantityChange={handleQuantityChange}
         />
+
+        <EventArtists artists={event.artists} compact />
       </div>
 
       {/* Barra fixa de compra */}
