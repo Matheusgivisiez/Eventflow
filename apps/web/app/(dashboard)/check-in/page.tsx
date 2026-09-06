@@ -258,7 +258,7 @@ export default function CheckInPage() {
                                   variant="secondary" 
                                   size="sm"
                                   disabled={validateMutation.isPending}
-                                  onClick={() => validateMutation.mutate(t.code)}
+                                  onClick={() => validateMutation.mutate(t.uuid || t.id)}
                                 >
                                   Fazer Check-in
                                 </Button>

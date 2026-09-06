@@ -1,5 +1,5 @@
 import { BadRequestException, NotFoundException } from "@nestjs/common";
-import { CheckInStatus, TicketStatus } from "@prisma/client";
+import { CheckInStatus, PaymentStatus, TicketStatus } from "@prisma/client";
 import { createHmac } from "crypto";
 import { ValidateTicketUseCase } from "./validate-ticket.use-case";
 
@@ -21,12 +21,14 @@ function createTicket(overrides: Record<string, unknown> = {}) {
   return {
     id: "ticket-1",
     uuid: "ticket-uuid",
+    hash: "ticket-hash",
     orderId: "order-1",
     eventId: "event-1",
     status: TicketStatus.AVAILABLE,
     usedAt: null,
     event: { id: "event-1", tenantId: "tenant-1", title: "Event Flow Conf" },
     ticketType: { id: "ticket-type-1", name: "Inteira" },
+    order: { id: "order-1", status: PaymentStatus.PAID },
     ...overrides
   };
 }
@@ -66,11 +68,14 @@ describe("ValidateTicketUseCase", () => {
     expect(result.ticket.status).toBe(TicketStatus.USED);
     expect(prisma.ticket.findFirst).toHaveBeenCalledWith({
       where: {
-        eventId: "event-1",
         event: { tenantId: "tenant-1" },
-        uuid: "ticket-uuid"
+        OR: [
+          { uuid: "ticket-uuid" },
+          { hash: "ticket-uuid" },
+          { id: "ticket-uuid" }
+        ]
       },
-      include: { event: true, ticketType: true }
+      include: { event: true, ticketType: true, order: true }
     });
     expect(prisma.ticket.updateMany).toHaveBeenCalledWith({
       where: { id: "ticket-1", status: TicketStatus.AVAILABLE },
@@ -121,6 +126,34 @@ describe("ValidateTicketUseCase", () => {
         reason: "Ingresso ja utilizado."
       }
     });
+  });
+
+  it("returns REFUSED when ticket belongs to another event", async () => {
+    const { service, prisma } = createService();
+    prisma.ticket.findFirst.mockResolvedValue(createTicket({ eventId: "other-event-2" }));
+
+    const result = await service.execute("event-1", "tenant-1", "checkin-user-1", qrPayload());
+
+    expect(result.status).toBe(CheckInStatus.REFUSED);
+    expect(result.message).toBe("Ingresso pertence a outro evento.");
+    expect(prisma.checkInLog.create).toHaveBeenCalledWith({
+      data: {
+        ticketId: "ticket-1",
+        userId: "checkin-user-1",
+        status: CheckInStatus.REFUSED,
+        reason: "Ingresso pertence a outro evento."
+      }
+    });
+  });
+
+  it("returns REFUSED when ticket order is unpaid or canceled", async () => {
+    const { service, prisma } = createService();
+    prisma.ticket.findFirst.mockResolvedValue(createTicket({ order: { id: "order-1", status: PaymentStatus.PENDING } }));
+
+    const result = await service.execute("event-1", "tenant-1", "checkin-user-1", qrPayload());
+
+    expect(result.status).toBe(CheckInStatus.REFUSED);
+    expect(result.message).toBe("Ingresso com pagamento pendente ou cancelado.");
   });
 
   it("returns REFUSED and logs the attempt when ticket is canceled", async () => {
@@ -206,3 +239,4 @@ describe("ValidateTicketUseCase", () => {
     });
   });
 });
+

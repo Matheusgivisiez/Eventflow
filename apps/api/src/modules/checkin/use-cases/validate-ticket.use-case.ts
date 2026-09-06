@@ -1,6 +1,6 @@
 import { BadRequestException, Injectable, NotFoundException, Optional } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
-import { CheckInStatus, TicketStatus } from "@prisma/client";
+import { CheckInStatus, PaymentStatus, TicketStatus } from "@prisma/client";
 import { createHmac } from "crypto";
 import { PrismaService } from "../../../prisma/prisma.service";
 import { BusinessMetricsService } from "../../observability/business-metrics.service";
@@ -13,25 +13,48 @@ export class ValidateTicketUseCase {
     @Optional() private readonly metrics?: BusinessMetricsService
   ) {}
 
-  async execute(eventId: string, tenantId: string, userId: string, code: string) {
+  async execute(eventId: string, tenantId: string, userId: string, rawCode: string) {
+    const code = rawCode ? rawCode.trim() : "";
+    if (!code) {
+      this.metrics?.increment("eventflow_checkin_validations_total", { status: "NOT_FOUND" });
+      throw new NotFoundException("Ingresso nao encontrado.");
+    }
+
     const parsed = this.parseCode(code);
 
     if (parsed.uuid && parsed.orderId && parsed.signature) {
       this.validateSignature(parsed as { uuid: string; orderId: string; signature: string });
     }
 
+    const searchKey = parsed.uuid ?? code;
+
     const ticket = await this.prisma.ticket.findFirst({
       where: {
-        eventId,
         event: { tenantId },
-        uuid: parsed.uuid ?? code
+        OR: [
+          { uuid: searchKey },
+          { hash: searchKey },
+          { id: searchKey }
+        ]
       },
-      include: { event: true, ticketType: true }
+      include: { event: true, ticketType: true, order: true }
     });
 
     if (!ticket) {
       this.metrics?.increment("eventflow_checkin_validations_total", { status: "NOT_FOUND" });
       throw new NotFoundException("Ingresso nao encontrado.");
+    }
+
+    if (ticket.eventId !== eventId) {
+      await this.logCheckIn(ticket.id, userId, CheckInStatus.REFUSED, "Ingresso pertence a outro evento.");
+      this.metrics?.increment("eventflow_checkin_validations_total", { status: CheckInStatus.REFUSED });
+      return { status: CheckInStatus.REFUSED, message: "Ingresso pertence a outro evento.", ticket };
+    }
+
+    if (ticket.order && ticket.order.status !== PaymentStatus.PAID) {
+      await this.logCheckIn(ticket.id, userId, CheckInStatus.REFUSED, "Ingresso com pagamento pendente ou cancelado.");
+      this.metrics?.increment("eventflow_checkin_validations_total", { status: CheckInStatus.REFUSED });
+      return { status: CheckInStatus.REFUSED, message: "Ingresso com pagamento pendente ou cancelado.", ticket };
     }
 
     if (ticket.status === TicketStatus.USED) {
@@ -74,7 +97,7 @@ export class ValidateTicketUseCase {
   private async resolveConcurrentAttempt(ticketId: string, userId: string) {
     const latest = await this.prisma.ticket.findUnique({
       where: { id: ticketId },
-      include: { event: true, ticketType: true }
+      include: { event: true, ticketType: true, order: true }
     });
 
     if (!latest) {
@@ -120,3 +143,4 @@ export class ValidateTicketUseCase {
     }
   }
 }
+
