@@ -36,6 +36,9 @@ function createService() {
     seatReservation: {
       updateMany: jest.fn()
     },
+    coupon: {
+      updateMany: jest.fn()
+    },
     $transaction: jest.fn((callback) => callback(prisma))
   };
   const abacatePay = {

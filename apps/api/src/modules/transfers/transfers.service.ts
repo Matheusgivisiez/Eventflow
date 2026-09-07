@@ -204,8 +204,8 @@ export class TransfersService {
 
       const qr = await this.generateTicketQr(transfer.ticket.orderId);
 
-      await tx.ticket.update({
-        where: { id: transfer.ticketId },
+      const updatedTicket = await tx.ticket.updateMany({
+        where: { id: transfer.ticketId, status: TicketStatus.AVAILABLE },
         data: {
           ownerId: user.id,
           attendeeName: recipient.name,
@@ -216,6 +216,9 @@ export class TransfersService {
           qrCodeDataUrl: qr.qrCodeDataUrl
         }
       });
+      if (updatedTicket.count !== 1) {
+        throw new BadRequestException("O ingresso foi utilizado ou ficou indisponível durante a transferência.");
+      }
 
       const updated = await tx.transfer.update({
         where: { id: transfer.id },

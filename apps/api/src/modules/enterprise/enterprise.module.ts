@@ -1,5 +1,6 @@
 import { Module } from "@nestjs/common";
 import { PrismaModule } from "../../prisma/prisma.module";
+import { CheckInModule } from "../checkin/checkin.module";
 import { EnterpriseController } from "./enterprise.controller";
 import { EnterpriseService } from "./enterprise.service";
 import { EnterpriseAffiliatesService } from "./services/enterprise-affiliates.service";
@@ -17,7 +18,7 @@ import { EnterpriseSecurityService } from "./services/enterprise-security.servic
 import { EnterpriseWhiteLabelService } from "./services/enterprise-white-label.service";
 
 @Module({
-  imports: [PrismaModule],
+  imports: [PrismaModule, CheckInModule],
   controllers: [EnterpriseController],
   providers: [
     EnterpriseService,

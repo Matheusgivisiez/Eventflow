@@ -1,5 +1,7 @@
 import { defineConfig, devices } from "@playwright/test";
 
+const useExternalApp = Boolean(process.env.APP_URL);
+
 export default defineConfig({
   testDir: "./e2e",
   fullyParallel: true,
@@ -14,10 +16,18 @@ export default defineConfig({
   projects: [
     { name: "chromium", use: { ...devices["Desktop Chrome"] } }
   ],
-  webServer: {
-    command: "pnpm --filter @eventflow/api dev",
-    url: "http://localhost:3001/api",
-    reuseExistingServer: !process.env.CI,
-    timeout: 120000
-  }
+  webServer: useExternalApp ? undefined : [
+    {
+      command: "pnpm --filter @eventflow/api dev",
+      url: "http://localhost:3001/api/health",
+      reuseExistingServer: !process.env.CI,
+      timeout: 120000
+    },
+    {
+      command: "pnpm --filter @eventflow/web dev",
+      url: "http://localhost:3000",
+      reuseExistingServer: !process.env.CI,
+      timeout: 120000
+    }
+  ]
 });

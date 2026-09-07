@@ -211,6 +211,13 @@ export class PaymentsService {
         await this.releaseReservedStockTx(tx, payment);
       }
 
+      if (!wasPaid && payment.order.couponId) {
+        await tx.coupon.updateMany({
+          where: { id: payment.order.couponId, usedCount: { gt: 0 } },
+          data: { usedCount: { decrement: 1 } }
+        });
+      }
+
       // Reverse promoter commission if the order was previously PAID.
       // This handles REFUNDED scenarios — commission was already credited and must be reversed.
       // For orders cancelled from PENDING, commission was never credited so no reversal needed.

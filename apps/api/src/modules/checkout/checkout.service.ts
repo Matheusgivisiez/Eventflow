@@ -154,6 +154,13 @@ export class CheckoutService {
         }
       }
 
+      if (order.couponId) {
+        await tx.coupon.updateMany({
+          where: { id: order.couponId, usedCount: { gt: 0 } },
+          data: { usedCount: { decrement: 1 } }
+        });
+      }
+
       await tx.order.update({
         where: { id: order.id },
         data: { status: PaymentStatus.CANCELED, stockReservedAt: null }

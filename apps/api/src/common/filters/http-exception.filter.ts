@@ -18,7 +18,7 @@ export class HttpExceptionFilter implements ExceptionFilter {
         : (payload as { message?: string | string[] }).message ?? exception.message;
     } else if (exception instanceof Error) {
       this.logger.error(`Unhandled exception: ${exception.message}`, exception.stack);
-      message = exception.message || "Erro interno inesperado.";
+      message = "Erro interno inesperado.";
     } else {
       message = "Erro interno inesperado.";
     }

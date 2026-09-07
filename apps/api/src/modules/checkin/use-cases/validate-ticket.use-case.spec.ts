@@ -1,5 +1,5 @@
 import { BadRequestException, NotFoundException } from "@nestjs/common";
-import { CheckInStatus, PaymentStatus, TicketStatus } from "@prisma/client";
+import { CheckInStatus, EventStatus, PaymentStatus, TicketStatus } from "@prisma/client";
 import { createHmac } from "crypto";
 import { ValidateTicketUseCase } from "./validate-ticket.use-case";
 
@@ -26,7 +26,15 @@ function createTicket(overrides: Record<string, unknown> = {}) {
     eventId: "event-1",
     status: TicketStatus.AVAILABLE,
     usedAt: null,
-    event: { id: "event-1", tenantId: "tenant-1", title: "Event Flow Conf" },
+    event: {
+      id: "event-1",
+      tenantId: "tenant-1",
+      title: "Event Flow Conf",
+      status: EventStatus.PUBLISHED,
+      startsAt: new Date(Date.now() - 60_000),
+      checkInOpensAt: new Date(Date.now() - 60_000),
+      checkInClosesAt: null
+    },
     ticketType: { id: "ticket-type-1", name: "Inteira" },
     order: { id: "order-1", status: PaymentStatus.PAID },
     ...overrides
@@ -146,6 +154,49 @@ describe("ValidateTicketUseCase", () => {
     });
   });
 
+  it("refuses a valid signed QR before the portaria opens without consuming the ticket", async () => {
+    const { service, prisma } = createService();
+    const opensAt = new Date(Date.now() + 60_000);
+    prisma.ticket.findFirst.mockResolvedValue(createTicket({
+      event: { ...createTicket().event, checkInOpensAt: opensAt }
+    }));
+
+    const result = await service.execute("event-1", "tenant-1", "checkin-user-1", qrPayload());
+
+    expect(result.status).toBe(CheckInStatus.REFUSED);
+    expect(result.message).toBe(`A portaria abre em ${opensAt.toISOString()}.`);
+    expect(prisma.ticket.updateMany).not.toHaveBeenCalled();
+    expect(prisma.checkInLog.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({ status: CheckInStatus.REFUSED, reason: result.message })
+    });
+  });
+
+  it("refuses a valid signed QR after the portaria closes without consuming the ticket", async () => {
+    const { service, prisma } = createService();
+    prisma.ticket.findFirst.mockResolvedValue(createTicket({
+      event: { ...createTicket().event, checkInClosesAt: new Date(Date.now() - 60_000) }
+    }));
+
+    const result = await service.execute("event-1", "tenant-1", "checkin-user-1", qrPayload());
+
+    expect(result.status).toBe(CheckInStatus.REFUSED);
+    expect(result.message).toBe("A portaria deste evento já foi encerrada.");
+    expect(prisma.ticket.updateMany).not.toHaveBeenCalled();
+  });
+
+  it("refuses check-in for a closed event without consuming the ticket", async () => {
+    const { service, prisma } = createService();
+    prisma.ticket.findFirst.mockResolvedValue(createTicket({
+      event: { ...createTicket().event, status: EventStatus.CLOSED }
+    }));
+
+    const result = await service.execute("event-1", "tenant-1", "checkin-user-1", qrPayload());
+
+    expect(result.status).toBe(CheckInStatus.REFUSED);
+    expect(result.message).toBe("Check-in indisponível para evento não publicado ou encerrado.");
+    expect(prisma.ticket.updateMany).not.toHaveBeenCalled();
+  });
+
   it("returns REFUSED when ticket order is unpaid or canceled", async () => {
     const { service, prisma } = createService();
     prisma.ticket.findFirst.mockResolvedValue(createTicket({ order: { id: "order-1", status: PaymentStatus.PENDING } }));
@@ -239,4 +290,3 @@ describe("ValidateTicketUseCase", () => {
     });
   });
 });
-

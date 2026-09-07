@@ -1,4 +1,4 @@
-import { Body, Controller, Headers, Post, Query, RawBodyRequest, Req, UnauthorizedException } from "@nestjs/common";
+import { Body, Controller, Headers, Post, RawBodyRequest, Req, UnauthorizedException } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { ApiTags } from "@nestjs/swagger";
 import { createHmac, timingSafeEqual } from "crypto";
@@ -132,14 +132,12 @@ export class WebhooksController {
   abacatePay(
     @Body() body: Record<string, unknown>,
     @Req() req: RawBodyRequest<Request>,
-    @Query("webhookSecret") webhookSecret?: string,
     @Headers("x-webhook-secret") xSecret?: string,
     @Headers("x-webhook-signature") xSignature?: string
   ) {
-    const providedSecret = webhookSecret ?? xSecret;
     const rawBody = req.rawBody?.toString("utf8") ?? JSON.stringify(body);
 
-    if (!validateWebhookSecret(this.abacatePaySecret, providedSecret)) {
+    if (!validateWebhookSecret(this.abacatePaySecret, xSecret)) {
       throw new UnauthorizedException("Secret do webhook inalterado ou invalido.");
     }
 
@@ -154,10 +152,9 @@ export class WebhooksController {
   abacatePayLegacy(
     @Body() body: Record<string, unknown>,
     @Req() req: RawBodyRequest<Request>,
-    @Query("webhookSecret") webhookSecret?: string,
     @Headers("x-webhook-secret") xSecret?: string,
     @Headers("x-webhook-signature") xSignature?: string
   ) {
-    return this.abacatePay(body, req, webhookSecret, xSecret, xSignature);
+    return this.abacatePay(body, req, xSecret, xSignature);
   }
 }

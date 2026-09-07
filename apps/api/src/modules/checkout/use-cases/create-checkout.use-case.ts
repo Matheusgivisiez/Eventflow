@@ -65,7 +65,7 @@ export class CreateCheckoutUseCase {
       const affiliateResult = await this.processAffiliate(tx, event, normalizedDto);
       const promoterResult = await this.processPromoter(tx, event, normalizedDto);
 
-      const items = this.validateAndPrepareItems(event, normalizedDto, couponResult.couponDiscount);
+      const items = this.validateAndPrepareItems(event, normalizedDto);
       const { subtotalCents, discountCents, feeCents, totalCents } = this.calculatePricing(
         items, couponResult.couponDiscount, event.feeAbsorbedByOrganizer
       );
@@ -211,10 +211,11 @@ export class CreateCheckoutUseCase {
       couponId = coupon.id;
       couponDiscount = { discountPercent: coupon.discountPercent, discountFixedCents: coupon.discountFixedCents };
 
-      await tx.coupon.update({
-        where: { id: coupon.id },
+      const reservedCoupon = await tx.coupon.updateMany({
+        where: coupon.maxUses > 0 ? { id: coupon.id, usedCount: { lt: coupon.maxUses } } : { id: coupon.id },
         data: { usedCount: { increment: 1 } }
       });
+      if (reservedCoupon.count !== 1) throw new BadRequestException("Cupom esgotado.");
     }
 
     return { couponId, couponDiscount };
@@ -275,7 +276,7 @@ export class CreateCheckoutUseCase {
     return { promoterLinkId, promoterCommissionCents };
   }
 
-  private validateAndPrepareItems(event: CheckoutEvent, dto: CreateCheckoutDto, couponDiscount: { discountPercent: number; discountFixedCents: number }): ProcessedItem[] {
+  private validateAndPrepareItems(event: CheckoutEvent, dto: CreateCheckoutDto): ProcessedItem[] {
     const now = new Date();
 
     return dto.items.map((item) => {

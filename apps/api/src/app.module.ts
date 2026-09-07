@@ -43,6 +43,7 @@ import { ArtistsModule } from "./modules/artists/artists.module";
   imports: [
     ConfigModule.forRoot({
       isGlobal: true,
+      envFilePath: ["../../.env.local", "../../.env", ".env.local", ".env"],
       validate: (env) => envSchema.parse(env)
     }),
     BullModule.forRoot({

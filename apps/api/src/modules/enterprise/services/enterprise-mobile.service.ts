@@ -1,13 +1,14 @@
 import { BadRequestException, Injectable, NotFoundException } from "@nestjs/common";
-import { CheckInStatus, TicketStatus } from "@prisma/client";
+import { CheckInStatus } from "@prisma/client";
 import { randomUUID } from "crypto";
 import { PrismaService } from "../../../prisma/prisma.service";
 import { RequestUser } from "../../../common/types/request-user";
 import { AnyRecord, EnterpriseDomainService } from "./enterprise-domain.service";
+import { ValidateTicketUseCase } from "../../checkin/use-cases/validate-ticket.use-case";
 
 @Injectable()
 export class EnterpriseMobileService extends EnterpriseDomainService {
-  constructor(prisma: PrismaService) {
+  constructor(prisma: PrismaService, private readonly validateTicket: ValidateTicketUseCase) {
     super(prisma);
   }
 
@@ -44,51 +45,39 @@ export class EnterpriseMobileService extends EnterpriseDomainService {
     const event = await this.prisma.event.findFirst({ where: { id: eventId, tenantId } });
     if (!event) throw new NotFoundException("Evento nao encontrado.");
 
-    const db = this.db();
-    return this.prisma.$transaction(async (tx) => {
-      const entries: AnyRecord[] = [];
-      let acceptedScans = 0;
-      let rejectedScans = 0;
-      let conflictScans = 0;
+    const entries: AnyRecord[] = [];
+    let acceptedScans = 0;
+    let rejectedScans = 0;
+    let conflictScans = 0;
 
-      for (const scan of scans) {
-        const ticketUuid = this.requiredString(scan.ticketUuid ?? scan.uuid ?? scan.code, "ticketUuid");
-        const ticket = await tx.ticket.findFirst({ where: { uuid: ticketUuid, eventId, event: { tenantId } } });
-        let status: CheckInStatus = CheckInStatus.REFUSED;
-        let reason = "Ingresso nao encontrado.";
+    for (const scan of scans) {
+      const ticketUuid = this.requiredString(scan.ticketUuid ?? scan.uuid ?? scan.code, "ticketUuid");
+      const rawPayload = this.requiredString(scan.rawPayload ?? scan.code, "rawPayload");
+      let status: CheckInStatus = CheckInStatus.REFUSED;
+      let reason: string | undefined = "Ingresso nao encontrado.";
 
-        if (ticket?.status === TicketStatus.AVAILABLE) {
-          status = CheckInStatus.ENTERED;
-          reason = undefined as unknown as string;
-          acceptedScans += 1;
-          await tx.ticket.update({
-            where: { id: ticket.id },
-            data: {
-              status: TicketStatus.USED,
-              usedAt: scan.scannedAt ? new Date(String(scan.scannedAt)) : new Date(),
-              checkIns: { create: { userId: user.id, status: CheckInStatus.ENTERED } }
-            }
-          });
-        } else if (ticket?.status === TicketStatus.USED) {
-          status = CheckInStatus.DUPLICATED;
-          reason = "Ingresso ja utilizado antes da sincronizacao.";
-          conflictScans += 1;
-          await tx.checkInLog.create({ data: { ticketId: ticket.id, userId: user.id, status, reason } });
-        } else {
-          rejectedScans += 1;
-          if (ticket) await tx.checkInLog.create({ data: { ticketId: ticket.id, userId: user.id, status, reason: "Ingresso indisponivel." } });
-        }
-
-        entries.push({
-          ticketUuid,
-          scannedAt: scan.scannedAt ? new Date(String(scan.scannedAt)) : new Date(),
-          status,
-          reason,
-          rawPayload: scan
-        });
+      try {
+        const result = await this.validateTicket.execute(eventId, tenantId, user.id, rawPayload, { requireSignedPayload: true });
+        status = result.status;
+        reason = result.status === CheckInStatus.ENTERED ? undefined : result.message;
+      } catch (error) {
+        reason = error instanceof Error ? error.message : "Falha ao validar ingresso.";
       }
 
-      return db.offlineCheckinBatch.create({
+      if (status === CheckInStatus.ENTERED) acceptedScans += 1;
+      else if (status === CheckInStatus.DUPLICATED) conflictScans += 1;
+      else rejectedScans += 1;
+
+      entries.push({
+        ticketUuid,
+        scannedAt: scan.scannedAt ? new Date(String(scan.scannedAt)) : new Date(),
+        status,
+        reason,
+        rawPayload: scan
+      });
+    }
+
+    return this.db().offlineCheckinBatch.create({
         data: {
           tenantId,
           eventId,
@@ -104,7 +93,6 @@ export class EnterpriseMobileService extends EnterpriseDomainService {
           entries: { create: entries }
         },
         include: { entries: true }
-      });
     });
   }
 }

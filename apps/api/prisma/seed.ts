@@ -5,6 +5,12 @@ const prisma = new PrismaClient();
 
 async function main() {
   const passwordHash = await bcrypt.hash("EventFlow@123", 12);
+  const now = new Date();
+  const eventStartsAt = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
+  const eventEndsAt = new Date(eventStartsAt.getTime() + 5 * 60 * 60 * 1000);
+  const salesStartsAt = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+  const salesEndsAt = new Date(eventStartsAt.getTime() - 60 * 60 * 1000);
+  const checkInOpensAt = new Date(now.getTime() - 60 * 60 * 1000);
 
   const tenant = await prisma.tenant.upsert({
     where: { id: "seed-tenant-eventflow" },
@@ -44,7 +50,14 @@ async function main() {
 
   const event = await prisma.event.upsert({
     where: { slug: "summit-eventflow-2026" },
-    update: {},
+    update: {
+      startsAt: eventStartsAt,
+      endsAt: eventEndsAt,
+      checkInOpensAt,
+      checkInClosesAt: eventEndsAt,
+      qrCodeReleaseAt: checkInOpensAt,
+      status: EventStatus.PUBLISHED
+    },
     create: {
       tenantId: tenant.id,
       ownerId: organizer.id,
@@ -58,8 +71,11 @@ async function main() {
         "https://images.unsplash.com/photo-1540575467063-178a50c2df87",
         "https://images.unsplash.com/photo-1511578314322-379afb476865"
       ],
-      startsAt: new Date("2026-09-12T18:00:00.000Z"),
-      endsAt: new Date("2026-09-12T23:00:00.000Z"),
+      startsAt: eventStartsAt,
+      endsAt: eventEndsAt,
+      checkInOpensAt,
+      checkInClosesAt: eventEndsAt,
+      qrCodeReleaseAt: checkInOpensAt,
       city: "Sao Paulo",
       state: "SP",
       zipCode: "01310-100",
@@ -74,7 +90,11 @@ async function main() {
 
   await prisma.ticketType.upsert({
     where: { id: "seed-ticket-early" },
-    update: {},
+    update: {
+      startsAt: salesStartsAt,
+      endsAt: salesEndsAt,
+      isActive: true
+    },
     create: {
       id: "seed-ticket-early",
       eventId: event.id,
@@ -83,15 +103,19 @@ async function main() {
       quantity: 250,
       sold: 37,
       priceCents: 7900,
-      startsAt: new Date("2026-06-01T00:00:00.000Z"),
-      endsAt: new Date("2026-08-20T23:59:59.000Z"),
+      startsAt: salesStartsAt,
+      endsAt: salesEndsAt,
       limitPerBuy: 5
     }
   });
 
   await prisma.ticketType.upsert({
     where: { id: "seed-ticket-vip" },
-    update: {},
+    update: {
+      startsAt: salesStartsAt,
+      endsAt: salesEndsAt,
+      isActive: true
+    },
     create: {
       id: "seed-ticket-vip",
       eventId: event.id,
@@ -100,8 +124,8 @@ async function main() {
       quantity: 80,
       sold: 12,
       priceCents: 15900,
-      startsAt: new Date("2026-06-01T00:00:00.000Z"),
-      endsAt: new Date("2026-09-01T23:59:59.000Z"),
+      startsAt: salesStartsAt,
+      endsAt: salesEndsAt,
       limitPerBuy: 2
     }
   });

@@ -5,10 +5,10 @@ RUN corepack enable && \
     adduser --system --uid 1001 nextjs
 
 FROM base AS deps
-COPY package.json pnpm-workspace.yaml ./
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 COPY packages/config/package.json packages/config/package.json
 COPY apps/web/package.json apps/web/package.json
-RUN pnpm install --filter @eventflow/web --frozen-lockfile=false
+RUN pnpm install --filter @eventflow/web... --frozen-lockfile
 
 FROM deps AS build
 COPY packages packages
@@ -22,12 +22,10 @@ ENV NODE_ENV=production \
 COPY --from=deps /app/node_modules /app/node_modules
 COPY --from=deps /app/apps/web/node_modules /app/apps/web/node_modules
 COPY --from=build /app/apps/web/.next /app/apps/web/.next
-COPY --from=build /app/apps/web/public /app/apps/web/public
-COPY --from=build /app/apps/web/standalone /app/apps/web/standalone
 COPY --from=build /app/apps/web/package.json /app/apps/web/package.json
 WORKDIR /app/apps/web
 EXPOSE 3000
 USER nextjs
 HEALTHCHECK --interval=30s --timeout=5s --start-period=30s --retries=3 \
     CMD wget --no-verbose --tries=1 --spider http://localhost:3000 || exit 1
-CMD ["pnpm", "start"]
+CMD ["node", "node_modules/next/dist/bin/next", "start"]

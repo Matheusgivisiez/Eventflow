@@ -67,7 +67,9 @@ export class EventsService {
           allowTicketTransfer: dto.allowTicketTransfer,
           ticketTransferLockTime: dto.ticketTransferLockTime ? new Date(dto.ticketTransferLockTime) : undefined,
           qrCodeReleaseMinutesBeforeStart: dto.qrCodeReleaseMinutesBeforeStart,
-          qrCodeReleaseAt: dto.qrCodeReleaseAt ? new Date(dto.qrCodeReleaseAt) : undefined
+          qrCodeReleaseAt: dto.qrCodeReleaseAt ? new Date(dto.qrCodeReleaseAt) : undefined,
+          checkInOpensAt: dto.checkInOpensAt ? new Date(dto.checkInOpensAt) : startsAt,
+          checkInClosesAt: dto.checkInClosesAt ? new Date(dto.checkInClosesAt) : undefined
         }
       });
 
@@ -146,7 +148,9 @@ export class EventsService {
         allowTicketTransfer: dto.allowTicketTransfer,
         ticketTransferLockTime: dto.ticketTransferLockTime ? new Date(dto.ticketTransferLockTime) : undefined,
         qrCodeReleaseMinutesBeforeStart: dto.qrCodeReleaseMinutesBeforeStart,
-        qrCodeReleaseAt: dto.qrCodeReleaseAt ? new Date(dto.qrCodeReleaseAt) : undefined
+        qrCodeReleaseAt: dto.qrCodeReleaseAt ? new Date(dto.qrCodeReleaseAt) : undefined,
+        checkInOpensAt: dto.checkInOpensAt ? new Date(dto.checkInOpensAt) : dto.checkInOpensAt === null ? null : undefined,
+        checkInClosesAt: dto.checkInClosesAt ? new Date(dto.checkInClosesAt) : dto.checkInClosesAt === null ? null : undefined
       }
     });
     await this.invalidatePublicCache();
@@ -201,6 +205,7 @@ export class EventsService {
     if (dto.endsAt && new Date(dto.endsAt) <= startsAt) {
       throw new BadRequestException("A data de fim deve ser posterior ao inicio.");
     }
+    this.validateCheckInWindow(dto.checkInOpensAt, dto.checkInClosesAt);
     if (dto.format === EventFormat.IN_PERSON) {
       const required = [dto.zipCode, dto.city, dto.state, dto.address];
       if (required.some((value) => !value?.trim())) {
@@ -268,6 +273,14 @@ export class EventsService {
     const endsAt = dto.endsAt ? new Date(dto.endsAt) : current.endsAt;
     if (Number.isNaN(startsAt.getTime())) throw new BadRequestException("Informe uma data de inicio valida.");
     if (endsAt && endsAt <= startsAt) throw new BadRequestException("A data de fim deve ser posterior ao inicio.");
+    this.validateCheckInWindow(dto.checkInOpensAt, dto.checkInClosesAt);
+  }
+
+  private validateCheckInWindow(checkInOpensAt?: string | null, checkInClosesAt?: string | null) {
+    if (!checkInOpensAt || !checkInClosesAt) return;
+    if (new Date(checkInClosesAt) <= new Date(checkInOpensAt)) {
+      throw new BadRequestException("O fechamento da portaria deve ser posterior à abertura.");
+    }
   }
 
   private async uniqueSlug(title: string) {

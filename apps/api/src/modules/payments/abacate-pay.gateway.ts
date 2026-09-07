@@ -159,6 +159,16 @@ export class AbacatePayGateway {
    * Flow: 1) Create/fetch Customer + Product in parallel → 2) Create Checkout with customerId
    */
   async createCheckout(input: AbacateCheckoutInput): Promise<AbacateCheckoutResult> {
+    if (!this.apiKey && (this.config.get<boolean>("PAYMENT_SIMULATION_ENABLED") ?? false)) {
+      const providerRef = `sandbox:${input.orderId}`;
+      return {
+        provider: "abacate_pay",
+        providerRef,
+        checkoutId: providerRef,
+        checkoutUrl: input.completionUrl
+      };
+    }
+
     // Execute sequentially to reduce load on the AbacatePay sandbox API
     const customerId = await this.ensureCustomer(input);
     const productId = await this.ensureProduct(input);
@@ -190,6 +200,10 @@ export class AbacatePayGateway {
   }
 
   getCheckout(id: string) {
+    if (id.startsWith("sandbox:") && (this.config.get<boolean>("PAYMENT_SIMULATION_ENABLED") ?? false)) {
+      return Promise.resolve<AbacateCheckoutStatus>({ id, status: "PENDING" });
+    }
+
     return this.request<AbacateCheckoutStatus>(`/checkouts/get?id=${encodeURIComponent(id)}`, {
       method: "GET"
     });

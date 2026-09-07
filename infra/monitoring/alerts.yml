@@ -1,0 +1,27 @@
+groups:
+  - name: eventflow-launch
+    rules:
+      - alert: EventflowApiDown
+        expr: up{job="eventflow-api"} == 0
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: API Event Flow indisponível
+          runbook: docs/operations-runbooks.md#check-in-outage
+      - alert: EventflowWebhookUnmatchedSpike
+        expr: increase(eventflow_webhooks_unmatched_total[5m]) >= 3
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: Webhooks sem pagamento correspondente
+          runbook: docs/operations-runbooks.md#failed-payment-webhook
+      - alert: EventflowInventoryConflict
+        expr: increase(eventflow_checkout_inventory_conflicts_total[5m]) >= 5
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: Conflitos de estoque acima do esperado
+          runbook: docs/operations-runbooks.md#oversold-ticket-inventory
