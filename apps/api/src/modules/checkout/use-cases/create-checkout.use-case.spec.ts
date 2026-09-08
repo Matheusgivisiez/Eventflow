@@ -76,6 +76,7 @@ function createService() {
     coupon: {
       findUnique: jest.fn(),
       update: jest.fn(),
+      updateMany: jest.fn().mockResolvedValue({ count: 1 }),
     },
     affiliateLink: {
       findFirst: jest.fn(),
@@ -168,5 +169,34 @@ describe("CreateCheckoutUseCase stock reservation", () => {
         data: expect.objectContaining({ userId: "buyer-user-1" }),
       }),
     );
+  });
+
+  it("atomically reserves the final coupon use before creating the order", async () => {
+    const { service, tx } = createService();
+    tx.coupon.findUnique.mockResolvedValue({
+      id: "coupon-1", tenantId: "tenant-1", isActive: true, maxUses: 1, usedCount: 0,
+      validFrom: new Date(Date.now() - 60_000), validUntil: new Date(Date.now() + 60_000),
+      discountPercent: 10, discountFixedCents: 0
+    });
+
+    await service.execute("eventflow-conf", { ...createDto(), couponCode: "FIRST" } as any);
+
+    expect(tx.coupon.updateMany).toHaveBeenCalledWith({
+      where: { id: "coupon-1", usedCount: { lt: 1 } },
+      data: { usedCount: { increment: 1 } }
+    });
+  });
+
+  it("rejects checkout when another request consumed the final coupon use", async () => {
+    const { service, tx, orders } = createService();
+    tx.coupon.findUnique.mockResolvedValue({
+      id: "coupon-1", tenantId: "tenant-1", isActive: true, maxUses: 1, usedCount: 0,
+      validFrom: new Date(Date.now() - 60_000), validUntil: new Date(Date.now() + 60_000),
+      discountPercent: 10, discountFixedCents: 0
+    });
+    tx.coupon.updateMany.mockResolvedValue({ count: 0 });
+
+    await expect(service.execute("eventflow-conf", { ...createDto(), couponCode: "FIRST" } as any)).rejects.toThrow("Cupom esgotado");
+    expect(orders).toHaveLength(0);
   });
 });

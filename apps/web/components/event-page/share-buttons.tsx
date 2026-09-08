@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Check, Copy, MessageCircle, Share2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
@@ -11,6 +11,11 @@ type ShareButtonsProps = {
 
 export function ShareButtons({ title, slug }: ShareButtonsProps) {
   const [copied, setCopied] = useState(false);
+  const [canShare, setCanShare] = useState(false);
+
+  useEffect(() => {
+    setCanShare(typeof navigator.share === "function");
+  }, []);
 
   const eventUrl = typeof window !== "undefined"
     ? `${window.location.origin}/eventos/${slug}`
@@ -66,7 +71,7 @@ export function ShareButtons({ title, slug }: ShareButtonsProps) {
         <span className="hidden sm:inline">{copied ? "Copiado!" : "Copiar link"}</span>
       </Button>
 
-      {typeof navigator !== "undefined" && "share" in navigator && (
+      {canShare && (
         <Button
           variant="outline"
           size="sm"

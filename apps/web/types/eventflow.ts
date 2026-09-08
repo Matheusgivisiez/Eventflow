@@ -61,6 +61,8 @@ export type EventFlowEvent = {
   ticketTransferLockTime?: string;
   qrCodeReleaseMinutesBeforeStart?: number;
   qrCodeReleaseAt?: string;
+  checkInOpensAt?: string;
+  checkInClosesAt?: string;
 };
 
 export type Paginated<T> = {

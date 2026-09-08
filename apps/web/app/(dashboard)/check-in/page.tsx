@@ -2,12 +2,12 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { 
+import {
   CheckCircle2, ScanLine, XCircle, AlertTriangle, Camera, Keyboard, Search, UserCheck, History, Clock, Ticket
 } from "lucide-react";
 import type { Html5QrcodeScanner } from "html5-qrcode";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -31,6 +31,9 @@ export default function CheckInPage() {
   const [code, setCode] = useState("");
   const [mode, setMode] = useState<"usb" | "camera" | "search">("usb");
   const scannerRef = useRef<Html5QrcodeScanner | null>(null);
+  const validationInFlightRef = useRef(false);
+  const [cameraError, setCameraError] = useState<string | null>(null);
+  const [isCameraStarting, setIsCameraStarting] = useState(false);
   
   const [search, setSearch] = useState("");
   const debouncedSearch = useDebounce(search, 500);
@@ -47,9 +50,15 @@ export default function CheckInPage() {
       api<{ status: string; message: string; ticket: any }>(`/check-in/events/${eventId}/validate`, { 
         method: "POST", body: JSON.stringify({ code: scannedCode }) 
       }),
-    onSuccess: (data) => {
+    onMutate: () => {
+      validationInFlightRef.current = true;
+    },
+    onSuccess: () => {
       if (mode === "usb") setCode("");
       invalidateLogs();
+    },
+    onSettled: () => {
+      validationInFlightRef.current = false;
     }
   });
 
@@ -68,33 +77,62 @@ export default function CheckInPage() {
   });
 
   useEffect(() => {
+    let active = true;
     if (mode === "camera" && eventId) {
+      if (!window.isSecureContext) {
+        setCameraError("A câmera requer uma conexão segura (HTTPS). Em desenvolvimento, use localhost.");
+        return;
+      }
+      if (!navigator.mediaDevices?.getUserMedia) {
+        setCameraError("Este navegador não disponibiliza acesso à câmera. Use Chrome, Safari ou Edge atualizados.");
+        return;
+      }
+      setCameraError(null);
+      setIsCameraStarting(true);
       import("html5-qrcode").then(({ Html5QrcodeScanner }) => {
-        if (!scannerRef.current) {
-          scannerRef.current = new Html5QrcodeScanner("reader", { fps: 10, qrbox: { width: 250, height: 250 } }, false);
+        if (active && !scannerRef.current) {
+          scannerRef.current = new Html5QrcodeScanner("reader", {
+            fps: 10,
+            qrbox: { width: 250, height: 250 },
+            aspectRatio: 1,
+            rememberLastUsedCamera: true
+          }, false);
           scannerRef.current.render(
             (decodedText) => {
-              if (validateMutation.isPending) return;
-              try { new Audio("/beep.mp3").play().catch(() => {}); } catch(e) {}
+              if (validationInFlightRef.current) return;
+              validationInFlightRef.current = true;
+              try { new Audio("/beep.mp3").play().catch(() => {}); } catch {}
               validateMutation.mutate(decodedText);
             },
             () => {}
           );
+          if (active) setIsCameraStarting(false);
         }
-      }).catch(console.error);
+      }).catch(() => {
+        if (active) {
+          setIsCameraStarting(false);
+          setCameraError("Não foi possível iniciar a câmera. Verifique a permissão do navegador e tente novamente.");
+        }
+      });
     } else {
+      setCameraError(null);
+      setIsCameraStarting(false);
       if (scannerRef.current) {
         scannerRef.current.clear().catch(console.error);
         scannerRef.current = null;
       }
     }
     return () => {
+      active = false;
       if (scannerRef.current) {
         scannerRef.current.clear().catch(console.error);
         scannerRef.current = null;
       }
     };
-  }, [mode, eventId, validateMutation.isPending]);
+  // The scanner deliberately remains mounted while requests are being validated.
+  // A ref gates repeated decoded frames without restarting the physical camera.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mode, eventId]);
 
   const getStatusDisplay = () => {
     if (validateMutation.isPending) {
@@ -221,9 +259,23 @@ export default function CheckInPage() {
                         Selecione um evento primeiro para ativar a câmera.
                       </div>
                     ) : (
-                      <div className="border-2 border-primary/20 rounded-xl overflow-hidden bg-black">
-                        <div id="reader" className="w-full"></div>
-                      </div>
+                      <>
+                        {cameraError ? (
+                          <div className="rounded-xl border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive">
+                            {cameraError}
+                          </div>
+                        ) : (
+                          <div className="border-2 border-primary/20 rounded-xl overflow-hidden bg-black">
+                            <div id="reader" className="w-full"></div>
+                          </div>
+                        )}
+                        {isCameraStarting && !cameraError && (
+                          <p className="mt-3 text-center text-sm text-muted-foreground">Solicitando acesso à câmera…</p>
+                        )}
+                        <p className="mt-3 text-xs text-muted-foreground">
+                          Na primeira leitura, permita o acesso à câmera. Em celular, selecione a câmera traseira caso o navegador não a escolha automaticamente.
+                        </p>
+                      </>
                     )}
                   </TabsContent>
 
@@ -297,7 +349,7 @@ export default function CheckInPage() {
                   ) : (
                     logs.map((log: any) => (
                       <div key={log.id} className="flex items-start gap-3 p-3 rounded-xl bg-muted/40 border border-muted">
-                        <div className="bg-green-100 text-green-700 dark:bg-green-500/20 dark:text-green-400 p-2 rounded-full shrink-0">
+                        <div className={`p-2 rounded-full shrink-0 ${log.status === "ENTERED" ? "bg-green-100 text-green-700 dark:bg-green-500/20 dark:text-green-400" : log.status === "DUPLICATED" ? "bg-amber-100 text-amber-700 dark:bg-amber-500/20 dark:text-amber-400" : "bg-red-100 text-red-700 dark:bg-red-500/20 dark:text-red-400"}`}>
                           <UserCheck className="h-4 w-4" />
                         </div>
                         <div className="flex-1 min-w-0">
@@ -305,6 +357,7 @@ export default function CheckInPage() {
                           <p className="text-xs text-muted-foreground flex items-center gap-1.5 mt-0.5">
                             <Clock className="h-3 w-3" /> {dateTime(log.createdAt)}
                           </p>
+                          {log.reason && <p className="mt-1 text-xs text-muted-foreground">{log.reason}</p>}
                         </div>
                         {log.user && (
                           <div className="text-[10px] text-muted-foreground text-right shrink-0 mt-0.5">

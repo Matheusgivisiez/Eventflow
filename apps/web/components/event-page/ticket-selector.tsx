@@ -14,7 +14,7 @@ type TicketSelectorProps = {
 
 export function TicketSelector({ ticketTypes, quantities, onQuantityChange }: TicketSelectorProps) {
   return (
-    <section className="space-y-4">
+    <section className="space-y-4" data-testid="ticket-selector">
       <div className="flex items-center gap-2">
         <Tag className="h-5 w-5 text-primary" />
         <h2 className="text-xl font-bold tracking-tight">Ingressos</h2>

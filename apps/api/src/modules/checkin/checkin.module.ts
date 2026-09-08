@@ -6,6 +6,6 @@ import { ValidateTicketUseCase } from "./use-cases/validate-ticket.use-case";
 @Module({
   controllers: [CheckInController],
   providers: [CheckInService, ValidateTicketUseCase],
-  exports: [CheckInService]
+  exports: [CheckInService, ValidateTicketUseCase]
 })
 export class CheckInModule {}

@@ -45,6 +45,7 @@ export const envSchema = z.object({
   ABACATE_BASE_URL: z.string().url().default("https://api.abacatepay.com/v2"),
   ABACATE_ENVIRONMENT: z.enum(["sandbox", "production"]).default("sandbox"),
   PAYMENT_SIMULATION_ENABLED: z.coerce.boolean().default(true),
+  ORDER_RESERVATION_TTL_MINUTES: z.coerce.number().int().min(5).max(24 * 60).default(30),
   ABACATE_PUBLIC_KEY: z.string().optional(),
   ABACATEPAY_API_KEY: z.string().optional(),
   ABACATEPAY_WEBHOOK_SECRET: z.string().optional(),

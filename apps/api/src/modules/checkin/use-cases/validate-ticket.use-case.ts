@@ -1,6 +1,6 @@
 import { BadRequestException, Injectable, NotFoundException, Optional } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
-import { CheckInStatus, PaymentStatus, TicketStatus } from "@prisma/client";
+import { CheckInStatus, EventStatus, PaymentStatus, TicketStatus } from "@prisma/client";
 import { createHmac } from "crypto";
 import { PrismaService } from "../../../prisma/prisma.service";
 import { BusinessMetricsService } from "../../observability/business-metrics.service";
@@ -13,7 +13,13 @@ export class ValidateTicketUseCase {
     @Optional() private readonly metrics?: BusinessMetricsService
   ) {}
 
-  async execute(eventId: string, tenantId: string, userId: string, rawCode: string) {
+  async execute(
+    eventId: string,
+    tenantId: string,
+    userId: string,
+    rawCode: string,
+    options: { requireSignedPayload?: boolean } = {}
+  ) {
     const code = rawCode ? rawCode.trim() : "";
     if (!code) {
       this.metrics?.increment("eventflow_checkin_validations_total", { status: "NOT_FOUND" });
@@ -21,6 +27,10 @@ export class ValidateTicketUseCase {
     }
 
     const parsed = this.parseCode(code);
+
+    if (options.requireSignedPayload && (!parsed.uuid || !parsed.orderId || !parsed.signature)) {
+      throw new BadRequestException("QR Code assinado obrigatorio para sincronizacao offline.");
+    }
 
     if (parsed.uuid && parsed.orderId && parsed.signature) {
       this.validateSignature(parsed as { uuid: string; orderId: string; signature: string });
@@ -49,6 +59,13 @@ export class ValidateTicketUseCase {
       await this.logCheckIn(ticket.id, userId, CheckInStatus.REFUSED, "Ingresso pertence a outro evento.");
       this.metrics?.increment("eventflow_checkin_validations_total", { status: CheckInStatus.REFUSED });
       return { status: CheckInStatus.REFUSED, message: "Ingresso pertence a outro evento.", ticket };
+    }
+
+    const portariaReason = this.getCheckInWindowRefusal(ticket.event);
+    if (portariaReason) {
+      await this.logCheckIn(ticket.id, userId, CheckInStatus.REFUSED, portariaReason);
+      this.metrics?.increment("eventflow_checkin_validations_total", { status: CheckInStatus.REFUSED });
+      return { status: CheckInStatus.REFUSED, message: portariaReason, ticket };
     }
 
     if (ticket.order && ticket.order.status !== PaymentStatus.PAID) {
@@ -135,6 +152,28 @@ export class ValidateTicketUseCase {
     });
   }
 
+  private getCheckInWindowRefusal(event: {
+    status?: EventStatus;
+    startsAt?: Date;
+    checkInOpensAt?: Date | null;
+    checkInClosesAt?: Date | null;
+  }): string | undefined {
+    if (event.status && event.status !== EventStatus.PUBLISHED) {
+      return "Check-in indisponível para evento não publicado ou encerrado.";
+    }
+
+    const now = new Date();
+    const opensAt = event.checkInOpensAt ?? event.startsAt;
+    if (opensAt && now < new Date(opensAt)) {
+      return `A portaria abre em ${new Date(opensAt).toISOString()}.`;
+    }
+
+    if (event.checkInClosesAt && now > new Date(event.checkInClosesAt)) {
+      return "A portaria deste evento já foi encerrada.";
+    }
+    return undefined;
+  }
+
   private parseCode(code: string): { uuid?: string; orderId?: string; signature?: string } {
     try {
       return JSON.parse(code);
@@ -143,4 +182,3 @@ export class ValidateTicketUseCase {
     }
   }
 }
-

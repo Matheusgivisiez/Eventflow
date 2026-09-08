@@ -3,7 +3,7 @@
 import { useParams, useRouter } from "next/navigation";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ArrowLeft, Loader2, Save, Ticket, Trash2, Megaphone, Shield, Lock, QrCode } from "lucide-react";
+import { ArrowLeft, Loader2, Save, Ticket, Trash2, Megaphone, Shield, Lock, QrCode, DoorOpen } from "lucide-react";
 import Link from "next/link";
 import { useEffect, memo, useState } from "react";
 import { useForm, Controller } from "react-hook-form";
@@ -43,7 +43,9 @@ const schema = z.object({
   allowTicketTransfer: z.boolean().optional(),
   ticketTransferLockTime: z.string().optional(),
   qrCodeReleaseMinutesBeforeStart: z.coerce.number().int().min(0).optional().nullable(),
-  qrCodeReleaseAt: z.string().optional()
+  qrCodeReleaseAt: z.string().optional(),
+  checkInOpensAt: z.string().optional(),
+  checkInClosesAt: z.string().optional()
 }).superRefine((data, ctx) => {
   if (data.format === "IN_PERSON") {
     if (!/^\d{5}-?\d{3}$/.test(data.zipCode?.replace(/\D/g, "") ?? "")) {
@@ -121,7 +123,9 @@ export default function EditEventPage() {
         allowTicketTransfer: event.allowTicketTransfer ?? true,
         ticketTransferLockTime: toLocal(event.ticketTransferLockTime),
         qrCodeReleaseMinutesBeforeStart: event.qrCodeReleaseMinutesBeforeStart ?? 60,
-        qrCodeReleaseAt: toLocal(event.qrCodeReleaseAt)
+        qrCodeReleaseAt: toLocal(event.qrCodeReleaseAt),
+        checkInOpensAt: toLocal(event.checkInOpensAt ?? event.startsAt),
+        checkInClosesAt: toLocal(event.checkInClosesAt)
       });
     }
   }, [event, form]);
@@ -146,6 +150,8 @@ export default function EditEventPage() {
     if (!data.ticketTransferLockTime) {
       payload.ticketTransferLockTime = undefined;
     }
+    payload.checkInOpensAt = data.checkInOpensAt || null;
+    payload.checkInClosesAt = data.checkInClosesAt || null;
 
     return payload;
   }
@@ -458,6 +464,28 @@ export default function EditEventPage() {
                     />
                   </div>
                 )}
+              </div>
+
+              <hr className="border-border" />
+
+              <div className="space-y-3">
+                <div className="flex items-center gap-2">
+                  <DoorOpen className="h-3.5 w-3.5 text-primary" />
+                  <Label className="text-sm font-medium">Janela da portaria</Label>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  A liberação do QR Code só mostra o ingresso ao comprador. Estes horários controlam quando a entrada pode ser baixada.
+                </p>
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <div className="space-y-1">
+                    <Label className="text-xs text-muted-foreground">Abertura</Label>
+                    <Input type="datetime-local" {...form.register("checkInOpensAt")} />
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-xs text-muted-foreground">Fechamento (opcional)</Label>
+                    <Input type="datetime-local" {...form.register("checkInClosesAt")} />
+                  </div>
+                </div>
               </div>
             </CardContent>
           </Card>

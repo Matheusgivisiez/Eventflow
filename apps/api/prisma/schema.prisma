@@ -312,6 +312,11 @@ model Event {
   qrCodeReleaseMinutesBeforeStart Int?      @default(60)
   qrCodeReleaseAt                DateTime?
 
+  // Janela operacional da portaria. Sem abertura explícita, o início do
+  // evento é usado como padrão para eventos já existentes.
+  checkInOpensAt                 DateTime?
+  checkInClosesAt                DateTime?
+
   createdAt              DateTime     @default(now())
   updatedAt              DateTime     @updatedAt
   tenant                 Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)

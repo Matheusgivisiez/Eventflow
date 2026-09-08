@@ -75,7 +75,7 @@ function createService() {
     },
     ticket: {
       findFirst: jest.fn(),
-      update: jest.fn()
+      updateMany: jest.fn()
     },
     transfer: {
       findMany: jest.fn().mockResolvedValue([]),
@@ -153,21 +153,33 @@ describe("TransfersService", () => {
       .mockResolvedValueOnce(createTransfer())
       .mockResolvedValueOnce(createTransfer({ ticket: createTicket(), sender: { id: sender.id, email: sender.email } }));
     prisma.user.findUnique.mockResolvedValue({ id: receiver.id, name: "Receiver", email: receiver.email });
-    prisma.ticket.update.mockResolvedValue({});
+    prisma.ticket.updateMany.mockResolvedValue({ count: 1 });
     prisma.transfer.update.mockResolvedValue(createTransfer({ status: TransferStatus.ACCEPTED }));
 
     const result = await service.accept(receiver, "transfer-1");
 
     expect(result.status).toBe(TransferStatus.ACCEPTED);
     expect(QRCode.toDataURL).toHaveBeenCalled();
-    expect(prisma.ticket.update).toHaveBeenCalledWith(expect.objectContaining({
-      where: { id: "ticket-1" },
+    expect(prisma.ticket.updateMany).toHaveBeenCalledWith(expect.objectContaining({
+      where: { id: "ticket-1", status: TicketStatus.AVAILABLE },
       data: expect.objectContaining({
         ownerId: receiver.id,
         attendeeEmail: receiver.email,
         qrCodeDataUrl: "data:image/png;base64,new-qr"
       })
     }));
+  });
+
+  it("does not transfer a ticket that became unavailable while the recipient was accepting", async () => {
+    const { service, prisma } = createService();
+    prisma.transfer.findUnique
+      .mockResolvedValueOnce(createTransfer())
+      .mockResolvedValueOnce(createTransfer({ ticket: createTicket(), sender: { id: sender.id, email: sender.email } }));
+    prisma.user.findUnique.mockResolvedValue({ id: receiver.id, name: "Receiver", email: receiver.email });
+    prisma.ticket.updateMany.mockResolvedValue({ count: 0 });
+
+    await expect(service.accept(receiver, "transfer-1")).rejects.toThrow("ficou indisponível");
+    expect(prisma.transfer.update).not.toHaveBeenCalled();
   });
 
   it("declines a pending transfer targeted to the authenticated user", async () => {

@@ -34,7 +34,7 @@ describe("WebhooksController AbacatePay security", () => {
   it("rejects webhooks without the configured secret", async () => {
     const { controller, webhooks, request, body } = createController();
 
-    expect(() => controller.abacatePay(body, request as any, undefined, undefined, sign(rawBody))).toThrow(UnauthorizedException);
+    expect(() => controller.abacatePay(body, request as any, undefined, sign(rawBody))).toThrow(UnauthorizedException);
 
     expect(webhooks.handle).not.toHaveBeenCalled();
   });
@@ -43,7 +43,7 @@ describe("WebhooksController AbacatePay security", () => {
     const { controller, webhooks, request, body } = createController();
 
     expect(() => controller.abacatePay(body, request as any, "webhook-secret")).toThrow(UnauthorizedException);
-    expect(() => controller.abacatePay(body, request as any, "webhook-secret", undefined, "invalid-signature")).toThrow(UnauthorizedException);
+    expect(() => controller.abacatePay(body, request as any, "webhook-secret", "invalid-signature")).toThrow(UnauthorizedException);
 
     expect(webhooks.handle).not.toHaveBeenCalled();
   });
@@ -51,7 +51,7 @@ describe("WebhooksController AbacatePay security", () => {
   it("accepts webhooks with valid secret and signature", async () => {
     const { controller, webhooks, request, body } = createController();
 
-    await expect(controller.abacatePay(body, request as any, "webhook-secret", undefined, sign(rawBody))).resolves.toEqual({ received: true });
+    await expect(controller.abacatePay(body, request as any, "webhook-secret", sign(rawBody))).resolves.toEqual({ received: true });
 
     expect(webhooks.handle).toHaveBeenCalledWith("abacate_pay", body);
   });

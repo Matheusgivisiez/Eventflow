@@ -106,6 +106,8 @@ Never log:
 
 ## Alerts
 
+The local monitoring configuration loads `infra/monitoring/alerts.yml`. The launch baseline includes API availability, unmatched payment webhook spikes and checkout inventory-conflict spikes. Each alert links to the relevant operational runbook.
+
 Critical:
 
 - API error rate above 2 percent for 5 minutes.

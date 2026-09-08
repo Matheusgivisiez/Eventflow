@@ -187,6 +187,16 @@ export class CreateEventDto {
   @IsDateString()
   qrCodeReleaseAt?: string;
 
+  @ApiPropertyOptional({ description: "Abertura da portaria para check-in (ISO 8601). O padrão é o início do evento." })
+  @IsOptional()
+  @IsDateString()
+  checkInOpensAt?: string | null;
+
+  @ApiPropertyOptional({ description: "Fechamento da portaria para check-in (ISO 8601)" })
+  @IsOptional()
+  @IsDateString()
+  checkInClosesAt?: string | null;
+
   @ApiPropertyOptional({ description: "Primeiro lote de ingressos criado junto com o evento", type: CreateEventFirstTicketDto })
   @IsOptional()
   @ValidateNested()

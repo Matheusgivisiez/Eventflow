@@ -52,6 +52,9 @@ function createService() {
     payment: {
       update: jest.fn()
     },
+    coupon: {
+      updateMany: jest.fn()
+    },
     $transaction: jest.fn((callback) => callback(prisma))
   };
   const createCheckout = { execute: jest.fn() };
@@ -113,7 +116,7 @@ describe("CheckoutService", () => {
     const { service, prisma, createCheckout, payments } = createService();
     createCheckout.execute.mockResolvedValue(createOrder({ status: PaymentStatus.PENDING }));
     payments.createProviderPreference.mockRejectedValue(new Error("provider unavailable"));
-    prisma.order.findUnique.mockResolvedValue(createOrder({ status: PaymentStatus.PENDING }));
+    prisma.order.findUnique.mockResolvedValue(createOrder({ status: PaymentStatus.PENDING, couponId: "coupon-1" }));
 
     await expect(service.create("eventflow-conf", {} as any)).rejects.toThrow("provider unavailable");
 
@@ -128,6 +131,10 @@ describe("CheckoutService", () => {
     expect(prisma.payment.update).toHaveBeenCalledWith({
       where: { orderId: "order-1" },
       data: { status: PaymentStatus.CANCELED, canceledAt: expect.any(Date) }
+    });
+    expect(prisma.coupon.updateMany).toHaveBeenCalledWith({
+      where: { id: "coupon-1", usedCount: { gt: 0 } },
+      data: { usedCount: { decrement: 1 } }
     });
   });
 
