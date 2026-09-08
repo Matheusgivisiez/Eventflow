@@ -130,4 +130,27 @@ jobs:
           context: .
           file: apps/web/Dockerfile
           push: false
+          load: true
           tags: eventflow-web:ci
+      - name: Smoke test web container permissions and health
+        run: |
+          docker run --detach --name eventflow-web-ci --publish 3000:3000 \
+            --env NEXT_PUBLIC_API_URL=http://127.0.0.1:3001/api \
+            eventflow-web:ci
+          trap 'docker logs eventflow-web-ci; docker rm --force eventflow-web-ci' EXIT
+          for attempt in $(seq 1 30); do
+            if curl --fail --silent --show-error http://127.0.0.1:3000 >/dev/null; then
+              break
+            fi
+            if [ "$attempt" -eq 30 ]; then
+              exit 1
+            fi
+            sleep 1
+          done
+          docker exec eventflow-web-ci sh -c \
+            'test -r next.config.mjs && grep -q images.unsplash.com next.config.mjs && \
+             mkdir -p .next/cache/ci-write && rmdir .next/cache/ci-write'
+          if docker logs eventflow-web-ci 2>&1 | grep -q 'EACCES'; then
+            echo 'Container emitted a filesystem permission error.' >&2
+            exit 1
+          fi
