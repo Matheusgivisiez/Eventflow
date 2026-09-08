@@ -14,10 +14,17 @@ async function expectOk(response: APIResponse) {
 
 test.describe("Fluxo de compra", () => {
   test("exibe o evento publicado e o seletor de ingressos", async ({ page }) => {
+    const runtimeErrors: string[] = [];
+    page.on("pageerror", (error) => runtimeErrors.push(error.message));
+    page.on("console", (message) => {
+      if (message.type() === "error") runtimeErrors.push(message.text());
+    });
+
     await page.goto(`/eventos/${eventSlug}`);
 
     await expect(page.getByRole("heading", { level: 1 })).toContainText("Summit Event Flow 2026");
     await expect(page.locator('[data-testid="ticket-selector"]')).toBeVisible();
+    await expect.poll(() => runtimeErrors).toEqual([]);
   });
 
   test("processa compra, webhook, emissao e check-in com duplicidade", async ({ page, request }) => {
