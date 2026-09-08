@@ -11,9 +11,13 @@ describe("AbacatePayGateway simulation", () => {
     completionUrl: "http://localhost:3000/checkout/success?orderId=order-e2e&status=paid"
   };
 
-  it("cria um checkout local quando a simulacao esta ativa e nao ha chave externa", async () => {
+  it("prioriza o checkout simulado mesmo quando existe uma chave externa configurada", async () => {
     const config = {
-      get: jest.fn((key: string) => key === "PAYMENT_SIMULATION_ENABLED" ? true : undefined)
+      get: jest.fn((key: string) => {
+        if (key === "PAYMENT_SIMULATION_ENABLED") return true;
+        if (key === "ABACATE_API_KEY") return "sandbox-provider-key";
+        return undefined;
+      })
     };
     const fetchSpy = jest.spyOn(global, "fetch");
     const gateway = new AbacatePayGateway(config as any);
