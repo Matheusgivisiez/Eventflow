@@ -159,7 +159,7 @@ export class AbacatePayGateway {
    * Flow: 1) Create/fetch Customer + Product in parallel → 2) Create Checkout with customerId
    */
   async createCheckout(input: AbacateCheckoutInput): Promise<AbacateCheckoutResult> {
-    if (!this.apiKey && (this.config.get<boolean>("PAYMENT_SIMULATION_ENABLED") ?? false)) {
+    if (this.config.get<boolean>("PAYMENT_SIMULATION_ENABLED") ?? false) {
       const providerRef = `sandbox:${input.orderId}`;
       return {
         provider: "abacate_pay",
