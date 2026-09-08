@@ -15,9 +15,17 @@ async function expectOk(response: APIResponse) {
 test.describe("Fluxo de compra", () => {
   test("exibe o evento publicado e o seletor de ingressos", async ({ page }) => {
     const runtimeErrors: string[] = [];
+    const failedResponses: string[] = [];
     page.on("pageerror", (error) => runtimeErrors.push(error.message));
     page.on("console", (message) => {
-      if (message.type() === "error") runtimeErrors.push(message.text());
+      if (message.type() === "error" && !message.text().startsWith("Failed to load resource:")) {
+        runtimeErrors.push(message.text());
+      }
+    });
+    page.on("response", (response) => {
+      if (response.status() >= 400) {
+        failedResponses.push(`${response.status()} ${response.url()}`);
+      }
     });
 
     await page.goto(`/eventos/${eventSlug}`);
@@ -25,6 +33,7 @@ test.describe("Fluxo de compra", () => {
     await expect(page.getByRole("heading", { level: 1 })).toContainText("Summit Event Flow 2026");
     await expect(page.locator('[data-testid="ticket-selector"]')).toBeVisible();
     await expect.poll(() => runtimeErrors).toEqual([]);
+    expect(failedResponses).toEqual([]);
   });
 
   test("processa compra, webhook, emissao e check-in com duplicidade", async ({ page, request }) => {
