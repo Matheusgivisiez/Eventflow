@@ -124,14 +124,10 @@ jobs:
           context: .
           file: apps/api/Dockerfile
           push: false
-          tags: |
-            ghcr.io/${{ github.repository }}/api:${{ github.sha }}
-            ghcr.io/${{ github.repository }}/api:latest
+          tags: eventflow-api:ci
       - uses: docker/build-push-action@v6
         with:
           context: .
           file: apps/web/Dockerfile
           push: false
-          tags: |
-            ghcr.io/${{ github.repository }}/web:${{ github.sha }}
-            ghcr.io/${{ github.repository }}/web:latest
+          tags: eventflow-web:ci
