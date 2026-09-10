@@ -34,7 +34,7 @@ export function Providers({ children }: { children: ReactNode }) {
         staleTime: 1000 * 60 * 2, // 2 minutes
         refetchOnWindowFocus: false,
         retry: (failureCount, error: any) => {
-          if (error?.status === 401 || error?.status === 403 || error?.status === 404) return false;
+          if (error?.status === 401 || error?.status === 403 || error?.status === 404 || error?.status === 429) return false;
           return failureCount < 1;
         },
       },

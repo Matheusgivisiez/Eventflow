@@ -30,6 +30,14 @@ describe("CustomThrottlerGuard", () => {
       expect(tracker).toBe("user:user-123");
     });
 
+    it("deve extrair o ID do usuario a partir do Bearer token no header authorization se req.user nao existir", async () => {
+      const payload = Buffer.from(JSON.stringify({ sub: "user-from-jwt-456" })).toString("base64url");
+      const fakeJwt = `header.${payload}.signature`;
+      const req = { headers: { authorization: `Bearer ${fakeJwt}` } };
+      const tracker = await (guard as any).getTracker(req);
+      expect(tracker).toBe("user:user-from-jwt-456");
+    });
+
     it("deve utilizar o primeiro IP do x-forwarded-for caso usuario nao esteja autenticado", async () => {
       const req = { headers: { "x-forwarded-for": "203.0.113.195, 70.41.3.18" } };
       const tracker = await (guard as any).getTracker(req);
@@ -104,6 +112,55 @@ describe("CustomThrottlerGuard", () => {
 
       expect(result).toBe(true);
       expect(mockOptions.storage.increment).not.toHaveBeenCalled();
+    });
+
+    it("deve ignorar named throttler se a rota nao foi decorada para ele", async () => {
+      mockReflector.getAllAndOverride.mockReturnValue(undefined);
+      const mockContext = {
+        getHandler: () => ({}),
+        getClass: () => ({}),
+        switchToHttp: () => ({
+          getRequest: () => ({ path: "/api/buyer/tickets", url: "/api/buyer/tickets" }),
+          getResponse: () => ({ header: jest.fn() })
+        })
+      } as unknown as ExecutionContext;
+
+      const result = await (guard as any).handleRequest({
+        context: mockContext,
+        limit: 10,
+        ttl: 60000,
+        throttler: { name: "auth" },
+        blockDuration: 0,
+        getTracker: jest.fn()
+      });
+
+      expect(result).toBe(true);
+      expect(mockOptions.storage.increment).not.toHaveBeenCalled();
+    });
+
+    it("deve executar named throttler se a rota foi decorada para ele", async () => {
+      mockReflector.getAllAndOverride.mockReturnValue(10);
+      mockOptions.storage.increment.mockResolvedValue({ totalHits: 1, timeToExpire: 60000 });
+      const mockContext = {
+        getHandler: () => ({}),
+        getClass: () => ({}),
+        switchToHttp: () => ({
+          getRequest: () => ({ path: "/api/auth/login", url: "/api/auth/login" }),
+          getResponse: () => ({ header: jest.fn() })
+        })
+      } as unknown as ExecutionContext;
+
+      const result = await (guard as any).handleRequest({
+        context: mockContext,
+        limit: 10,
+        ttl: 60000,
+        throttler: { name: "auth" },
+        blockDuration: 0,
+        getTracker: jest.fn().mockResolvedValue("ip:127.0.0.1")
+      });
+
+      expect(result).toBe(true);
+      expect(mockOptions.storage.increment).toHaveBeenCalled();
     });
   });
 });

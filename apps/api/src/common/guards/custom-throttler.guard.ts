@@ -11,6 +11,22 @@ export class CustomThrottlerGuard extends ThrottlerGuard {
       return `user:${user}`;
     }
 
+    const authHeader = req.headers?.authorization;
+    if (typeof authHeader === "string" && authHeader.startsWith("Bearer ")) {
+      try {
+        const token = authHeader.slice(7).trim();
+        const parts = token.split(".");
+        if (parts.length === 3) {
+          const payload = JSON.parse(Buffer.from(parts[1], "base64url").toString("utf8"));
+          if (payload?.sub) {
+            return `user:${payload.sub}`;
+          }
+        }
+      } catch {
+        // ignore parsing error and fallback to IP
+      }
+    }
+
     const xForwardedFor = req.headers?.["x-forwarded-for"];
     if (xForwardedFor) {
       const firstIp = Array.isArray(xForwardedFor) ? xForwardedFor[0] : xForwardedFor.split(",")[0];
@@ -35,9 +51,22 @@ export class CustomThrottlerGuard extends ThrottlerGuard {
       return true;
     }
 
+    const throttlerName = throttler.name ?? "default";
+
+    // Named throttlers (auth, checkout, sensitive) must only apply to routes
+    // explicitly decorated with them, not to every generic route.
+    if (throttlerName !== "default") {
+      const routeOrClassLimit = this.reflector.getAllAndOverride(
+        `THROTTLER:LIMIT${throttlerName}`,
+        [context.getHandler(), context.getClass()]
+      );
+      if (routeOrClassLimit === undefined) {
+        return true;
+      }
+    }
+
     const res = context.switchToHttp().getResponse();
     const tracker = await getTracker(req, context);
-    const throttlerName = throttler.name ?? "default";
     const key = this.generateKey(context, tracker, throttlerName);
 
     const { totalHits, timeToExpire } = await this.storageService.increment(

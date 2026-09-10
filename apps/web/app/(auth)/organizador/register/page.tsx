@@ -9,9 +9,6 @@ import {
 } from "lucide-react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { api } from "@/lib/api";
 import { useAuthStore } from "@/stores/auth-store";
 
@@ -75,56 +72,56 @@ export default function RegisterOrganizerPage() {
   });
 
   return (
-    <div className="w-full max-w-lg">
-      <div className="mb-8 text-center">
-        <h1 className="text-3xl font-extrabold tracking-tight">Cadastro de Organizador</h1>
-        <p className="mt-2 text-muted-foreground">Crie sua conta para começar a criar e gerenciar eventos</p>
+    <div className="w-full max-w-[540px] rounded-[24px] bg-[#150F28]/75 backdrop-blur-[24px] border border-purple-400/25 p-6 sm:p-8 lg:p-9 shadow-[0_20px_60px_rgba(0,0,0,0.6),0_0_45px_rgba(120,60,255,0.14)] relative animate-card-enter my-6">
+      <div className="mb-6 text-center">
+        <h2 className="text-2xl sm:text-[26px] font-bold text-white tracking-tight">Cadastro de Organizador</h2>
+        <p className="mt-1.5 text-xs sm:text-sm text-[#A99EC0]">Crie sua conta para começar a criar e gerenciar eventos</p>
       </div>
 
-      <div className="rounded-2xl border bg-white dark:bg-card p-8 shadow-sm">
-        <form className="space-y-5" onSubmit={form.handleSubmit((data) => mutation.mutate(data))}>
+      <div>
+        <form className="space-y-4" onSubmit={form.handleSubmit((data) => mutation.mutate(data))}>
 
           {/* ─── Seção: Dados do Responsável ─── */}
-          <div className="space-y-1 pb-2">
-            <h2 className="text-sm font-bold text-primary uppercase tracking-wider flex items-center gap-2">
-              <User className="h-4 w-4" /> Dados do Responsável
-            </h2>
-            <div className="h-px bg-border" />
+          <div className="space-y-1 pb-1">
+            <h3 className="text-xs font-bold text-[#BE8BFF] uppercase tracking-wider flex items-center gap-2">
+              <User className="h-3.5 w-3.5" /> Dados do Responsável
+            </h3>
+            <div className="h-px bg-purple-400/20" />
           </div>
 
           <Field label="Nome completo" error={form.formState.errors.name?.message} icon={<User className="h-4 w-4" />}>
-            <Input placeholder="Seu nome" className="pl-10 rounded-xl" {...form.register("name")} />
+            <input placeholder="Seu nome" className="w-full h-[46px] rounded-xl bg-[#0D081F]/70 border border-purple-400/20 pl-10 pr-4 text-sm text-white placeholder:text-[#6D6288] focus:border-[#8C62FF] focus:ring-1 focus:ring-[#8C62FF]/40 outline-none transition-all" {...form.register("name")} />
           </Field>
 
           <Field label="E-mail" error={form.formState.errors.email?.message} icon={<Mail className="h-4 w-4" />}>
-            <Input type="email" placeholder="empresa@email.com" className="pl-10 rounded-xl" {...form.register("email")} />
+            <input type="email" placeholder="empresa@email.com" className="w-full h-[46px] rounded-xl bg-[#0D081F]/70 border border-purple-400/20 pl-10 pr-4 text-sm text-white placeholder:text-[#6D6288] focus:border-[#8C62FF] focus:ring-1 focus:ring-[#8C62FF]/40 outline-none transition-all" {...form.register("email")} />
           </Field>
 
           <Field label="Telefone" error={form.formState.errors.phone?.message} icon={<Phone className="h-4 w-4" />}>
-            <Input placeholder="(31) 99999-9999" className="pl-10 rounded-xl" {...form.register("phone")} />
+            <input placeholder="(31) 99999-9999" className="w-full h-[46px] rounded-xl bg-[#0D081F]/70 border border-purple-400/20 pl-10 pr-4 text-sm text-white placeholder:text-[#6D6288] focus:border-[#8C62FF] focus:ring-1 focus:ring-[#8C62FF]/40 outline-none transition-all" {...form.register("phone")} />
           </Field>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <Field label="Senha" error={form.formState.errors.password?.message} icon={<Lock className="h-4 w-4" />}>
-              <Input type="password" placeholder="Mínimo 8 caracteres" className="pl-10 rounded-xl" {...form.register("password")} />
+              <input type="password" placeholder="Mínimo 8 caracteres" className="w-full h-[46px] rounded-xl bg-[#0D081F]/70 border border-purple-400/20 pl-10 pr-4 text-sm text-white placeholder:text-[#6D6288] focus:border-[#8C62FF] focus:ring-1 focus:ring-[#8C62FF]/40 outline-none transition-all" {...form.register("password")} />
             </Field>
             <Field label="Confirmar senha" error={form.formState.errors.confirmPassword?.message} icon={<Lock className="h-4 w-4" />}>
-              <Input type="password" placeholder="Repita a senha" className="pl-10 rounded-xl" {...form.register("confirmPassword")} />
+              <input type="password" placeholder="Repita a senha" className="w-full h-[46px] rounded-xl bg-[#0D081F]/70 border border-purple-400/20 pl-10 pr-4 text-sm text-white placeholder:text-[#6D6288] focus:border-[#8C62FF] focus:ring-1 focus:ring-[#8C62FF]/40 outline-none transition-all" {...form.register("confirmPassword")} />
             </Field>
           </div>
 
           {/* ─── Seção: Dados da Empresa ─── */}
-          <div className="space-y-1 pt-4 pb-2">
-            <h2 className="text-sm font-bold text-primary uppercase tracking-wider flex items-center gap-2">
-              <Building2 className="h-4 w-4" /> Dados da Empresa
-            </h2>
-            <div className="h-px bg-border" />
+          <div className="space-y-1 pt-2 pb-1">
+            <h3 className="text-xs font-bold text-[#BE8BFF] uppercase tracking-wider flex items-center gap-2">
+              <Building2 className="h-3.5 w-3.5" /> Dados da Empresa
+            </h3>
+            <div className="h-px bg-purple-400/20" />
           </div>
 
           <Field label="CNPJ" error={form.formState.errors.cnpj?.message} icon={<Building2 className="h-4 w-4" />}>
-            <Input
+            <input
               placeholder="00.000.000/0000-00"
-              className="pl-10 rounded-xl"
+              className="w-full h-[46px] rounded-xl bg-[#0D081F]/70 border border-purple-400/20 pl-10 pr-4 text-sm text-white placeholder:text-[#6D6288] focus:border-[#8C62FF] focus:ring-1 focus:ring-[#8C62FF]/40 outline-none transition-all"
               {...form.register("cnpj")}
               onChange={(e) => {
                 const formatted = formatCnpj(e.target.value);
@@ -134,68 +131,74 @@ export default function RegisterOrganizerPage() {
           </Field>
 
           <Field label="Nome da empresa" error={form.formState.errors.companyName?.message} icon={<Building2 className="h-4 w-4" />}>
-            <Input placeholder="Razão social ou nome fantasia" className="pl-10 rounded-xl" {...form.register("companyName")} />
+            <input placeholder="Razão social ou nome fantasia" className="w-full h-[46px] rounded-xl bg-[#0D081F]/70 border border-purple-400/20 pl-10 pr-4 text-sm text-white placeholder:text-[#6D6288] focus:border-[#8C62FF] focus:ring-1 focus:ring-[#8C62FF]/40 outline-none transition-all" {...form.register("companyName")} />
           </Field>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <Field label="Cidade" error={form.formState.errors.city?.message} icon={<MapPin className="h-4 w-4" />}>
-              <Input placeholder="Belo Horizonte" className="pl-10 rounded-xl" {...form.register("city")} />
+              <input placeholder="Belo Horizonte" className="w-full h-[46px] rounded-xl bg-[#0D081F]/70 border border-purple-400/20 pl-10 pr-4 text-sm text-white placeholder:text-[#6D6288] focus:border-[#8C62FF] focus:ring-1 focus:ring-[#8C62FF]/40 outline-none transition-all" {...form.register("city")} />
             </Field>
-            <div className="space-y-2">
-              <Label className="text-sm font-semibold">Estado (UF)</Label>
+            <div className="space-y-1.5">
+              <label className="text-xs font-semibold text-[#D4CAE8]">Estado (UF)</label>
               <select
-                className="flex h-10 w-full rounded-xl border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                className="flex h-[46px] w-full rounded-xl border border-purple-400/20 bg-[#0D081F]/70 px-3 py-2 text-sm text-white focus:outline-none focus:ring-1 focus:ring-[#8C62FF]/40 focus:border-[#8C62FF]"
                 {...form.register("state")}
                 defaultValue=""
               >
-                <option value="" disabled>Selecione</option>
+                <option value="" disabled className="bg-[#150F28] text-white">Selecione</option>
                 {UF_LIST.map((uf) => (
-                  <option key={uf} value={uf}>{uf}</option>
+                  <option key={uf} value={uf} className="bg-[#150F28] text-white">{uf}</option>
                 ))}
               </select>
               {form.formState.errors.state && (
-                <p className="text-xs text-destructive">{form.formState.errors.state.message}</p>
+                <p className="text-xs text-rose-400 mt-1">{form.formState.errors.state.message}</p>
               )}
             </div>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <Field label="Site (opcional)" error={form.formState.errors.website?.message} icon={<Globe className="h-4 w-4" />}>
-              <Input placeholder="https://suaempresa.com" className="pl-10 rounded-xl" {...form.register("website")} />
+              <input placeholder="https://suaempresa.com" className="w-full h-[46px] rounded-xl bg-[#0D081F]/70 border border-purple-400/20 pl-10 pr-4 text-sm text-white placeholder:text-[#6D6288] focus:border-[#8C62FF] focus:ring-1 focus:ring-[#8C62FF]/40 outline-none transition-all" {...form.register("website")} />
             </Field>
             <Field label="Instagram (opcional)" error={form.formState.errors.instagram?.message} icon={<Instagram className="h-4 w-4" />}>
-              <Input placeholder="@suaempresa" className="pl-10 rounded-xl" {...form.register("instagram")} />
+              <input placeholder="@suaempresa" className="w-full h-[46px] rounded-xl bg-[#0D081F]/70 border border-purple-400/20 pl-10 pr-4 text-sm text-white placeholder:text-[#6D6288] focus:border-[#8C62FF] focus:ring-1 focus:ring-[#8C62FF]/40 outline-none transition-all" {...form.register("instagram")} />
             </Field>
           </div>
 
           {mutation.error && (
-            <div className="rounded-xl bg-destructive/10 border border-destructive/20 p-3">
-              <p className="text-sm text-destructive text-center">{mutation.error.message}</p>
+            <div className="rounded-xl bg-rose-500/10 border border-rose-500/30 p-3 text-center">
+              <p className="text-xs text-rose-300">{mutation.error.message}</p>
             </div>
           )}
 
-          <Button
-            className="w-full rounded-xl bg-primary hover:bg-primary/90 text-white font-bold h-12 text-base shadow-md shadow-primary/25 mt-2"
+          <button
+            type="submit"
             disabled={mutation.isPending}
+            className="w-full h-[50px] rounded-xl text-white font-semibold text-sm flex items-center justify-center gap-2 shadow-[0_4px_22px_rgba(116,60,255,0.4)] hover:brightness-110 hover:-translate-y-[1px] active:translate-y-0 disabled:opacity-60 disabled:pointer-events-none transition-all mt-3"
+            style={{
+              background: "linear-gradient(90deg, #743CFF 0%, #6247FF 48%, #C084FC 100%)"
+            }}
           >
             {mutation.isPending && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
             Criar conta de organizador
-          </Button>
+          </button>
         </form>
       </div>
 
-      <p className="mt-6 text-center text-sm text-muted-foreground">
-        Já tem uma conta?{" "}
-        <Link href="/login" className="font-semibold text-primary hover:underline">
-          Entrar
-        </Link>
-      </p>
-      <p className="mt-2 text-center text-sm text-muted-foreground">
-        Quer comprar ingressos?{" "}
-        <Link href="/register" className="font-semibold text-primary hover:underline">
-          Criar conta de cliente
-        </Link>
-      </p>
+      <div className="mt-6 text-center space-y-1.5">
+        <p className="text-xs text-[#A99EC0]">
+          Já tem uma conta?{" "}
+          <Link href="/login" className="font-semibold text-[#9E7BFF] hover:text-[#BFA4FF] transition-colors hover:underline">
+            Entrar
+          </Link>
+        </p>
+        <p className="text-xs text-[#A99EC0]">
+          Quer comprar ingressos?{" "}
+          <Link href="/register" className="font-semibold text-[#9E7BFF] hover:text-[#BFA4FF] transition-colors hover:underline">
+            Criar conta de cliente
+          </Link>
+        </p>
+      </div>
     </div>
   );
 }
@@ -206,15 +209,15 @@ function Field({
   label: string; error?: string; icon?: React.ReactNode; children: React.ReactNode;
 }) {
   return (
-    <div className="space-y-2">
-      <Label className="text-sm font-semibold">{label}</Label>
+    <div className="space-y-1.5">
+      <label className="text-xs font-semibold text-[#D4CAE8]">{label}</label>
       <div className="relative">
         {icon && (
-          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">{icon}</span>
+          <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[#8E82A8]">{icon}</span>
         )}
         {children}
       </div>
-      {error && <p className="text-xs text-destructive">{error}</p>}
+      {error && <p className="text-xs text-rose-400 mt-1">{error}</p>}
     </div>
   );
 }

@@ -511,9 +511,13 @@ export default function MyTicketsPage() {
     queryKey: ["my-tickets", user?.id],
     queryFn: () => api<MyTicket[]>("/buyer/tickets"),
     enabled: Boolean(user?.id),
-    staleTime: 0,
-    refetchOnMount: "always",
-    refetchInterval: 3000,
+    staleTime: 15_000,
+    refetchInterval: (query) => {
+      if (query.state.error) return false;
+      const data = query.state.data as MyTicket[] | undefined;
+      const hasActive = data?.some((t) => t.status === "AVAILABLE");
+      return statusTab === "AVAILABLE" && hasActive ? 15_000 : false;
+    },
   });
 
   const allTickets = useMemo(() => tickets.data ?? [], [tickets.data]);
@@ -717,7 +721,7 @@ export default function MyTicketsPage() {
           </button>
         </div>
 
-        {tickets.isLoading ? (
+        {tickets.isLoading && !tickets.data ? (
           <div className="space-y-5" aria-label="Carregando ingressos">
             {[1, 2].map((i) => (
               <div
@@ -737,7 +741,7 @@ export default function MyTicketsPage() {
               </div>
             ))}
           </div>
-        ) : tickets.isError ? (
+        ) : !tickets.data && tickets.isError ? (
           <div
             role="alert"
             className="flex flex-col items-center justify-center rounded-[28px] border border-rose-300/20 bg-card px-6 py-14 text-center shadow-sm"
@@ -762,93 +766,119 @@ export default function MyTicketsPage() {
               Tentar novamente
             </Button>
           </div>
-        ) : displayedTickets.length === 0 ? (
-          <div className="relative overflow-hidden rounded-[28px] border border-dashed bg-card px-6 py-16 text-center shadow-sm">
-            <div className="pointer-events-none absolute -right-12 -top-12 h-36 w-36 rounded-full border-[26px] border-primary/[0.06]" />
-            <div className="relative mx-auto mb-5 flex h-16 w-16 items-center justify-center rounded-2xl border border-primary/15 bg-primary/10">
-              {statusTab === "AVAILABLE" ? (
-                <Ticket className="h-8 w-8 text-primary" />
-              ) : statusTab === "USED" ? (
-                <Clock className="h-8 w-8 text-violet-400" />
-              ) : (
-                <XCircle className="h-8 w-8 text-rose-500" />
-              )}
-            </div>
-            <h2 id="ticket-list-title" className="relative text-xl font-bold">
-              {statusTab === "AVAILABLE"
-                ? "Nenhum ingresso ativo"
-                : statusTab === "USED"
-                  ? "Nenhum ingresso utilizado"
-                  : "Nenhum ingresso cancelado"}
-            </h2>
-            <p className="relative mx-auto mt-2 max-w-sm text-sm leading-relaxed text-muted-foreground">
-              {statusTab === "AVAILABLE"
-                ? "Sua carteira está pronta. Quando uma compra for confirmada, o ingresso aparecerá aqui automaticamente."
-                : statusTab === "USED"
-                  ? "Os ingressos que já foram validados na portaria dos eventos aparecerão aqui."
-                  : "Ingressos cancelados ou reembolsados aparecerão nesta área."}
-            </p>
-            {statusTab === "AVAILABLE" && (
-              <Button
-                asChild
-                className="relative mt-6 min-h-11 gap-2 rounded-xl bg-primary text-white hover:bg-primary/90"
-              >
-                <Link href="/">
-                  Explorar eventos
-                  <ArrowUpRight className="h-4 w-4" />
-                </Link>
-              </Button>
-            )}
-          </div>
         ) : (
-          <div className="pb-6">
-            <div className="mb-4 flex items-end justify-between gap-4 px-1">
-              <div>
-                <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-primary">
-                  Sua carteira
-                </p>
-                <h2
-                  id="ticket-list-title"
-                  className="mt-1 text-xl font-bold tracking-tight sm:text-2xl"
+          <>
+            {tickets.isError && (
+              <div className="mb-6 flex items-center justify-between gap-3 rounded-2xl border border-rose-300/20 bg-rose-500/10 px-4 py-3 text-xs text-rose-200">
+                <div className="flex items-center gap-2">
+                  <CircleAlert className="h-4 w-4 shrink-0 text-rose-400" />
+                  <span>
+                    {(tickets.error as Error).message ||
+                      "Não foi possível atualizar seus ingressos no momento."}
+                  </span>
+                </div>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="ghost"
+                  className="h-8 gap-1.5 rounded-lg px-2 text-xs text-rose-200 hover:bg-rose-500/20"
+                  onClick={() => tickets.refetch()}
                 >
-                  {statusTab === "AVAILABLE"
-                    ? "Ingressos Ativos"
-                    : statusTab === "USED"
-                      ? "Ingressos Utilizados"
-                      : "Ingressos Cancelados"}
-                </h2>
+                  <RotateCw className="h-3.5 w-3.5" />
+                  Atualizar
+                </Button>
               </div>
-              <span className="rounded-full border bg-card px-3 py-1.5 text-xs font-semibold text-muted-foreground shadow-sm">
-                {displayedTickets.length}{" "}
-                {displayedTickets.length === 1 ? "ingresso" : "ingressos"}
-              </span>
-            </div>
+            )}
 
-            <div className="stagger-children space-y-5">
-              {displayedTickets.map((ticket) => (
-                <EventTicketCard
-                  key={ticket.id}
-                  ticket={ticket}
-                  expanded={expandedTicket === ticket.id}
-                  refundPending={
-                    refund.isPending && refund.variables?.ticketId === ticket.id
-                  }
-                  onToggleDetails={() =>
-                    setExpandedTicket((current) =>
-                      current === ticket.id ? null : ticket.id,
-                    )
-                  }
-                  onQrRelease={() => void tickets.refetch()}
-                  onDownload={() => void downloadPdf(ticket.id)}
-                  onWallet={(provider) =>
-                    wallet.mutate({ ticketId: ticket.id, provider })
-                  }
-                  onTransfer={() => openTransferModal(ticket)}
-                  onRefund={() => openRefundDialog(ticket)}
-                />
-              ))}
-            </div>
-          </div>
+            {displayedTickets.length === 0 ? (
+              <div className="relative overflow-hidden rounded-[28px] border border-dashed bg-card px-6 py-16 text-center shadow-sm">
+                <div className="pointer-events-none absolute -right-12 -top-12 h-36 w-36 rounded-full border-[26px] border-primary/[0.06]" />
+                <div className="relative mx-auto mb-5 flex h-16 w-16 items-center justify-center rounded-2xl border border-primary/15 bg-primary/10">
+                  {statusTab === "AVAILABLE" ? (
+                    <Ticket className="h-8 w-8 text-primary" />
+                  ) : statusTab === "USED" ? (
+                    <Clock className="h-8 w-8 text-violet-400" />
+                  ) : (
+                    <XCircle className="h-8 w-8 text-rose-500" />
+                  )}
+                </div>
+                <h2 id="ticket-list-title" className="relative text-xl font-bold">
+                  {statusTab === "AVAILABLE"
+                    ? "Nenhum ingresso ativo"
+                    : statusTab === "USED"
+                      ? "Nenhum ingresso utilizado"
+                      : "Nenhum ingresso cancelado"}
+                </h2>
+                <p className="relative mx-auto mt-2 max-w-sm text-sm leading-relaxed text-muted-foreground">
+                  {statusTab === "AVAILABLE"
+                    ? "Sua carteira está pronta. Quando uma compra for confirmada, o ingresso aparecerá aqui automaticamente."
+                    : statusTab === "USED"
+                      ? "Os ingressos que já foram validados na portaria dos eventos aparecerão aqui."
+                      : "Ingressos cancelados ou reembolsados aparecerão nesta área."}
+                </p>
+                {statusTab === "AVAILABLE" && (
+                  <Button
+                    asChild
+                    className="relative mt-6 min-h-11 gap-2 rounded-xl bg-primary text-white hover:bg-primary/90"
+                  >
+                    <Link href="/">
+                      Explorar eventos
+                      <ArrowUpRight className="h-4 w-4" />
+                    </Link>
+                  </Button>
+                )}
+              </div>
+            ) : (
+              <div className="pb-6">
+                <div className="mb-4 flex items-end justify-between gap-4 px-1">
+                  <div>
+                    <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-primary">
+                      Sua carteira
+                    </p>
+                    <h2
+                      id="ticket-list-title"
+                      className="mt-1 text-xl font-bold tracking-tight sm:text-2xl"
+                    >
+                      {statusTab === "AVAILABLE"
+                        ? "Ingressos Ativos"
+                        : statusTab === "USED"
+                          ? "Ingressos Utilizados"
+                          : "Ingressos Cancelados"}
+                    </h2>
+                  </div>
+                  <span className="rounded-full border bg-card px-3 py-1.5 text-xs font-semibold text-muted-foreground shadow-sm">
+                    {displayedTickets.length}{" "}
+                    {displayedTickets.length === 1 ? "ingresso" : "ingressos"}
+                  </span>
+                </div>
+
+                <div className="stagger-children space-y-5">
+                  {displayedTickets.map((ticket) => (
+                    <EventTicketCard
+                      key={ticket.id}
+                      ticket={ticket}
+                      expanded={expandedTicket === ticket.id}
+                      refundPending={
+                        refund.isPending && refund.variables?.ticketId === ticket.id
+                      }
+                      onToggleDetails={() =>
+                        setExpandedTicket((current) =>
+                          current === ticket.id ? null : ticket.id,
+                        )
+                      }
+                      onQrRelease={() => void tickets.refetch()}
+                      onDownload={() => void downloadPdf(ticket.id)}
+                      onWallet={(provider) =>
+                        wallet.mutate({ ticketId: ticket.id, provider })
+                      }
+                      onTransfer={() => openTransferModal(ticket)}
+                      onRefund={() => openRefundDialog(ticket)}
+                    />
+                  ))}
+                </div>
+              </div>
+            )}
+          </>
         )}
 
         <Dialog
