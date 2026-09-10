@@ -918,7 +918,25 @@ export default function CheckInPage() {
                           </div>
                         ) : (
                           /* Viewfinder da Câmera com Overlay Visual e Feedback Instantâneo */
-                          <div className="relative rounded-2xl overflow-hidden bg-black border-2 border-border shadow-inner min-h-[320px] max-h-[460px] w-full mx-auto flex items-center justify-center">
+                          <div className="relative rounded-2xl overflow-hidden bg-black border-2 border-border shadow-inner min-h-[360px] max-h-[480px] w-full mx-auto flex items-center justify-center">
+                            {/* Estilos globais para ocultar o overlay interno feio do html5-qrcode e manter apenas nosso visor */}
+                            <style jsx global>{`
+                              #reader #qr-shaded-region {
+                                display: none !important;
+                              }
+                              #reader video {
+                                display: block !important;
+                                margin: 0 auto !important;
+                                width: 100% !important;
+                                height: 100% !important;
+                                max-height: 480px !important;
+                                object-fit: cover !important;
+                              }
+                              #reader canvas {
+                                display: none !important;
+                              }
+                            `}</style>
+
                             {/* Feed de vídeo do leitor */}
                             <div
                               id="reader"
@@ -926,37 +944,38 @@ export default function CheckInPage() {
                                 transform: flipHorizontal ? "scaleX(-1)" : "none",
                                 transformOrigin: "center center"
                               }}
-                              className="w-full h-full overflow-hidden transition-transform duration-200 [&_video]:block [&_video]:mx-auto [&_video]:w-full [&_video]:max-h-[460px] [&_video]:object-contain [&_canvas]:hidden"
+                              className="w-full h-full overflow-hidden transition-transform duration-200 [&_#qr-shaded-region]:!hidden [&_video]:block [&_video]:mx-auto [&_video]:w-full [&_video]:max-h-[480px] [&_video]:object-cover [&_canvas]:hidden"
                             />
 
                             {/* Botões rápidos flutuantes no canto superior do visor */}
                             {isCameraActive && (
-                              <div className="absolute top-3 right-3 z-20 flex items-center gap-1.5">
+                              <div className="absolute top-3 right-3 z-20 flex items-center gap-2">
                                 {hasTorch && (
                                   <button
                                     type="button"
                                     onClick={toggleTorch}
-                                    className={`p-2 rounded-xl backdrop-blur-md transition-all shadow-md ${
+                                    className={`h-9 px-3 rounded-xl backdrop-blur-md transition-all shadow-md flex items-center gap-1.5 text-xs font-semibold ${
                                       torchActive
-                                        ? "bg-amber-500 text-black font-bold ring-2 ring-amber-300"
+                                        ? "bg-amber-500 text-black font-bold ring-2 ring-amber-300 shadow-amber-500/30"
                                         : "bg-black/60 text-white hover:bg-black/80 border border-white/20"
                                     }`}
                                     title="Ligar/Desligar Lanterna"
                                     aria-label="Lanterna"
                                   >
-                                    <Zap className={`w-4 h-4 ${torchActive ? "fill-current" : ""}`} />
+                                    <Zap className={`w-3.5 h-3.5 ${torchActive ? "fill-current" : ""}`} />
+                                    <span className="hidden sm:inline">{torchActive ? "Ligada" : "Lanterna"}</span>
                                   </button>
                                 )}
 
                                 <button
                                   type="button"
                                   onClick={() => setFlipHorizontal((prev) => !prev)}
-                                  className={`p-2 rounded-xl backdrop-blur-md transition-all shadow-md ${
+                                  className={`h-9 w-9 flex items-center justify-center rounded-xl backdrop-blur-md transition-all shadow-md ${
                                     flipHorizontal
-                                      ? "bg-primary text-primary-foreground"
+                                      ? "bg-primary text-primary-foreground ring-2 ring-primary/40"
                                       : "bg-black/60 text-white hover:bg-black/80 border border-white/20"
                                   }`}
-                                  title="Inverter/Espelhar imagem horizontalmente"
+                                  title="Inverter orientação horizontal da imagem"
                                   aria-label="Inverter Imagem"
                                 >
                                   <FlipHorizontal className="w-4 h-4" />
@@ -966,7 +985,7 @@ export default function CheckInPage() {
                                   <button
                                     type="button"
                                     onClick={toggleCamera}
-                                    className="p-2 rounded-xl backdrop-blur-md bg-black/60 text-white hover:bg-black/80 border border-white/20 shadow-md transition-all"
+                                    className="h-9 w-9 flex items-center justify-center rounded-xl backdrop-blur-md bg-black/60 text-white hover:bg-black/80 border border-white/20 shadow-md transition-all"
                                     title="Alternar entre câmeras"
                                     aria-label="Alternar Câmera"
                                   >
@@ -976,22 +995,47 @@ export default function CheckInPage() {
                               </div>
                             )}
 
-                            {/* Moldura de Alinhamento Laser (quando ocioso e aguardando leitura) */}
+                            {/* Viewfinder Premium Unificado com Animação Holográfica de Laser */}
                             {isCameraActive && !validateMutation.isPending && !validateMutation.isSuccess && !validateMutation.isError && (
-                              <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
-                                <div className="relative w-60 h-60 rounded-2xl border-2 border-white/20">
-                                  <div className="absolute top-0 left-0 w-7 h-7 border-t-4 border-l-4 border-primary rounded-tl-xl -mt-1 -ml-1 shadow-[0_0_8px_rgba(249,115,22,0.7)]" />
-                                  <div className="absolute top-0 right-0 w-7 h-7 border-t-4 border-r-4 border-primary rounded-tr-xl -mt-1 -mr-1 shadow-[0_0_8px_rgba(249,115,22,0.7)]" />
-                                  <div className="absolute bottom-0 left-0 w-7 h-7 border-b-4 border-l-4 border-primary rounded-bl-xl -mb-1 -ml-1 shadow-[0_0_8px_rgba(249,115,22,0.7)]" />
-                                  <div className="absolute bottom-0 right-0 w-7 h-7 border-b-4 border-r-4 border-primary rounded-br-xl -mb-1 -mr-1 shadow-[0_0_8px_rgba(249,115,22,0.7)]" />
+                              <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center z-10">
+                                {/* Retângulo Central de Foco com Máscara Escura ao Redor */}
+                                <div className="relative w-[250px] h-[250px] sm:w-[270px] sm:h-[270px] rounded-3xl shadow-[0_0_0_9999px_rgba(8,6,20,0.6)] transition-all duration-300">
+                                  {/* 4 Cantos Iluminados de Alta Precisão (Design Moderno Neon) */}
+                                  <div className="absolute -top-1 -left-1 w-8 h-8 border-t-4 border-l-4 border-primary rounded-tl-2xl shadow-[0_0_12px_hsl(var(--primary))]" />
+                                  <div className="absolute -top-1 -right-1 w-8 h-8 border-t-4 border-r-4 border-primary rounded-tr-2xl shadow-[0_0_12px_hsl(var(--primary))]" />
+                                  <div className="absolute -bottom-1 -left-1 w-8 h-8 border-b-4 border-l-4 border-primary rounded-bl-2xl shadow-[0_0_12px_hsl(var(--primary))]" />
+                                  <div className="absolute -bottom-1 -right-1 w-8 h-8 border-b-4 border-r-4 border-primary rounded-br-2xl shadow-[0_0_12px_hsl(var(--primary))]" />
 
-                                  {/* Linha laser de varredura suave */}
-                                  <div className="absolute left-2 right-2 h-0.5 bg-gradient-to-r from-transparent via-primary to-transparent shadow-[0_0_12px_rgba(249,115,22,0.9)] animate-[bounce_2.2s_infinite]" />
+                                  {/* Borda fina translúcida delimitando a área de leitura */}
+                                  <div className="absolute inset-0 rounded-3xl border border-white/15" />
+
+                                  {/* Mira central sutil (crosshair) */}
+                                  <div className="absolute inset-0 flex items-center justify-center opacity-25">
+                                    <div className="w-5 h-[1px] bg-white" />
+                                    <div className="h-5 w-[1px] bg-white absolute" />
+                                  </div>
+
+                                  {/* Feixe de Laser Animado de Alta Tecnologia (Varredura Contínua) */}
+                                  <div className="absolute inset-x-2 inset-y-2 overflow-hidden rounded-2xl pointer-events-none">
+                                    <div className="animate-scanner-laser absolute inset-x-0 pointer-events-none">
+                                      {/* Rastro superior de luz holográfica */}
+                                      <div className="w-full h-12 bg-gradient-to-t from-primary/30 via-primary/10 to-transparent -mt-12" />
+                                      {/* Linha brilhante de varredura laser */}
+                                      <div className="w-full h-[2.5px] bg-gradient-to-r from-transparent via-white to-transparent shadow-[0_0_15px_hsl(var(--primary)),0_0_5px_#fff]" />
+                                      {/* Rastro inferior de luz */}
+                                      <div className="w-full h-6 bg-gradient-to-b from-primary/20 to-transparent" />
+                                    </div>
+                                  </div>
                                 </div>
 
-                                <p className="text-[11px] text-white/70 font-medium mt-3 bg-black/50 px-3 py-1 rounded-full backdrop-blur-xs">
-                                  Posicione o QR Code a ~15-20 cm
-                                </p>
+                                {/* Pílula de instrução posicionada com respiro abaixo da área de captura */}
+                                <div className="mt-5 flex items-center gap-2 bg-black/80 backdrop-blur-md px-4 py-1.5 rounded-full border border-white/15 text-white/90 text-xs font-medium shadow-xl">
+                                  <span className="relative flex h-2 w-2">
+                                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75" />
+                                    <span className="relative inline-flex rounded-full h-2 w-2 bg-primary" />
+                                  </span>
+                                  <span>Aponte a câmera para o QR Code</span>
+                                </div>
                               </div>
                             )}
 
