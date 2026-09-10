@@ -5,7 +5,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   CheckCircle2, ScanLine, XCircle, AlertTriangle, Camera, Keyboard,
   Search, UserCheck, History, Clock, Ticket, RefreshCw, SwitchCamera,
-  ArrowRight, ShieldAlert, FlipHorizontal
+  ArrowRight, ShieldAlert, FlipHorizontal, Zap, UploadCloud
 } from "lucide-react";
 import type { Html5Qrcode } from "html5-qrcode";
 import { Button } from "@/components/ui/button";
@@ -43,7 +43,7 @@ function playAudioFeedback(type: "success" | "duplicate" | "error") {
       osc.type = "sine";
       osc.frequency.setValueAtTime(659.25, ctx.currentTime); // E5
       osc.frequency.setValueAtTime(880, ctx.currentTime + 0.1); // A5
-      gain.gain.setValueAtTime(0.15, ctx.currentTime);
+      gain.gain.setValueAtTime(0.18, ctx.currentTime);
       gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.3);
       osc.start(ctx.currentTime);
       osc.stop(ctx.currentTime + 0.3);
@@ -68,6 +68,23 @@ function playAudioFeedback(type: "success" | "duplicate" | "error") {
     }
   } catch {
     // Ignora se o navegador restringir áudio
+  }
+}
+
+// Resposta tátil / vibração para celulares
+function triggerHapticFeedback(type: "success" | "duplicate" | "error") {
+  if (typeof window !== "undefined" && "vibrate" in navigator) {
+    try {
+      if (type === "success") {
+        navigator.vibrate([80, 40, 80]);
+      } else if (type === "duplicate") {
+        navigator.vibrate([150, 100, 150]);
+      } else {
+        navigator.vibrate([250]);
+      }
+    } catch {
+      // Ignora erro se vibração não permitida
+    }
   }
 }
 
@@ -121,15 +138,22 @@ export default function CheckInPage() {
   const [code, setCode] = useState("");
   const [mode, setMode] = useState<"usb" | "camera" | "search">("camera");
 
-  // Câmera
+  // Câmera & Scanner
   const scannerRef = useRef<Html5Qrcode | null>(null);
+  const mediaStreamRef = useRef<MediaStream | null>(null);
+  const nativeIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+
   const [cameras, setCameras] = useState<Array<{ id: string; label: string }>>([]);
   const [selectedCameraId, setSelectedCameraId] = useState<string>("");
   const [activeCameraId, setActiveCameraId] = useState<string>("");
   const [flipHorizontal, setFlipHorizontal] = useState(false);
+  const [hasTorch, setHasTorch] = useState(false);
+  const [torchActive, setTorchActive] = useState(false);
   const [cameraError, setCameraError] = useState<string | null>(null);
   const [isCameraStarting, setIsCameraStarting] = useState(false);
   const [isCameraActive, setIsCameraActive] = useState(false);
+  const [isScanningFile, setIsScanningFile] = useState(false);
 
   // Debounce e Cooldown pós-leitura
   const validationInFlightRef = useRef(false);
@@ -142,7 +166,7 @@ export default function CheckInPage() {
   const [search, setSearch] = useState("");
   const debouncedSearch = useDebounce(search, 400);
 
-  // Consulta de eventos
+  // Consulta de eventos publicados
   const { data: events, isLoading: isLoadingEvents } = useQuery({
     queryKey: ["events-checkin"],
     queryFn: () => api<Paginated<EventFlowEvent>>("/events?status=PUBLISHED")
@@ -208,10 +232,13 @@ export default function CheckInPage() {
 
       if (data.status === "ENTERED") {
         playAudioFeedback("success");
+        triggerHapticFeedback("success");
       } else if (data.status === "DUPLICATED") {
         playAudioFeedback("duplicate");
+        triggerHapticFeedback("duplicate");
       } else {
         playAudioFeedback("error");
+        triggerHapticFeedback("error");
       }
 
       // Inicia contagem regressiva para próximo scan
@@ -219,6 +246,7 @@ export default function CheckInPage() {
     },
     onError: () => {
       playAudioFeedback("error");
+      triggerHapticFeedback("error");
       startAutoReset(4);
     },
     onSettled: () => {
@@ -272,6 +300,56 @@ export default function CheckInPage() {
     setSelectedCameraId(cameras[nextIndex].id);
   }, [cameras, selectedCameraId, activeCameraId]);
 
+  // Controle de Lanterna (Flashlight)
+  const toggleTorch = useCallback(() => {
+    if (!mediaStreamRef.current) return;
+    const [track] = mediaStreamRef.current.getVideoTracks();
+    if (!track) return;
+    const nextState = !torchActive;
+    track.applyConstraints({ advanced: [{ torch: nextState }] as any })
+      .then(() => setTorchActive(nextState))
+      .catch((err) => console.warn("Erro ao alternar lanterna:", err));
+  }, [torchActive]);
+
+  // Leitura de Arquivo / Foto do Voucher
+  const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    setIsScanningFile(true);
+    try {
+      // 1. Tenta decodificar via BarcodeDetector nativo no navegador (altíssima resolução)
+      if (typeof window !== "undefined" && "BarcodeDetector" in window) {
+        try {
+          const imgBitmap = await createImageBitmap(file);
+          const detector = new (window as any).BarcodeDetector({
+            formats: ["qr_code", "code_128", "data_matrix"]
+          });
+          const detected = await detector.detect(imgBitmap);
+          if (detected && detected.length > 0 && detected[0].rawValue) {
+            handleScannedCodeRef.current(detected[0].rawValue);
+            setIsScanningFile(false);
+            if (event.target) event.target.value = "";
+            return;
+          }
+        } catch {}
+      }
+
+      // 2. Fallback via Html5Qrcode.scanFile
+      const { Html5Qrcode } = await import("html5-qrcode");
+      const tempScanner = scannerRef.current || new Html5Qrcode("reader-hidden-fallback", { verbose: false });
+      const decodedText = await tempScanner.scanFile(file, true);
+      if (decodedText) {
+        handleScannedCodeRef.current(decodedText);
+      }
+    } catch {
+      alert("Não foi possível identificar o QR Code nesta imagem. Tente uma foto mais aproximada ou digite o código manualmente.");
+    } finally {
+      setIsScanningFile(false);
+      if (event.target) event.target.value = "";
+    }
+  };
+
   // Ciclo de vida estável da câmera
   useEffect(() => {
     let isCancelled = false;
@@ -298,7 +376,12 @@ export default function CheckInPage() {
         const { Html5Qrcode, Html5QrcodeSupportedFormats } = await import("html5-qrcode");
         if (isCancelled) return;
 
-        // Se houver uma instância anterior, limpa com segurança
+        // Limpa instâncias anteriores
+        if (nativeIntervalRef.current) {
+          clearInterval(nativeIntervalRef.current);
+          nativeIntervalRef.current = null;
+        }
+
         if (scannerRef.current) {
           const oldScanner = scannerRef.current;
           scannerRef.current = null;
@@ -372,22 +455,32 @@ export default function CheckInPage() {
             Html5QrcodeSupportedFormats.CODE_128,
             Html5QrcodeSupportedFormats.DATA_MATRIX
           ],
-          useBarCodeDetectorIfSupported: true,
-          verbose: false
+          verbose: false,
+          experimentalFeatures: {
+            useBarCodeDetectorIfSupported: true
+          }
         });
         scannerRef.current = scanner;
+
+        // Função de qrbox que centraliza 80% do visor (mínimo 220px) para alta densidade
+        const qrboxFunction = (viewfinderWidth: number, viewfinderHeight: number) => {
+          const minEdge = Math.min(viewfinderWidth, viewfinderHeight);
+          const edge = Math.floor(minEdge * 0.8);
+          return { width: Math.max(edge, 220), height: Math.max(edge, 220) };
+        };
 
         await scanner.start(
           cameraConfig,
           {
-            fps: 15,
-            disableFlip: false
+            fps: 20,
+            disableFlip: true, // Crucial: evita acúmulo de transformações de matriz no canvas
+            qrbox: qrboxFunction
           },
           (decodedText) => {
             handleScannedCodeRef.current(decodedText);
           },
           () => {
-            // Callback invocado a cada frame sem código detectado
+            // Frame sem código detectado
           }
         );
 
@@ -397,10 +490,66 @@ export default function CheckInPage() {
           return;
         }
 
+        // 3. Extrai MediaStream para autofoco contínuo e suporte a lanterna
+        const videoElement = document.querySelector("#reader video") as HTMLVideoElement | null;
+        if (videoElement && videoElement.srcObject) {
+          const stream = videoElement.srcObject as MediaStream;
+          mediaStreamRef.current = stream;
+          const [track] = stream.getVideoTracks();
+          if (track) {
+            const caps = (track.getCapabilities ? track.getCapabilities() : {}) as any;
+            // Autofoco contínuo para evitar que a imagem fique embaçada
+            if (caps.focusMode && Array.isArray(caps.focusMode) && caps.focusMode.includes("continuous")) {
+              track.applyConstraints({ advanced: [{ focusMode: "continuous" }] as any }).catch(() => {});
+            }
+            if (caps.torch) {
+              setHasTorch(true);
+            } else {
+              setHasTorch(false);
+            }
+          }
+        }
+
+        // 4. Aceleração por Hardware: BarcodeDetector nativo no Chromium / Android
+        // Analisa o feed do elemento <video> diretamente na GPU em resolução total 1080p
+        if (typeof window !== "undefined" && "BarcodeDetector" in window) {
+          try {
+            const nativeDetector = new (window as any).BarcodeDetector({
+              formats: ["qr_code", "code_128", "data_matrix"]
+            });
+
+            if (nativeIntervalRef.current) {
+              clearInterval(nativeIntervalRef.current);
+            }
+
+            nativeIntervalRef.current = setInterval(async () => {
+              if (isCancelled || validationInFlightRef.current || cooldownRef.current) {
+                return;
+              }
+
+              const vid = document.querySelector("#reader video") as HTMLVideoElement | null;
+              if (!vid || vid.readyState < 2 || vid.paused) {
+                return;
+              }
+
+              try {
+                const barcodes = await nativeDetector.detect(vid);
+                if (barcodes && barcodes.length > 0 && barcodes[0].rawValue) {
+                  handleScannedCodeRef.current(barcodes[0].rawValue);
+                }
+              } catch {
+                // frame detection pass-through
+              }
+            }, 100);
+          } catch (detErr) {
+            console.warn("BarcodeDetector nativo indisponível:", detErr);
+          }
+        }
+
         setIsCameraActive(true);
         setIsCameraStarting(false);
 
-        // Se ainda não tinha obtido as câmeras (por exemplo, permissão concedida só agora durante o start)
+        // Atualiza lista de câmeras caso permissão tenha sido concedida só agora
         if (devicesList.length === 0) {
           Html5Qrcode.getCameras()
             .then((devs) => {
@@ -438,6 +587,10 @@ export default function CheckInPage() {
 
     return () => {
       isCancelled = true;
+      if (nativeIntervalRef.current) {
+        clearInterval(nativeIntervalRef.current);
+        nativeIntervalRef.current = null;
+      }
       if (scannerRef.current) {
         const currentScanner = scannerRef.current;
         scannerRef.current = null;
@@ -449,6 +602,9 @@ export default function CheckInPage() {
           try { currentScanner.clear(); } catch {}
         }
       }
+      mediaStreamRef.current = null;
+      setHasTorch(false);
+      setTorchActive(false);
       setIsCameraActive(false);
       setIsCameraStarting(false);
       if (countdownIntervalRef.current) {
@@ -458,7 +614,7 @@ export default function CheckInPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mode, eventId, selectedCameraId, retryNonce]);
 
-  // Renderizador do Visor do Operador
+  // Renderizador do Visor do Operador (Coluna Direita)
   const renderOperatorScreen = () => {
     if (validateMutation.isPending) {
       return (
@@ -589,7 +745,7 @@ export default function CheckInPage() {
       <div>
         <h1 className="text-3xl font-extrabold tracking-tight">Check-in de Evento</h1>
         <p className="text-muted-foreground mt-1">
-          Validação em tempo real com câmera integrada, leitor USB de alta velocidade ou busca manual de participantes.
+          Validação em tempo real com leitor de alta velocidade por câmera, leitor USB/código de barras ou busca de participantes.
         </p>
       </div>
 
@@ -665,10 +821,27 @@ export default function CheckInPage() {
                         <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-muted-foreground px-1">
                           <span className="flex items-center gap-1.5 font-medium">
                             <span className={`w-2.5 h-2.5 rounded-full ${isCameraActive ? "bg-green-500 animate-pulse" : "bg-muted-foreground"}`} />
-                            {isCameraActive ? "Câmera ao vivo" : isCameraStarting ? "Iniciando câmera..." : "Câmera pausada"}
+                            {isCameraActive ? "Câmera ao vivo (Alta Precisão)" : isCameraStarting ? "Iniciando câmera..." : "Câmera pausada"}
                           </span>
 
                           <div className="flex items-center gap-2">
+                            {/* Botão de Lanterna (Flashlight) se suportada pelo aparelho */}
+                            {hasTorch && (
+                              <Button
+                                type="button"
+                                variant={torchActive ? "default" : "outline"}
+                                size="sm"
+                                onClick={toggleTorch}
+                                className={`h-8 text-xs font-semibold gap-1.5 rounded-lg transition-all ${
+                                  torchActive ? "bg-amber-500 hover:bg-amber-600 text-black shadow-sm" : ""
+                                }`}
+                                title="Ligar/Desligar lanterna do aparelho"
+                              >
+                                <Zap className={`w-3.5 h-3.5 ${torchActive ? "fill-current" : ""}`} />
+                                {torchActive ? "Lanterna Ligada" : "Lanterna"}
+                              </Button>
+                            )}
+
                             {/* Botão de Inverter / Espelhar Imagem */}
                             <Button
                               type="button"
@@ -681,7 +854,7 @@ export default function CheckInPage() {
                               title="Inverter/Espelhar orientação horizontal do vídeo"
                             >
                               <FlipHorizontal className="w-3.5 h-3.5" />
-                              {flipHorizontal ? "Espelhado (Ativo)" : "Inverter Imagem"}
+                              {flipHorizontal ? "Espelhado" : "Inverter"}
                             </Button>
 
                             {/* Botão de Trocar Câmera */}
@@ -744,8 +917,8 @@ export default function CheckInPage() {
                             </Button>
                           </div>
                         ) : (
-                          /* Viewfinder da Câmera com Overlay Visual */
-                          <div className="relative rounded-2xl overflow-hidden bg-black border-2 border-border shadow-inner min-h-[300px] max-h-[460px] w-full mx-auto flex items-center justify-center">
+                          /* Viewfinder da Câmera com Overlay Visual e Feedback Instantâneo */
+                          <div className="relative rounded-2xl overflow-hidden bg-black border-2 border-border shadow-inner min-h-[320px] max-h-[460px] w-full mx-auto flex items-center justify-center">
                             {/* Feed de vídeo do leitor */}
                             <div
                               id="reader"
@@ -753,12 +926,28 @@ export default function CheckInPage() {
                                 transform: flipHorizontal ? "scaleX(-1)" : "none",
                                 transformOrigin: "center center"
                               }}
-                              className="w-full h-full flex items-center justify-center overflow-hidden transition-transform duration-200 [&_video]:w-full [&_video]:h-auto [&_video]:max-h-[460px] [&_video]:object-contain [&_video]:mx-auto"
+                              className="w-full h-full overflow-hidden transition-transform duration-200 [&_video]:block [&_video]:mx-auto [&_video]:w-full [&_video]:max-h-[460px] [&_video]:object-contain [&_canvas]:hidden"
                             />
 
-                            {/* Botões rápidos flutuantes no canto do visor */}
+                            {/* Botões rápidos flutuantes no canto superior do visor */}
                             {isCameraActive && (
-                              <div className="absolute top-3 right-3 z-10 flex items-center gap-1.5">
+                              <div className="absolute top-3 right-3 z-20 flex items-center gap-1.5">
+                                {hasTorch && (
+                                  <button
+                                    type="button"
+                                    onClick={toggleTorch}
+                                    className={`p-2 rounded-xl backdrop-blur-md transition-all shadow-md ${
+                                      torchActive
+                                        ? "bg-amber-500 text-black font-bold ring-2 ring-amber-300"
+                                        : "bg-black/60 text-white hover:bg-black/80 border border-white/20"
+                                    }`}
+                                    title="Ligar/Desligar Lanterna"
+                                    aria-label="Lanterna"
+                                  >
+                                    <Zap className={`w-4 h-4 ${torchActive ? "fill-current" : ""}`} />
+                                  </button>
+                                )}
+
                                 <button
                                   type="button"
                                   onClick={() => setFlipHorizontal((prev) => !prev)}
@@ -772,6 +961,7 @@ export default function CheckInPage() {
                                 >
                                   <FlipHorizontal className="w-4 h-4" />
                                 </button>
+
                                 {cameras.length > 1 && (
                                   <button
                                     type="button"
@@ -786,51 +976,200 @@ export default function CheckInPage() {
                               </div>
                             )}
 
-                            {/* Overlay de Alinhamento e Leitura Laser */}
-                            {isCameraActive && (
-                              <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
-                                {/* Moldura com cantos iluminados */}
-                                <div className="relative w-56 h-56 rounded-2xl border-2 border-white/20">
-                                  <div className="absolute top-0 left-0 w-6 h-6 border-t-4 border-l-4 border-primary rounded-tl-xl -mt-1 -ml-1" />
-                                  <div className="absolute top-0 right-0 w-6 h-6 border-t-4 border-r-4 border-primary rounded-tr-xl -mt-1 -mr-1" />
-                                  <div className="absolute bottom-0 left-0 w-6 h-6 border-b-4 border-l-4 border-primary rounded-bl-xl -mb-1 -ml-1" />
-                                  <div className="absolute bottom-0 right-0 w-6 h-6 border-b-4 border-r-4 border-primary rounded-br-xl -mb-1 -mr-1" />
+                            {/* Moldura de Alinhamento Laser (quando ocioso e aguardando leitura) */}
+                            {isCameraActive && !validateMutation.isPending && !validateMutation.isSuccess && !validateMutation.isError && (
+                              <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
+                                <div className="relative w-60 h-60 rounded-2xl border-2 border-white/20">
+                                  <div className="absolute top-0 left-0 w-7 h-7 border-t-4 border-l-4 border-primary rounded-tl-xl -mt-1 -ml-1 shadow-[0_0_8px_rgba(249,115,22,0.7)]" />
+                                  <div className="absolute top-0 right-0 w-7 h-7 border-t-4 border-r-4 border-primary rounded-tr-xl -mt-1 -mr-1 shadow-[0_0_8px_rgba(249,115,22,0.7)]" />
+                                  <div className="absolute bottom-0 left-0 w-7 h-7 border-b-4 border-l-4 border-primary rounded-bl-xl -mb-1 -ml-1 shadow-[0_0_8px_rgba(249,115,22,0.7)]" />
+                                  <div className="absolute bottom-0 right-0 w-7 h-7 border-b-4 border-r-4 border-primary rounded-br-xl -mb-1 -mr-1 shadow-[0_0_8px_rgba(249,115,22,0.7)]" />
 
-                                  {/* Linha laser de varredura */}
+                                  {/* Linha laser de varredura suave */}
                                   <div className="absolute left-2 right-2 h-0.5 bg-gradient-to-r from-transparent via-primary to-transparent shadow-[0_0_12px_rgba(249,115,22,0.9)] animate-[bounce_2.2s_infinite]" />
+                                </div>
+
+                                <p className="text-[11px] text-white/70 font-medium mt-3 bg-black/50 px-3 py-1 rounded-full backdrop-blur-xs">
+                                  Posicione o QR Code a ~15-20 cm
+                                </p>
+                              </div>
+                            )}
+
+                            {/* OVERLAY 1: Validando no Banco de Dados */}
+                            {validateMutation.isPending && (
+                              <div className="absolute inset-0 z-30 bg-black/80 backdrop-blur-sm flex flex-col items-center justify-center text-white p-6 text-center animate-in fade-in duration-150">
+                                <div className="relative mb-3">
+                                  <ScanLine className="w-14 h-14 text-primary animate-pulse" />
+                                  <RefreshCw className="w-6 h-6 animate-spin text-white absolute -top-1 -right-1" />
+                                </div>
+                                <p className="font-extrabold text-xl tracking-tight">Validando Ingresso...</p>
+                                <p className="text-xs text-white/70 mt-1">Consultando autenticidade no banco de dados</p>
+                              </div>
+                            )}
+
+                            {/* OVERLAY 2: Resultado Instantâneo sobre o Visor (Perfeito para Mobile!) */}
+                            {validateMutation.isSuccess && validateMutation.data && (
+                              <div className="absolute inset-0 z-30 flex flex-col items-center justify-center p-4 text-center animate-in zoom-in-95 duration-150 backdrop-blur-md bg-black/85">
+                                {validateMutation.data.status === "ENTERED" ? (
+                                  <div className="w-full max-w-sm rounded-2xl bg-emerald-500/20 border-2 border-emerald-500/60 p-5 shadow-2xl flex flex-col items-center">
+                                    <CheckCircle2 className="w-16 h-16 text-emerald-400 mb-2 animate-in zoom-in-50 duration-200" />
+                                    <Badge className="bg-emerald-600 text-white font-bold text-xs uppercase mb-1">
+                                      Check-in Confirmado
+                                    </Badge>
+                                    <h3 className="text-2xl font-black text-emerald-400 tracking-tight">
+                                      ENTRADA LIBERADA!
+                                    </h3>
+                                    <p className="font-bold text-lg text-white mt-1 truncate max-w-full">
+                                      {validateMutation.data.ticket?.attendeeName || "Participante"}
+                                    </p>
+                                    <div className="flex items-center gap-2 mt-1">
+                                      <Badge variant="outline" className="text-xs text-emerald-200 border-emerald-400/40">
+                                        {validateMutation.data.ticket?.ticketType?.name || "Ingresso Padrão"}
+                                      </Badge>
+                                      {validateMutation.data.ticket?.uuid && (
+                                        <span className="font-mono text-xs text-white/70">
+                                          #{validateMutation.data.ticket.uuid.slice(0, 8).toUpperCase()}
+                                        </span>
+                                      )}
+                                    </div>
+                                    <Button
+                                      size="sm"
+                                      onClick={() => {
+                                        resetCooldown();
+                                        validateMutation.reset();
+                                      }}
+                                      className="mt-4 w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl h-11 shadow-lg"
+                                    >
+                                      Próximo Ingresso {countdown !== null ? `(${countdown}s)` : ""}
+                                      <ArrowRight className="w-4 h-4 ml-2" />
+                                    </Button>
+                                  </div>
+                                ) : validateMutation.data.status === "DUPLICATED" ? (
+                                  <div className="w-full max-w-sm rounded-2xl bg-amber-500/20 border-2 border-amber-500/60 p-5 shadow-2xl flex flex-col items-center">
+                                    <ShieldAlert className="w-16 h-16 text-amber-400 mb-2 animate-in zoom-in-50 duration-200" />
+                                    <Badge variant="destructive" className="bg-amber-600 text-white font-bold text-xs uppercase mb-1">
+                                      Entrada Repetida
+                                    </Badge>
+                                    <h3 className="text-2xl font-black text-amber-400 tracking-tight">
+                                      INGRESSO JÁ UTILIZADO
+                                    </h3>
+                                    <p className="font-bold text-base text-white mt-1">
+                                      {validateMutation.data.ticket?.attendeeName || "Participante"}
+                                    </p>
+                                    <p className="text-xs text-amber-200/90 mt-1 max-w-xs leading-relaxed">
+                                      {validateMutation.data.message || "Este ingresso já foi validado anteriormente."}
+                                    </p>
+                                    <Button
+                                      size="sm"
+                                      onClick={() => {
+                                        resetCooldown();
+                                        validateMutation.reset();
+                                      }}
+                                      className="mt-4 w-full bg-amber-600 hover:bg-amber-700 text-white font-bold rounded-xl h-11 shadow-lg"
+                                    >
+                                      Escanear Outro {countdown !== null ? `(${countdown}s)` : ""}
+                                    </Button>
+                                  </div>
+                                ) : (
+                                  <div className="w-full max-w-sm rounded-2xl bg-red-500/20 border-2 border-red-500/60 p-5 shadow-2xl flex flex-col items-center">
+                                    <XCircle className="w-16 h-16 text-red-400 mb-2 animate-in zoom-in-50 duration-200" />
+                                    <Badge variant="destructive" className="bg-red-600 text-white font-bold text-xs uppercase mb-1">
+                                      Entrada Recusada
+                                    </Badge>
+                                    <h3 className="text-2xl font-black text-red-400 tracking-tight">
+                                      ENTRADA RECUSADA
+                                    </h3>
+                                    <p className="font-bold text-base text-white mt-1">
+                                      {validateMutation.data.ticket?.attendeeName || "Participante"}
+                                    </p>
+                                    <p className="text-xs text-red-200/90 mt-1 max-w-xs leading-relaxed">
+                                      {validateMutation.data.message}
+                                    </p>
+                                    <Button
+                                      size="sm"
+                                      onClick={() => {
+                                        resetCooldown();
+                                        validateMutation.reset();
+                                      }}
+                                      className="mt-4 w-full bg-red-600 hover:bg-red-700 text-white font-bold rounded-xl h-11 shadow-lg"
+                                    >
+                                      Escanear Outro {countdown !== null ? `(${countdown}s)` : ""}
+                                    </Button>
+                                  </div>
+                                )}
+                              </div>
+                            )}
+
+                            {/* OVERLAY 3: Erro de Validação (Não Encontrado) */}
+                            {validateMutation.isError && (
+                              <div className="absolute inset-0 z-30 flex flex-col items-center justify-center p-4 text-center animate-in zoom-in-95 duration-150 backdrop-blur-md bg-black/85">
+                                <div className="w-full max-w-sm rounded-2xl bg-red-500/20 border-2 border-red-500/60 p-5 shadow-2xl flex flex-col items-center">
+                                  <AlertTriangle className="w-16 h-16 text-red-400 mb-2 animate-in zoom-in-50 duration-200" />
+                                  <Badge variant="destructive" className="bg-red-600 text-white font-bold text-xs uppercase mb-1">
+                                    Não Encontrado
+                                  </Badge>
+                                  <h3 className="text-xl font-black text-red-400 tracking-tight">
+                                    INGRESSO NÃO ENCONTRADO
+                                  </h3>
+                                  <p className="text-xs text-red-200/90 mt-1 max-w-xs leading-relaxed">
+                                    {validateMutation.error?.message || "Código do ingresso não consta na base deste evento."}
+                                  </p>
+                                  <Button
+                                    size="sm"
+                                    onClick={() => {
+                                      resetCooldown();
+                                      validateMutation.reset();
+                                    }}
+                                    className="mt-4 w-full bg-red-600 hover:bg-red-700 text-white font-bold rounded-xl h-11 shadow-lg"
+                                  >
+                                    <RefreshCw className="w-4 h-4 mr-2" /> Ler Novamente
+                                  </Button>
                                 </div>
                               </div>
                             )}
 
-                            {/* Overlay de Cooldown / Sucesso Temporário */}
-                            {cooldownRef.current && (
-                              <div className="absolute inset-0 bg-black/60 backdrop-blur-sm flex flex-col items-center justify-center text-white p-4 text-center animate-in fade-in duration-150 z-20">
-                                <CheckCircle2 className="w-12 h-12 text-emerald-400 mb-2 animate-in zoom-in-50" />
-                                <p className="font-bold text-lg">Leitura Efetuada</p>
-                                <p className="text-xs text-white/70 mt-0.5">
-                                  Próxima leitura em {countdown !== null ? `${countdown}s` : "..."}
-                                </p>
-                                <Button
-                                  size="sm"
-                                  onClick={resetCooldown}
-                                  className="mt-3 bg-white text-black hover:bg-white/90 rounded-xl font-bold text-xs"
-                                >
-                                  Ler Agora
-                                </Button>
-                              </div>
-                            )}
-
+                            {/* OVERLAY 4: Iniciando Câmera */}
                             {isCameraStarting && (
-                              <div className="absolute inset-0 bg-black/70 flex flex-col items-center justify-center text-white p-4 text-center z-20">
+                              <div className="absolute inset-0 bg-black/80 flex flex-col items-center justify-center text-white p-4 text-center z-20">
                                 <RefreshCw className="w-8 h-8 animate-spin text-primary mb-2" />
-                                <p className="text-sm font-semibold">Iniciando feed de vídeo...</p>
+                                <p className="text-sm font-semibold">Iniciando leitor de alta precisão...</p>
                               </div>
                             )}
                           </div>
                         )}
 
-                        <p className="text-xs text-muted-foreground text-center pt-1">
-                          Aponte o código QR impresso ou na tela do celular para o centro do leitor. Se a imagem estiver invertida, toque em &quot;Inverter Imagem&quot;.
+                        {/* Botão de Contingência: Carregar Foto ou Voucher Digital */}
+                        <div className="flex flex-wrap items-center justify-center gap-3 pt-1">
+                          <input
+                            ref={fileInputRef}
+                            type="file"
+                            accept="image/*"
+                            capture="environment"
+                            className="hidden"
+                            onChange={handleFileUpload}
+                          />
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() => fileInputRef.current?.click()}
+                            disabled={isScanningFile || validateMutation.isPending}
+                            className="rounded-xl text-xs font-semibold gap-2 border-dashed h-9 px-4"
+                          >
+                            {isScanningFile ? (
+                              <>
+                                <RefreshCw className="w-3.5 h-3.5 animate-spin" /> Analisando Imagem...
+                              </>
+                            ) : (
+                              <>
+                                <UploadCloud className="w-3.5 h-3.5 text-primary" /> Carregar Foto / Voucher
+                              </>
+                            )}
+                          </Button>
+                        </div>
+
+                        <p className="text-xs text-muted-foreground text-center">
+                          Aponte para o QR Code do ingresso. Mantenha a cerca de 15 a 20 cm para foco nítido.
                         </p>
                       </>
                     )}
@@ -1039,6 +1378,9 @@ export default function CheckInPage() {
           </Card>
         </div>
       </div>
+
+      {/* Container invisível para fallback de escaneamento de arquivos */}
+      <div id="reader-hidden-fallback" className="hidden" />
     </div>
   );
 }
