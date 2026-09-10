@@ -36,19 +36,42 @@ export class ValidateTicketUseCase {
       this.validateSignature(parsed as { uuid: string; orderId: string; signature: string });
     }
 
-    const searchKey = parsed.uuid ?? code;
+    const trimmedKey = (parsed.uuid ?? code).trim();
+    const orConditions: any[] = [
+      { uuid: trimmedKey },
+      { hash: trimmedKey },
+      { id: trimmedKey }
+    ];
 
-    const ticket = await this.prisma.ticket.findFirst({
+    if (trimmedKey.length >= 6 && trimmedKey.length <= 36) {
+      orConditions.push({
+        uuid: {
+          startsWith: trimmedKey,
+          mode: "insensitive"
+        }
+      });
+    }
+
+    const tenantFilter = tenantId ? { tenantId } : undefined;
+
+    let ticket = await this.prisma.ticket.findFirst({
       where: {
-        event: { tenantId },
-        OR: [
-          { uuid: searchKey },
-          { hash: searchKey },
-          { id: searchKey }
-        ]
+        ...(tenantFilter ? { event: tenantFilter } : {}),
+        eventId,
+        OR: orConditions
       },
       include: { event: true, ticketType: true, order: true }
     });
+
+    if (!ticket && tenantFilter) {
+      ticket = await this.prisma.ticket.findFirst({
+        where: {
+          event: tenantFilter,
+          OR: orConditions
+        },
+        include: { event: true, ticketType: true, order: true }
+      });
+    }
 
     if (!ticket) {
       this.metrics?.increment("eventflow_checkin_validations_total", { status: "NOT_FOUND" });

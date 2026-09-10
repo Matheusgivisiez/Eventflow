@@ -9,14 +9,45 @@ export class CheckInService {
     private readonly prisma: PrismaService
   ) {}
 
-  validate(eventId: string, tenantId: string, userId: string, code: string) {
-    return this.validateTicket.execute(eventId, tenantId, userId, code);
+  async validate(eventId: string, tenantId: string | undefined, userId: string, code: string) {
+    let resolvedTenantId = tenantId;
+    if (!resolvedTenantId) {
+      const event = await this.prisma.event.findUnique({
+        where: { id: eventId },
+        select: { tenantId: true }
+      });
+      if (event) {
+        resolvedTenantId = event.tenantId;
+      }
+    }
+    return this.validateTicket.execute(eventId, resolvedTenantId ?? "", userId, code);
   }
 
-  list(eventId: string, tenantId: string) {
+  async list(eventId: string, tenantId: string | undefined) {
+    let resolvedTenantId = tenantId;
+    if (!resolvedTenantId) {
+      const event = await this.prisma.event.findUnique({
+        where: { id: eventId },
+        select: { tenantId: true }
+      });
+      if (event) {
+        resolvedTenantId = event.tenantId;
+      }
+    }
+
     return this.prisma.checkInLog.findMany({
-      where: { ticket: { eventId, event: { tenantId } } },
-      include: { ticket: true, user: true },
+      where: {
+        ticket: {
+          eventId,
+          ...(resolvedTenantId ? { event: { tenantId: resolvedTenantId } } : {})
+        }
+      },
+      include: {
+        ticket: {
+          include: { ticketType: true }
+        },
+        user: true
+      },
       orderBy: { createdAt: "desc" },
       take: 100
     });

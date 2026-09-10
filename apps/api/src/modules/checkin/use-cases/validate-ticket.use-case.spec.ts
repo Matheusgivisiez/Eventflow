@@ -77,10 +77,12 @@ describe("ValidateTicketUseCase", () => {
     expect(prisma.ticket.findFirst).toHaveBeenCalledWith({
       where: {
         event: { tenantId: "tenant-1" },
+        eventId: "event-1",
         OR: [
           { uuid: "ticket-uuid" },
           { hash: "ticket-uuid" },
-          { id: "ticket-uuid" }
+          { id: "ticket-uuid" },
+          { uuid: { startsWith: "ticket-uuid", mode: "insensitive" } }
         ]
       },
       include: { event: true, ticketType: true, order: true }
@@ -99,6 +101,30 @@ describe("ValidateTicketUseCase", () => {
         status: CheckInStatus.ENTERED,
         reason: undefined
       }
+    });
+  });
+
+  it("accepts a short code prefix (8 uppercase chars) and marks the ticket as used", async () => {
+    const { service, prisma } = createService();
+    prisma.ticket.findFirst.mockResolvedValue(createTicket());
+    prisma.ticket.updateMany.mockResolvedValue({ count: 1 });
+
+    const result = await service.execute("event-1", "tenant-1", "checkin-user-1", "TICKET-U");
+
+    expect(result.status).toBe(CheckInStatus.ENTERED);
+    expect(result.message).toBe("Entrada liberada.");
+    expect(prisma.ticket.findFirst).toHaveBeenCalledWith({
+      where: {
+        event: { tenantId: "tenant-1" },
+        eventId: "event-1",
+        OR: [
+          { uuid: "TICKET-U" },
+          { hash: "TICKET-U" },
+          { id: "TICKET-U" },
+          { uuid: { startsWith: "TICKET-U", mode: "insensitive" } }
+        ]
+      },
+      include: { event: true, ticketType: true, order: true }
     });
   });
 
