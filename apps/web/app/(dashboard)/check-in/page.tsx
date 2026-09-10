@@ -367,7 +367,12 @@ export default function CheckInPage() {
         }
 
         const scanner = new Html5Qrcode("reader", {
-          formatsToSupport: [Html5QrcodeSupportedFormats.QR_CODE],
+          formatsToSupport: [
+            Html5QrcodeSupportedFormats.QR_CODE,
+            Html5QrcodeSupportedFormats.CODE_128,
+            Html5QrcodeSupportedFormats.DATA_MATRIX
+          ],
+          useBarCodeDetectorIfSupported: true,
           verbose: false
         });
         scannerRef.current = scanner;
@@ -375,19 +380,14 @@ export default function CheckInPage() {
         await scanner.start(
           cameraConfig,
           {
-            fps: 10,
-            qrbox: (viewfinderWidth, viewfinderHeight) => {
-              const minEdge = Math.min(viewfinderWidth, viewfinderHeight);
-              const edge = Math.max(160, Math.floor(minEdge * 0.72));
-              return { width: edge, height: edge };
-            },
-            aspectRatio: 1.0
+            fps: 15,
+            disableFlip: false
           },
           (decodedText) => {
             handleScannedCodeRef.current(decodedText);
           },
           () => {
-            // Ignora frames vazios
+            // Callback invocado a cada frame sem código detectado
           }
         );
 
@@ -745,7 +745,7 @@ export default function CheckInPage() {
                           </div>
                         ) : (
                           /* Viewfinder da Câmera com Overlay Visual */
-                          <div className="relative rounded-2xl overflow-hidden bg-black border-2 border-border shadow-inner aspect-square max-h-[380px] mx-auto flex items-center justify-center">
+                          <div className="relative rounded-2xl overflow-hidden bg-black border-2 border-border shadow-inner min-h-[300px] max-h-[460px] w-full mx-auto flex items-center justify-center">
                             {/* Feed de vídeo do leitor */}
                             <div
                               id="reader"
@@ -753,7 +753,7 @@ export default function CheckInPage() {
                                 transform: flipHorizontal ? "scaleX(-1)" : "none",
                                 transformOrigin: "center center"
                               }}
-                              className="w-full h-full overflow-hidden transition-transform duration-200 [&_video]:object-cover [&_video]:w-full [&_video]:h-full"
+                              className="w-full h-full flex items-center justify-center overflow-hidden transition-transform duration-200 [&_video]:w-full [&_video]:h-auto [&_video]:max-h-[460px] [&_video]:object-contain [&_video]:mx-auto"
                             />
 
                             {/* Botões rápidos flutuantes no canto do visor */}
