@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import Image from "next/image";
 import Link from "next/link";
@@ -378,6 +378,35 @@ function EventTicketCard({
               </div>
             )}
 
+            {ticket.status === "USED" && (
+              <div className="border-t border-dashed border-white/15 bg-[#111019] px-4 py-6 sm:px-6">
+                <div className="mx-auto flex max-w-sm flex-col items-center text-center p-6 rounded-2xl bg-violet-500/10 border border-violet-500/30">
+                  <Clock className="w-12 h-12 text-violet-400 mb-2" />
+                  <h4 className="font-bold text-base text-violet-200">Ingresso Utilizado</h4>
+                  <p className="mt-1 text-xs text-white/60">
+                    Check-in confirmado na portaria. Este ingresso já foi validado para entrada no evento.
+                  </p>
+                  {ticket.uuid && (
+                    <span className="mt-3 font-mono text-xs text-violet-300/80 bg-violet-500/20 px-3 py-1 rounded-full">
+                      #{ticket.uuid.slice(0, 8).toUpperCase()}
+                    </span>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {ticket.status === "CANCELED" && (
+              <div className="border-t border-dashed border-white/15 bg-[#111019] px-4 py-6 sm:px-6">
+                <div className="mx-auto flex max-w-sm flex-col items-center text-center p-6 rounded-2xl bg-rose-500/10 border border-rose-500/30">
+                  <XCircle className="w-12 h-12 text-rose-400 mb-2" />
+                  <h4 className="font-bold text-base text-rose-200">Ingresso Cancelado</h4>
+                  <p className="mt-1 text-xs text-white/60">
+                    Este ingresso foi cancelado ou reembolsado e não pode mais ser utilizado.
+                  </p>
+                </div>
+              </div>
+            )}
+
             <div className="border-t border-dashed border-white/15 bg-[#14121f] p-3 sm:p-4">
               <div className="grid grid-cols-2 gap-2 sm:grid-cols-[1fr_1fr_44px_44px]">
                 <Button
@@ -465,7 +494,7 @@ function EventTicketCard({
 }
 
 export default function MyTicketsPage() {
-  const [scope, setScope] = useState<"future" | "past">("future");
+  const [statusTab, setStatusTab] = useState<"AVAILABLE" | "USED" | "CANCELED">("AVAILABLE");
   const [expandedTicket, setExpandedTicket] = useState<string | null>(null);
   const [transferTicket, setTransferTicket] = useState<MyTicket | null>(null);
   const [recipient, setRecipient] = useState("");
@@ -479,13 +508,34 @@ export default function MyTicketsPage() {
   const apiUrl = getApiUrl();
 
   const tickets = useQuery({
-    queryKey: ["my-tickets", user?.id, scope],
-    queryFn: () => api<MyTicket[]>(`/buyer/tickets?scope=${scope}`),
+    queryKey: ["my-tickets", user?.id],
+    queryFn: () => api<MyTicket[]>("/buyer/tickets"),
     enabled: Boolean(user?.id),
     staleTime: 0,
     refetchOnMount: "always",
+    refetchInterval: 3000,
   });
-  const ticketItems = tickets.data ?? [];
+
+  const allTickets = useMemo(() => tickets.data ?? [], [tickets.data]);
+  const activeTickets = useMemo(
+    () => allTickets.filter((t) => t.status === "AVAILABLE"),
+    [allTickets],
+  );
+  const usedTickets = useMemo(
+    () => allTickets.filter((t) => t.status === "USED"),
+    [allTickets],
+  );
+  const canceledTickets = useMemo(
+    () => allTickets.filter((t) => t.status === "CANCELED"),
+    [allTickets],
+  );
+
+  const displayedTickets =
+    statusTab === "AVAILABLE"
+      ? activeTickets
+      : statusTab === "USED"
+        ? usedTickets
+        : canceledTickets;
 
   const refund = useMutation({
     mutationFn: ({
@@ -601,30 +651,69 @@ export default function MyTicketsPage() {
   return (
     <main aria-labelledby="ticket-list-title">
       <div className="mx-auto max-w-5xl">
-        <div className="mb-7 grid grid-cols-2 gap-2 rounded-2xl border bg-card/70 p-1.5 shadow-sm">
+        <div className="mb-7 grid grid-cols-3 gap-2 rounded-2xl border bg-card/70 p-1.5 shadow-sm">
           <button
             type="button"
-            aria-pressed={scope === "future"}
-            onClick={() => setScope("future")}
-            className={`min-h-11 rounded-xl px-3 py-3 text-sm font-semibold transition-all ${
-              scope === "future"
+            aria-pressed={statusTab === "AVAILABLE"}
+            onClick={() => setStatusTab("AVAILABLE")}
+            className={`min-h-11 rounded-xl px-2 sm:px-4 py-2 text-xs sm:text-sm font-semibold transition-all flex items-center justify-center gap-1.5 sm:gap-2 ${
+              statusTab === "AVAILABLE"
                 ? "bg-primary text-white shadow-md shadow-primary/20"
                 : "text-muted-foreground hover:bg-muted/60 hover:text-foreground"
             }`}
           >
-            Eventos futuros
+            <span>Ativos</span>
+            <span
+              className={`rounded-full px-1.5 py-0.5 text-[10px] sm:text-xs font-bold ${
+                statusTab === "AVAILABLE"
+                  ? "bg-white/20 text-white"
+                  : "bg-muted text-muted-foreground"
+              }`}
+            >
+              {activeTickets.length}
+            </span>
           </button>
           <button
             type="button"
-            aria-pressed={scope === "past"}
-            onClick={() => setScope("past")}
-            className={`min-h-11 rounded-xl px-3 py-3 text-sm font-semibold transition-all ${
-              scope === "past"
+            aria-pressed={statusTab === "USED"}
+            onClick={() => setStatusTab("USED")}
+            className={`min-h-11 rounded-xl px-2 sm:px-4 py-2 text-xs sm:text-sm font-semibold transition-all flex items-center justify-center gap-1.5 sm:gap-2 ${
+              statusTab === "USED"
                 ? "bg-primary text-white shadow-md shadow-primary/20"
                 : "text-muted-foreground hover:bg-muted/60 hover:text-foreground"
             }`}
           >
-            Eventos passados
+            <span>Usados</span>
+            <span
+              className={`rounded-full px-1.5 py-0.5 text-[10px] sm:text-xs font-bold ${
+                statusTab === "USED"
+                  ? "bg-white/20 text-white"
+                  : "bg-muted text-muted-foreground"
+              }`}
+            >
+              {usedTickets.length}
+            </span>
+          </button>
+          <button
+            type="button"
+            aria-pressed={statusTab === "CANCELED"}
+            onClick={() => setStatusTab("CANCELED")}
+            className={`min-h-11 rounded-xl px-2 sm:px-4 py-2 text-xs sm:text-sm font-semibold transition-all flex items-center justify-center gap-1.5 sm:gap-2 ${
+              statusTab === "CANCELED"
+                ? "bg-primary text-white shadow-md shadow-primary/20"
+                : "text-muted-foreground hover:bg-muted/60 hover:text-foreground"
+            }`}
+          >
+            <span>Cancelados</span>
+            <span
+              className={`rounded-full px-1.5 py-0.5 text-[10px] sm:text-xs font-bold ${
+                statusTab === "CANCELED"
+                  ? "bg-white/20 text-white"
+                  : "bg-muted text-muted-foreground"
+              }`}
+            >
+              {canceledTickets.length}
+            </span>
           </button>
         </div>
 
@@ -673,29 +762,43 @@ export default function MyTicketsPage() {
               Tentar novamente
             </Button>
           </div>
-        ) : ticketItems.length === 0 ? (
+        ) : displayedTickets.length === 0 ? (
           <div className="relative overflow-hidden rounded-[28px] border border-dashed bg-card px-6 py-16 text-center shadow-sm">
             <div className="pointer-events-none absolute -right-12 -top-12 h-36 w-36 rounded-full border-[26px] border-primary/[0.06]" />
             <div className="relative mx-auto mb-5 flex h-16 w-16 items-center justify-center rounded-2xl border border-primary/15 bg-primary/10">
-              <Ticket className="h-8 w-8 text-primary" />
+              {statusTab === "AVAILABLE" ? (
+                <Ticket className="h-8 w-8 text-primary" />
+              ) : statusTab === "USED" ? (
+                <Clock className="h-8 w-8 text-violet-400" />
+              ) : (
+                <XCircle className="h-8 w-8 text-rose-500" />
+              )}
             </div>
             <h2 id="ticket-list-title" className="relative text-xl font-bold">
-              Nenhum ingresso encontrado
+              {statusTab === "AVAILABLE"
+                ? "Nenhum ingresso ativo"
+                : statusTab === "USED"
+                  ? "Nenhum ingresso utilizado"
+                  : "Nenhum ingresso cancelado"}
             </h2>
             <p className="relative mx-auto mt-2 max-w-sm text-sm leading-relaxed text-muted-foreground">
-              {scope === "future"
+              {statusTab === "AVAILABLE"
                 ? "Sua carteira está pronta. Quando uma compra for confirmada, o ingresso aparecerá aqui automaticamente."
-                : "Você ainda não tem ingressos de eventos passados."}
+                : statusTab === "USED"
+                  ? "Os ingressos que já foram validados na portaria dos eventos aparecerão aqui."
+                  : "Ingressos cancelados ou reembolsados aparecerão nesta área."}
             </p>
-            <Button
-              asChild
-              className="relative mt-6 min-h-11 gap-2 rounded-xl bg-primary text-white hover:bg-primary/90"
-            >
-              <Link href="/">
-                Explorar eventos
-                <ArrowUpRight className="h-4 w-4" />
-              </Link>
-            </Button>
+            {statusTab === "AVAILABLE" && (
+              <Button
+                asChild
+                className="relative mt-6 min-h-11 gap-2 rounded-xl bg-primary text-white hover:bg-primary/90"
+              >
+                <Link href="/">
+                  Explorar eventos
+                  <ArrowUpRight className="h-4 w-4" />
+                </Link>
+              </Button>
+            )}
           </div>
         ) : (
           <div className="pb-6">
@@ -708,17 +811,21 @@ export default function MyTicketsPage() {
                   id="ticket-list-title"
                   className="mt-1 text-xl font-bold tracking-tight sm:text-2xl"
                 >
-                  {scope === "future" ? "Próximos eventos" : "Eventos passados"}
+                  {statusTab === "AVAILABLE"
+                    ? "Ingressos Ativos"
+                    : statusTab === "USED"
+                      ? "Ingressos Utilizados"
+                      : "Ingressos Cancelados"}
                 </h2>
               </div>
               <span className="rounded-full border bg-card px-3 py-1.5 text-xs font-semibold text-muted-foreground shadow-sm">
-                {ticketItems.length}{" "}
-                {ticketItems.length === 1 ? "ingresso" : "ingressos"}
+                {displayedTickets.length}{" "}
+                {displayedTickets.length === 1 ? "ingresso" : "ingressos"}
               </span>
             </div>
 
             <div className="stagger-children space-y-5">
-              {ticketItems.map((ticket) => (
+              {displayedTickets.map((ticket) => (
                 <EventTicketCard
                   key={ticket.id}
                   ticket={ticket}

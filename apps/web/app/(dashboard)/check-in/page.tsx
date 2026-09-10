@@ -462,19 +462,11 @@ export default function CheckInPage() {
         });
         scannerRef.current = scanner;
 
-        // Função de qrbox que centraliza 80% do visor (mínimo 220px) para alta densidade
-        const qrboxFunction = (viewfinderWidth: number, viewfinderHeight: number) => {
-          const minEdge = Math.min(viewfinderWidth, viewfinderHeight);
-          const edge = Math.floor(minEdge * 0.8);
-          return { width: Math.max(edge, 220), height: Math.max(edge, 220) };
-        };
-
         await scanner.start(
           cameraConfig,
           {
             fps: 20,
-            disableFlip: true, // Crucial: evita acúmulo de transformações de matriz no canvas
-            qrbox: qrboxFunction
+            disableFlip: true // Crucial: evita acúmulo de transformações de matriz no canvas
           },
           (decodedText) => {
             handleScannedCodeRef.current(decodedText);
@@ -918,25 +910,7 @@ export default function CheckInPage() {
                           </div>
                         ) : (
                           /* Viewfinder da Câmera com Overlay Visual e Feedback Instantâneo */
-                          <div className="relative rounded-2xl overflow-hidden bg-black border-2 border-border shadow-inner min-h-[360px] max-h-[480px] w-full mx-auto flex items-center justify-center">
-                            {/* Estilos globais para ocultar o overlay interno feio do html5-qrcode e manter apenas nosso visor */}
-                            <style jsx global>{`
-                              #reader #qr-shaded-region {
-                                display: none !important;
-                              }
-                              #reader video {
-                                display: block !important;
-                                margin: 0 auto !important;
-                                width: 100% !important;
-                                height: 100% !important;
-                                max-height: 480px !important;
-                                object-fit: cover !important;
-                              }
-                              #reader canvas {
-                                display: none !important;
-                              }
-                            `}</style>
-
+                          <div className="relative rounded-2xl overflow-hidden bg-black border-2 border-border shadow-inner min-h-[320px] max-h-[460px] w-full mx-auto flex items-center justify-center">
                             {/* Feed de vídeo do leitor */}
                             <div
                               id="reader"
@@ -944,7 +918,7 @@ export default function CheckInPage() {
                                 transform: flipHorizontal ? "scaleX(-1)" : "none",
                                 transformOrigin: "center center"
                               }}
-                              className="w-full h-full overflow-hidden transition-transform duration-200 [&_#qr-shaded-region]:!hidden [&_video]:block [&_video]:mx-auto [&_video]:w-full [&_video]:max-h-[480px] [&_video]:object-cover [&_canvas]:hidden"
+                              className="w-full h-full flex items-center justify-center overflow-hidden transition-transform duration-200 [&_video]:w-full [&_video]:h-auto [&_video]:max-h-[460px] [&_video]:object-contain [&_video]:mx-auto"
                             />
 
                             {/* Botões rápidos flutuantes no canto superior do visor */}
