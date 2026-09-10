@@ -194,25 +194,9 @@ export default function CheckInPage() {
     enabled: !!eventId
   });
 
-  // Encerra a câmera de maneira limpa
-  const stopCamera = useCallback(async () => {
-    if (scannerRef.current) {
-      try {
-        if (scannerRef.current.isScanning) {
-          await scannerRef.current.stop();
-        }
-        await scannerRef.current.clear();
-      } catch (err) {
-        console.warn("Erro ao finalizar câmera:", err);
-      }
-      scannerRef.current = null;
-    }
-    setIsCameraActive(false);
-    setIsCameraStarting(false);
-  }, []);
-
-  // Executa validação a partir do código lido
-  const handleScannedCode = useCallback((scannedText: string) => {
+  // Callback estável para leitura via Ref (não causa reinício da câmera quando o estado muda)
+  const handleScannedCodeRef = useRef<(text: string) => void>(() => {});
+  handleScannedCodeRef.current = (scannedText: string) => {
     if (!scannedText || validationInFlightRef.current || cooldownRef.current) {
       return;
     }
@@ -225,108 +209,15 @@ export default function CheckInPage() {
     lastScannedCodeRef.current = trimmed;
     cooldownRef.current = true;
     validateMutation.mutate(trimmed);
-  }, [validateMutation]);
+  };
 
-  // Inicializa o leitor da câmera via Html5Qrcode direto
-  const startCamera = useCallback(async () => {
-    if (!eventId || mode !== "camera") return;
-
-    if (!window.isSecureContext) {
-      setCameraError("A câmera requer uma conexão segura (HTTPS). Em desenvolvimento, use localhost.");
-      return;
-    }
-
-    if (!navigator.mediaDevices?.getUserMedia) {
-      setCameraError("Este navegador não disponibiliza acesso à câmera. Utilize Chrome, Safari ou Edge atualizados.");
-      return;
-    }
-
+  const [retryNonce, setRetryNonce] = useState(0);
+  const restartCamera = useCallback(() => {
     setCameraError(null);
-    setIsCameraStarting(true);
+    setRetryNonce((n) => n + 1);
+  }, []);
 
-    try {
-      const { Html5Qrcode, Html5QrcodeSupportedFormats } = await import("html5-qrcode");
-
-      // Parar anterior se ainda estiver aberto
-      if (scannerRef.current) {
-        try {
-          if (scannerRef.current.isScanning) {
-            await scannerRef.current.stop();
-          }
-          await scannerRef.current.clear();
-        } catch {}
-        scannerRef.current = null;
-      }
-
-      // Buscar lista de dispositivos de vídeo
-      try {
-        const devices = await Html5Qrcode.getCameras();
-        if (devices && devices.length > 0) {
-          setCameras(devices);
-          if (!selectedCameraId) {
-            // Priorizar câmera traseira (environment) se existir
-            const backCam = devices.find(d => d.label.toLowerCase().includes("back") || d.label.toLowerCase().includes("traseira") || d.label.toLowerCase().includes("environment"));
-            setSelectedCameraId(backCam ? backCam.id : devices[devices.length - 1].id);
-          }
-        }
-      } catch (err) {
-        console.warn("Não foi possível listar as câmeras antecipadamente:", err);
-      }
-
-      const readerElement = document.getElementById("reader");
-      if (!readerElement) {
-        setIsCameraStarting(false);
-        return;
-      }
-
-      const scanner = new Html5Qrcode("reader", {
-        formatsToSupport: [Html5QrcodeSupportedFormats.QR_CODE],
-        verbose: false
-      });
-      scannerRef.current = scanner;
-
-      const cameraConfig = selectedCameraId
-        ? { deviceId: { exact: selectedCameraId } }
-        : { facingMode: "environment" };
-
-      await scanner.start(
-        cameraConfig,
-        {
-          fps: 10,
-          qrbox: (viewfinderWidth, viewfinderHeight) => {
-            const minEdge = Math.min(viewfinderWidth, viewfinderHeight);
-            const edge = Math.max(160, Math.floor(minEdge * 0.72));
-            return { width: edge, height: edge };
-          },
-          aspectRatio: 1.0
-        },
-        (decodedText) => {
-          handleScannedCode(decodedText);
-        },
-        () => {
-          // Ignora frames sem detecção de QR Code
-        }
-      );
-
-      setIsCameraActive(true);
-      setIsCameraStarting(false);
-      setCameraError(null);
-    } catch (err: any) {
-      console.error("Falha ao iniciar a câmera:", err);
-      setIsCameraStarting(false);
-      setIsCameraActive(false);
-
-      if (err?.name === "NotAllowedError" || err?.message?.includes("Permission")) {
-        setCameraError("Permissão de câmera negada. Permita o acesso à câmera nas configurações do navegador e clique em Tentar Novamente.");
-      } else if (err?.name === "NotFoundError" || err?.message?.includes("No camera")) {
-        setCameraError("Nenhuma câmera encontrada no dispositivo.");
-      } else {
-        setCameraError("Não foi possível acessar a câmera. Verifique se outro aplicativo está utilizando-a e tente novamente.");
-      }
-    }
-  }, [eventId, mode, selectedCameraId, handleScannedCode]);
-
-  // Alterna a câmera selecionada
+  // Alterna entre as câmeras disponíveis
   const toggleCamera = useCallback(() => {
     if (cameras.length <= 1) return;
     const currentIndex = cameras.findIndex(c => c.id === selectedCameraId);
@@ -334,21 +225,137 @@ export default function CheckInPage() {
     setSelectedCameraId(cameras[nextIndex].id);
   }, [cameras, selectedCameraId]);
 
-  // Controla o ciclo de vida da câmera conforme evento, modo e câmera selecionada
+  // Ciclo de vida estável da câmera
   useEffect(() => {
-    if (mode === "camera" && eventId) {
-      void startCamera();
-    } else {
-      void stopCamera();
+    let isCancelled = false;
+
+    async function initCamera() {
+      if (mode !== "camera" || !eventId) {
+        return;
+      }
+
+      if (!window.isSecureContext) {
+        setCameraError("A câmera requer uma conexão segura (HTTPS). Em desenvolvimento, use localhost.");
+        return;
+      }
+
+      if (!navigator.mediaDevices?.getUserMedia) {
+        setCameraError("Este navegador não disponibiliza acesso à câmera. Utilize Chrome, Safari ou Edge.");
+        return;
+      }
+
+      setCameraError(null);
+      setIsCameraStarting(true);
+
+      try {
+        const { Html5Qrcode, Html5QrcodeSupportedFormats } = await import("html5-qrcode");
+        if (isCancelled) return;
+
+        // Se houver uma instância anterior, limpa com segurança
+        if (scannerRef.current) {
+          const oldScanner = scannerRef.current;
+          scannerRef.current = null;
+          try {
+            if (oldScanner.isScanning) {
+              await oldScanner.stop();
+            }
+            oldScanner.clear();
+          } catch {}
+        }
+
+        if (isCancelled) return;
+
+        const readerElement = document.getElementById("reader");
+        if (!readerElement) {
+          setIsCameraStarting(false);
+          return;
+        }
+
+        const scanner = new Html5Qrcode("reader", {
+          formatsToSupport: [Html5QrcodeSupportedFormats.QR_CODE],
+          verbose: false
+        });
+        scannerRef.current = scanner;
+
+        const cameraConfig = selectedCameraId
+          ? { deviceId: { exact: selectedCameraId } }
+          : { facingMode: "environment" };
+
+        await scanner.start(
+          cameraConfig,
+          {
+            fps: 10,
+            qrbox: (viewfinderWidth, viewfinderHeight) => {
+              const minEdge = Math.min(viewfinderWidth, viewfinderHeight);
+              const edge = Math.max(160, Math.floor(minEdge * 0.72));
+              return { width: edge, height: edge };
+            },
+            aspectRatio: 1.0
+          },
+          (decodedText) => {
+            handleScannedCodeRef.current(decodedText);
+          },
+          () => {
+            // Ignora frames vazios
+          }
+        );
+
+        if (isCancelled) {
+          if (scanner.isScanning) await scanner.stop();
+          scanner.clear();
+          return;
+        }
+
+        setIsCameraActive(true);
+        setIsCameraStarting(false);
+
+        // Busca a lista de câmeras apenas se ainda não tiver buscado
+        Html5Qrcode.getCameras()
+          .then((devices) => {
+            if (!isCancelled && devices && devices.length > 0) {
+              setCameras(devices);
+            }
+          })
+          .catch(() => {});
+
+      } catch (err: any) {
+        if (isCancelled) return;
+        console.error("Falha ao iniciar a câmera:", err);
+        setIsCameraStarting(false);
+        setIsCameraActive(false);
+
+        if (err?.name === "NotAllowedError" || err?.message?.includes("Permission")) {
+          setCameraError("Permissão de câmera negada. Conceda permissão no navegador e clique em Tentar Novamente.");
+        } else if (err?.name === "NotFoundError" || err?.message?.includes("No camera")) {
+          setCameraError("Nenhuma câmera encontrada no dispositivo.");
+        } else {
+          setCameraError("Não foi possível acessar a câmera. Verifique se outro app está usando-a e tente novamente.");
+        }
+      }
     }
 
+    void initCamera();
+
     return () => {
-      void stopCamera();
+      isCancelled = true;
+      if (scannerRef.current) {
+        const currentScanner = scannerRef.current;
+        scannerRef.current = null;
+        if (currentScanner.isScanning) {
+          currentScanner.stop().then(() => {
+            try { currentScanner.clear(); } catch {}
+          }).catch(() => {});
+        } else {
+          try { currentScanner.clear(); } catch {}
+        }
+      }
+      setIsCameraActive(false);
+      setIsCameraStarting(false);
       if (countdownIntervalRef.current) {
         clearInterval(countdownIntervalRef.current);
       }
     };
-  }, [mode, eventId, selectedCameraId, startCamera, stopCamera]);
+  }, [mode, eventId, selectedCameraId, retryNonce]);
 
   // Renderizador do Visor do Operador
   const renderOperatorScreen = () => {
@@ -587,7 +594,7 @@ export default function CheckInPage() {
                             <Button
                               size="sm"
                               variant="outline"
-                              onClick={startCamera}
+                              onClick={restartCamera}
                               className="rounded-xl border-destructive/30 hover:bg-destructive/20"
                             >
                               <RefreshCw className="w-3.5 h-3.5 mr-2" /> Tentar Novamente
