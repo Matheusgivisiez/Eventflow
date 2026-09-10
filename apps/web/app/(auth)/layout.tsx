@@ -41,11 +41,11 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
       </header>
 
       {/* Conteúdo Principal / Grid de 2 colunas */}
-      <main className="relative z-10 flex-1 flex items-center justify-center px-6 sm:px-10 lg:px-14 xl:px-18 py-8 lg:py-4 w-full max-w-[1520px] mx-auto">
-        <div className="w-full grid grid-cols-1 lg:grid-cols-[1.15fr_0.85fr] xl:grid-cols-[1.2fr_0.8fr] gap-10 lg:gap-12 xl:gap-20 items-center">
+      <main className="relative z-10 flex-1 flex items-center justify-center px-6 sm:px-10 lg:px-14 xl:px-18 py-6 lg:py-4 w-full max-w-[1520px] mx-auto">
+        <div className="w-full flex flex-col lg:flex-row items-center justify-between gap-8 lg:gap-12 xl:gap-16">
           
           {/* Lado Esquerdo: Headline, Eyebrow, Supporting copy e Features */}
-          <section className="flex flex-col justify-center max-w-xl lg:max-w-2xl">
+          <section className="flex flex-col justify-center max-w-xl lg:max-w-2xl shrink">
             {/* Eyebrow */}
             <div className="flex items-center gap-3 mb-4 sm:mb-5">
               <span className="text-[11px] lg:text-xs font-semibold tracking-[0.24em] text-[#B5A8CC] uppercase">
@@ -106,10 +106,8 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
           </section>
 
           {/* Lado Direito: Container compartilhado dos Cards */}
-          <section className="w-full flex justify-center lg:justify-end">
-            <div className="w-full max-w-[490px] xl:max-w-[510px]">
-              {children}
-            </div>
+          <section className="w-full lg:w-auto flex justify-center lg:justify-end shrink-0">
+            {children}
           </section>
         </div>
       </main>

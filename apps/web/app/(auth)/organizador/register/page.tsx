@@ -5,8 +5,19 @@ import { useRouter } from "next/navigation";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation } from "@tanstack/react-query";
 import {
-  Loader2, User, Mail, Phone, Lock, Building2, MapPin, Globe, Instagram
+  Loader2,
+  User,
+  Mail,
+  Phone,
+  Lock,
+  Building2,
+  MapPin,
+  Globe,
+  Instagram,
+  Eye,
+  EyeOff
 } from "lucide-react";
+import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { api } from "@/lib/api";
@@ -48,13 +59,39 @@ function formatCnpj(value: string) {
   return `${digits.slice(0, 2)}.${digits.slice(2, 5)}.${digits.slice(5, 8)}/${digits.slice(8, 12)}-${digits.slice(12)}`;
 }
 
+function formatPhone(value: string) {
+  const digits = value.replace(/\D/g, "").slice(0, 11);
+  if (digits.length <= 2) return digits;
+  if (digits.length <= 7) return `(${digits.slice(0, 2)}) ${digits.slice(2)}`;
+  return `(${digits.slice(0, 2)}) ${digits.slice(2, 7)}-${digits.slice(7)}`;
+}
+
 export default function RegisterOrganizerPage() {
   const router = useRouter();
   const setSession = useAuthStore((state) => state.setSession);
-  const form = useForm<FormData>({ resolver: zodResolver(schema) });
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+
+  const form = useForm<FormData>({
+    resolver: zodResolver(schema),
+    defaultValues: {
+      name: "",
+      email: "",
+      phone: "",
+      password: "",
+      confirmPassword: "",
+      cnpj: "",
+      companyName: "",
+      city: "",
+      state: "",
+      website: "",
+      instagram: ""
+    }
+  });
+
   const mutation = useMutation({
     mutationFn: (data: FormData) => {
-      const { confirmPassword, ...payload } = data;
+      const { confirmPassword: _confirmPassword, ...payload } = data;
       return api<{ accessToken: string; user: any }>("/auth/register-organizer", {
         method: "POST",
         body: JSON.stringify({
@@ -72,152 +109,313 @@ export default function RegisterOrganizerPage() {
   });
 
   return (
-    <div className="w-full max-w-[540px] rounded-[24px] bg-[#150F28]/75 backdrop-blur-[24px] border border-purple-400/25 p-6 sm:p-8 lg:p-9 shadow-[0_20px_60px_rgba(0,0,0,0.6),0_0_45px_rgba(120,60,255,0.14)] relative animate-card-enter my-6">
-      <div className="mb-6 text-center">
-        <h2 className="text-2xl sm:text-[26px] font-bold text-white tracking-tight">Cadastro de Organizador</h2>
-        <p className="mt-1.5 text-xs sm:text-sm text-[#A99EC0]">Crie sua conta para começar a criar e gerenciar eventos</p>
+    <div className="w-full max-w-[620px] rounded-[24px] bg-[#150F28]/75 backdrop-blur-[24px] border border-purple-400/35 hover:border-purple-400/50 p-5 sm:p-6 lg:p-7 shadow-[0_20px_60px_rgba(0,0,0,0.6),0_0_45px_rgba(120,60,255,0.20),inset_0_1px_1px_rgba(255,255,255,0.12),inset_0_0_25px_rgba(158,123,255,0.06)] relative animate-card-enter transition-all">
+      {/* Título e Subtítulo */}
+      <div className="mb-4 text-center">
+        <h2 className="text-xl sm:text-2xl font-bold text-white tracking-tight">
+          Cadastro de Organizador
+        </h2>
+        <p className="mt-1 text-xs text-[#A99EC0]">
+          Crie sua conta para começar a criar e gerenciar eventos
+        </p>
       </div>
 
-      <div>
-        <form className="space-y-4" onSubmit={form.handleSubmit((data) => mutation.mutate(data))}>
+      <form onSubmit={form.handleSubmit((data) => mutation.mutate(data))} className="space-y-3.5">
+        {/* Grid de 2 colunas: Responsável (esq) / Empresa (dir) */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 sm:gap-4">
+          
+          {/* ─── Coluna 1: Dados do Responsável ─── */}
+          <div className="space-y-2.5">
+            <div className="flex items-center gap-1.5 pb-1 border-b border-purple-400/20">
+              <User className="w-3.5 h-3.5 text-[#BE8BFF]" />
+              <span className="text-[10px] font-bold text-[#BE8BFF] uppercase tracking-wider">
+                Dados do Responsável
+              </span>
+            </div>
 
-          {/* ─── Seção: Dados do Responsável ─── */}
-          <div className="space-y-1 pb-1">
-            <h3 className="text-xs font-bold text-[#BE8BFF] uppercase tracking-wider flex items-center gap-2">
-              <User className="h-3.5 w-3.5" /> Dados do Responsável
-            </h3>
-            <div className="h-px bg-purple-400/20" />
-          </div>
+            {/* Nome completo */}
+            <div className="space-y-1">
+              <label className="block text-[11px] font-medium text-[#D4CAE8]">
+                Nome completo
+              </label>
+              <div className="relative">
+                <User className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-[#8E82A8]" />
+                <input
+                  placeholder="Seu nome"
+                  className="w-full h-[38px] rounded-xl bg-[#0D081F]/70 border border-purple-400/20 pl-8 pr-3 text-xs text-white placeholder:text-[#6D6288] focus:border-[#8C62FF] focus:ring-1 focus:ring-[#8C62FF]/40 outline-none transition-all"
+                  {...form.register("name")}
+                />
+              </div>
+              {form.formState.errors.name && (
+                <p className="text-[10px] text-rose-400">{form.formState.errors.name.message}</p>
+              )}
+            </div>
 
-          <Field label="Nome completo" error={form.formState.errors.name?.message} icon={<User className="h-4 w-4" />}>
-            <input placeholder="Seu nome" className="w-full h-[46px] rounded-xl bg-[#0D081F]/70 border border-purple-400/20 pl-10 pr-4 text-sm text-white placeholder:text-[#6D6288] focus:border-[#8C62FF] focus:ring-1 focus:ring-[#8C62FF]/40 outline-none transition-all" {...form.register("name")} />
-          </Field>
+            {/* E-mail */}
+            <div className="space-y-1">
+              <label className="block text-[11px] font-medium text-[#D4CAE8]">
+                E-mail
+              </label>
+              <div className="relative">
+                <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-[#8E82A8]" />
+                <input
+                  type="email"
+                  placeholder="empresa@email.com"
+                  className="w-full h-[38px] rounded-xl bg-[#0D081F]/70 border border-purple-400/20 pl-8 pr-3 text-xs text-white placeholder:text-[#6D6288] focus:border-[#8C62FF] focus:ring-1 focus:ring-[#8C62FF]/40 outline-none transition-all"
+                  {...form.register("email")}
+                />
+              </div>
+              {form.formState.errors.email && (
+                <p className="text-[10px] text-rose-400">{form.formState.errors.email.message}</p>
+              )}
+            </div>
 
-          <Field label="E-mail" error={form.formState.errors.email?.message} icon={<Mail className="h-4 w-4" />}>
-            <input type="email" placeholder="empresa@email.com" className="w-full h-[46px] rounded-xl bg-[#0D081F]/70 border border-purple-400/20 pl-10 pr-4 text-sm text-white placeholder:text-[#6D6288] focus:border-[#8C62FF] focus:ring-1 focus:ring-[#8C62FF]/40 outline-none transition-all" {...form.register("email")} />
-          </Field>
+            {/* Telefone */}
+            <div className="space-y-1">
+              <label className="block text-[11px] font-medium text-[#D4CAE8]">
+                Telefone
+              </label>
+              <div className="relative">
+                <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-[#8E82A8]" />
+                <input
+                  placeholder="(31) 99999-9999"
+                  maxLength={15}
+                  className="w-full h-[38px] rounded-xl bg-[#0D081F]/70 border border-purple-400/20 pl-8 pr-3 text-xs text-white placeholder:text-[#6D6288] focus:border-[#8C62FF] focus:ring-1 focus:ring-[#8C62FF]/40 outline-none transition-all"
+                  {...form.register("phone")}
+                  onChange={(e) => {
+                    const formatted = formatPhone(e.target.value);
+                    form.setValue("phone", formatted, { shouldValidate: true });
+                  }}
+                />
+              </div>
+              {form.formState.errors.phone && (
+                <p className="text-[10px] text-rose-400">{form.formState.errors.phone.message}</p>
+              )}
+            </div>
 
-          <Field label="Telefone" error={form.formState.errors.phone?.message} icon={<Phone className="h-4 w-4" />}>
-            <input placeholder="(31) 99999-9999" className="w-full h-[46px] rounded-xl bg-[#0D081F]/70 border border-purple-400/20 pl-10 pr-4 text-sm text-white placeholder:text-[#6D6288] focus:border-[#8C62FF] focus:ring-1 focus:ring-[#8C62FF]/40 outline-none transition-all" {...form.register("phone")} />
-          </Field>
+            {/* Senha */}
+            <div className="space-y-1">
+              <label className="block text-[11px] font-medium text-[#D4CAE8]">
+                Senha
+              </label>
+              <div className="relative">
+                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-[#8E82A8]" />
+                <input
+                  type={showPassword ? "text" : "password"}
+                  placeholder="Mínimo 8 caracteres"
+                  className="w-full h-[38px] rounded-xl bg-[#0D081F]/70 border border-purple-400/20 pl-8 pr-8 text-xs text-white placeholder:text-[#6D6288] focus:border-[#8C62FF] focus:ring-1 focus:ring-[#8C62FF]/40 outline-none transition-all"
+                  {...form.register("password")}
+                />
+                <button
+                  type="button"
+                  tabIndex={-1}
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[#8E82A8] hover:text-[#C4B5FD] transition-colors"
+                >
+                  {showPassword ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                </button>
+              </div>
+              {form.formState.errors.password && (
+                <p className="text-[10px] text-rose-400">{form.formState.errors.password.message}</p>
+              )}
+            </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <Field label="Senha" error={form.formState.errors.password?.message} icon={<Lock className="h-4 w-4" />}>
-              <input type="password" placeholder="Mínimo 8 caracteres" className="w-full h-[46px] rounded-xl bg-[#0D081F]/70 border border-purple-400/20 pl-10 pr-4 text-sm text-white placeholder:text-[#6D6288] focus:border-[#8C62FF] focus:ring-1 focus:ring-[#8C62FF]/40 outline-none transition-all" {...form.register("password")} />
-            </Field>
-            <Field label="Confirmar senha" error={form.formState.errors.confirmPassword?.message} icon={<Lock className="h-4 w-4" />}>
-              <input type="password" placeholder="Repita a senha" className="w-full h-[46px] rounded-xl bg-[#0D081F]/70 border border-purple-400/20 pl-10 pr-4 text-sm text-white placeholder:text-[#6D6288] focus:border-[#8C62FF] focus:ring-1 focus:ring-[#8C62FF]/40 outline-none transition-all" {...form.register("confirmPassword")} />
-            </Field>
-          </div>
-
-          {/* ─── Seção: Dados da Empresa ─── */}
-          <div className="space-y-1 pt-2 pb-1">
-            <h3 className="text-xs font-bold text-[#BE8BFF] uppercase tracking-wider flex items-center gap-2">
-              <Building2 className="h-3.5 w-3.5" /> Dados da Empresa
-            </h3>
-            <div className="h-px bg-purple-400/20" />
-          </div>
-
-          <Field label="CNPJ" error={form.formState.errors.cnpj?.message} icon={<Building2 className="h-4 w-4" />}>
-            <input
-              placeholder="00.000.000/0000-00"
-              className="w-full h-[46px] rounded-xl bg-[#0D081F]/70 border border-purple-400/20 pl-10 pr-4 text-sm text-white placeholder:text-[#6D6288] focus:border-[#8C62FF] focus:ring-1 focus:ring-[#8C62FF]/40 outline-none transition-all"
-              {...form.register("cnpj")}
-              onChange={(e) => {
-                const formatted = formatCnpj(e.target.value);
-                form.setValue("cnpj", formatted, { shouldValidate: false });
-              }}
-            />
-          </Field>
-
-          <Field label="Nome da empresa" error={form.formState.errors.companyName?.message} icon={<Building2 className="h-4 w-4" />}>
-            <input placeholder="Razão social ou nome fantasia" className="w-full h-[46px] rounded-xl bg-[#0D081F]/70 border border-purple-400/20 pl-10 pr-4 text-sm text-white placeholder:text-[#6D6288] focus:border-[#8C62FF] focus:ring-1 focus:ring-[#8C62FF]/40 outline-none transition-all" {...form.register("companyName")} />
-          </Field>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <Field label="Cidade" error={form.formState.errors.city?.message} icon={<MapPin className="h-4 w-4" />}>
-              <input placeholder="Belo Horizonte" className="w-full h-[46px] rounded-xl bg-[#0D081F]/70 border border-purple-400/20 pl-10 pr-4 text-sm text-white placeholder:text-[#6D6288] focus:border-[#8C62FF] focus:ring-1 focus:ring-[#8C62FF]/40 outline-none transition-all" {...form.register("city")} />
-            </Field>
-            <div className="space-y-1.5">
-              <label className="text-xs font-semibold text-[#D4CAE8]">Estado (UF)</label>
-              <select
-                className="flex h-[46px] w-full rounded-xl border border-purple-400/20 bg-[#0D081F]/70 px-3 py-2 text-sm text-white focus:outline-none focus:ring-1 focus:ring-[#8C62FF]/40 focus:border-[#8C62FF]"
-                {...form.register("state")}
-                defaultValue=""
-              >
-                <option value="" disabled className="bg-[#150F28] text-white">Selecione</option>
-                {UF_LIST.map((uf) => (
-                  <option key={uf} value={uf} className="bg-[#150F28] text-white">{uf}</option>
-                ))}
-              </select>
-              {form.formState.errors.state && (
-                <p className="text-xs text-rose-400 mt-1">{form.formState.errors.state.message}</p>
+            {/* Confirmar senha */}
+            <div className="space-y-1">
+              <label className="block text-[11px] font-medium text-[#D4CAE8]">
+                Confirmar senha
+              </label>
+              <div className="relative">
+                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-[#8E82A8]" />
+                <input
+                  type={showConfirmPassword ? "text" : "password"}
+                  placeholder="Repita a senha"
+                  className="w-full h-[38px] rounded-xl bg-[#0D081F]/70 border border-purple-400/20 pl-8 pr-8 text-xs text-white placeholder:text-[#6D6288] focus:border-[#8C62FF] focus:ring-1 focus:ring-[#8C62FF]/40 outline-none transition-all"
+                  {...form.register("confirmPassword")}
+                />
+                <button
+                  type="button"
+                  tabIndex={-1}
+                  onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[#8E82A8] hover:text-[#C4B5FD] transition-colors"
+                >
+                  {showConfirmPassword ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                </button>
+              </div>
+              {form.formState.errors.confirmPassword && (
+                <p className="text-[10px] text-rose-400">{form.formState.errors.confirmPassword.message}</p>
               )}
             </div>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <Field label="Site (opcional)" error={form.formState.errors.website?.message} icon={<Globe className="h-4 w-4" />}>
-              <input placeholder="https://suaempresa.com" className="w-full h-[46px] rounded-xl bg-[#0D081F]/70 border border-purple-400/20 pl-10 pr-4 text-sm text-white placeholder:text-[#6D6288] focus:border-[#8C62FF] focus:ring-1 focus:ring-[#8C62FF]/40 outline-none transition-all" {...form.register("website")} />
-            </Field>
-            <Field label="Instagram (opcional)" error={form.formState.errors.instagram?.message} icon={<Instagram className="h-4 w-4" />}>
-              <input placeholder="@suaempresa" className="w-full h-[46px] rounded-xl bg-[#0D081F]/70 border border-purple-400/20 pl-10 pr-4 text-sm text-white placeholder:text-[#6D6288] focus:border-[#8C62FF] focus:ring-1 focus:ring-[#8C62FF]/40 outline-none transition-all" {...form.register("instagram")} />
-            </Field>
-          </div>
-
-          {mutation.error && (
-            <div className="rounded-xl bg-rose-500/10 border border-rose-500/30 p-3 text-center">
-              <p className="text-xs text-rose-300">{mutation.error.message}</p>
+          {/* ─── Coluna 2: Dados da Empresa ─── */}
+          <div className="space-y-2.5">
+            <div className="flex items-center gap-1.5 pb-1 border-b border-purple-400/20">
+              <Building2 className="w-3.5 h-3.5 text-[#BE8BFF]" />
+              <span className="text-[10px] font-bold text-[#BE8BFF] uppercase tracking-wider">
+                Dados da Empresa
+              </span>
             </div>
-          )}
 
-          <button
-            type="submit"
-            disabled={mutation.isPending}
-            className="w-full h-[50px] rounded-xl text-white font-semibold text-sm flex items-center justify-center gap-2 shadow-[0_4px_22px_rgba(116,60,255,0.4)] hover:brightness-110 hover:-translate-y-[1px] active:translate-y-0 disabled:opacity-60 disabled:pointer-events-none transition-all mt-3"
-            style={{
-              background: "linear-gradient(90deg, #743CFF 0%, #6247FF 48%, #C084FC 100%)"
-            }}
-          >
-            {mutation.isPending && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
-            Criar conta de organizador
-          </button>
-        </form>
-      </div>
+            {/* CNPJ */}
+            <div className="space-y-1">
+              <label className="block text-[11px] font-medium text-[#D4CAE8]">
+                CNPJ
+              </label>
+              <div className="relative">
+                <Building2 className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-[#8E82A8]" />
+                <input
+                  placeholder="00.000.000/0000-00"
+                  maxLength={18}
+                  className="w-full h-[38px] rounded-xl bg-[#0D081F]/70 border border-purple-400/20 pl-8 pr-3 text-xs text-white placeholder:text-[#6D6288] focus:border-[#8C62FF] focus:ring-1 focus:ring-[#8C62FF]/40 outline-none transition-all"
+                  {...form.register("cnpj")}
+                  onChange={(e) => {
+                    const formatted = formatCnpj(e.target.value);
+                    form.setValue("cnpj", formatted, { shouldValidate: true });
+                  }}
+                />
+              </div>
+              {form.formState.errors.cnpj && (
+                <p className="text-[10px] text-rose-400">{form.formState.errors.cnpj.message}</p>
+              )}
+            </div>
 
-      <div className="mt-6 text-center space-y-1.5">
+            {/* Razão Social / Nome da Empresa */}
+            <div className="space-y-1">
+              <label className="block text-[11px] font-medium text-[#D4CAE8]">
+                Nome da empresa
+              </label>
+              <div className="relative">
+                <Building2 className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-[#8E82A8]" />
+                <input
+                  placeholder="Razão social ou fantasia"
+                  className="w-full h-[38px] rounded-xl bg-[#0D081F]/70 border border-purple-400/20 pl-8 pr-3 text-xs text-white placeholder:text-[#6D6288] focus:border-[#8C62FF] focus:ring-1 focus:ring-[#8C62FF]/40 outline-none transition-all"
+                  {...form.register("companyName")}
+                />
+              </div>
+              {form.formState.errors.companyName && (
+                <p className="text-[10px] text-rose-400">{form.formState.errors.companyName.message}</p>
+              )}
+            </div>
+
+            {/* Cidade e Estado (UF) */}
+            <div className="space-y-1">
+              <div className="grid grid-cols-[1fr_76px] gap-2">
+                <div>
+                  <label className="block text-[11px] font-medium text-[#D4CAE8] mb-1">
+                    Cidade
+                  </label>
+                  <div className="relative">
+                    <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-[#8E82A8]" />
+                    <input
+                      placeholder="Sua cidade"
+                      className="w-full h-[38px] rounded-xl bg-[#0D081F]/70 border border-purple-400/20 pl-8 pr-2 text-xs text-white placeholder:text-[#6D6288] focus:border-[#8C62FF] focus:ring-1 focus:ring-[#8C62FF]/40 outline-none transition-all"
+                      {...form.register("city")}
+                    />
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-[11px] font-medium text-[#D4CAE8] mb-1">
+                    UF
+                  </label>
+                  <select
+                    className="flex h-[38px] w-full rounded-xl border border-purple-400/20 bg-[#0D081F]/70 px-2 py-1 text-xs text-white focus:outline-none focus:ring-1 focus:ring-[#8C62FF]/40 focus:border-[#8C62FF]"
+                    {...form.register("state")}
+                    defaultValue=""
+                  >
+                    <option value="" disabled className="bg-[#150F28] text-white">UF</option>
+                    {UF_LIST.map((uf) => (
+                      <option key={uf} value={uf} className="bg-[#150F28] text-white">{uf}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+              {(form.formState.errors.city || form.formState.errors.state) && (
+                <p className="text-[10px] text-rose-400">
+                  {form.formState.errors.city?.message || form.formState.errors.state?.message}
+                </p>
+              )}
+            </div>
+
+            {/* Site */}
+            <div className="space-y-1">
+              <label className="block text-[11px] font-medium text-[#D4CAE8]">
+                Site <span className="text-[#8E82A8] font-normal">(opcional)</span>
+              </label>
+              <div className="relative">
+                <Globe className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-[#8E82A8]" />
+                <input
+                  placeholder="https://suaempresa.com"
+                  className="w-full h-[38px] rounded-xl bg-[#0D081F]/70 border border-purple-400/20 pl-8 pr-3 text-xs text-white placeholder:text-[#6D6288] focus:border-[#8C62FF] focus:ring-1 focus:ring-[#8C62FF]/40 outline-none transition-all"
+                  {...form.register("website")}
+                />
+              </div>
+              {form.formState.errors.website && (
+                <p className="text-[10px] text-rose-400">{form.formState.errors.website.message}</p>
+              )}
+            </div>
+
+            {/* Instagram */}
+            <div className="space-y-1">
+              <label className="block text-[11px] font-medium text-[#D4CAE8]">
+                Instagram <span className="text-[#8E82A8] font-normal">(opcional)</span>
+              </label>
+              <div className="relative">
+                <Instagram className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-[#8E82A8]" />
+                <input
+                  placeholder="@suaempresa"
+                  className="w-full h-[38px] rounded-xl bg-[#0D081F]/70 border border-purple-400/20 pl-8 pr-3 text-xs text-white placeholder:text-[#6D6288] focus:border-[#8C62FF] focus:ring-1 focus:ring-[#8C62FF]/40 outline-none transition-all"
+                  {...form.register("instagram")}
+                />
+              </div>
+              {form.formState.errors.instagram && (
+                <p className="text-[10px] text-rose-400">{form.formState.errors.instagram.message}</p>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {mutation.error && (
+          <div className="rounded-xl bg-rose-500/10 border border-rose-500/30 p-2 text-center">
+            <p className="text-xs text-rose-300">{mutation.error.message}</p>
+          </div>
+        )}
+
+        {/* Botão de Envio */}
+        <button
+          type="submit"
+          disabled={mutation.isPending}
+          className="w-full h-[46px] rounded-xl text-white font-semibold text-sm flex items-center justify-center gap-2 shadow-[0_4px_22px_rgba(116,60,255,0.4)] hover:brightness-110 hover:-translate-y-[1px] active:translate-y-0 disabled:opacity-60 disabled:pointer-events-none transition-all mt-2"
+          style={{
+            background: "linear-gradient(90deg, #743CFF 0%, #6247FF 48%, #C084FC 100%)"
+          }}
+        >
+          {mutation.isPending && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
+          Criar conta de organizador
+        </button>
+      </form>
+
+      {/* Links inferiores */}
+      <div className="mt-3.5 text-center space-y-1">
         <p className="text-xs text-[#A99EC0]">
           Já tem uma conta?{" "}
-          <Link href="/login" className="font-semibold text-[#9E7BFF] hover:text-[#BFA4FF] transition-colors hover:underline">
+          <Link
+            href="/login"
+            className="font-semibold text-[#9E7BFF] hover:text-[#BFA4FF] transition-colors hover:underline"
+          >
             Entrar
           </Link>
         </p>
         <p className="text-xs text-[#A99EC0]">
           Quer comprar ingressos?{" "}
-          <Link href="/register" className="font-semibold text-[#9E7BFF] hover:text-[#BFA4FF] transition-colors hover:underline">
+          <Link
+            href="/register"
+            className="font-semibold text-[#9E7BFF] hover:text-[#BFA4FF] transition-colors hover:underline"
+          >
             Criar conta de cliente
           </Link>
         </p>
       </div>
-    </div>
-  );
-}
-
-function Field({
-  label, error, icon, children
-}: {
-  label: string; error?: string; icon?: React.ReactNode; children: React.ReactNode;
-}) {
-  return (
-    <div className="space-y-1.5">
-      <label className="text-xs font-semibold text-[#D4CAE8]">{label}</label>
-      <div className="relative">
-        {icon && (
-          <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[#8E82A8]">{icon}</span>
-        )}
-        {children}
-      </div>
-      {error && <p className="text-xs text-rose-400 mt-1">{error}</p>}
     </div>
   );
 }
