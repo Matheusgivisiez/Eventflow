@@ -5,7 +5,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   CheckCircle2, ScanLine, XCircle, AlertTriangle, Camera, Keyboard,
   Search, UserCheck, History, Clock, Ticket, RefreshCw, SwitchCamera,
-  ArrowRight, ShieldAlert
+  ArrowRight, ShieldAlert, FlipHorizontal
 } from "lucide-react";
 import type { Html5Qrcode } from "html5-qrcode";
 import { Button } from "@/components/ui/button";
@@ -71,6 +71,50 @@ function playAudioFeedback(type: "success" | "duplicate" | "error") {
   }
 }
 
+// Auxiliares de detecção e classificação de lentes
+function isFrontCamera(label?: string): boolean {
+  if (!label) return false;
+  const l = label.toLowerCase();
+  return (
+    l.includes("front") ||
+    l.includes("frontal") ||
+    l.includes("user") ||
+    l.includes("selfie") ||
+    l.includes("face") ||
+    l.includes("anterior") ||
+    l.includes("facing front")
+  );
+}
+
+function isBackCamera(label?: string): boolean {
+  if (!label) return false;
+  if (isFrontCamera(label)) return false;
+  const l = label.toLowerCase();
+  return (
+    l.includes("back") ||
+    l.includes("traseir") ||
+    l.includes("rear") ||
+    l.includes("environment") ||
+    l.includes("wide") ||
+    l.includes("outward") ||
+    l.includes("extern") ||
+    l.includes("principal") ||
+    l.includes("main") ||
+    l.includes("facing back") ||
+    l.includes("0, facing back")
+  );
+}
+
+function formatCameraLabel(device: { id: string; label: string }, index: number): string {
+  if (isBackCamera(device.label)) {
+    return `📸 Traseira: ${device.label || `Lente ${index + 1}`}`;
+  }
+  if (isFrontCamera(device.label)) {
+    return `🤳 Frontal: ${device.label || `Lente ${index + 1}`}`;
+  }
+  return `📷 Câmera ${index + 1}${device.label ? ` (${device.label})` : ""}`;
+}
+
 export default function CheckInPage() {
   const qc = useQueryClient();
   const [eventId, setEventId] = useState("");
@@ -81,6 +125,8 @@ export default function CheckInPage() {
   const scannerRef = useRef<Html5Qrcode | null>(null);
   const [cameras, setCameras] = useState<Array<{ id: string; label: string }>>([]);
   const [selectedCameraId, setSelectedCameraId] = useState<string>("");
+  const [activeCameraId, setActiveCameraId] = useState<string>("");
+  const [flipHorizontal, setFlipHorizontal] = useState(false);
   const [cameraError, setCameraError] = useState<string | null>(null);
   const [isCameraStarting, setIsCameraStarting] = useState(false);
   const [isCameraActive, setIsCameraActive] = useState(false);
@@ -220,10 +266,11 @@ export default function CheckInPage() {
   // Alterna entre as câmeras disponíveis
   const toggleCamera = useCallback(() => {
     if (cameras.length <= 1) return;
-    const currentIndex = cameras.findIndex(c => c.id === selectedCameraId);
+    const currentId = selectedCameraId || activeCameraId;
+    const currentIndex = cameras.findIndex((c) => c.id === currentId);
     const nextIndex = (currentIndex + 1) % cameras.length;
     setSelectedCameraId(cameras[nextIndex].id);
-  }, [cameras, selectedCameraId]);
+  }, [cameras, selectedCameraId, activeCameraId]);
 
   // Ciclo de vida estável da câmera
   useEffect(() => {
@@ -271,15 +318,59 @@ export default function CheckInPage() {
           return;
         }
 
+        // 1. Enumera câmeras ANTES de iniciar para priorizar a lente traseira no mobile
+        let devicesList = cameras;
+        if (devicesList.length === 0) {
+          try {
+            const fetchedDevices = await Html5Qrcode.getCameras();
+            if (fetchedDevices && fetchedDevices.length > 0) {
+              const sorted = [...fetchedDevices].sort((a, b) => {
+                const aBack = isBackCamera(a.label);
+                const bBack = isBackCamera(b.label);
+                if (aBack && !bBack) return -1;
+                if (!aBack && bBack) return 1;
+                return 0;
+              });
+              devicesList = sorted;
+              if (!isCancelled) {
+                setCameras(sorted);
+              }
+            }
+          } catch (camListErr) {
+            console.warn("Aviso ao enumerar dispositivos:", camListErr);
+          }
+        }
+
+        if (isCancelled) return;
+
+        // 2. Determina qual câmera usar (prioriza TRASEIRA caso o usuário não tenha selecionado)
+        let cameraConfig: any;
+        let chosenId = selectedCameraId;
+
+        if (!chosenId && devicesList.length > 0) {
+          const backCam =
+            devicesList.find((d) => isBackCamera(d.label)) ||
+            devicesList.find((d) => !isFrontCamera(d.label)) ||
+            devicesList[0];
+          if (backCam) {
+            chosenId = backCam.id;
+          }
+        }
+
+        if (chosenId) {
+          cameraConfig = chosenId;
+          if (!isCancelled) {
+            setActiveCameraId(chosenId);
+          }
+        } else {
+          cameraConfig = { facingMode: "environment" };
+        }
+
         const scanner = new Html5Qrcode("reader", {
           formatsToSupport: [Html5QrcodeSupportedFormats.QR_CODE],
           verbose: false
         });
         scannerRef.current = scanner;
-
-        const cameraConfig = selectedCameraId
-          ? { deviceId: { exact: selectedCameraId } }
-          : { facingMode: "environment" };
 
         await scanner.start(
           cameraConfig,
@@ -309,14 +400,23 @@ export default function CheckInPage() {
         setIsCameraActive(true);
         setIsCameraStarting(false);
 
-        // Busca a lista de câmeras apenas se ainda não tiver buscado
-        Html5Qrcode.getCameras()
-          .then((devices) => {
-            if (!isCancelled && devices && devices.length > 0) {
-              setCameras(devices);
-            }
-          })
-          .catch(() => {});
+        // Se ainda não tinha obtido as câmeras (por exemplo, permissão concedida só agora durante o start)
+        if (devicesList.length === 0) {
+          Html5Qrcode.getCameras()
+            .then((devs) => {
+              if (!isCancelled && devs && devs.length > 0) {
+                const sorted = [...devs].sort((a, b) => {
+                  const aBack = isBackCamera(a.label);
+                  const bBack = isBackCamera(b.label);
+                  if (aBack && !bBack) return -1;
+                  if (!aBack && bBack) return 1;
+                  return 0;
+                });
+                setCameras(sorted);
+              }
+            })
+            .catch(() => {});
+        }
 
       } catch (err: any) {
         if (isCancelled) return;
@@ -355,6 +455,7 @@ export default function CheckInPage() {
         clearInterval(countdownIntervalRef.current);
       }
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mode, eventId, selectedCameraId, retryNonce]);
 
   // Renderizador do Visor do Operador
@@ -560,26 +661,68 @@ export default function CheckInPage() {
                       </div>
                     ) : (
                       <>
-                        {/* Controles de Câmera */}
-                        <div className="flex items-center justify-between text-xs text-muted-foreground px-1">
-                          <span className="flex items-center gap-1.5">
-                            <span className={`w-2 h-2 rounded-full ${isCameraActive ? "bg-green-500 animate-pulse" : "bg-muted-foreground"}`} />
+                        {/* Controles e Status da Câmera */}
+                        <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-muted-foreground px-1">
+                          <span className="flex items-center gap-1.5 font-medium">
+                            <span className={`w-2.5 h-2.5 rounded-full ${isCameraActive ? "bg-green-500 animate-pulse" : "bg-muted-foreground"}`} />
                             {isCameraActive ? "Câmera ao vivo" : isCameraStarting ? "Iniciando câmera..." : "Câmera pausada"}
                           </span>
 
-                          {cameras.length > 1 && (
+                          <div className="flex items-center gap-2">
+                            {/* Botão de Inverter / Espelhar Imagem */}
                             <Button
                               type="button"
-                              variant="ghost"
+                              variant={flipHorizontal ? "default" : "outline"}
                               size="sm"
-                              onClick={toggleCamera}
-                              className="h-8 text-xs font-semibold gap-1.5"
+                              onClick={() => setFlipHorizontal((prev) => !prev)}
+                              className={`h-8 text-xs font-semibold gap-1.5 rounded-lg transition-all ${
+                                flipHorizontal ? "bg-primary text-primary-foreground shadow-sm" : ""
+                              }`}
+                              title="Inverter/Espelhar orientação horizontal do vídeo"
                             >
-                              <SwitchCamera className="w-3.5 h-3.5" />
-                              Alternar Câmera ({cameras.length})
+                              <FlipHorizontal className="w-3.5 h-3.5" />
+                              {flipHorizontal ? "Espelhado (Ativo)" : "Inverter Imagem"}
                             </Button>
-                          )}
+
+                            {/* Botão de Trocar Câmera */}
+                            {cameras.length > 1 && (
+                              <Button
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                onClick={toggleCamera}
+                                className="h-8 text-xs font-semibold gap-1.5 rounded-lg"
+                                title="Alternar entre câmeras disponíveis"
+                              >
+                                <SwitchCamera className="w-3.5 h-3.5" />
+                                Trocar ({cameras.length})
+                              </Button>
+                            )}
+                          </div>
                         </div>
+
+                        {/* Seletor de Lentes (caso haja mais de uma câmera) */}
+                        {cameras.length > 1 && (
+                          <div className="flex items-center gap-2 px-1">
+                            <Label htmlFor="camera-lens-select" className="text-xs text-muted-foreground font-medium shrink-0">
+                              Lente:
+                            </Label>
+                            <select
+                              id="camera-lens-select"
+                              className="h-8 w-full rounded-lg border bg-background px-3 text-xs font-medium focus:ring-2 focus:ring-primary focus:outline-none transition-all truncate"
+                              value={selectedCameraId || activeCameraId}
+                              onChange={(e) => {
+                                setSelectedCameraId(e.target.value);
+                              }}
+                            >
+                              {cameras.map((cam, idx) => (
+                                <option key={cam.id} value={cam.id}>
+                                  {formatCameraLabel(cam, idx)}
+                                </option>
+                              ))}
+                            </select>
+                          </div>
+                        )}
 
                         {/* Erro de Câmera */}
                         {cameraError ? (
@@ -603,7 +746,45 @@ export default function CheckInPage() {
                         ) : (
                           /* Viewfinder da Câmera com Overlay Visual */
                           <div className="relative rounded-2xl overflow-hidden bg-black border-2 border-border shadow-inner aspect-square max-h-[380px] mx-auto flex items-center justify-center">
-                            <div id="reader" className="w-full h-full overflow-hidden [&_video]:object-cover [&_video]:w-full [&_video]:h-full"></div>
+                            {/* Feed de vídeo do leitor */}
+                            <div
+                              id="reader"
+                              style={{
+                                transform: flipHorizontal ? "scaleX(-1)" : "none",
+                                transformOrigin: "center center"
+                              }}
+                              className="w-full h-full overflow-hidden transition-transform duration-200 [&_video]:object-cover [&_video]:w-full [&_video]:h-full"
+                            />
+
+                            {/* Botões rápidos flutuantes no canto do visor */}
+                            {isCameraActive && (
+                              <div className="absolute top-3 right-3 z-10 flex items-center gap-1.5">
+                                <button
+                                  type="button"
+                                  onClick={() => setFlipHorizontal((prev) => !prev)}
+                                  className={`p-2 rounded-xl backdrop-blur-md transition-all shadow-md ${
+                                    flipHorizontal
+                                      ? "bg-primary text-primary-foreground"
+                                      : "bg-black/60 text-white hover:bg-black/80 border border-white/20"
+                                  }`}
+                                  title="Inverter/Espelhar imagem horizontalmente"
+                                  aria-label="Inverter Imagem"
+                                >
+                                  <FlipHorizontal className="w-4 h-4" />
+                                </button>
+                                {cameras.length > 1 && (
+                                  <button
+                                    type="button"
+                                    onClick={toggleCamera}
+                                    className="p-2 rounded-xl backdrop-blur-md bg-black/60 text-white hover:bg-black/80 border border-white/20 shadow-md transition-all"
+                                    title="Alternar entre câmeras"
+                                    aria-label="Alternar Câmera"
+                                  >
+                                    <SwitchCamera className="w-4 h-4" />
+                                  </button>
+                                )}
+                              </div>
+                            )}
 
                             {/* Overlay de Alinhamento e Leitura Laser */}
                             {isCameraActive && (
@@ -623,7 +804,7 @@ export default function CheckInPage() {
 
                             {/* Overlay de Cooldown / Sucesso Temporário */}
                             {cooldownRef.current && (
-                              <div className="absolute inset-0 bg-black/60 backdrop-blur-sm flex flex-col items-center justify-center text-white p-4 text-center animate-in fade-in duration-150">
+                              <div className="absolute inset-0 bg-black/60 backdrop-blur-sm flex flex-col items-center justify-center text-white p-4 text-center animate-in fade-in duration-150 z-20">
                                 <CheckCircle2 className="w-12 h-12 text-emerald-400 mb-2 animate-in zoom-in-50" />
                                 <p className="font-bold text-lg">Leitura Efetuada</p>
                                 <p className="text-xs text-white/70 mt-0.5">
@@ -640,7 +821,7 @@ export default function CheckInPage() {
                             )}
 
                             {isCameraStarting && (
-                              <div className="absolute inset-0 bg-black/70 flex flex-col items-center justify-center text-white p-4 text-center">
+                              <div className="absolute inset-0 bg-black/70 flex flex-col items-center justify-center text-white p-4 text-center z-20">
                                 <RefreshCw className="w-8 h-8 animate-spin text-primary mb-2" />
                                 <p className="text-sm font-semibold">Iniciando feed de vídeo...</p>
                               </div>
@@ -649,7 +830,7 @@ export default function CheckInPage() {
                         )}
 
                         <p className="text-xs text-muted-foreground text-center pt-1">
-                          Aponte o código QR impresso ou na tela do celular para o centro do leitor.
+                          Aponte o código QR impresso ou na tela do celular para o centro do leitor. Se a imagem estiver invertida, toque em &quot;Inverter Imagem&quot;.
                         </p>
                       </>
                     )}
