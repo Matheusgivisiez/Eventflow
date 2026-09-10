@@ -6,7 +6,7 @@ import { ShieldCheck, QrCode, BarChart3 } from "lucide-react";
 
 export default function AuthLayout({ children }: { children: React.ReactNode }) {
   return (
-    <div className="relative min-h-screen w-full overflow-x-hidden bg-[#07050e] text-white flex flex-col justify-between select-none">
+    <div className="relative min-h-screen w-full overflow-x-hidden bg-[#07050e] text-white flex flex-col justify-between">
       {/* Background animado sutil fixo / 100% viewport */}
       <div className="fixed inset-0 pointer-events-none overflow-hidden z-0">
         <Image
