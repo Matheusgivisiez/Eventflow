@@ -15,12 +15,14 @@ export class EventsController {
   constructor(private readonly events: EventsService) {}
 
   @Get("public")
+  @Throttle({ default: { limit: 1200, ttl: 60000 } })
   @ApiOperation({ summary: "Listar eventos públicos", description: "Retorna eventos publicados para a vitrine." })
   publicList(@Query() query: { page?: string; perPage?: string; search?: string; category?: string }) {
     return this.events.publicList(query);
   }
 
   @Get("public/:slug")
+  @Throttle({ default: { limit: 1200, ttl: 60000 } })
   @ApiOperation({ summary: "Buscar evento por slug", description: "Retorna os detalhes públicos de um evento." })
   publicBySlug(@Param("slug") slug: string) {
     return this.events.publicBySlug(slug);
