@@ -114,9 +114,17 @@ function createService() {
   return { service, tx, orders, getSold: () => sold };
 }
 
-describe("CreateCheckoutUseCase stock reservation", () => {
+describe("CreateCheckoutUseCase stock reservation (legacy write order, CHECKOUT_HOT_ROW_WRITES_LAST=false)", () => {
+  const originalFlag = process.env.CHECKOUT_HOT_ROW_WRITES_LAST;
+
   beforeEach(() => {
+    process.env.CHECKOUT_HOT_ROW_WRITES_LAST = "false";
     jest.clearAllMocks();
+  });
+
+  afterEach(() => {
+    if (originalFlag === undefined) delete process.env.CHECKOUT_HOT_ROW_WRITES_LAST;
+    else process.env.CHECKOUT_HOT_ROW_WRITES_LAST = originalFlag;
   });
 
   it("reserves the last ticket atomically and blocks the next competing checkout", async () => {
@@ -203,12 +211,12 @@ describe("CreateCheckoutUseCase stock reservation", () => {
   });
 });
 
-describe("CreateCheckoutUseCase with CHECKOUT_HOT_ROW_WRITES_LAST", () => {
+describe("CreateCheckoutUseCase default write order (hot-row writes last)", () => {
   const originalFlag = process.env.CHECKOUT_HOT_ROW_WRITES_LAST;
   const originalPerf = process.env.PERF_DIAGNOSTICS;
 
   beforeEach(() => {
-    process.env.CHECKOUT_HOT_ROW_WRITES_LAST = "true";
+    delete process.env.CHECKOUT_HOT_ROW_WRITES_LAST;
     jest.clearAllMocks();
   });
 
