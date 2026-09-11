@@ -1,11 +1,10 @@
 import { BadRequestException } from "@nestjs/common";
 import { NotificationEvent, TicketStatus, TransferStatus, UserRole } from "@prisma/client";
-import QRCode from "qrcode";
+import * as QRCode from "qrcode";
 import { TransfersService } from "./transfers.service";
 
 jest.mock("qrcode", () => ({
-  __esModule: true,
-  default: { toDataURL: jest.fn().mockResolvedValue("data:image/png;base64,new-qr") }
+  toDataURL: jest.fn().mockResolvedValue("data:image/png;base64,new-qr")
 }));
 
 const sender = {

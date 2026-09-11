@@ -29,7 +29,7 @@ export class CheckoutController {
   }
 
   @Post("order/:orderId/confirm-simulation")
-  @Throttle({ default: { limit: 10, ttl: 60000 } })
+  @Throttle({ default: { limit: 600, ttl: 60000 }, checkout: { limit: 600, ttl: 60000 } })
   @ApiOperation({ summary: "Confirmar pagamento simulado no sandbox" })
   confirmSimulation(@Param("orderId") orderId: string, @Query("accessToken") accessToken?: string) {
     return this.checkout.confirmSimulation(orderId, accessToken);

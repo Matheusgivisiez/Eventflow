@@ -1,7 +1,7 @@
 import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { NotificationEvent, NotificationType, Prisma, TicketStatus, TransferStatus, User, UserRole } from "@prisma/client";
-import QRCode from "qrcode";
+import * as QRCode from "qrcode";
 import { createHash, createHmac, randomUUID } from "crypto";
 import { RequestUser } from "../../common/types/request-user";
 import { PrismaService } from "../../prisma/prisma.service";
