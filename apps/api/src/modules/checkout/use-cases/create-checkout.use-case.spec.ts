@@ -202,3 +202,69 @@ describe("CreateCheckoutUseCase stock reservation", () => {
     expect(orders).toHaveLength(0);
   });
 });
+
+describe("CreateCheckoutUseCase with CHECKOUT_HOT_ROW_WRITES_LAST", () => {
+  const originalFlag = process.env.CHECKOUT_HOT_ROW_WRITES_LAST;
+  const originalPerf = process.env.PERF_DIAGNOSTICS;
+
+  beforeEach(() => {
+    process.env.CHECKOUT_HOT_ROW_WRITES_LAST = "true";
+    jest.clearAllMocks();
+  });
+
+  afterEach(() => {
+    if (originalFlag === undefined) delete process.env.CHECKOUT_HOT_ROW_WRITES_LAST;
+    else process.env.CHECKOUT_HOT_ROW_WRITES_LAST = originalFlag;
+    if (originalPerf === undefined) delete process.env.PERF_DIAGNOSTICS;
+    else process.env.PERF_DIAGNOSTICS = originalPerf;
+  });
+
+  it("reserves stock as the last write of the transaction, after the order is created", async () => {
+    const { service, tx, getSold } = createService();
+
+    await service.execute("eventflow-conf", createDto() as any);
+
+    const orderCreatedAt = tx.order.create.mock.invocationCallOrder[0];
+    const stockReservedAt = tx.ticketType.updateMany.mock.invocationCallOrder[0];
+    expect(stockReservedAt).toBeGreaterThan(orderCreatedAt);
+    expect(getSold()).toBe(1);
+  });
+
+  it("still rejects the competing checkout for the last ticket (its order is rolled back with the transaction)", async () => {
+    const { service, getSold } = createService();
+
+    await service.execute("eventflow-conf", createDto() as any);
+    await expect(
+      service.execute("eventflow-conf", createDto() as any),
+    ).rejects.toThrow("Nao ha ingressos suficientes");
+
+    expect(getSold()).toBe(1);
+  });
+
+  it("defers the coupon reservation until after the order is created and still enforces the limit", async () => {
+    const { service, tx } = createService();
+    tx.coupon.findUnique.mockResolvedValue({
+      id: "coupon-1", tenantId: "tenant-1", isActive: true, maxUses: 1, usedCount: 0,
+      validFrom: new Date(Date.now() - 60_000), validUntil: new Date(Date.now() + 60_000),
+      discountPercent: 10, discountFixedCents: 0
+    });
+
+    await service.execute("eventflow-conf", { ...createDto(), couponCode: "FIRST" } as any);
+    expect(tx.coupon.updateMany.mock.invocationCallOrder[0]).toBeGreaterThan(tx.order.create.mock.invocationCallOrder[0]);
+    expect(tx.ticketType.updateMany.mock.invocationCallOrder[0]).toBeGreaterThan(tx.coupon.updateMany.mock.invocationCallOrder[0]);
+
+    tx.coupon.updateMany.mockResolvedValue({ count: 0 });
+    await expect(
+      service.execute("eventflow-conf", { ...createDto(), couponCode: "FIRST" } as any),
+    ).rejects.toThrow("Cupom esgotado");
+  });
+
+  it("works with perf diagnostics enabled", async () => {
+    process.env.PERF_DIAGNOSTICS = "true";
+    const { service } = createService();
+
+    const order = await service.execute("eventflow-conf", createDto() as any);
+
+    expect(order.id).toEqual(expect.any(String));
+  });
+});

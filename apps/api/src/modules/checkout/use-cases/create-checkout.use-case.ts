@@ -1,9 +1,10 @@
-import { BadRequestException, Injectable, NotFoundException, Optional } from "@nestjs/common";
+import { BadRequestException, Injectable, Logger, NotFoundException, Optional } from "@nestjs/common";
 import { EventStatus, PaymentMethod, PaymentStatus, Prisma } from "@prisma/client";
 import { randomBytes } from "crypto";
 import { CouponsService } from "../../coupons/coupons.service";
 import { PrismaService } from "../../../prisma/prisma.service";
 import { RequestUser } from "../../../common/types/request-user";
+import { isPerfDiagnosticsEnabled, PhaseTimer } from "../../../common/diagnostics/perf-diagnostics";
 import { BusinessMetricsService } from "../../observability/business-metrics.service";
 import type { CreateCheckoutDto } from "../dto/create-checkout.dto";
 import { hasReachedSalesEnd } from "../sales-limit";
@@ -22,6 +23,8 @@ type CheckoutEvent = Prisma.EventGetPayload<{ include: { ticketTypes: true } }>;
 
 @Injectable()
 export class CreateCheckoutUseCase {
+  private readonly logger = new Logger(CreateCheckoutUseCase.name);
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly coupons: CouponsService,
@@ -52,10 +55,12 @@ export class CreateCheckoutUseCase {
     // Read-only lookups run OUTSIDE the write transaction on purpose: they don't need to
     // hold a DB transaction slot, and keeping them out shrinks how long the transaction below
     // holds its row lock on the hot TicketType row under concurrent checkouts for the same event.
+    const timer = isPerfDiagnosticsEnabled() ? new PhaseTimer() : undefined;
     const event = await this.prisma.event.findFirst({
       where: { slug, status: EventStatus.PUBLISHED },
       include: { ticketTypes: true }
     });
+    timer?.lap("eventLookup");
 
     if (!event) {
       throw new NotFoundException("Evento indisponivel.");
@@ -64,76 +69,117 @@ export class CreateCheckoutUseCase {
     this.validateSalesPeriod(event);
     await this.validateCpfLimit(this.prisma, event, normalizedDto);
     const items = this.validateAndPrepareItems(event, normalizedDto);
+    timer?.lap("cpfLimitAndValidation");
+
+    // The counter UPDATEs in this transaction (the lot's `sold`, a coupon's `usedCount`, affiliate/
+    // promoter `clicks`) take row locks that every concurrent buyer of the same lot/coupon/link
+    // needs, and Postgres holds them until COMMIT. Run first, those locks are held across every later
+    // statement (order/items/payment inserts + the include read-back) — many DB round-trips — and
+    // concurrent checkouts for the same lot serialize behind them.
+    // With CHECKOUT_HOT_ROW_WRITES_LAST=true all of those writes run at the end, right before COMMIT,
+    // with the most contended one (the lot's stock) last, so the locks are held for ~1-3 round-trips.
+    // Atomicity is unchanged: a failed reservation throws and rolls back the whole transaction,
+    // including the order created before it.
+    const hotRowWritesLast = process.env.CHECKOUT_HOT_ROW_WRITES_LAST === "true";
 
     // Everything below MUST be atomic together (stock reservation + order/payment creation),
     // so it stays inside a single transaction. maxWait/timeout are raised above the Prisma
     // defaults (2s/5s) so a burst of concurrent checkouts for the same ticket type queues for a
     // free connection/lock instead of failing outright with a transaction-timeout error.
-    return this.prisma.$transaction(async (tx) => {
-      const couponResult = await this.processCoupon(tx, event, normalizedDto);
-      const affiliateResult = await this.processAffiliate(tx, event, normalizedDto);
-      const promoterResult = await this.processPromoter(tx, event, normalizedDto);
+    try {
+      const createdOrder = await this.prisma.$transaction(async (tx) => {
+        timer?.lap("txAcquire");
+        const couponResult = await this.processCoupon(tx, event, normalizedDto, hotRowWritesLast);
+        const affiliateResult = await this.processAffiliate(tx, event, normalizedDto, hotRowWritesLast);
+        const promoterResult = await this.processPromoter(tx, event, normalizedDto, hotRowWritesLast);
+        timer?.lap("couponAffiliatePromoter");
 
-      const { subtotalCents, discountCents, feeCents, totalCents } = this.calculatePricing(
-        items, couponResult.couponDiscount, event.feeAbsorbedByOrganizer
-      );
-      await this.reserveStockTx(tx, items);
+        const { subtotalCents, discountCents, feeCents, totalCents } = this.calculatePricing(
+          items, couponResult.couponDiscount, event.feeAbsorbedByOrganizer
+        );
+        if (!hotRowWritesLast) {
+          await this.reserveStockTx(tx, items);
+          timer?.lap("reserveStock");
+        }
 
-      const order = await tx.order.create({
-        data: {
-          eventId: event.id,
-          userId: user?.id,
-          couponId: couponResult.couponId,
-          buyerName: normalizedDto.buyerName,
-          buyerEmail: normalizedDto.buyerEmail.toLowerCase(),
-          buyerDocument: normalizedDto.buyerDocument,
-          buyerPhone: normalizedDto.buyerPhone,
-          affiliateLinkId: affiliateResult.affiliateLinkId,
-          promoterLinkId: promoterResult.promoterLinkId,
-          promoterCommissionCents: promoterResult.promoterCommissionCents,
-          source: dto.source,
-          device: dto.device,
-          campaign: dto.campaign,
-          stockReservedAt: new Date(),
-          subtotalCents,
-          discountCents,
-          feeCents,
-          totalCents,
-          status: PaymentStatus.PENDING,
-          orderAccessToken: this.createOrderAccessToken(),
-          items: {
-            create: items.map((item) => ({
-              ticketTypeId: item.ticketType.id,
-              quantity: item.quantity,
-              unitCents: item.ticketType.priceCents,
-              totalCents: item.totalCents,
-              seatIds: item.seatIds
-            }))
-          },
-          payment: {
-            create: {
-              eventId: event.id,
-              method: normalizedDto.paymentMethod,
-              amountCents: totalCents,
-              provider: "abacate_pay"
+        const order = await tx.order.create({
+          data: {
+            eventId: event.id,
+            userId: user?.id,
+            couponId: couponResult.couponId,
+            buyerName: normalizedDto.buyerName,
+            buyerEmail: normalizedDto.buyerEmail.toLowerCase(),
+            buyerDocument: normalizedDto.buyerDocument,
+            buyerPhone: normalizedDto.buyerPhone,
+            affiliateLinkId: affiliateResult.affiliateLinkId,
+            promoterLinkId: promoterResult.promoterLinkId,
+            promoterCommissionCents: promoterResult.promoterCommissionCents,
+            source: dto.source,
+            device: dto.device,
+            campaign: dto.campaign,
+            stockReservedAt: new Date(),
+            subtotalCents,
+            discountCents,
+            feeCents,
+            totalCents,
+            status: PaymentStatus.PENDING,
+            orderAccessToken: this.createOrderAccessToken(),
+            items: {
+              create: items.map((item) => ({
+                ticketTypeId: item.ticketType.id,
+                quantity: item.quantity,
+                unitCents: item.ticketType.priceCents,
+                totalCents: item.totalCents,
+                seatIds: item.seatIds
+              }))
+            },
+            payment: {
+              create: {
+                eventId: event.id,
+                method: normalizedDto.paymentMethod,
+                amountCents: totalCents,
+                provider: "abacate_pay"
+              }
             }
-          }
-        },
-        include: { payment: true, items: { include: { ticketType: true } } }
-      });
+          },
+          include: { payment: true, items: { include: { ticketType: true } } }
+        });
+        timer?.lap("orderCreate");
 
-      if (affiliateResult.affiliateLinkId && affiliateResult.affiliateCommissionBps > 0) {
-        await this.createAffiliateCommission(tx, event.tenantId, affiliateResult as { affiliateLinkId: string; affiliateCommissionBps: number }, order.id, totalCents);
+        if (affiliateResult.affiliateLinkId && affiliateResult.affiliateCommissionBps > 0) {
+          await this.createAffiliateCommission(tx, event.tenantId, affiliateResult as { affiliateLinkId: string; affiliateCommissionBps: number }, order.id, totalCents);
+          timer?.lap("affiliateCommission");
+        }
+
+        if (hotRowWritesLast) {
+          // Least contended first; the lot's stock row (shared by every buyer of the lot) last.
+          await affiliateResult.deferredWrite?.();
+          await promoterResult.deferredWrite?.();
+          await couponResult.deferredWrite?.();
+          await this.reserveStockTx(tx, items);
+          timer?.lap("hotRowWrites");
+        }
+
+        // NOTE: Promoter commission (commissionAcumCents, conversions, revenueCents) is credited
+        // only when payment is confirmed as PAID in PaymentsService.markPaid().
+        // This ensures financial integrity — no commission for unpaid or cancelled orders.
+
+        this.metrics?.increment("eventflow_checkout_created_total", { method: normalizedDto.paymentMethod });
+
+        return order;
+      }, { maxWait: 10000, timeout: 15000 });
+      timer?.lap("commit");
+      if (timer) {
+        this.logger.log(`checkout.tx order=${createdOrder.id} hotRowWritesLast=${hotRowWritesLast} ${timer.format()}`);
       }
-
-      // NOTE: Promoter commission (commissionAcumCents, conversions, revenueCents) is credited
-      // only when payment is confirmed as PAID in PaymentsService.markPaid().
-      // This ensures financial integrity — no commission for unpaid or cancelled orders.
-
-      this.metrics?.increment("eventflow_checkout_created_total", { method: normalizedDto.paymentMethod });
-
-      return order;
-    }, { maxWait: 10000, timeout: 15000 });
+      return createdOrder;
+    } catch (error) {
+      if (timer) {
+        timer.lap("failedAt");
+        this.logger.warn(`checkout.tx failed hotRowWritesLast=${hotRowWritesLast} ${timer.format()} error=${(error as Error)?.message}`);
+      }
+      throw error;
+    }
   }
 
   private validateSalesPeriod(event: CheckoutEvent) {
@@ -203,9 +249,14 @@ export class CreateCheckoutUseCase {
     }
   }
 
-  private async processCoupon(tx: CheckoutTx, event: CheckoutEvent, dto: CreateCheckoutDto) {
+  /**
+   * Hot-row counter writes are returned as `deferredWrite` instead of being executed when
+   * `deferWrites` is true, so the caller can run them right before COMMIT.
+   */
+  private async processCoupon(tx: CheckoutTx, event: CheckoutEvent, dto: CreateCheckoutDto, deferWrites = false) {
     let couponId: string | undefined;
     let couponDiscount = { discountPercent: 0, discountFixedCents: 0 };
+    let deferredWrite: (() => Promise<void>) | undefined;
 
     if (dto.couponCode) {
       const coupon = await tx.coupon.findUnique({ where: { code: dto.couponCode } });
@@ -219,19 +270,27 @@ export class CreateCheckoutUseCase {
       couponId = coupon.id;
       couponDiscount = { discountPercent: coupon.discountPercent, discountFixedCents: coupon.discountFixedCents };
 
-      const reservedCoupon = await tx.coupon.updateMany({
-        where: coupon.maxUses > 0 ? { id: coupon.id, usedCount: { lt: coupon.maxUses } } : { id: coupon.id },
-        data: { usedCount: { increment: 1 } }
-      });
-      if (reservedCoupon.count !== 1) throw new BadRequestException("Cupom esgotado.");
+      const reserveCoupon = async () => {
+        const reservedCoupon = await tx.coupon.updateMany({
+          where: coupon.maxUses > 0 ? { id: coupon.id, usedCount: { lt: coupon.maxUses } } : { id: coupon.id },
+          data: { usedCount: { increment: 1 } }
+        });
+        if (reservedCoupon.count !== 1) throw new BadRequestException("Cupom esgotado.");
+      };
+      if (deferWrites) {
+        deferredWrite = reserveCoupon;
+      } else {
+        await reserveCoupon();
+      }
     }
 
-    return { couponId, couponDiscount };
+    return { couponId, couponDiscount, deferredWrite };
   }
 
-  private async processAffiliate(tx: CheckoutTx, event: CheckoutEvent, dto: CreateCheckoutDto) {
+  private async processAffiliate(tx: CheckoutTx, event: CheckoutEvent, dto: CreateCheckoutDto, deferWrites = false) {
     let affiliateLinkId: string | undefined;
     let affiliateCommissionBps = 0;
+    let deferredWrite: (() => Promise<void>) | undefined;
 
     if (dto.affiliateCode) {
       const affiliateLink = await tx.affiliateLink.findFirst({
@@ -240,19 +299,27 @@ export class CreateCheckoutUseCase {
       if (affiliateLink) {
         affiliateLinkId = affiliateLink.id;
         affiliateCommissionBps = affiliateLink.commissionBps;
-        await tx.affiliateLink.update({
-          where: { id: affiliateLink.id },
-          data: { clicks: { increment: 1 } }
-        });
+        const countClick = async () => {
+          await tx.affiliateLink.update({
+            where: { id: affiliateLink.id },
+            data: { clicks: { increment: 1 } }
+          });
+        };
+        if (deferWrites) {
+          deferredWrite = countClick;
+        } else {
+          await countClick();
+        }
       }
     }
 
-    return { affiliateLinkId, affiliateCommissionBps };
+    return { affiliateLinkId, affiliateCommissionBps, deferredWrite };
   }
 
-  private async processPromoter(tx: CheckoutTx, event: CheckoutEvent, dto: CreateCheckoutDto) {
+  private async processPromoter(tx: CheckoutTx, event: CheckoutEvent, dto: CreateCheckoutDto, deferWrites = false) {
     let promoterLinkId: string | undefined;
     let promoterCommissionCents = 0;
+    let deferredWrite: (() => Promise<void>) | undefined;
 
     if (dto.promoterCode) {
       const promoterLink = await tx.promoterLink.findFirst({
@@ -274,14 +341,21 @@ export class CreateCheckoutUseCase {
           promoterCommissionCents = promoterLink.commissionValue * totalQty;
         }
 
-        await tx.promoterLink.update({
-          where: { id: promoterLink.id },
-          data: { clicks: { increment: 1 } }
-        });
+        const countClick = async () => {
+          await tx.promoterLink.update({
+            where: { id: promoterLink.id },
+            data: { clicks: { increment: 1 } }
+          });
+        };
+        if (deferWrites) {
+          deferredWrite = countClick;
+        } else {
+          await countClick();
+        }
       }
     }
 
-    return { promoterLinkId, promoterCommissionCents };
+    return { promoterLinkId, promoterCommissionCents, deferredWrite };
   }
 
   private validateAndPrepareItems(event: CheckoutEvent, dto: CreateCheckoutDto): ProcessedItem[] {

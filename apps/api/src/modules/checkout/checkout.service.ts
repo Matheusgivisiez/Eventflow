@@ -1,6 +1,7 @@
-import { ForbiddenException, Injectable, NotFoundException, UnauthorizedException } from "@nestjs/common";
+import { ForbiddenException, Injectable, Logger, NotFoundException, UnauthorizedException } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { PaymentStatus } from "@prisma/client";
+import { isPerfDiagnosticsEnabled, PhaseTimer } from "../../common/diagnostics/perf-diagnostics";
 import { RequestUser } from "../../common/types/request-user";
 import { getQrCodeReleaseTime, isQrCodeLocked } from "../../common/utils/qr-code.utils";
 import { PrismaService } from "../../prisma/prisma.service";
@@ -11,6 +12,8 @@ import { CreateCheckoutUseCase } from "./use-cases/create-checkout.use-case";
 
 @Injectable()
 export class CheckoutService {
+  private readonly logger = new Logger(CheckoutService.name);
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly createCheckout: CreateCheckoutUseCase,
@@ -20,13 +23,19 @@ export class CheckoutService {
   ) {}
 
   async create(slug: string, dto: CreateCheckoutDto, user?: RequestUser) {
+    const timer = isPerfDiagnosticsEnabled() ? new PhaseTimer() : undefined;
     const order = await this.createCheckout.execute(slug, dto, user);
+    timer?.lap("createOrder");
     let checkout: Awaited<ReturnType<PaymentsService["createProviderPreference"]>>;
     try {
       checkout = await this.payments.createProviderPreference(order.id);
     } catch (error) {
       await this.cancelOrderAfterProviderFailure(order.id);
       throw error;
+    }
+    timer?.lap("providerPreference");
+    if (timer) {
+      this.logger.log(`checkout.request order=${order.id} ${timer.format()}`);
     }
 
     return {
