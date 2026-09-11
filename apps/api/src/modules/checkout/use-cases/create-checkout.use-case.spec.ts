@@ -102,6 +102,8 @@ function createService() {
     },
   };
   const prisma = {
+    event: tx.event,
+    order: tx.order,
     $transaction: jest.fn((callback) => callback(tx)),
   };
   const coupons = {

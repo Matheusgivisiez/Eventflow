@@ -49,23 +49,31 @@ export class CreateCheckoutUseCase {
       paymentMethod: PaymentMethod.PIX
     };
 
+    // Read-only lookups run OUTSIDE the write transaction on purpose: they don't need to
+    // hold a DB transaction slot, and keeping them out shrinks how long the transaction below
+    // holds its row lock on the hot TicketType row under concurrent checkouts for the same event.
+    const event = await this.prisma.event.findFirst({
+      where: { slug, status: EventStatus.PUBLISHED },
+      include: { ticketTypes: true }
+    });
+
+    if (!event) {
+      throw new NotFoundException("Evento indisponivel.");
+    }
+
+    this.validateSalesPeriod(event);
+    await this.validateCpfLimit(this.prisma, event, normalizedDto);
+    const items = this.validateAndPrepareItems(event, normalizedDto);
+
+    // Everything below MUST be atomic together (stock reservation + order/payment creation),
+    // so it stays inside a single transaction. maxWait/timeout are raised above the Prisma
+    // defaults (2s/5s) so a burst of concurrent checkouts for the same ticket type queues for a
+    // free connection/lock instead of failing outright with a transaction-timeout error.
     return this.prisma.$transaction(async (tx) => {
-      const event = await tx.event.findFirst({
-        where: { slug, status: EventStatus.PUBLISHED },
-        include: { ticketTypes: true }
-      });
-
-      if (!event) {
-        throw new NotFoundException("Evento indisponivel.");
-      }
-
-      this.validateSalesPeriod(event);
-      await this.validateCpfLimit(tx, event, normalizedDto);
       const couponResult = await this.processCoupon(tx, event, normalizedDto);
       const affiliateResult = await this.processAffiliate(tx, event, normalizedDto);
       const promoterResult = await this.processPromoter(tx, event, normalizedDto);
 
-      const items = this.validateAndPrepareItems(event, normalizedDto);
       const { subtotalCents, discountCents, feeCents, totalCents } = this.calculatePricing(
         items, couponResult.couponDiscount, event.feeAbsorbedByOrganizer
       );
@@ -125,7 +133,7 @@ export class CreateCheckoutUseCase {
       this.metrics?.increment("eventflow_checkout_created_total", { method: normalizedDto.paymentMethod });
 
       return order;
-    });
+    }, { maxWait: 10000, timeout: 15000 });
   }
 
   private validateSalesPeriod(event: CheckoutEvent) {
