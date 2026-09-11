@@ -3,14 +3,19 @@ import { AuthService } from "./auth.service";
 function createService() {
   const prisma = {
     user: {
-      findUnique: jest.fn()
+      findUnique: jest.fn(),
+      update: jest.fn()
     },
     passwordResetToken: {
-      create: jest.fn()
+      create: jest.fn(),
+      findFirst: jest.fn(),
+      update: jest.fn()
     },
     refreshToken: {
-      updateMany: jest.fn()
-    }
+      updateMany: jest.fn(),
+      create: jest.fn()
+    },
+    $transaction: jest.fn((operations) => Promise.all(operations))
   };
   const jwt = { signAsync: jest.fn() };
   const config = {
@@ -91,5 +96,36 @@ describe("AuthService forgotPassword", () => {
       text: expect.stringContaining("https://app.example/reset-password?token="),
       html: expect.stringContaining("https://app.example/reset-password?token=")
     }));
+  });
+});
+
+describe("AuthService resetPassword", () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  it("increments the user token version and revokes refresh tokens", async () => {
+    const { service, prisma } = createService();
+    prisma.passwordResetToken.findFirst.mockResolvedValue({
+      id: "reset-1",
+      userId: "user-1"
+    });
+    prisma.user.update.mockResolvedValue({});
+    prisma.passwordResetToken.update.mockResolvedValue({});
+    prisma.refreshToken.updateMany.mockResolvedValue({ count: 2 });
+
+    await service.resetPassword({ token: "reset-token", password: "nova-senha-segura" });
+
+    expect(prisma.user.update).toHaveBeenCalledWith({
+      where: { id: "user-1" },
+      data: {
+        passwordHash: expect.any(String),
+        tokenVersion: { increment: 1 }
+      }
+    });
+    expect(prisma.refreshToken.updateMany).toHaveBeenCalledWith({
+      where: { userId: "user-1", revokedAt: null },
+      data: { revokedAt: expect.any(Date) }
+    });
   });
 });

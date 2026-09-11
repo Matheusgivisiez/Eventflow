@@ -7,6 +7,7 @@ import { PaymentStatus, TicketStatus } from "@prisma/client";
 import { AuditService } from "../audit/audit.service";
 import { PaymentsService } from "../payments/payments.service";
 import { PrismaService } from "../../prisma/prisma.service";
+import { CacheService } from "../cache/cache.service";
 import {
   getQrCodeReleaseTime,
   isQrCodeLocked,
@@ -18,6 +19,7 @@ export class BuyerService {
     private readonly prisma: PrismaService,
     private readonly audit: AuditService,
     private readonly payments: PaymentsService,
+    private readonly cache: CacheService,
   ) {}
 
   async listTickets(userId: string, email: string, scope?: "future" | "past") {
@@ -86,6 +88,9 @@ export class BuyerService {
   }
 
   private async reconcileOwnedOrders(userId: string, email: string) {
+    const cacheKey = `buyer:reconcile:${userId}:${email}`;
+    if (await this.cache.get(cacheKey)) return;
+
     const orders = await this.prisma.order.findMany({
       where: {
         status: { in: [PaymentStatus.PENDING, PaymentStatus.PAID] },
@@ -115,6 +120,8 @@ export class BuyerService {
         status: PaymentStatus.PAID,
       });
     }));
+
+    await this.cache.set(cacheKey, { checkedAt: Date.now() }, 60);
   }
 
   async requestRefund(userId: string, email: string, ticketId: string, confirmation: string) {

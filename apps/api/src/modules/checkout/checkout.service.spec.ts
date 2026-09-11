@@ -58,10 +58,11 @@ function createService() {
     $transaction: jest.fn((callback) => callback(prisma))
   };
   const createCheckout = { execute: jest.fn() };
-  const payments = { createProviderPreference: jest.fn(), updateStatus: jest.fn() };
+  const payments = { createProviderPreference: jest.fn(), updateStatus: jest.fn(), reconcileProviderStatus: jest.fn() };
+  const cache = { get: jest.fn().mockResolvedValue(null), set: jest.fn().mockResolvedValue(undefined) };
   const config = { get: jest.fn((key: string) => key === "PAYMENT_SIMULATION_ENABLED" ? true : undefined) };
-  const service = new CheckoutService(prisma as any, createCheckout as any, payments as any, config as any);
-  return { service, prisma, createCheckout, payments, config };
+  const service = new CheckoutService(prisma as any, createCheckout as any, payments as any, cache as any, config as any);
+  return { service, prisma, createCheckout, payments, cache, config };
 }
 
 describe("CheckoutService", () => {
@@ -99,6 +100,34 @@ describe("CheckoutService", () => {
         status: "AVAILABLE"
       }
     ]);
+  });
+
+  it("reconciles a pending public order at most once per short cache window", async () => {
+    const { service, prisma, payments, cache } = createService();
+    prisma.order.findUnique
+      .mockResolvedValueOnce(createOrder({
+        status: PaymentStatus.PENDING,
+        payment: { id: "payment-1", method: PaymentMethod.PIX },
+        event: { id: "event-1", tenantId: "tenant-1", title: "Event Flow Conf" },
+      }))
+      .mockResolvedValueOnce(createOrder());
+
+    await service.getOrderStatus("order-1", "public-token");
+
+    expect(payments.reconcileProviderStatus).toHaveBeenCalledWith("payment-1", "tenant-1");
+    expect(cache.set).toHaveBeenCalledWith("checkout:reconcile:order-1", expect.any(Object), 15);
+
+    jest.clearAllMocks();
+    cache.get.mockResolvedValue({ checkedAt: Date.now() });
+    prisma.order.findUnique.mockResolvedValue(createOrder({
+      status: PaymentStatus.PENDING,
+      payment: { id: "payment-1", method: PaymentMethod.PIX },
+      event: { id: "event-1", tenantId: "tenant-1", title: "Event Flow Conf" },
+    }));
+
+    await service.getOrderStatus("order-1", "public-token");
+
+    expect(payments.reconcileProviderStatus).not.toHaveBeenCalled();
   });
 
   it("returns the order access token after checkout creation", async () => {

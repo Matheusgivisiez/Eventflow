@@ -28,6 +28,7 @@ export default function ForgotPasswordPage() {
         auth: false
       })
   });
+  const sent = Boolean(mutation.data);
 
   return (
     <div className="w-full max-w-[490px] rounded-[24px] bg-[#150F28]/75 backdrop-blur-[24px] border border-purple-400/25 p-7 sm:p-9 lg:p-11 shadow-[0_20px_60px_rgba(0,0,0,0.6),0_0_45px_rgba(120,60,255,0.14)] relative animate-card-enter">
@@ -61,6 +62,7 @@ export default function ForgotPasswordPage() {
               type="email"
               autoComplete="email"
               placeholder="seu@email.com"
+              readOnly={sent}
               className="w-full h-[50px] rounded-xl bg-[#0D081F]/70 border border-purple-400/20 pl-10 pr-4 text-sm text-white placeholder:text-[#6D6288] focus:border-[#8C62FF] focus:ring-1 focus:ring-[#8C62FF]/40 outline-none transition-all"
               {...form.register("email")}
             />
@@ -93,7 +95,7 @@ export default function ForgotPasswordPage() {
         {/* Botão Enviar Instruções */}
         <button
           type="submit"
-          disabled={mutation.isPending}
+          disabled={mutation.isPending || sent}
           className="w-full h-[52px] rounded-xl text-white font-semibold text-sm flex items-center justify-center gap-2 shadow-[0_4px_22px_rgba(116,60,255,0.4)] hover:brightness-110 hover:-translate-y-[1px] active:translate-y-0 disabled:opacity-60 disabled:pointer-events-none transition-all mt-2"
           style={{
             background:
@@ -102,6 +104,8 @@ export default function ForgotPasswordPage() {
         >
           {mutation.isPending ? (
             <Loader2 className="w-4 h-4 animate-spin" />
+          ) : sent ? (
+            <span>Instruções enviadas</span>
           ) : (
             <>
               <span>Enviar instruções</span>
@@ -126,4 +130,3 @@ export default function ForgotPasswordPage() {
     </div>
   );
 }
-

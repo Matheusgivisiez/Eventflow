@@ -26,6 +26,8 @@ function createTicket(overrides: Record<string, unknown> = {}) {
     eventId: "event-1",
     status: TicketStatus.AVAILABLE,
     usedAt: null,
+    attendeeName: "Cliente Teste",
+    attendeeEmail: "cliente@example.com",
     event: {
       id: "event-1",
       tenantId: "tenant-1",
@@ -151,6 +153,9 @@ describe("ValidateTicketUseCase", () => {
 
     expect(result.status).toBe(CheckInStatus.DUPLICATED);
     expect(result.message).toBe("Entrada duplicada.");
+    expect(result.ticket).not.toHaveProperty("attendeeName");
+    expect(result.ticket).not.toHaveProperty("attendeeEmail");
+    expect(result.ticket).not.toHaveProperty("order");
     expect(prisma.ticket.updateMany).not.toHaveBeenCalled();
     expect(prisma.checkInLog.create).toHaveBeenCalledWith({
       data: {

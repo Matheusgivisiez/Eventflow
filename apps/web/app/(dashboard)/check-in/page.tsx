@@ -179,12 +179,6 @@ export default function CheckInPage() {
     }
   }, [eventId, events]);
 
-  const invalidateLogs = useCallback(() => {
-    if (eventId) {
-      qc.invalidateQueries({ queryKey: ["checkin-logs", eventId] });
-    }
-  }, [eventId, qc]);
-
   // Limpa o cooldown e permite novo scan imediatamente
   const resetCooldown = useCallback(() => {
     cooldownRef.current = false;
@@ -228,7 +222,15 @@ export default function CheckInPage() {
     },
     onSuccess: (data) => {
       if (mode === "usb") setCode("");
-      invalidateLogs();
+      qc.setQueryData<any[]>(["checkin-logs", eventId], (current = []) => [
+        {
+          id: `local-${Date.now()}`,
+          status: data.status,
+          createdAt: new Date().toISOString(),
+          ticket: data.ticket
+        },
+        ...current
+      ].slice(0, 25));
 
       if (data.status === "ENTERED") {
         playAudioFeedback("success");

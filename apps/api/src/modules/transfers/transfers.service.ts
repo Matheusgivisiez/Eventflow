@@ -6,6 +6,7 @@ import { createHash, createHmac, randomUUID } from "crypto";
 import { RequestUser } from "../../common/types/request-user";
 import { PrismaService } from "../../prisma/prisma.service";
 import { AuditService } from "../audit/audit.service";
+import { CacheService } from "../cache/cache.service";
 import { NotificationsService } from "../notifications/notifications.service";
 import { CreateTransferDto, ResolveTransferRecipientDto } from "./dto/create-transfer.dto";
 
@@ -22,6 +23,7 @@ export class TransfersService {
     private readonly prisma: PrismaService,
     private readonly audit: AuditService,
     private readonly notifications: NotificationsService,
+    private readonly cache: CacheService,
     private readonly config: ConfigService
   ) {}
 
@@ -440,19 +442,35 @@ export class TransfersService {
   }
 
   private async expirePendingTransfers() {
+    const cacheKey = "transfers:expire-pending";
+    if (await this.cache.get(cacheKey)) return;
+    await this.cache.set(cacheKey, { startedAt: Date.now() }, 60);
+
     const expired = await this.prisma.transfer.findMany({
       where: { status: TransferStatus.PENDING, expiresAt: { lt: new Date() } },
-      include: { sender: true }
+      include: { sender: true },
+      orderBy: { expiresAt: "asc" },
+      take: 100
     });
 
+    if (!expired.length) return;
+
+    const ids = expired.map((transfer) => transfer.id);
+    await this.prisma.$transaction([
+      this.prisma.transfer.updateMany({
+        where: { id: { in: ids }, status: TransferStatus.PENDING },
+        data: { status: TransferStatus.EXPIRED }
+      }),
+      this.prisma.transferHistory.createMany({
+        data: expired.map((transfer) => ({
+          transferId: transfer.id,
+          action: "TRANSFER_EXPIRED",
+          userId: transfer.senderId
+        }))
+      })
+    ]);
+
     for (const transfer of expired) {
-      await this.prisma.transfer.update({
-        where: { id: transfer.id },
-        data: {
-          status: TransferStatus.EXPIRED,
-          history: { create: { action: "TRANSFER_EXPIRED", userId: transfer.senderId } }
-        }
-      });
       await this.notifications.send({
         userId: transfer.senderId,
         type: NotificationType.EMAIL,

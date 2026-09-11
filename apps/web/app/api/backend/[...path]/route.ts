@@ -42,6 +42,13 @@ async function proxy(request: NextRequest, context: RouteContext) {
 
   const headers = new Headers(request.headers);
   for (const header of HOP_BY_HOP_HEADERS) headers.delete(header);
+  headers.set("x-forwarded-host", request.headers.get("host") ?? request.nextUrl.host);
+  headers.set("x-forwarded-proto", request.nextUrl.protocol.replace(":", ""));
+
+  const forwardedFor = request.headers.get("x-forwarded-for");
+  const realIp = request.headers.get("x-real-ip") ?? forwardedFor?.split(",")[0]?.trim();
+  if (forwardedFor) headers.set("x-forwarded-for", forwardedFor);
+  if (realIp) headers.set("x-real-ip", realIp);
 
   const upstream = await fetch(upstreamUrl, {
     method: request.method,

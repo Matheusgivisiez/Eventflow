@@ -4,6 +4,7 @@ import { PaymentStatus } from "@prisma/client";
 import { RequestUser } from "../../common/types/request-user";
 import { getQrCodeReleaseTime, isQrCodeLocked } from "../../common/utils/qr-code.utils";
 import { PrismaService } from "../../prisma/prisma.service";
+import { CacheService } from "../cache/cache.service";
 import { PaymentsService } from "../payments/payments.service";
 import { CreateCheckoutDto } from "./dto/create-checkout.dto";
 import { CreateCheckoutUseCase } from "./use-cases/create-checkout.use-case";
@@ -14,6 +15,7 @@ export class CheckoutService {
     private readonly prisma: PrismaService,
     private readonly createCheckout: CreateCheckoutUseCase,
     private readonly payments: PaymentsService,
+    private readonly cache: CacheService,
     private readonly config: ConfigService
   ) {}
 
@@ -54,7 +56,7 @@ export class CheckoutService {
       throw new UnauthorizedException("Token de acesso do pedido invalido.");
     }
 
-    if (order.status === PaymentStatus.PENDING && order.payment) {
+    if (order.status === PaymentStatus.PENDING && order.payment && await this.shouldReconcileOrder(order.id)) {
       try {
         await this.payments.reconcileProviderStatus(order.payment.id, order.event.tenantId);
         order = await this.prisma.order.findUnique({
@@ -104,6 +106,13 @@ export class CheckoutService {
       qrCodeLocked: locked,
       qrCodeReleaseAt: releaseTime?.toISOString() ?? null
     };
+  }
+
+  private async shouldReconcileOrder(orderId: string) {
+    const cacheKey = `checkout:reconcile:${orderId}`;
+    if (await this.cache.get(cacheKey)) return false;
+    await this.cache.set(cacheKey, { checkedAt: Date.now() }, 15);
+    return true;
   }
 
   async confirmSimulation(orderId: string, accessToken?: string) {

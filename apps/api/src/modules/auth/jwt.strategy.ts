@@ -18,10 +18,13 @@ export class JwtStrategy extends PassportStrategy(Strategy, "jwt") {
     });
   }
 
-  async validate(payload: { sub: string }): Promise<RequestUser> {
+  async validate(payload: { sub: string; tokenVersion?: number }): Promise<RequestUser> {
     const user = await this.prisma.user.findUnique({ where: { id: payload.sub } });
     if (!user) {
       throw new UnauthorizedException("Sessao invalida.");
+    }
+    if (payload.tokenVersion !== user.tokenVersion) {
+      throw new UnauthorizedException("Sessao expirada. Entre novamente.");
     }
 
     return {

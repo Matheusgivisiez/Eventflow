@@ -44,6 +44,18 @@ describe("CustomThrottlerGuard", () => {
       expect(tracker).toBe("ip:203.0.113.195");
     });
 
+    it("deve limitar recuperacao de senha por IP e hash do e-mail, sem usar o e-mail cru", async () => {
+      const req = {
+        path: "/api/auth/forgot-password",
+        headers: { "x-forwarded-for": "203.0.113.195, 70.41.3.18" },
+        body: { email: "Buyer@Example.COM " }
+      };
+      const tracker = await (guard as any).getTracker(req);
+      expect(tracker).toMatch(/^forgot-password:203\.0\.113\.195:[a-f0-9]{16}$/);
+      expect(tracker).not.toContain("Buyer@Example.COM");
+      expect(tracker).not.toContain("buyer@example.com");
+    });
+
     it("deve utilizar o x-real-ip quando fornecido e nao houver x-forwarded-for", async () => {
       const req = { headers: { "x-real-ip": "198.51.100.1" } };
       const tracker = await (guard as any).getTracker(req);

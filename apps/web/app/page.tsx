@@ -163,22 +163,22 @@ export default function CatalogPage() {
 
             {/* Barra de busca */}
             <div className="mx-auto mt-8 max-w-3xl animate-slide-up" style={{ animationDelay: "0.3s" }}>
-              <div className="flex flex-col gap-3 rounded-2xl bg-white p-3 shadow-2xl shadow-black/10 sm:flex-row transition-all duration-300 focus-within:shadow-primary/20 focus-within:ring-2 focus-within:ring-primary/20">
+              <div className="flex flex-col gap-3 rounded-2xl border border-white/80 bg-white/95 p-3 shadow-2xl shadow-black/10 transition-all duration-300 focus-within:shadow-primary/20 focus-within:ring-2 focus-within:ring-primary/20 dark:border-white/10 dark:bg-[#141024]/95 sm:flex-row">
                 <div className="relative flex-1">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500 dark:text-violet-200/75" />
                   <input
                     type="text"
-                    className="w-full rounded-lg bg-muted/50 py-3 pl-9 pr-4 text-sm outline-none transition-all duration-200 focus:bg-white focus:ring-2 focus:ring-primary/30 placeholder:text-muted-foreground"
+                    className="w-full rounded-lg border border-slate-200/80 bg-slate-100 py-3 pl-9 pr-4 text-base text-slate-950 outline-none transition-all duration-200 placeholder:text-slate-500 focus:border-primary/60 focus:bg-white focus:ring-2 focus:ring-primary/30 dark:border-white/10 dark:bg-[#221d31] dark:text-white dark:placeholder:text-violet-100/65 dark:focus:border-primary/70 dark:focus:bg-[#2a2340] sm:text-sm"
                     placeholder="Nome do evento, artista..."
                     value={search}
                     onChange={(e) => setSearch(e.target.value)}
                   />
                 </div>
                 <div className="relative sm:w-52">
-                  <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <MapPin className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500 dark:text-violet-200/75" />
                   <input
                     type="text"
-                    className="w-full rounded-lg bg-muted/50 py-3 pl-9 pr-4 text-sm outline-none transition-all duration-200 focus:bg-white focus:ring-2 focus:ring-primary/30 placeholder:text-muted-foreground"
+                    className="w-full rounded-lg border border-slate-200/80 bg-slate-100 py-3 pl-9 pr-4 text-base text-slate-950 outline-none transition-all duration-200 placeholder:text-slate-500 focus:border-primary/60 focus:bg-white focus:ring-2 focus:ring-primary/30 dark:border-white/10 dark:bg-[#221d31] dark:text-white dark:placeholder:text-violet-100/65 dark:focus:border-primary/70 dark:focus:bg-[#2a2340] sm:text-sm"
                     placeholder="Cidade"
                     value={city}
                     onChange={(e) => setCity(e.target.value)}

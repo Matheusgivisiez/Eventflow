@@ -5,12 +5,13 @@ import { CreateCheckoutUseCase } from "./use-cases/create-checkout.use-case";
 import { ReservationExpirationService } from "./reservation-expiration.service";
 
 import { CouponsModule } from "../coupons/coupons.module";
+import { CacheModule } from "../cache/cache.module";
 import { PaymentsModule } from "../payments/payments.module";
 
 import { PrismaModule } from "../../prisma/prisma.module";
 
 @Module({
-  imports: [PrismaModule, CouponsModule, PaymentsModule],
+  imports: [PrismaModule, CacheModule, CouponsModule, PaymentsModule],
   controllers: [CheckoutController],
   providers: [CheckoutService, CreateCheckoutUseCase, ReservationExpirationService],
   exports: [CheckoutService]

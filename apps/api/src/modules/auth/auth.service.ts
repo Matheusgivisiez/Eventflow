@@ -232,7 +232,10 @@ export class AuthService {
     await this.prisma.$transaction([
       this.prisma.user.update({
         where: { id: reset.userId },
-        data: { passwordHash: await bcrypt.hash(dto.password, 12) }
+        data: {
+          passwordHash: await bcrypt.hash(dto.password, 12),
+          tokenVersion: { increment: 1 }
+        }
       }),
       this.prisma.passwordResetToken.update({
         where: { id: reset.id },
@@ -260,7 +263,7 @@ export class AuthService {
 
   private async issueSession(user: User) {
     const accessToken = await this.jwt.signAsync(
-      { sub: user.id, role: user.role, tenantId: user.tenantId },
+      { sub: user.id, role: user.role, tenantId: user.tenantId, tokenVersion: user.tokenVersion },
       {
         secret: this.config.getOrThrow<string>("JWT_ACCESS_SECRET"),
         expiresIn: this.config.get<string>("JWT_ACCESS_EXPIRES_IN") ?? "15m"

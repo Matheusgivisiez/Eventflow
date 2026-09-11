@@ -82,15 +82,20 @@ function createService() {
       findFirst: jest.fn(),
       findUnique: jest.fn(),
       create: jest.fn(),
-      update: jest.fn()
+      update: jest.fn(),
+      updateMany: jest.fn()
     },
-    $transaction: jest.fn((callback) => callback(prisma))
+    transferHistory: {
+      createMany: jest.fn()
+    },
+    $transaction: jest.fn((input) => Array.isArray(input) ? Promise.all(input) : input(prisma))
   };
   const audit = { log: jest.fn().mockResolvedValue({}) };
   const notifications = { send: jest.fn().mockResolvedValue({}) };
   const config = { get: jest.fn().mockReturnValue("test-secret") };
-  const service = new TransfersService(prisma as any, audit as any, notifications as any, config as any);
-  return { service, prisma, audit, notifications };
+  const cache = { get: jest.fn().mockResolvedValue(null), set: jest.fn().mockResolvedValue(undefined) };
+  const service = new TransfersService(prisma as any, audit as any, notifications as any, cache as any, config as any);
+  return { service, prisma, audit, notifications, cache };
 }
 
 describe("TransfersService", () => {
@@ -203,5 +208,48 @@ describe("TransfersService", () => {
     const result = await service.cancel(sender, "transfer-1");
 
     expect(result.status).toBe(TransferStatus.CANCELLED);
+  });
+
+  it("expires pending transfers in batch before listing received transfers", async () => {
+    const { service, prisma, notifications } = createService();
+    const expired = createTransfer({
+      id: "expired-transfer-1",
+      expiresAt: new Date(Date.now() - 1000),
+      sender: { id: sender.id, name: "Sender", email: sender.email }
+    });
+    prisma.transfer.findMany
+      .mockResolvedValueOnce([expired])
+      .mockResolvedValueOnce([]);
+    prisma.transfer.updateMany.mockResolvedValue({ count: 1 });
+    prisma.transferHistory.createMany.mockResolvedValue({ count: 1 });
+
+    await service.received(receiver, {});
+
+    expect(prisma.transfer.updateMany).toHaveBeenCalledWith({
+      where: { id: { in: ["expired-transfer-1"] }, status: TransferStatus.PENDING },
+      data: { status: TransferStatus.EXPIRED }
+    });
+    expect(prisma.transferHistory.createMany).toHaveBeenCalledWith({
+      data: [{
+        transferId: "expired-transfer-1",
+        action: "TRANSFER_EXPIRED",
+        userId: sender.id
+      }]
+    });
+    expect(notifications.send).toHaveBeenCalledWith(expect.objectContaining({
+      event: NotificationEvent.TICKET_TRANSFER_EXPIRED,
+      recipient: sender.email
+    }));
+  });
+
+  it("skips expiring transfers when a recent expiration pass is cached", async () => {
+    const { service, prisma, cache } = createService();
+    cache.get.mockResolvedValue({ startedAt: Date.now() });
+    prisma.transfer.findMany.mockResolvedValueOnce([]);
+
+    await service.received(receiver, {});
+
+    expect(prisma.transfer.updateMany).not.toHaveBeenCalled();
+    expect(prisma.transferHistory.createMany).not.toHaveBeenCalled();
   });
 });

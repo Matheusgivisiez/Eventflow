@@ -44,12 +44,16 @@ export class CheckInService {
       },
       include: {
         ticket: {
-          include: { ticketType: true }
-        },
-        user: true
+          select: {
+            id: true,
+            uuid: true,
+            attendeeName: true,
+            ticketType: { select: { id: true, name: true } }
+          }
+        }
       },
       orderBy: { createdAt: "desc" },
-      take: 100
+      take: 25
     });
   }
 }

@@ -36,7 +36,7 @@ export function EventCard({ event }: EventCardProps) {
         )}
         {/* Badges sobrepostos */}
         <div className="absolute left-3 top-3 flex flex-wrap gap-1.5">
-          <Badge className="bg-white/95 text-foreground shadow-sm text-xs border-0">
+          <Badge className="border-0 bg-primary text-xs text-white shadow-sm shadow-primary/25">
             {event.category || "Geral"}
           </Badge>
           {event.format === "ONLINE" && (

@@ -62,17 +62,17 @@ export class FinanceService {
     }
 
     // Fire AbacatePay PIX transfer
-    const transfer = await this.abacatePay.createPixTransfer({
+    await this.abacatePay.createPixTransfer({
       pixKey: dto.pixKey,
       amountCents: withdrawal.amountCents,
       description: `Saque Event Flow #${withdrawal.id}`
     });
 
-    // Mark as APPROVED (AbacatePay processes instantly, but we track via providerRef)
+    // AbacatePay processes PIX transfers instantly, so persist the terminal paid state.
     return this.prisma.withdrawal.update({
       where: { id: withdrawalId },
       data: {
-        status: WithdrawalStatus.APPROVED,
+        status: WithdrawalStatus.PAID,
         pixKey: dto.pixKey,
         paidAt: new Date()
       }

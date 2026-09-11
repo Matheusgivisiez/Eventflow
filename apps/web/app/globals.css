@@ -5,6 +5,7 @@
 /* ─── Rolagem suave ───────────────────────────── */
 html {
   scroll-behavior: smooth;
+  -webkit-text-size-adjust: 100%;
 }
 
 /* ─── Transição suave ao alternar temas ────────── */
@@ -65,6 +66,12 @@ body {
 }
 
 @media (max-width: 639px) {
+  input,
+  select,
+  textarea {
+    font-size: 16px !important;
+  }
+
   .new-event-form input,
   .new-event-form select,
   .new-event-form textarea,
@@ -315,5 +322,4 @@ body {
 .animate-scanner-laser {
   animation: scannerLaserSweep 2.2s cubic-bezier(0.4, 0, 0.2, 1) infinite;
 }
-
 

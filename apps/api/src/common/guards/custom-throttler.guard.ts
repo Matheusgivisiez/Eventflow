@@ -1,11 +1,17 @@
 import { ExecutionContext, HttpException, HttpStatus, Injectable } from "@nestjs/common";
 import { ThrottlerGuard, ThrottlerLimitDetail, ThrottlerRequest } from "@nestjs/throttler";
+import { createHash } from "crypto";
 
 @Injectable()
 export class CustomThrottlerGuard extends ThrottlerGuard {
   private static readonly BYPASS_PATHS = new Set(["/health", "/api/health", "/metrics", "/api/metrics"]);
 
   protected async getTracker(req: Record<string, any>): Promise<string> {
+    const path = req.path || req.url || "";
+    if (path.endsWith("/auth/forgot-password") && typeof req.body?.email === "string") {
+      return `forgot-password:${this.trackerIp(req)}:${this.hashTrackerValue(req.body.email.toLowerCase().trim())}`;
+    }
+
     const user = req.user?.id || req.user?.sub;
     if (user) {
       return `user:${user}`;
@@ -42,6 +48,27 @@ export class CustomThrottlerGuard extends ThrottlerGuard {
 
     const remoteAddress = req.ip || req.socket?.remoteAddress || "unknown";
     return `ip:${remoteAddress}`;
+  }
+
+  private trackerIp(req: Record<string, any>) {
+    const xForwardedFor = req.headers?.["x-forwarded-for"];
+    if (xForwardedFor) {
+      const firstIp = Array.isArray(xForwardedFor) ? xForwardedFor[0] : xForwardedFor.split(",")[0];
+      if (firstIp && firstIp.trim()) {
+        return firstIp.trim();
+      }
+    }
+
+    const xRealIp = req.headers?.["x-real-ip"];
+    if (xRealIp && typeof xRealIp === "string" && xRealIp.trim()) {
+      return xRealIp.trim();
+    }
+
+    return req.ip || req.socket?.remoteAddress || "unknown";
+  }
+
+  private hashTrackerValue(value: string) {
+    return createHash("sha256").update(value).digest("hex").slice(0, 16);
   }
 
   protected async handleRequest(requestProps: ThrottlerRequest): Promise<boolean> {

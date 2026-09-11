@@ -51,13 +51,15 @@ function createService() {
   };
   const audit = { log: jest.fn() };
   const payments = { updateStatus: jest.fn(), reconcileProviderStatus: jest.fn() };
+  const cache = { get: jest.fn().mockResolvedValue(null), set: jest.fn() };
   const service = new BuyerService(
     prisma as any,
     audit as any,
     payments as any,
+    cache as any,
   );
 
-  return { service, prisma };
+  return { service, prisma, cache };
 }
 
 describe("BuyerService.listTickets", () => {
@@ -137,6 +139,18 @@ describe("BuyerService.listTickets", () => {
     await service.listTickets("user-1", "buyer@example.com");
 
     expect(service["payments"].reconcileProviderStatus).toHaveBeenCalledWith("payment-1", "tenant-1");
+  });
+
+  it("skips order reconciliation when the recent wallet check is cached", async () => {
+    const { service, prisma, cache } = createService();
+    cache.get.mockResolvedValue({ checkedAt: Date.now() });
+    prisma.ticket.findMany.mockResolvedValue([]);
+
+    await service.listTickets("user-1", "buyer@example.com");
+
+    expect(prisma.order.findMany).not.toHaveBeenCalled();
+    expect(service["payments"].reconcileProviderStatus).not.toHaveBeenCalled();
+    expect(service["payments"].updateStatus).not.toHaveBeenCalled();
   });
 
   it("keeps an event that already started in the future scope until its endsAt", async () => {

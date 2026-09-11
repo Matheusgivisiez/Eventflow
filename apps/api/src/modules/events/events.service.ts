@@ -1,5 +1,5 @@
 import { BadRequestException, Injectable, NotFoundException } from "@nestjs/common";
-import { EventFormat, EventStatus } from "@prisma/client";
+import { EventFormat, EventStatus, Prisma } from "@prisma/client";
 import { nanoid } from "nanoid";
 import { PrismaService } from "../../prisma/prisma.service";
 import { CacheService } from "../cache/cache.service";
@@ -47,7 +47,7 @@ export class EventsService {
     this.validateCreation(dto);
     const { firstTicket, additionalTicketTypes, ...eventDto } = dto;
     const startsAt = new Date(dto.startsAt);
-    const event = await this.prisma.$transaction(async (tx) => {
+    const event = await this.withSlugRetry(() => this.prisma.$transaction(async (tx) => {
       const createdEvent = await tx.event.create({
         data: {
           ...eventDto,
@@ -102,7 +102,7 @@ export class EventsService {
       }
 
       return createdEvent;
-    });
+    }));
     await this.invalidatePublicCache();
     return event;
   }
@@ -166,16 +166,16 @@ export class EventsService {
   async duplicate(id: string, tenantId: string, ownerId: string) {
     const source = await this.findOne(id, tenantId);
     const { id: _id, slug: _slug, createdAt: _c, updatedAt: _u, ...rest } = source as any;
-    const newEvent = await this.prisma.event.create({
+    const newEvent = await this.withSlugRetry(async () => this.prisma.event.create({
       data: {
         ...rest,
         title: `${source.title} (copia)`,
         slug: await this.uniqueSlug(`${source.title} copia`),
-        status: "DRAFT" as any,
+        status: EventStatus.DRAFT,
         ownerId,
         tenantId
       }
-    });
+    }));
     return newEvent;
   }
 
@@ -183,7 +183,7 @@ export class EventsService {
     await this.findOne(id, tenantId);
     const event = await this.prisma.event.update({
       where: { id },
-      data: { status: "CLOSED" as any }
+      data: { status: EventStatus.CLOSED }
     });
     await this.cache.del(`dashboard:${tenantId}`);
     await this.invalidatePublicCache();
@@ -272,6 +272,7 @@ export class EventsService {
     const startsAt = dto.startsAt ? new Date(dto.startsAt) : current.startsAt;
     const endsAt = dto.endsAt ? new Date(dto.endsAt) : current.endsAt;
     if (Number.isNaN(startsAt.getTime())) throw new BadRequestException("Informe uma data de inicio valida.");
+    if (dto.startsAt && startsAt <= new Date()) throw new BadRequestException("A data de inicio deve ser futura.");
     if (endsAt && endsAt <= startsAt) throw new BadRequestException("A data de fim deve ser posterior ao inicio.");
     this.validateCheckInWindow(dto.checkInOpensAt, dto.checkInClosesAt);
   }
@@ -290,11 +291,36 @@ export class EventsService {
       .toLowerCase()
       .replace(/[^a-z0-9]+/g, "-")
       .replace(/(^-|-$)/g, "");
-    let slug = base || nanoid(8);
-    const exists = await this.prisma.event.findUnique({ where: { slug } });
-    if (exists) {
-      slug = `${base}-${nanoid(6)}`;
+    const prefix = base || "evento";
+    for (let attempt = 0; attempt < 8; attempt += 1) {
+      const slug = attempt === 0 ? prefix : `${prefix}-${nanoid(6)}`;
+      const exists = await this.prisma.event.findUnique({ where: { slug } });
+      if (!exists) {
+        return slug;
+      }
     }
-    return slug;
+    return `${prefix}-${nanoid(10)}`;
+  }
+
+  private async withSlugRetry<T>(operation: () => Promise<T>) {
+    let lastError: unknown;
+    for (let attempt = 0; attempt < 5; attempt += 1) {
+      try {
+        return await operation();
+      } catch (error) {
+        lastError = error;
+        if (!this.isSlugUniqueViolation(error)) {
+          throw error;
+        }
+      }
+    }
+    throw lastError;
+  }
+
+  private isSlugUniqueViolation(error: unknown) {
+    return error instanceof Prisma.PrismaClientKnownRequestError
+      && error.code === "P2002"
+      && Array.isArray(error.meta?.target)
+      && error.meta.target.includes("slug");
   }
 }

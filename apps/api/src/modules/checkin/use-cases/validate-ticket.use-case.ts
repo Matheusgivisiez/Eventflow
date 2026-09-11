@@ -100,7 +100,7 @@ export class ValidateTicketUseCase {
     if (ticket.status === TicketStatus.USED) {
       await this.logCheckIn(ticket.id, userId, CheckInStatus.DUPLICATED, "Ingresso ja utilizado.");
       this.metrics?.increment("eventflow_checkin_validations_total", { status: CheckInStatus.DUPLICATED });
-      return { status: CheckInStatus.DUPLICATED, message: "Entrada duplicada.", ticket };
+      return { status: CheckInStatus.DUPLICATED, message: "Entrada duplicada.", ticket: this.toCheckInTicket(ticket, false) };
     }
 
     if (ticket.status !== TicketStatus.AVAILABLE) {
@@ -147,7 +147,7 @@ export class ValidateTicketUseCase {
     if (latest.status === TicketStatus.USED) {
       await this.logCheckIn(latest.id, userId, CheckInStatus.DUPLICATED, "Ingresso ja utilizado.");
       this.metrics?.increment("eventflow_checkin_validations_total", { status: CheckInStatus.DUPLICATED });
-      return { status: CheckInStatus.DUPLICATED, message: "Entrada duplicada.", ticket: latest };
+      return { status: CheckInStatus.DUPLICATED, message: "Entrada duplicada.", ticket: this.toCheckInTicket(latest, false) };
     }
 
     await this.logCheckIn(latest.id, userId, CheckInStatus.REFUSED, "Ingresso cancelado ou indisponivel.");
@@ -195,6 +195,12 @@ export class ValidateTicketUseCase {
       return "A portaria deste evento já foi encerrada.";
     }
     return undefined;
+  }
+
+  private toCheckInTicket<T extends { attendeeName?: string | null; attendeeEmail?: string | null; order?: unknown }>(ticket: T, includeAttendee: boolean) {
+    if (includeAttendee) return ticket;
+    const { attendeeName: _attendeeName, attendeeEmail: _attendeeEmail, order: _order, ...safeTicket } = ticket;
+    return safeTicket;
   }
 
   private parseCode(code: string): { uuid?: string; orderId?: string; signature?: string } {

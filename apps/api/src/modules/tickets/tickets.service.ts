@@ -13,9 +13,7 @@ export class TicketsService {
 
   async create(eventId: string, tenantId: string, dto: CreateTicketTypeDto) {
     await this.events.findOne(eventId, tenantId);
-    if (new Date(dto.endsAt) <= new Date(dto.startsAt)) {
-      throw new BadRequestException("A data final de venda deve ser posterior ao inicio.");
-    }
+    this.validateSalesWindow(dto.startsAt, dto.endsAt);
     return this.prisma.ticketType.create({
       data: {
         ...dto,
@@ -35,6 +33,13 @@ export class TicketsService {
     if (!ticket) {
       throw new NotFoundException("Lote de ingresso nao encontrado.");
     }
+    if (dto.startsAt || dto.endsAt) {
+      this.validateSalesWindow(
+        dto.startsAt ?? ticket.startsAt.toISOString(),
+        dto.endsAt ?? ticket.endsAt.toISOString(),
+        Boolean(dto.startsAt)
+      );
+    }
     return this.prisma.ticketType.update({
       where: { id },
       data: {
@@ -51,5 +56,19 @@ export class TicketsService {
       throw new NotFoundException("Lote de ingresso nao encontrado.");
     }
     return this.prisma.ticketType.delete({ where: { id } });
+  }
+
+  private validateSalesWindow(startsAtInput: string, endsAtInput: string, rejectPastStart = true) {
+    const startsAt = new Date(startsAtInput);
+    const endsAt = new Date(endsAtInput);
+    if (Number.isNaN(startsAt.getTime()) || Number.isNaN(endsAt.getTime())) {
+      throw new BadRequestException("Informe datas de venda validas.");
+    }
+    if (rejectPastStart && startsAt <= new Date()) {
+      throw new BadRequestException("A data inicial de venda deve ser futura.");
+    }
+    if (endsAt <= startsAt) {
+      throw new BadRequestException("A data final de venda deve ser posterior ao inicio.");
+    }
   }
 }

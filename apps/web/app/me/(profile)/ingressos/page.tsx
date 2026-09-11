@@ -512,11 +512,12 @@ export default function MyTicketsPage() {
     queryFn: () => api<MyTicket[]>("/buyer/tickets"),
     enabled: Boolean(user?.id),
     staleTime: 15_000,
+    refetchOnWindowFocus: false,
     refetchInterval: (query) => {
       if (query.state.error) return false;
       const data = query.state.data as MyTicket[] | undefined;
       const hasActive = data?.some((t) => t.status === "AVAILABLE");
-      return statusTab === "AVAILABLE" && hasActive ? 15_000 : false;
+      return statusTab === "AVAILABLE" && hasActive ? 60_000 : false;
     },
   });
 
