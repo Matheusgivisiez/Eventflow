@@ -117,7 +117,15 @@ describe("TransfersService", () => {
       data: expect.objectContaining({
         ticketId: "ticket-1",
         senderId: sender.id,
-        receiverId: receiver.id
+        receiverId: receiver.id,
+        history: {
+          create: expect.objectContaining({
+            metadata: {
+              receiverEmail: receiver.email,
+              receiverId: receiver.id
+            }
+          })
+        }
       })
     }));
     expect(notifications.send).toHaveBeenCalledWith(expect.objectContaining({

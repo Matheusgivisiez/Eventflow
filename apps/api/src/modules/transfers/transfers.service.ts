@@ -75,11 +75,11 @@ export class TransfersService {
           create: {
             action: "TRANSFER_CREATED",
             userId: sender.id,
-            metadata: {
+            metadata: this.compactJson({
               receiverEmail: recipient.receiverEmail,
               receiverCpf: recipient.receiverCpf,
               receiverId: recipient.receiverId
-            }
+            })
           }
         }
       },
@@ -517,5 +517,9 @@ export class TransfersService {
 
   private onlyDigits(value: string) {
     return value.replace(/\D/g, "");
+  }
+
+  private compactJson<T extends Record<string, unknown>>(value: T): Prisma.InputJsonObject {
+    return Object.fromEntries(Object.entries(value).filter(([, item]) => item !== undefined)) as Prisma.InputJsonObject;
   }
 }
