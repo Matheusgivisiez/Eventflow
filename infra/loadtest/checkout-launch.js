@@ -84,12 +84,33 @@ function randomDigits(n) {
   return s;
 }
 
+// CPF exige digitos verificadores reais (mod 11) - o backend valida isso
+// no use-case, nao so o formato. Gera um CPF valido de verdade, senao todo
+// mundo cai em 400 antes de chegar perto do lock de estoque (foi o que
+// aconteceu na segunda rodada: 148/150 em "CPF invalido").
+function randomValidCpf() {
+  const calcDigit = (digits, weights) => {
+    const total = digits.reduce((sum, d, i) => sum + d * weights[i], 0);
+    const rest = (total * 10) % 11;
+    return rest === 10 ? 0 : rest;
+  };
+  for (let attempt = 0; attempt < 5; attempt++) {
+    const base = Array.from({ length: 9 }, () => randomIntBetween(0, 9));
+    if (base.every((d) => d === base[0])) continue; // evita 000000000 etc
+    const d1 = calcDigit(base, [10, 9, 8, 7, 6, 5, 4, 3, 2]);
+    const d2 = calcDigit([...base, d1], [11, 10, 9, 8, 7, 6, 5, 4, 3, 2]);
+    const cpf = [...base, d1, d2].join("");
+    if (!/^(\d)\1+$/.test(cpf)) return cpf;
+  }
+  throw new Error("Nao consegui gerar CPF valido (bug no gerador, nao no teste).");
+}
+
 function fakeBuyer(vuId, iter) {
   const id = `${vuId}-${iter}-${randomString(4)}`;
   return {
     buyerName: `Teste Carga ${id}`,
     buyerEmail: `loadtest+${id}@example.com`,
-    buyerDocument: randomDigits(11),
+    buyerDocument: randomValidCpf(),
     buyerPhone: `31${randomDigits(9)}`,
     paymentMethod: "PIX"
   };
