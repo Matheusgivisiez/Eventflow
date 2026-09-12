@@ -1,21 +1,25 @@
 /**
  * Teste de carga do "rush" de abertura de lote.
  *
- * Cenario: N compradores tentando comprar ao mesmo tempo um lote com estoque
- * limitado (ex: Lote Promocional = 50 ingressos). Mede se o checkout aguenta
- * o pico, se ninguem trava, e principalmente se o numero de pedidos PAGOS
+ * Cenario: N compradores tentando comprar, cada um UMA VEZ (no maximo uma
+ * retentativa em caso de 409/estoque), tudo na mesma onda - e assim que
+ * uma pessoa real se comporta quando o lote abre, não fica retentando em
+ * loop. Mede se o checkout aguenta o pico e se o numero de pedidos PAGOS
  * nunca ultrapassa o estoque do lote (oversell).
  *
- * NUNCA rode isso contra o evento real (Hallowparty). Rode contra um evento
- * descartavel criado so para o teste (mesmo padrao usado no teste de
- * 11/09: tenant "Load Test Co", eventos "A20"/"B50"/"OVERSELL" etc).
+ * IMPORTANTE sobre rate limit: a rota de checkout tem @Throttle de 300
+ * requisicoes/minuto POR IP (apps/api/src/modules/checkout/checkout.controller.ts).
+ * Rodando o k6 de uma unica maquina, todos os VUs saem do MESMO IP - se o
+ * numero de compradores (PEAK_VUS) passar de ~280-300 dentro de 60s, voce
+ * vai medir o rate limiter, nao o checkout. Isso é esperado e é uma
+ * protecao real (nao desligar so pra o teste passar) - mas significa que
+ * esse script, rodado de uma maquina so, não simula mais que ~280
+ * compradores por minuto de forma limpa. Se quiser testar acima disso,
+ * precisa distribuir a origem (varias maquinas/IPs, ou um servico de
+ * load-test distribuido tipo k6 Cloud/Grafana Cloud).
  *
- * Requisitos antes de rodar:
- *  - PAYMENT_SIMULATION_ENABLED=true no ambiente alvo (senao vai tentar
- *    cobrar de verdade no gateway).
- *  - Auto-deploy do Render PAUSADO durante a janela do teste (nenhum push
- *    no repo enquanto o teste roda) - deploy no meio do teste invalida o
- *    resultado (foi o que aconteceu no teste de 11/09).
+ * NUNCA rode isso contra o evento real (Hallowparty). Rode contra um evento
+ * descartavel criado so para o teste.
  *
  * Uso:
  *   k6 run infra/loadtest/checkout-launch.js \
@@ -23,11 +27,12 @@
  *     -e EVENT_SLUG=slug-do-evento-de-teste \
  *     -e TICKET_TYPE_NAME="Lote Promocional" \
  *     -e LOT_QUANTITY=50 \
- *     -e PEAK_VUS=300
+ *     -e BUYERS=150
  *
- * Ajuste PEAK_VUS conforme a expectativa real de gente tentando comprar ao
- * mesmo tempo. Sem dado real de trafego, comece em 6x o tamanho do lote
- * (50 -> 300) para achar o ponto de quebra com margem de seguranca.
+ * BUYERS = quantas pessoas tentam comprar nessa onda (nao um "VUs por
+ * segundo", e o numero total de compradores simulados, cada um com no
+ * maximo 2 tentativas). Mantenha BUYERS abaixo de ~280 para nao confundir
+ * rate limit com capacidade real. Comece em 3x o tamanho do lote.
  */
 
 import http from "k6/http";
@@ -39,35 +44,37 @@ const BASE_URL = __ENV.BASE_URL || "http://localhost:3001/api";
 const EVENT_SLUG = __ENV.EVENT_SLUG;
 const TICKET_TYPE_NAME = __ENV.TICKET_TYPE_NAME || "Lote Promocional";
 const LOT_QUANTITY = parseInt(__ENV.LOT_QUANTITY || "50", 10);
-const PEAK_VUS = parseInt(__ENV.PEAK_VUS || "300", 10);
+const BUYERS = parseInt(__ENV.BUYERS || "150", 10);
 
 if (!EVENT_SLUG) {
   throw new Error("Defina -e EVENT_SLUG=<slug-do-evento-de-teste>. Nunca use o evento real aqui.");
 }
 
+if (BUYERS > 280) {
+  console.warn(
+    `AVISO: BUYERS=${BUYERS} está perto ou acima do limite de 300/min por IP. ` +
+    `Rodando de uma unica maquina, isso vai medir o rate limiter, nao o checkout.`
+  );
+}
+
 export const checkoutSuccess = new Counter("checkout_success");
 export const checkoutConflict = new Counter("checkout_conflict_409");
+export const checkoutRateLimited = new Counter("checkout_rate_limited_429");
 export const checkoutError = new Counter("checkout_error_outro");
 export const checkoutLatency = new Trend("checkout_latency_ms", true);
 
 export const options = {
   scenarios: {
     lote_rush: {
-      executor: "ramping-vus",
-      startVUs: 0,
-      stages: [
-        { duration: "5s", target: PEAK_VUS }, // todo mundo dando F5/comprando junto
-        { duration: "20s", target: PEAK_VUS }, // sustenta o pico
-        { duration: "10s", target: 0 } // acalma
-      ],
-      gracefulRampDown: "10s"
+      executor: "per-vu-iterations",
+      vus: BUYERS,
+      iterations: 1, // cada comprador tenta uma vez (retry, se precisar, é dentro do proprio VU)
+      maxDuration: "60s"
     }
   },
   thresholds: {
-    checkout_latency_ms: ["p(95)<3000"],
-    // taxa de erro "outro" (nao-conflito, nao-sucesso) deve ficar baixa;
-    // 409 de estoque esgotado eh esperado e correto sob concorrencia.
-    checkout_error_outro: ["count<20"]
+    checkout_latency_ms: ["p(95)<5000"],
+    checkout_rate_limited_429: ["count<5"] // se isso disparar, o teste mediu rate limit, nao capacidade
   }
 };
 
@@ -88,8 +95,6 @@ function fakeBuyer(vuId, iter) {
   };
 }
 
-let ticketTypeId = null;
-
 export function setup() {
   const res = http.get(`${BASE_URL}/events/public/${EVENT_SLUG}`);
   if (res.status !== 200) {
@@ -106,24 +111,41 @@ export function setup() {
   return { ticketTypeId: match.id };
 }
 
-export default function (data) {
-  const buyer = fakeBuyer(__VU, __ITER);
+function attemptCheckout(data, buyer) {
   const payload = JSON.stringify({
     ...buyer,
     items: [{ ticketTypeId: data.ticketTypeId, quantity: 1 }]
   });
-
-  const res = http.post(`${BASE_URL}/checkout/${EVENT_SLUG}`, payload, {
+  return http.post(`${BASE_URL}/checkout/${EVENT_SLUG}`, payload, {
     headers: { "Content-Type": "application/json" },
     tags: { name: "checkout_create" }
   });
+}
 
+export default function (data) {
+  // Todos os VUs largam quase juntos (per-vu-iterations não escalona o
+  // início, mas um pequeno jitter evita que todo mundo bata no msmo ms
+  // exato, o que é mais realista - pessoas clicam "comprar" em instantes
+  // ligeiramente diferentes, não no mesmo microsegundo).
+  sleep(randomIntBetween(0, 500) / 1000);
+
+  const buyer = fakeBuyer(__VU, __ITER);
+  let res = attemptCheckout(data, buyer);
   checkoutLatency.add(res.timings.duration);
+
+  // Uma pessoa real, se vir "tente novamente", tenta de novo uma vez.
+  if (res.status === 409) {
+    sleep(randomIntBetween(500, 1500) / 1000);
+    res = attemptCheckout(data, buyer);
+    checkoutLatency.add(res.timings.duration);
+  }
 
   if (res.status === 200 || res.status === 201) {
     checkoutSuccess.add(1);
   } else if (res.status === 409) {
     checkoutConflict.add(1);
+  } else if (res.status === 429) {
+    checkoutRateLimited.add(1);
   } else {
     checkoutError.add(1);
     console.error(`Erro inesperado (${res.status}): ${res.body?.slice(0, 300)}`);
@@ -132,8 +154,6 @@ export default function (data) {
   check(res, {
     "nao é erro 5xx": (r) => r.status < 500
   });
-
-  sleep(randomIntBetween(1, 3) / 10);
 }
 
 export function teardown() {

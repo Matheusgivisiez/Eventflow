@@ -25,12 +25,20 @@ k6 run infra/loadtest/checkout-launch.js \
   -e EVENT_SLUG=slug-do-evento-de-teste \
   -e TICKET_TYPE_NAME="Lote Promocional" \
   -e LOT_QUANTITY=50 \
-  -e PEAK_VUS=300
+  -e BUYERS=150
 ```
 
-`PEAK_VUS` = quantos "compradores" simultaneos simular. Sem dado real de
-trafego esperado, comece em 6x o tamanho do lote (aqui, lote de 50 ->
-300) pra achar o ponto de quebra com margem.
+`BUYERS` = quantas pessoas tentam comprar nessa onda, cada uma no maximo
+duas vezes (uma tentativa + um retry se cair em 409). Comece em 3x o
+tamanho do lote.
+
+**Atencao ao rate limit**: a rota de checkout tem `@Throttle` de 300
+requisicoes/minuto POR IP. Rodando o k6 de uma unica maquina, todo mundo
+sai do mesmo IP - se `BUYERS` passar de ~280, voce mede o rate limiter,
+nao o checkout (foi o que aconteceu no primeiro teste: 3134 de 3135
+requisicoes voltaram 429 porque o script antigo ficava re-tentando em
+loop). Pra testar volumes maiores que isso de forma limpa, precisa de
+origem distribuida (varias maquinas ou um servico de load-test na nuvem).
 
 ## Depois de rodar
 
