@@ -1,0 +1,24 @@
+name: Keep API awake
+
+# Ping o /api/health do Render a cada 10 minutos pra evitar que o plano
+# free durma (cold start) durante a janela de vendas. Isso NAO resolve
+# capacidade sob carga real - so evita o servidor "dormir" entre acessos.
+# Remover/desativar quando o plano do Render deixar de ser free.
+
+on:
+  schedule:
+    - cron: "*/10 * * * *"
+  workflow_dispatch: {}
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping health endpoint
+        run: |
+          set -e
+          STATUS=$(curl -s -o /dev/null -w "%{http_code}" --max-time 15 https://eventflow-ctdc.onrender.com/api/health)
+          echo "status=$STATUS"
+          if [ "$STATUS" != "200" ]; then
+            echo "::warning::API respondeu $STATUS em vez de 200"
+          fi
