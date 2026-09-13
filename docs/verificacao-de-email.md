@@ -44,6 +44,13 @@ caixa e espaços, então salvar o mesmo endereço não derruba a verificação.
 O envio acontece **fora** da transação: SMTP não segura lock, e uma falha de
 e-mail não desfaz um perfil que o usuário já salvou.
 
+`EmailVerificationService.issue()` não lança — nem no SMTP, nem na criação do
+token. O endereço novo já foi gravado quando ele é chamado, então lançar
+responderia 500 para uma alteração que de fato aconteceu, e o usuário acharia que
+nada mudou. A perda do link é recuperável: a conta fica não verificada e a pessoa
+pede outro em `POST /auth/resend-verification`. O método devolve `boolean` para
+quem quiser registrar o resultado.
+
 ## Compatibilidade com contas existentes
 
 A migração `20260913120000_email_verification` faz o backfill:
@@ -87,3 +94,20 @@ recupera o acesso confirmando o próprio e-mail.
 - `UsersService.update` (`PATCH /users/:id`) continua aceitando `role` no corpo,
   o que permite a um organizador alterar o papel de usuários do próprio tenant.
   Não tem relação com este trabalho, mas merece revisão.
+
+## Simulação de pagamento
+
+Não faz parte deste trabalho, mas foi encontrado no caminho e corrigido junto.
+
+`PAYMENT_SIMULATION_ENABLED` faz `AbacatePayGateway.createCheckout` devolver um
+checkout falso sem chamar o provedor, e `POST /checkout/order/:id/confirm-simulation`
+marcar o pedido como `PAID`. Ou seja: ingresso emitido sem cobrança.
+
+O schema usava `z.coerce.boolean()`, que é `Boolean(string)`: `"false"` virava
+`true`. Com `.default(true)`, a flag também ficava ligada quando ausente. Agora:
+
+- `booleanFromEnv` interpreta as palavras e rejeita valores ambíguos no boot;
+- o padrão é `false`;
+- **a API recusa subir em produção com a flag ligada**, porque parser correto não
+  é proteção suficiente para um bypass de cobrança;
+- `.env.example` sugere `false`.

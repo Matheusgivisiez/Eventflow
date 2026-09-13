@@ -703,6 +703,9 @@ model NotificationLog {
   /// Idempotency key, e.g. "purchase-confirmed:<orderId>". A second attempt
   /// with the same key never produces a second message.
   dedupeKey   String?            @unique
+  /// When a process took ownership of the delivery. Acts as a lease: a row
+  /// claimed moments ago is in flight, one claimed long ago was abandoned.
+  claimedAt   DateTime?
   deliveredAt DateTime?
   sentAt      DateTime           @default(now())
 

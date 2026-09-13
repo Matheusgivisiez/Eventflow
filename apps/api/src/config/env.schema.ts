@@ -110,6 +110,17 @@ export const envSchema = z.object({
 }).superRefine((env, ctx) => {
   if (env.NODE_ENV !== "production") return;
 
+  // The simulation bypasses the payment provider entirely: createCheckout never
+  // calls AbacatePay and confirm-simulation turns an order into PAID. Parsing
+  // the flag correctly is not enough — production must refuse to boot with it on.
+  if (env.PAYMENT_SIMULATION_ENABLED) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["PAYMENT_SIMULATION_ENABLED"],
+      message: "PAYMENT_SIMULATION_ENABLED must be false in production: it issues tickets without charging."
+    });
+  }
+
   for (const key of secretKeys) {
     const value = env[key];
     if (!value) {

@@ -166,3 +166,38 @@ describe("envSchema boolean flags", () => {
     expect(() => envSchema.parse(baseEnv({ PAYMENT_SIMULATION_ENABLED: "talvez" }))).toThrow();
   });
 });
+
+describe("envSchema payment simulation guard", () => {
+  function productionEnv(overrides: Record<string, string | undefined> = {}) {
+    return baseEnv({
+      NODE_ENV: "production",
+      ...strongSecrets,
+      ...strongMail,
+      ...strongStorage,
+      ...overrides
+    });
+  }
+
+  it("refuses to boot in production with the payment simulation on", () => {
+    expect(() => envSchema.parse(productionEnv({ PAYMENT_SIMULATION_ENABLED: "true" }))).toThrow(
+      /PAYMENT_SIMULATION_ENABLED must be false in production/
+    );
+  });
+
+  it("boots in production with the payment simulation off", () => {
+    expect(() =>
+      envSchema.parse(productionEnv({ PAYMENT_SIMULATION_ENABLED: "false" }))
+    ).not.toThrow();
+  });
+
+  it("boots in production when the flag is absent", () => {
+    expect(() => envSchema.parse(productionEnv())).not.toThrow();
+  });
+
+  it("still allows the simulation outside production", () => {
+    const parsed = envSchema.parse(
+      baseEnv({ NODE_ENV: "development", PAYMENT_SIMULATION_ENABLED: "true" })
+    );
+    expect(parsed.PAYMENT_SIMULATION_ENABLED).toBe(true);
+  });
+});

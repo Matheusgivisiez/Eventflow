@@ -32,26 +32,41 @@ export class EmailVerificationService {
 
   /**
    * Invalidates every outstanding link and sends a new one.
-   * Never throws: a mail outage must not break sign-up or a profile update.
+   *
+   * Never throws — token creation included, not only the SMTP call. Callers
+   * invoke this AFTER the account row is already written, so throwing here
+   * would answer 500 for a change that did happen and leave the user believing
+   * it did not. Losing the link is recoverable: the account is unverified and
+   * the person asks for a new one through POST /auth/resend-verification.
+   *
+   * @returns whether a link was actually issued, for callers that want to log it
    */
-  async issue(user: VerifiableUser) {
+  async issue(user: VerifiableUser): Promise<boolean> {
     const email = user.email.toLowerCase();
     const token = randomBytes(32).toString("base64url");
 
-    await this.prisma.$transaction([
-      this.prisma.emailVerificationToken.updateMany({
-        where: { userId: user.id, usedAt: null },
-        data: { usedAt: new Date() }
-      }),
-      this.prisma.emailVerificationToken.create({
-        data: {
-          userId: user.id,
-          email,
-          tokenHash: this.hash(token),
-          expiresAt: new Date(Date.now() + EMAIL_VERIFICATION_TTL_MS)
-        }
-      })
-    ]);
+    try {
+      await this.prisma.$transaction([
+        this.prisma.emailVerificationToken.updateMany({
+          where: { userId: user.id, usedAt: null },
+          data: { usedAt: new Date() }
+        }),
+        this.prisma.emailVerificationToken.create({
+          data: {
+            userId: user.id,
+            email,
+            tokenHash: this.hash(token),
+            expiresAt: new Date(Date.now() + EMAIL_VERIFICATION_TTL_MS)
+          }
+        })
+      ]);
+    } catch (error) {
+      this.logger.error(
+        `Falha ao criar o token de verificacao do usuario ${user.id}. A conta segue nao verificada e pode pedir um novo link.`,
+        error as Error
+      );
+      return false;
+    }
 
     const url = this.verifyEmailUrl(token);
     try {
@@ -63,7 +78,10 @@ export class EmailVerificationService {
       });
     } catch (error) {
       this.logger.error(`Falha ao enviar verificacao de e-mail para o usuario ${user.id}`, error as Error);
+      return false;
     }
+
+    return true;
   }
 
   /**
@@ -71,14 +89,11 @@ export class EmailVerificationService {
    *
    * The caller is responsible for writing `emailVerifiedAt: null` in the same
    * statement that writes the new address — see `clearedVerificationData()`.
-   * This only burns the old links and sends a link to the new address.
+   * `issue()` already burns the outstanding links, so this is just the named
+   * entry point for the e-mail-change path. Never throws, like `issue()`.
    */
-  async handleEmailChanged(user: VerifiableUser) {
-    await this.prisma.emailVerificationToken.updateMany({
-      where: { userId: user.id, usedAt: null },
-      data: { usedAt: new Date() }
-    });
-    await this.issue(user);
+  handleEmailChanged(user: VerifiableUser): Promise<boolean> {
+    return this.issue(user);
   }
 
   /**

@@ -34,10 +34,11 @@ export type PurchaseApprovedInput = {
 const PRISMA_UNIQUE_VIOLATION = "P2002";
 const MAX_DELIVERY_ATTEMPTS = 5;
 /**
- * A row created but never delivered — the process died between the insert and
- * the SMTP call — must not stay PENDING forever behind the dedupe key.
+ * How long a claim is trusted. A row claimed within this window is being
+ * delivered by someone right now; past it, the process that claimed it is
+ * assumed dead and the delivery may be taken over.
  */
-const STALE_PENDING_MS = 1000 * 60 * 5;
+const CLAIM_LEASE_MS = 1000 * 60 * 5;
 
 /** Legacy response shape of POST /notifications. Do not change. */
 export type EnqueuedNotification = {
@@ -105,7 +106,13 @@ export class NotificationsService {
    * a process that died before reaching SMTP.
    */
   private async resume(
-    existing: { id: string; status: NotificationStatus; attempts: number; sentAt: Date },
+    existing: {
+      id: string;
+      status: NotificationStatus;
+      attempts: number;
+      sentAt: Date;
+      claimedAt: Date | null;
+    },
     input: NotifyInput,
     deliverable: boolean
   ) {
@@ -113,12 +120,18 @@ export class NotificationsService {
 
     if (!deliverable) return duplicate;
     if (existing.attempts >= MAX_DELIVERY_ATTEMPTS) return duplicate;
+    if (existing.status === NotificationStatus.SENT || existing.status === NotificationStatus.SKIPPED) {
+      return duplicate;
+    }
 
-    const abandoned =
-      existing.status === NotificationStatus.PENDING &&
-      Date.now() - existing.sentAt.getTime() > STALE_PENDING_MS;
+    // A PENDING row is only up for grabs once its lease expired. Measuring this
+    // from sentAt was wrong: sentAt never moves, so an old row stayed
+    // permanently "abandoned" and a caller arriving one second after the first
+    // would take it over and send the message twice.
+    const leaseStartedAt = existing.claimedAt ?? existing.sentAt;
+    const leaseExpired = Date.now() - leaseStartedAt.getTime() > CLAIM_LEASE_MS;
 
-    if (existing.status !== NotificationStatus.FAILED && !abandoned) {
+    if (existing.status === NotificationStatus.PENDING && !leaseExpired) {
       return duplicate;
     }
 
@@ -134,11 +147,15 @@ export class NotificationsService {
   /**
    * Claims the row before touching SMTP.
    *
-   * `attempts` doubles as a compare-and-swap token: two processes that read the
-   * same value both try to increment it, and only one update matches. Without
-   * this, a duplicate webhook and a reconciliation could deliver the same
-   * message at the same time — the unique key stops a second row, not a second
-   * send.
+   * Two things guard the send, and both are needed:
+   *
+   * - `claimedAt` is a lease: resume() refuses a row someone claimed recently,
+   *   which stops a caller arriving *after* another one started.
+   * - `attempts` is a compare-and-swap token: two callers that read the same
+   *   value both try to increment it and only one update matches, which stops
+   *   callers reading *at the same time*.
+   *
+   * The unique dedupe key stops a second row, never a second send.
    */
   private async attemptDelivery(
     logId: string,
@@ -148,7 +165,7 @@ export class NotificationsService {
   ) {
     const claimed = await this.prisma.notificationLog.updateMany({
       where: { id: logId, attempts: seenAttempts },
-      data: { attempts: seenAttempts + 1 }
+      data: { attempts: seenAttempts + 1, claimedAt: new Date() }
     });
 
     if (claimed.count !== 1) {

@@ -62,7 +62,8 @@ describe("NotificationsService purchase confirmation", () => {
       id: "log-1",
       status: NotificationStatus.SENT,
       attempts: 1,
-      sentAt: new Date()
+      sentAt: new Date(),
+      claimedAt: new Date()
     });
 
     const result = await service.sendPurchaseApproved(purchase);
@@ -78,7 +79,8 @@ describe("NotificationsService purchase confirmation", () => {
       id: "log-1",
       status: NotificationStatus.FAILED,
       attempts: 1,
-      sentAt: new Date()
+      sentAt: new Date(),
+      claimedAt: new Date()
     });
 
     const result = await service.sendPurchaseApproved(purchase);
@@ -94,7 +96,8 @@ describe("NotificationsService purchase confirmation", () => {
       id: "log-1",
       status: NotificationStatus.FAILED,
       attempts: 5,
-      sentAt: new Date()
+      sentAt: new Date(),
+      claimedAt: new Date()
     });
 
     const result = await service.sendPurchaseApproved(purchase);
@@ -220,7 +223,8 @@ describe("NotificationsService queue safety", () => {
       id: "log-1",
       status: NotificationStatus.PENDING,
       attempts: 0,
-      sentAt: new Date(Date.now() - 1000 * 60 * 30)
+      sentAt: new Date(Date.now() - 1000 * 60 * 30),
+      claimedAt: null
     });
 
     const result = await service.sendPurchaseApproved(purchase);
@@ -235,7 +239,8 @@ describe("NotificationsService queue safety", () => {
       id: "log-1",
       status: NotificationStatus.PENDING,
       attempts: 0,
-      sentAt: new Date()
+      sentAt: new Date(),
+      claimedAt: null
     });
 
     const result = await service.sendPurchaseApproved(purchase);
@@ -244,16 +249,67 @@ describe("NotificationsService queue safety", () => {
     expect(result.email.duplicate).toBe(true);
   });
 
-  it("claims the row before touching SMTP", async () => {
+  it("claims the row with a lease before touching SMTP", async () => {
     const { service, prisma, mail } = createService();
 
     await service.sendPurchaseApproved(purchase);
 
     expect(prisma.notificationLog.updateMany).toHaveBeenCalledWith({
       where: { id: "log-1", attempts: 0 },
-      data: { attempts: 1 }
+      data: { attempts: 1, claimedAt: expect.any(Date) }
     });
     expect(mail.send).toHaveBeenCalled();
+  });
+
+  it("does not take over a row another process just claimed, however old the row is", async () => {
+    // The bug this covers: abandonment used to be measured from sentAt, which
+    // never moves. A row created 30 minutes ago looked abandoned forever, so a
+    // second caller arriving right after the first took it over and sent twice.
+    const { service, prisma, mail } = createService();
+    prisma.notificationLog.findUnique.mockResolvedValue({
+      id: "log-1",
+      status: NotificationStatus.PENDING,
+      attempts: 1,
+      sentAt: new Date(Date.now() - 1000 * 60 * 30),
+      claimedAt: new Date(Date.now() - 1000)
+    });
+
+    const result = await service.sendPurchaseApproved(purchase);
+
+    expect(mail.send).not.toHaveBeenCalled();
+    expect(prisma.notificationLog.updateMany).not.toHaveBeenCalled();
+    expect(result.email.duplicate).toBe(true);
+  });
+
+  it("takes over only after the claim lease expires", async () => {
+    const { service, prisma, mail } = createService();
+    prisma.notificationLog.findUnique.mockResolvedValue({
+      id: "log-1",
+      status: NotificationStatus.PENDING,
+      attempts: 1,
+      sentAt: new Date(Date.now() - 1000 * 60 * 30),
+      claimedAt: new Date(Date.now() - 1000 * 60 * 10)
+    });
+
+    const result = await service.sendPurchaseApproved(purchase);
+
+    expect(mail.send).toHaveBeenCalledTimes(1);
+    expect(result.email.status).toBe(NotificationStatus.SENT);
+  });
+
+  it("never re-sends a row that already went out", async () => {
+    const { service, prisma, mail } = createService();
+    prisma.notificationLog.findUnique.mockResolvedValue({
+      id: "log-1",
+      status: NotificationStatus.SENT,
+      attempts: 1,
+      sentAt: new Date(Date.now() - 1000 * 60 * 60),
+      claimedAt: new Date(Date.now() - 1000 * 60 * 60)
+    });
+
+    await service.sendPurchaseApproved(purchase);
+
+    expect(mail.send).not.toHaveBeenCalled();
   });
 
   it("does not send when another process claimed the same row first", async () => {

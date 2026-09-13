@@ -35,16 +35,25 @@ A chave da confirmação de compra é `purchase-confirmed:<orderId>`. Com isso:
 - uma corrida entre dois processos é resolvida pelo índice único (violação
   `P2002` é tratada como duplicidade, não como erro).
 
-Antes de tocar no SMTP, a linha é **reivindicada**: `attempts` funciona como
-token de compare-and-swap, e de dois processos que leram o mesmo valor só um
-consegue incrementá-lo. A chave única impede uma segunda linha; só a
-reivindicação impede um segundo envio.
+Duas travas protegem o envio, e **as duas são necessárias**:
+
+- `claimedAt` é um *lease*: quem chega depois vê que alguém assumiu a entrega há
+  pouco e desiste. Cobre chamadas sequenciais.
+- `attempts` é um token de compare-and-swap: de dois processos que leram o mesmo
+  valor, só um consegue incrementá-lo. Cobre chamadas simultâneas.
+
+A chave única impede uma segunda linha, nunca um segundo envio.
+
+Uma versão anterior media o abandono a partir de `sentAt`. Como `sentAt` nunca
+muda, uma linha antiga parecia abandonada para sempre: o processo A assumia a
+entrega e o processo B, chegando um segundo depois, assumia de novo e enviava o
+e-mail duas vezes. O `claimedAt` existe exatamente por isso.
 
 Uma entrega que falhou (`status = FAILED`) é retentada na próxima vez que aquele
-pedido passar pelo funil, até `MAX_DELIVERY_ATTEMPTS`. Uma linha que ficou
-`PENDING` por mais de 5 minutos — processo morto entre o insert e o SMTP — é
-tratada como abandonada e também é retentada, em vez de ficar presa para sempre
-atrás da chave de deduplicação.
+pedido passar pelo funil, até `MAX_DELIVERY_ATTEMPTS` — sem esperar o lease, já
+que uma linha `FAILED` significa que o processo anterior terminou. Uma linha que
+ficou `PENDING` com o lease vencido (5 minutos) é tratada como abandonada e
+também volta a ser entregável.
 
 **Não existe worker de retentativa automática**: a retentativa depende de um novo
 evento sobre o pedido. O índice `(status, sentAt)` já permite varrer as falhas em
