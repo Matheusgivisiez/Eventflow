@@ -56,6 +56,17 @@ describe("NotificationRetryService", () => {
     ]);
   });
 
+  it("ignores rows that already exhausted their attempts", async () => {
+    // Fifty exhausted rows would otherwise fill every batch forever and the
+    // newer deliveries would never get a turn.
+    const { service, prisma } = createService();
+
+    await service.retryStuckNotifications(now);
+
+    const where = prisma.notificationLog.findMany.mock.calls[0][0].where;
+    expect(where.attempts).toEqual({ lt: 5 });
+  });
+
   it("ignores rows older than a week", async () => {
     const { service, prisma } = createService();
 

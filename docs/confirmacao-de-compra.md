@@ -35,12 +35,15 @@ A chave da confirmação de compra é `purchase-confirmed:<orderId>`. Com isso:
 - uma corrida entre dois processos é resolvida pelo índice único (violação
   `P2002` é tratada como duplicidade, não como erro).
 
-Duas travas protegem o envio, e **as duas são necessárias**:
+A reivindicação é **uma única escrita atômica** que faz três coisas juntas:
 
-- `claimedAt` é um *lease*: quem chega depois vê que alguém assumiu a entrega há
-  pouco e desiste. Cobre chamadas sequenciais.
-- `attempts` é um token de compare-and-swap: de dois processos que leram o mesmo
-  valor, só um consegue incrementá-lo. Cobre chamadas simultâneas.
+- move a linha para `PENDING`, que é o estado *em voo*, venha ela de onde vier;
+- grava `claimedAt`, que inicia o lease;
+- incrementa `attempts`, que serve de token de compare-and-swap.
+
+As três são necessárias e cobrem coisas diferentes. O lease cobre quem chega
+**depois**; o compare-and-swap cobre quem lê **ao mesmo tempo**; e mover para
+`PENDING` é o que faz o lease valer para qualquer origem.
 
 A chave única impede uma segunda linha, nunca um segundo envio.
 
@@ -49,11 +52,16 @@ muda, uma linha antiga parecia abandonada para sempre: o processo A assumia a
 entrega e o processo B, chegando um segundo depois, assumia de novo e enviava o
 e-mail duas vezes. O `claimedAt` existe exatamente por isso.
 
-Uma entrega que falhou (`status = FAILED`) é retentada na próxima vez que aquele
-pedido passar pelo funil, até `MAX_DELIVERY_ATTEMPTS` — sem esperar o lease, já
-que uma linha `FAILED` significa que o processo anterior terminou. Uma linha que
-ficou `PENDING` com o lease vencido (5 minutos) é tratada como abandonada e
-também volta a ser entregável.
+Uma entrega que falhou (`status = FAILED`) é retentada assim que aquele pedido
+voltar ao funil, até `MAX_DELIVERY_ATTEMPTS`, sem esperar o lease: uma linha
+`FAILED` não tem dono, porque a tentativa anterior já terminou e escreveu o
+resultado. Uma linha `PENDING` com o lease vencido (5 minutos) é tratada como
+abandonada e também volta a ser entregável.
+
+Houve uma versão em que a retentativa de uma linha `FAILED` a mantinha `FAILED`
+durante a chamada ao SMTP. Como o lease só se aplica a `PENDING`, aquela entrega
+em voo ficava invisível: um segundo processo lia a linha, não via dono e enviava
+de novo. Por isso a reivindicação move o estado, e não só carimba a data.
 
 ## Retentativa automática
 

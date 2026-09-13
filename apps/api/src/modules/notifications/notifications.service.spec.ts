@@ -256,7 +256,7 @@ describe("NotificationsService queue safety", () => {
 
     expect(prisma.notificationLog.updateMany).toHaveBeenCalledWith({
       where: { id: "log-1", attempts: 0 },
-      data: { attempts: 1, claimedAt: expect.any(Date) }
+      data: { attempts: 1, claimedAt: expect.any(Date), status: NotificationStatus.PENDING }
     });
     expect(mail.send).toHaveBeenCalled();
   });
@@ -358,5 +358,88 @@ describe("NotificationsService public API contract", () => {
     });
 
     expect(mail.send).not.toHaveBeenCalled();
+  });
+});
+
+describe("NotificationsService retry of a failed delivery", () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  it("moves the row to the in-flight state when retaking a FAILED delivery", async () => {
+    // The row must not stay FAILED while SMTP runs. The lease only covers
+    // PENDING, so a FAILED row in flight was invisible to the next caller.
+    const { service, prisma } = createService();
+    prisma.notificationLog.findUnique.mockResolvedValue({
+      id: "log-1",
+      status: NotificationStatus.FAILED,
+      attempts: 1,
+      sentAt: new Date(Date.now() - 1000 * 60 * 60),
+      claimedAt: new Date(Date.now() - 1000 * 60 * 60)
+    });
+
+    await service.sendPurchaseApproved(purchase);
+
+    expect(prisma.notificationLog.updateMany).toHaveBeenCalledWith({
+      where: { id: "log-1", attempts: 1 },
+      data: { attempts: 2, claimedAt: expect.any(Date), status: NotificationStatus.PENDING }
+    });
+  });
+
+  it("does not send twice on two sequential calls over a FAILED row", async () => {
+    // Two callers, one after the other. The first retakes the row and flips it
+    // to PENDING; the second must see an in-flight delivery and stand down.
+    const { service, prisma, mail } = createService();
+
+    // Stateful mock of the one row, keyed by dedupe key: sendPurchaseApproved
+    // also looks up the WhatsApp row, so call order alone is not enough.
+    let row: Record<string, unknown> = {
+      id: "log-1",
+      status: NotificationStatus.FAILED,
+      attempts: 1,
+      sentAt: new Date(Date.now() - 1000 * 60 * 60),
+      claimedAt: new Date(Date.now() - 1000 * 60 * 60)
+    };
+    const emailKey = `purchase-confirmed:${purchase.orderId}`;
+
+    prisma.notificationLog.findUnique.mockImplementation(async ({ where }: any) =>
+      where.dedupeKey === emailKey ? row : null
+    );
+    prisma.notificationLog.updateMany.mockImplementation(async ({ where, data }: any) => {
+      if (where.attempts !== row.attempts) return { count: 0 };
+      row = { ...row, ...data };
+      return { count: 1 };
+    });
+    prisma.notificationLog.update.mockImplementation(async ({ data }: any) => {
+      row = { ...row, ...data };
+      return row;
+    });
+
+    await service.sendPurchaseApproved(purchase);
+    const second = await service.sendPurchaseApproved(purchase);
+
+    expect(mail.send).toHaveBeenCalledTimes(1);
+    expect(second.email.duplicate).toBe(true);
+  });
+
+  it("marks the row FAILED again when the retry also fails", async () => {
+    const { service, prisma, mail } = createService();
+    prisma.notificationLog.findUnique.mockResolvedValue({
+      id: "log-1",
+      status: NotificationStatus.FAILED,
+      attempts: 1,
+      sentAt: new Date(Date.now() - 1000 * 60 * 60),
+      claimedAt: new Date(Date.now() - 1000 * 60 * 60)
+    });
+    mail.send.mockRejectedValue(new Error("SMTP down"));
+
+    const result = await service.sendPurchaseApproved(purchase);
+
+    expect(result.email.status).toBe(NotificationStatus.FAILED);
+    expect(prisma.notificationLog.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ status: NotificationStatus.FAILED })
+      })
+    );
   });
 });

@@ -2,12 +2,14 @@ import { Injectable, Logger, OnModuleDestroy, OnModuleInit } from "@nestjs/commo
 import { ConfigService } from "@nestjs/config";
 import { NotificationEvent, NotificationStatus, NotificationType } from "@prisma/client";
 import { PrismaService } from "../../prisma/prisma.service";
-import { PURCHASE_CONFIRMED_DEDUPE_PREFIX } from "../notifications/notifications.service";
+import {
+  CLAIM_LEASE_MS,
+  MAX_DELIVERY_ATTEMPTS,
+  PURCHASE_CONFIRMED_DEDUPE_PREFIX
+} from "../notifications/notifications.service";
 import { PaymentsService } from "../payments/payments.service";
 
 const RETRY_INTERVAL_MS = 120_000;
-/** Same window the delivery lease uses: below it, someone may still be sending. */
-const CLAIM_LEASE_MS = 1000 * 60 * 5;
 /** Rows older than this are history, not a delivery someone is still waiting for. */
 const MAX_AGE_MS = 1000 * 60 * 60 * 24 * 7;
 const BATCH_SIZE = 50;
@@ -66,6 +68,9 @@ export class NotificationRetryService implements OnModuleInit, OnModuleDestroy {
           event: NotificationEvent.PURCHASE_CONFIRMED,
           dedupeKey: { startsWith: PURCHASE_CONFIRMED_DEDUPE_PREFIX },
           sentAt: { gte: ageCutoff },
+          // Exhausted rows would otherwise fill every batch forever and starve
+          // the deliveries that still have a chance.
+          attempts: { lt: MAX_DELIVERY_ATTEMPTS },
           OR: [
             { status: NotificationStatus.FAILED },
             {

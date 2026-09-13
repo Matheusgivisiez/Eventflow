@@ -35,13 +35,13 @@ export type PurchaseApprovedInput = {
 export const PURCHASE_CONFIRMED_DEDUPE_PREFIX = "purchase-confirmed:";
 
 const PRISMA_UNIQUE_VIOLATION = "P2002";
-const MAX_DELIVERY_ATTEMPTS = 5;
+export const MAX_DELIVERY_ATTEMPTS = 5;
 /**
  * How long a claim is trusted. A row claimed within this window is being
  * delivered by someone right now; past it, the process that claimed it is
  * assumed dead and the delivery may be taken over.
  */
-const CLAIM_LEASE_MS = 1000 * 60 * 5;
+export const CLAIM_LEASE_MS = 1000 * 60 * 5;
 
 /** Legacy response shape of POST /notifications. Do not change. */
 export type EnqueuedNotification = {
@@ -127,15 +127,16 @@ export class NotificationsService {
       return duplicate;
     }
 
-    // A PENDING row is only up for grabs once its lease expired. Measuring this
-    // from sentAt was wrong: sentAt never moves, so an old row stayed
-    // permanently "abandoned" and a caller arriving one second after the first
-    // would take it over and send the message twice.
-    const leaseStartedAt = existing.claimedAt ?? existing.sentAt;
-    const leaseExpired = Date.now() - leaseStartedAt.getTime() > CLAIM_LEASE_MS;
-
-    if (existing.status === NotificationStatus.PENDING && !leaseExpired) {
-      return duplicate;
+    // PENDING is the in-flight state: attemptDelivery moves the row there when
+    // it claims it, whatever the row was before. So a PENDING row within its
+    // lease belongs to someone who is sending right now, and only an expired
+    // lease means the owner died. A FAILED row has no owner — the previous
+    // attempt already finished and wrote the result — so it is free to retake.
+    if (existing.status === NotificationStatus.PENDING) {
+      const leaseStartedAt = existing.claimedAt ?? existing.sentAt;
+      if (Date.now() - leaseStartedAt.getTime() <= CLAIM_LEASE_MS) {
+        return duplicate;
+      }
     }
 
     const result = await this.attemptDelivery(
@@ -150,13 +151,16 @@ export class NotificationsService {
   /**
    * Claims the row before touching SMTP.
    *
-   * Two things guard the send, and both are needed:
+   * The claim is a single atomic write that does three things together:
    *
-   * - `claimedAt` is a lease: resume() refuses a row someone claimed recently,
-   *   which stops a caller arriving *after* another one started.
-   * - `attempts` is a compare-and-swap token: two callers that read the same
-   *   value both try to increment it and only one update matches, which stops
-   *   callers reading *at the same time*.
+   * - moves the row to PENDING, the in-flight state. Without this a retry of a
+   *   FAILED row stayed FAILED while the SMTP call was running, so the lease —
+   *   which only applies to PENDING — never covered it and a second caller
+   *   sent the message again.
+   * - stamps `claimedAt`, which starts the lease resume() checks.
+   * - increments `attempts`, which doubles as a compare-and-swap token: two
+   *   callers that read the same value both try to increment it and only one
+   *   update matches, covering callers that read at the same instant.
    *
    * The unique dedupe key stops a second row, never a second send.
    */
@@ -168,7 +172,11 @@ export class NotificationsService {
   ) {
     const claimed = await this.prisma.notificationLog.updateMany({
       where: { id: logId, attempts: seenAttempts },
-      data: { attempts: seenAttempts + 1, claimedAt: new Date() }
+      data: {
+        attempts: seenAttempts + 1,
+        claimedAt: new Date(),
+        status: NotificationStatus.PENDING
+      }
     });
 
     if (claimed.count !== 1) {
