@@ -12,7 +12,9 @@ import { LoginDto } from "./dto/login.dto";
 import { RefreshTokenDto } from "./dto/refresh-token.dto";
 import { RegisterDto } from "./dto/register.dto";
 import { RegisterOrganizerDto } from "./dto/register-organizer.dto";
+import { ResendVerificationDto } from "./dto/resend-verification.dto";
 import { ResetPasswordDto } from "./dto/reset-password.dto";
+import { VerifyEmailDto } from "./dto/verify-email.dto";
 
 @ApiTags("Autenticacao")
 @Controller("auth")
@@ -68,6 +70,18 @@ export class AuthController {
   @Throttle({ auth: { limit: 5, ttl: 60000 } })
   resetPassword(@Body() dto: ResetPasswordDto) {
     return this.auth.resetPassword(dto);
+  }
+
+  @Post("verify-email")
+  @Throttle({ auth: { limit: 10, ttl: 60000 } })
+  verifyEmail(@Body() dto: VerifyEmailDto) {
+    return this.auth.verifyEmail(dto.token);
+  }
+
+  @Post("resend-verification")
+  @Throttle({ auth: { limit: 3, ttl: 60000 } })
+  resendVerification(@Body() dto: ResendVerificationDto) {
+    return this.auth.resendEmailVerification(dto.email);
   }
 
   @Get("me")

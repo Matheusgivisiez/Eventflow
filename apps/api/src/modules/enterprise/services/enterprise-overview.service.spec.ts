@@ -35,7 +35,7 @@ function createPrisma(overrides: Record<string, unknown> = {}) {
 }
 
 describe("EnterpriseOverviewService readiness", () => {
-  const user = { id: "user-1", tenantId: "tenant-1", email: "organizer@example.com", role: UserRole.ORGANIZER };
+  const user = { id: "user-1", tenantId: "tenant-1", email: "organizer@example.com", emailVerified: true, role: UserRole.ORGANIZER };
 
   it("does not mark tenant modules as production ready without real setup data", async () => {
     const service = new EnterpriseOverviewService(createPrisma() as any);

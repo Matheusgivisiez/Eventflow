@@ -2,7 +2,7 @@ import { BadRequestException } from "@nestjs/common";
 import { CheckInStatus, TicketStatus, UserRole } from "@prisma/client";
 import { EnterpriseMobileService } from "./enterprise-mobile.service";
 
-const user = { id: "operator-1", tenantId: "tenant-1", email: "operator@example.com", role: UserRole.TEAM };
+const user = { id: "operator-1", tenantId: "tenant-1", email: "operator@example.com", emailVerified: true, role: UserRole.TEAM };
 
 function createService() {
   const prisma = {

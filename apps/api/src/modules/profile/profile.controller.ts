@@ -2,6 +2,7 @@ import { Body, Controller, Get, Patch, UseGuards } from "@nestjs/common";
 import { ApiBearerAuth, ApiTags } from "@nestjs/swagger";
 import { CurrentUser } from "../../common/decorators/current-user.decorator";
 import { JwtAuthGuard } from "../../common/guards/jwt-auth.guard";
+import { resolveClaimEmail } from "../../common/utils/claim-email.utils";
 import { RequestUser } from "../../common/types/request-user";
 import { ChangePasswordDto, UpdateProfileDto } from "./dto/update-profile.dto";
 import { ProfileService } from "./profile.service";
@@ -25,6 +26,6 @@ export class ProfileController {
 
   @Get("tickets")
   myTickets(@CurrentUser() user: RequestUser) {
-    return this.profile.myTickets(user.email);
+    return this.profile.myTickets(resolveClaimEmail(user), user.id);
   }
 }

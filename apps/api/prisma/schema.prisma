@@ -213,6 +213,7 @@ model User {
   email        String         @unique
   passwordHash String
   tokenVersion Int            @default(0)
+  emailVerifiedAt DateTime?
   phone        String?
   cpf          String?
   role         UserRole       @default(ORGANIZER)
@@ -222,6 +223,7 @@ model User {
   tenant       Tenant?        @relation(fields: [tenantId], references: [id])
   refreshes    RefreshToken[]
   resets       PasswordResetToken[]
+  emailVerifications EmailVerificationToken[]
   events       Event[]        @relation("EventOwner")
   orders       Order[]
   checkIns     CheckInLog[]
@@ -253,6 +255,19 @@ model PasswordResetToken {
   usedAt    DateTime?
   createdAt DateTime @default(now())
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model EmailVerificationToken {
+  id        String   @id @default(cuid())
+  userId    String
+  email     String
+  tokenHash String   @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
 }
 
 // ─── Team ───────────────────────────────────────────────────────

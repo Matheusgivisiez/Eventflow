@@ -103,6 +103,34 @@ describe("BuyerService.listTickets", () => {
     });
   });
 
+  it("never matches guest orders by e-mail when the account e-mail is unverified", async () => {
+    const { service, prisma } = createService();
+    prisma.ticket.findMany.mockResolvedValue([]);
+
+    await service.listTickets("user-1", null);
+
+    const where = prisma.ticket.findMany.mock.calls[0][0].where;
+    expect(JSON.stringify(where)).not.toContain("buyerEmail");
+    expect(JSON.stringify(where)).not.toContain("attendeeEmail");
+    expect(where.OR).toEqual([
+      { ownerId: "user-1" },
+      { ownerId: null, OR: [{ order: { userId: "user-1" } }] },
+    ]);
+  });
+
+  it("never reconciles orphan guest orders by e-mail when the account e-mail is unverified", async () => {
+    const { service, prisma } = createService();
+    prisma.ticket.findMany.mockResolvedValue([]);
+
+    await service.listTickets("user-1", null);
+
+    expect(prisma.order.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({ OR: [{ userId: "user-1" }] }),
+      }),
+    );
+  });
+
   it("repairs paid orders that never emitted tickets before listing the wallet", async () => {
     const { service, prisma } = createService();
     prisma.order.findMany.mockResolvedValue([

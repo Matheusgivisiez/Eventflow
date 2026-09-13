@@ -3,6 +3,7 @@ import { ConfigService } from "@nestjs/config";
 import { NotificationEvent, NotificationType, Prisma, TicketStatus, TransferStatus, User, UserRole } from "@prisma/client";
 import * as QRCode from "qrcode";
 import { createHash, createHmac, randomUUID } from "crypto";
+import { resolveClaimEmail } from "../../common/utils/claim-email.utils";
 import { RequestUser } from "../../common/types/request-user";
 import { PrismaService } from "../../prisma/prisma.service";
 import { AuditService } from "../audit/audit.service";
@@ -114,13 +115,14 @@ export class TransfersService {
     await this.expirePendingTransfers();
     const { page, perPage } = this.pagination(query);
     const receiverCpfValues = await this.userCpfValues(user);
+    const claimEmail = resolveClaimEmail(user);
 
     return this.prisma.transfer.findMany({
       where: {
         status: query.status,
         OR: [
           { receiverId: user.id },
-          { receiverEmail: user.email.toLowerCase() },
+          ...(claimEmail ? [{ receiverEmail: claimEmail }] : []),
           ...(receiverCpfValues.length ? [{ receiverCpf: { in: receiverCpfValues } }] : [])
         ]
       },
@@ -148,13 +150,14 @@ export class TransfersService {
     await this.expirePendingTransfers();
     const { page, perPage } = this.pagination(query);
     const receiverCpfValues = await this.userCpfValues(user);
+    const claimEmail = resolveClaimEmail(user);
 
     return this.prisma.transfer.findMany({
       where: {
         OR: [
           { senderId: user.id },
           { receiverId: user.id },
-          { receiverEmail: user.email.toLowerCase() },
+          ...(claimEmail ? [{ receiverEmail: claimEmail }] : []),
           ...(receiverCpfValues.length ? [{ receiverCpf: { in: receiverCpfValues } }] : [])
         ]
       },
@@ -354,16 +357,23 @@ export class TransfersService {
   }
 
   private async findOwnedTicket(user: RequestUser, ticketId: string) {
-    const email = user.email.toLowerCase();
+    // Only a verified address may claim a guest ticket. Otherwise anyone could
+    // register with someone else's e-mail and transfer that person's ticket away.
+    const email = resolveClaimEmail(user);
     const ticket = await this.prisma.ticket.findFirst({
       where: {
         id: ticketId,
         OR: [
           { ownerId: user.id },
-          {
-            ownerId: null,
-            OR: [{ attendeeEmail: email }, { order: { buyerEmail: email } }]
-          }
+          { ownerId: null, order: { userId: user.id } },
+          ...(email
+            ? [
+                {
+                  ownerId: null,
+                  OR: [{ attendeeEmail: email }, { order: { buyerEmail: email } }]
+                }
+              ]
+            : [])
         ]
       },
       include: { event: true, ticketType: true, order: true }
@@ -404,7 +414,11 @@ export class TransfersService {
     if (transfer.status !== TransferStatus.PENDING) {
       throw new BadRequestException("Esta transferencia nao esta pendente.");
     }
-    if (transfer.receiverId === user.id || transfer.receiverEmail === user.email.toLowerCase()) {
+    const claimEmail = resolveClaimEmail(user);
+    if (transfer.receiverId === user.id) {
+      return transfer;
+    }
+    if (claimEmail && transfer.receiverEmail === claimEmail) {
       return transfer;
     }
     if (transfer.receiverCpf) {
@@ -429,9 +443,12 @@ export class TransfersService {
   }
 
   private async userCpfValues(user: RequestUser) {
+    // buyerEmail may only be used once the address is proven — otherwise this
+    // hands the CPF of any guest buyer to whoever registers with their e-mail.
+    const claimEmail = resolveClaimEmail(user);
     const orders = await this.prisma.order.findMany({
       where: {
-        OR: [{ userId: user.id }, { buyerEmail: user.email.toLowerCase() }],
+        OR: [{ userId: user.id }, ...(claimEmail ? [{ buyerEmail: claimEmail }] : [])],
         buyerDocument: { not: null }
       },
       select: { buyerDocument: true },

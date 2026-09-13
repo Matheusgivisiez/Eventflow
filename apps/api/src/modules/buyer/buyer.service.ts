@@ -22,9 +22,14 @@ export class BuyerService {
     private readonly cache: CacheService,
   ) {}
 
-  async listTickets(userId: string, email: string, scope?: "future" | "past") {
+  /**
+   * @param email verified e-mail of the account, or null when unverified.
+   *   Passing null is what keeps an unverified account from claiming guest
+   *   purchases that merely carry the same buyerEmail.
+   */
+  async listTickets(userId: string, email: string | null, scope?: "future" | "past") {
     const now = new Date();
-    const normalizedEmail = email.toLowerCase();
+    const normalizedEmail = email?.toLowerCase() ?? null;
     await this.reconcileOwnedOrders(userId, normalizedEmail);
     const eventScope =
       scope === "future"
@@ -51,8 +56,12 @@ export class BuyerService {
             ownerId: null,
             OR: [
               { order: { userId } },
-              { attendeeEmail: normalizedEmail },
-              { order: { buyerEmail: normalizedEmail } },
+              ...(normalizedEmail
+                ? [
+                    { attendeeEmail: normalizedEmail },
+                    { order: { buyerEmail: normalizedEmail } },
+                  ]
+                : []),
             ],
           },
         ],
@@ -87,8 +96,8 @@ export class BuyerService {
     });
   }
 
-  private async reconcileOwnedOrders(userId: string, email: string) {
-    const cacheKey = `buyer:reconcile:${userId}:${email}`;
+  private async reconcileOwnedOrders(userId: string, email: string | null) {
+    const cacheKey = `buyer:reconcile:${userId}:${email ?? "-"}`;
     if (await this.cache.get(cacheKey)) return;
 
     const orders = await this.prisma.order.findMany({
@@ -96,7 +105,7 @@ export class BuyerService {
         status: { in: [PaymentStatus.PENDING, PaymentStatus.PAID] },
         OR: [
           { userId },
-          { userId: null, buyerEmail: email },
+          ...(email ? [{ userId: null, buyerEmail: email }] : []),
         ],
       },
       select: {
@@ -124,7 +133,7 @@ export class BuyerService {
     await this.cache.set(cacheKey, { checkedAt: Date.now() }, 60);
   }
 
-  async requestRefund(userId: string, email: string, ticketId: string, confirmation: string) {
+  async requestRefund(userId: string, email: string | null, ticketId: string, confirmation: string) {
     this.confirmSensitiveAction(confirmation);
     const ticket = await this.findOwnedTicket(userId, email, ticketId);
     if (ticket.status !== TicketStatus.AVAILABLE) {
@@ -179,7 +188,7 @@ export class BuyerService {
     };
   }
 
-  async ticketPdf(userId: string, email: string, ticketId: string) {
+  async ticketPdf(userId: string, email: string | null, ticketId: string) {
     const ticket = await this.findOwnedTicket(userId, email, ticketId);
 
     if (isQrCodeLocked(ticket.event)) {
@@ -202,7 +211,7 @@ export class BuyerService {
 
   async walletPayload(
     userId: string,
-    email: string,
+    email: string | null,
     ticketId: string,
     provider: "google" | "apple",
   ) {
@@ -240,22 +249,27 @@ export class BuyerService {
 
   private async findOwnedTicket(
     userId: string,
-    email: string,
+    email: string | null,
     ticketId: string,
   ) {
-    const normalizedEmail = email.toLowerCase();
+    const normalizedEmail = email?.toLowerCase() ?? null;
     const ticket = await this.prisma.ticket.findFirst({
       where: {
         id: ticketId,
         OR: [
           { ownerId: userId },
-          {
-            ownerId: null,
-            OR: [
-              { attendeeEmail: normalizedEmail },
-              { order: { buyerEmail: normalizedEmail } },
-            ],
-          },
+          { ownerId: null, order: { userId } },
+          ...(normalizedEmail
+            ? [
+                {
+                  ownerId: null,
+                  OR: [
+                    { attendeeEmail: normalizedEmail },
+                    { order: { buyerEmail: normalizedEmail } },
+                  ],
+                },
+              ]
+            : []),
         ],
       },
       include: { event: true, ticketType: true, order: true },

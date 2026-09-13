@@ -10,6 +10,8 @@ export type AuthUser = {
   name: string;
   email: string;
   phone?: string;
+  /** True once the account proved it controls its e-mail address. */
+  emailVerified?: boolean;
   role: "ADMIN" | "ORGANIZER" | "TEAM" | "CHECKIN" | "PROMOTER" | "CUSTOMER";
 };
 

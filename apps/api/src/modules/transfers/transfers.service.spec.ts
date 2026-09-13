@@ -11,6 +11,7 @@ const sender = {
   id: "sender-1",
   tenantId: null,
   email: "sender@example.com",
+  emailVerified: true,
   role: UserRole.CUSTOMER
 };
 
@@ -18,6 +19,7 @@ const receiver = {
   id: "receiver-1",
   tenantId: null,
   email: "receiver@example.com",
+  emailVerified: true,
   role: UserRole.CUSTOMER
 };
 
@@ -258,5 +260,39 @@ describe("TransfersService", () => {
 
     expect(prisma.transfer.updateMany).not.toHaveBeenCalled();
     expect(prisma.transferHistory.createMany).not.toHaveBeenCalled();
+  });
+});
+
+describe("TransfersService ownership by e-mail", () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  it("does not look up guest tickets by e-mail when the sender e-mail is unverified", async () => {
+    const { service, prisma } = createService();
+    prisma.ticket.findFirst.mockResolvedValue(null);
+
+    await expect(
+      service.create({ ...sender, emailVerified: false }, {
+        ticketId: "ticket-1",
+        receiverEmail: receiver.email,
+        confirmation: "CONFIRMAR"
+      })
+    ).rejects.toThrow();
+
+    const where = prisma.ticket.findFirst.mock.calls[0][0].where;
+    expect(JSON.stringify(where)).not.toContain("buyerEmail");
+    expect(JSON.stringify(where)).not.toContain("attendeeEmail");
+  });
+
+  it("does not read the CPF of guest orders when the sender e-mail is unverified", async () => {
+    const { service, prisma } = createService();
+    prisma.order.findMany.mockResolvedValue([]);
+    prisma.transfer.findMany.mockResolvedValue([]);
+
+    await service.received({ ...sender, emailVerified: false }, {});
+
+    const where = prisma.order.findMany.mock.calls[0][0].where;
+    expect(where.OR).toEqual([{ userId: sender.id }]);
   });
 });

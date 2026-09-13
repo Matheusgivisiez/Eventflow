@@ -1,9 +1,9 @@
-import { ConflictException, Injectable, NotFoundException, UnauthorizedException } from "@nestjs/common";
+import { ConflictException, Injectable, Logger, NotFoundException, UnauthorizedException } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { JwtService } from "@nestjs/jwt";
 import { User, UserRole } from "@prisma/client";
 import * as bcrypt from "bcryptjs";
-import { createHash, randomUUID } from "crypto";
+import { createHash, randomBytes, randomUUID } from "crypto";
 import { PrismaService } from "../../prisma/prisma.service";
 import { MailService } from "../../common/services/mail.service";
 import { BecomeOrganizerDto } from "./dto/become-organizer.dto";
@@ -14,8 +14,13 @@ import { RegisterDto } from "./dto/register.dto";
 import { RegisterOrganizerDto } from "./dto/register-organizer.dto";
 import { ResetPasswordDto } from "./dto/reset-password.dto";
 
+const EMAIL_VERIFICATION_TTL_MS = 1000 * 60 * 30;
+const EMAIL_VERIFICATION_RESEND_COOLDOWN_MS = 1000 * 60;
+
 @Injectable()
 export class AuthService {
+  private readonly logger = new Logger(AuthService.name);
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly jwt: JwtService,
@@ -47,6 +52,7 @@ export class AuthService {
           }
         });
       });
+      await this.issueEmailVerification(user);
       return this.issueSession(user);
     }
 
@@ -62,6 +68,7 @@ export class AuthService {
       }
     });
 
+    await this.issueEmailVerification(user);
     return this.issueSession(user);
   }
 
@@ -102,6 +109,7 @@ export class AuthService {
       });
     });
 
+    await this.issueEmailVerification(user);
     return this.issueSession(user);
   }
 
@@ -250,15 +258,107 @@ export class AuthService {
     return { message: "Senha atualizada com sucesso." };
   }
 
+  async verifyEmail(token: string) {
+    const record = await this.prisma.emailVerificationToken.findFirst({
+      where: {
+        tokenHash: this.hash(token),
+        usedAt: null,
+        expiresAt: { gt: new Date() }
+      },
+      include: { user: true }
+    });
+
+    if (!record) {
+      throw new UnauthorizedException("Token expirado ou invalido.");
+    }
+
+    // The address is only proven if it is still the account's address.
+    if (record.email !== record.user.email.toLowerCase()) {
+      throw new UnauthorizedException("Token expirado ou invalido.");
+    }
+
+    await this.prisma.$transaction([
+      this.prisma.user.update({
+        where: { id: record.userId },
+        data: { emailVerifiedAt: record.user.emailVerifiedAt ?? new Date() }
+      }),
+      this.prisma.emailVerificationToken.update({
+        where: { id: record.id },
+        data: { usedAt: new Date() }
+      }),
+      this.prisma.emailVerificationToken.updateMany({
+        where: { userId: record.userId, usedAt: null },
+        data: { usedAt: new Date() }
+      })
+    ]);
+
+    return { message: "E-mail confirmado com sucesso.", email: record.email };
+  }
+
+  async resendEmailVerification(email: string) {
+    // Neutral response: it must not reveal whether an account exists.
+    const neutral = { message: "Se a conta existir e ainda nao estiver confirmada, enviaremos um novo link." };
+    const user = await this.prisma.user.findUnique({ where: { email: email.toLowerCase() } });
+    if (!user || user.emailVerifiedAt) {
+      return neutral;
+    }
+
+    const lastSent = await this.prisma.emailVerificationToken.findFirst({
+      where: { userId: user.id },
+      orderBy: { createdAt: "desc" },
+      select: { createdAt: true }
+    });
+    if (lastSent && Date.now() - lastSent.createdAt.getTime() < EMAIL_VERIFICATION_RESEND_COOLDOWN_MS) {
+      return neutral;
+    }
+
+    await this.issueEmailVerification(user);
+    return neutral;
+  }
+
+  private async issueEmailVerification(user: { id: string; email: string; name: string }) {
+    const email = user.email.toLowerCase();
+    const token = randomBytes(32).toString("base64url");
+
+    await this.prisma.$transaction([
+      // A new link invalidates the previous ones.
+      this.prisma.emailVerificationToken.updateMany({
+        where: { userId: user.id, usedAt: null },
+        data: { usedAt: new Date() }
+      }),
+      this.prisma.emailVerificationToken.create({
+        data: {
+          userId: user.id,
+          email,
+          tokenHash: this.hash(token),
+          expiresAt: new Date(Date.now() + EMAIL_VERIFICATION_TTL_MS)
+        }
+      })
+    ]);
+
+    const url = this.verifyEmailUrl(token);
+    try {
+      await this.mail.send({
+        to: email,
+        subject: "Confirme seu e-mail Event Flow",
+        text: `Confirme seu e-mail para reunir seus ingressos: ${url}`,
+        html: `<p>Ola, ${this.escapeHtml(user.name)}.</p><p>Confirme seu e-mail para reunir suas compras em Meus Ingressos.</p><p><a href="${url}">Confirmar e-mail</a></p><p>Este link expira em 30 minutos e so pode ser usado uma vez.</p>`
+      });
+    } catch (error) {
+      // A mail outage must never break the sign-up. The user can ask for a new link.
+      this.logger.error(`Falha ao enviar verificacao de e-mail para o usuario ${user.id}`, error as Error);
+    }
+  }
+
   async me(userId: string) {
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
-      select: { id: true, tenantId: true, name: true, email: true, phone: true, role: true, avatarUrl: true, tenant: true }
+      select: { id: true, tenantId: true, name: true, email: true, emailVerifiedAt: true, phone: true, role: true, avatarUrl: true, tenant: true }
     });
     if (!user) {
       throw new NotFoundException("Usuario nao encontrado.");
     }
-    return user;
+    return { ...user, emailVerified: Boolean(user.emailVerifiedAt) };
   }
 
   private async issueSession(user: User) {
@@ -288,13 +388,30 @@ export class AuthService {
         name: user.name,
         email: user.email,
         phone: user.phone,
-        role: user.role
+        role: user.role,
+        emailVerified: Boolean(user.emailVerifiedAt)
       }
     };
   }
 
   private hash(value: string) {
     return createHash("sha256").update(value).digest("hex");
+  }
+
+  private escapeHtml(value: string) {
+    return value
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;")
+      .replace(/'/g, "&#39;");
+  }
+
+  private verifyEmailUrl(token: string) {
+    const appUrl = this.config.get<string>("APP_URL") ?? "http://localhost:3000";
+    const url = new URL("/verificar-email", appUrl);
+    url.searchParams.set("token", token);
+    return url.toString();
   }
 
   private resetPasswordUrl(token: string) {

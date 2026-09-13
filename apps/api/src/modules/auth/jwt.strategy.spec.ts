@@ -20,6 +20,7 @@ describe("JwtStrategy", () => {
       id: "user-1",
       tenantId: "tenant-1",
       email: "user@example.com",
+      emailVerifiedAt: new Date("2026-01-01T00:00:00.000Z"),
       role: UserRole.CUSTOMER,
       tokenVersion: 2
     });
@@ -28,7 +29,24 @@ describe("JwtStrategy", () => {
       id: "user-1",
       tenantId: "tenant-1",
       email: "user@example.com",
+      emailVerified: true,
       role: UserRole.CUSTOMER
+    });
+  });
+
+  it("reports accounts without emailVerifiedAt as unverified", async () => {
+    const { strategy, prisma } = createStrategy();
+    prisma.user.findUnique.mockResolvedValue({
+      id: "user-1",
+      tenantId: null,
+      email: "user@example.com",
+      emailVerifiedAt: null,
+      role: UserRole.CUSTOMER,
+      tokenVersion: 1
+    });
+
+    await expect(strategy.validate({ sub: "user-1", tokenVersion: 1 })).resolves.toMatchObject({
+      emailVerified: false
     });
   });
 

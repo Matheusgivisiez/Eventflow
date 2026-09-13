@@ -656,6 +656,23 @@ export default function MyTicketsPage() {
   return (
     <main aria-labelledby="ticket-list-title">
       <div className="mx-auto max-w-5xl">
+        {user && user.emailVerified === false && (
+          <div className="mb-5 flex flex-col gap-3 rounded-2xl border border-amber-500/30 bg-amber-500/10 p-4 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex items-start gap-3">
+              <CircleAlert className="mt-0.5 h-4 w-4 shrink-0 text-amber-400" />
+              <div>
+                <p className="text-sm font-semibold text-foreground">Confirme seu e-mail para reunir seus ingressos</p>
+                <p className="mt-0.5 text-xs text-muted-foreground">
+                  Compras feitas sem conta com {user.email} só aparecem aqui depois da confirmação.
+                </p>
+              </div>
+            </div>
+            <Button asChild size="sm" variant="secondary" className="shrink-0">
+              <Link href="/verificar-email">Confirmar e-mail</Link>
+            </Button>
+          </div>
+        )}
+
         <div className="mb-7 grid grid-cols-3 gap-2 rounded-2xl border bg-card/70 p-1.5 shadow-sm">
           <button
             type="button"

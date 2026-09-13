@@ -11,6 +11,12 @@ function createService() {
       findFirst: jest.fn(),
       update: jest.fn()
     },
+    emailVerificationToken: {
+      create: jest.fn(),
+      findFirst: jest.fn(),
+      update: jest.fn(),
+      updateMany: jest.fn()
+    },
     refreshToken: {
       updateMany: jest.fn(),
       create: jest.fn()
@@ -127,5 +133,96 @@ describe("AuthService resetPassword", () => {
       where: { userId: "user-1", revokedAt: null },
       data: { revokedAt: expect.any(Date) }
     });
+  });
+});
+
+describe("AuthService e-mail verification", () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  it("does not disclose whether an account exists when resending the link", async () => {
+    const { service, prisma, mail } = createService();
+    prisma.user.findUnique.mockResolvedValue(null);
+
+    const result = await service.resendEmailVerification("missing@example.com");
+
+    expect(result).toEqual({
+      message: "Se a conta existir e ainda nao estiver confirmada, enviaremos um novo link."
+    });
+    expect(mail.send).not.toHaveBeenCalled();
+  });
+
+  it("does not resend a link for an account that is already verified", async () => {
+    const { service, prisma, mail } = createService();
+    prisma.user.findUnique.mockResolvedValue({
+      id: "user-1",
+      name: "Buyer",
+      email: "buyer@example.com",
+      emailVerifiedAt: new Date()
+    });
+
+    await service.resendEmailVerification("buyer@example.com");
+
+    expect(mail.send).not.toHaveBeenCalled();
+    expect(prisma.emailVerificationToken.create).not.toHaveBeenCalled();
+  });
+
+  it("stores only the hash of the verification token and never the raw value", async () => {
+    const { service, prisma, mail } = createService();
+    prisma.user.findUnique.mockResolvedValue({
+      id: "user-1",
+      name: "Buyer",
+      email: "buyer@example.com",
+      emailVerifiedAt: null
+    });
+    prisma.emailVerificationToken.findFirst.mockResolvedValue(null);
+
+    await service.resendEmailVerification("buyer@example.com");
+
+    const created = prisma.emailVerificationToken.create.mock.calls[0][0].data;
+    const sentHtml = mail.send.mock.calls[0][0].html as string;
+    const rawToken = /token=([^"&]+)/.exec(sentHtml)?.[1];
+
+    expect(rawToken).toBeTruthy();
+    expect(created.tokenHash).not.toEqual(rawToken);
+    expect(created.email).toBe("buyer@example.com");
+    expect(created.expiresAt.getTime()).toBeGreaterThan(Date.now());
+  });
+
+  it("rejects a token whose address is no longer the account address", async () => {
+    const { service, prisma } = createService();
+    prisma.emailVerificationToken.findFirst.mockResolvedValue({
+      id: "token-1",
+      userId: "user-1",
+      email: "old@example.com",
+      usedAt: null,
+      user: { id: "user-1", email: "new@example.com", emailVerifiedAt: null }
+    });
+
+    await expect(service.verifyEmail("raw-token")).rejects.toThrow();
+    expect(prisma.user.update).not.toHaveBeenCalled();
+  });
+
+  it("rejects an expired or already used token", async () => {
+    const { service, prisma } = createService();
+    prisma.emailVerificationToken.findFirst.mockResolvedValue(null);
+
+    await expect(service.verifyEmail("raw-token")).rejects.toThrow();
+    expect(prisma.user.update).not.toHaveBeenCalled();
+  });
+
+  it("does not let a mail outage break the sign-up", async () => {
+    const { service, prisma, mail } = createService();
+    prisma.user.findUnique.mockResolvedValue({
+      id: "user-1",
+      name: "Buyer",
+      email: "buyer@example.com",
+      emailVerifiedAt: null
+    });
+    prisma.emailVerificationToken.findFirst.mockResolvedValue(null);
+    mail.send.mockRejectedValue(new Error("SMTP down"));
+
+    await expect(service.resendEmailVerification("buyer@example.com")).resolves.toBeDefined();
   });
 });

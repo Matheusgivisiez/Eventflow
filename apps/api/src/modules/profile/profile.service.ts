@@ -47,19 +47,27 @@ export class ProfileService {
     return { message: "Senha alterada com sucesso." };
   }
 
-  async myTickets(email: string, userId?: string) {
-    const normalizedEmail = email.toLowerCase();
+  /**
+   * @param email verified e-mail of the account, or null when unverified.
+   *   An unverified account must not reach guest orders by buyerEmail.
+   */
+  async myTickets(email: string | null, userId?: string) {
+    const normalizedEmail = email?.toLowerCase() ?? null;
     return this.prisma.ticket.findMany({
       where: {
         OR: [
-          ...(userId ? [{ ownerId: userId }] : []),
-          {
-            ownerId: null,
-            OR: [
-              { attendeeEmail: normalizedEmail },
-              { order: { buyerEmail: normalizedEmail } }
-            ]
-          }
+          ...(userId ? [{ ownerId: userId }, { ownerId: null, order: { userId } }] : []),
+          ...(normalizedEmail
+            ? [
+                {
+                  ownerId: null,
+                  OR: [
+                    { attendeeEmail: normalizedEmail },
+                    { order: { buyerEmail: normalizedEmail } }
+                  ]
+                }
+              ]
+            : [])
         ]
       },
       include: {
