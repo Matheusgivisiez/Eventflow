@@ -98,6 +98,7 @@ export const envSchema = z.object({
   // Kill switch for the purchase confirmation e-mail without taking SMTP down
   // (password recovery depends on the same transport).
   PURCHASE_EMAIL_ENABLED: booleanFromEnv(true),
+  NOTIFICATION_RETRY_ENABLED: booleanFromEnv(true),
   SMTP_HOST: z.string().optional(),
   SMTP_PORT: z.coerce.number().int().positive().optional(),
   SMTP_SECURE: booleanFromEnv(false),

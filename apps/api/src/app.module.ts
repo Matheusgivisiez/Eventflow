@@ -28,6 +28,7 @@ import { CouponsModule } from "./modules/coupons/coupons.module";
 import { TeamModule } from "./modules/team/team.module";
 import { ParticipantsModule } from "./modules/participants/participants.module";
 import { ReportsModule } from "./modules/reports/reports.module";
+import { NotificationRetryModule } from "./modules/notification-retry/notification-retry.module";
 import { NotificationsModule } from "./modules/notifications/notifications.module";
 import { WebhooksModule } from "./modules/webhooks/webhooks.module";
 import { EnterpriseModule } from "./modules/enterprise/enterprise.module";
@@ -97,6 +98,7 @@ import { ArtistsModule } from "./modules/artists/artists.module";
     ReportsModule,
     BuyerModule,
     NotificationsModule,
+    NotificationRetryModule,
     WebhooksModule,
     EnterpriseModule,
     LgpdModule,

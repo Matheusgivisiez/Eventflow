@@ -55,9 +55,24 @@ que uma linha `FAILED` significa que o processo anterior terminou. Uma linha que
 ficou `PENDING` com o lease vencido (5 minutos) é tratada como abandonada e
 também volta a ser entregável.
 
-**Não existe worker de retentativa automática**: a retentativa depende de um novo
-evento sobre o pedido. O índice `(status, sentAt)` já permite varrer as falhas em
-um job futuro.
+## Retentativa automática
+
+`NotificationRetryService` varre a cada 2 minutos as confirmações de compra
+presas — `FAILED`, ou `PENDING` com o lease vencido — dos últimos 7 dias, em lotes
+de 50, e reprocessa cada uma por
+`PaymentsService.dispatchPurchaseConfirmed`.
+
+Passar pelo funil é o ponto: o worker decide **quando** tentar de novo, nunca
+**se** é seguro enviar. Todas as travas continuam valendo — a flag
+`PURCHASE_EMAIL_ENABLED`, o pedido ter de estar `PAID`, a chave de deduplicação,
+o lease e o teto de tentativas.
+
+Uma passada por vez: um SMTP lento não empilha execuções sobrepostas. Com mais de
+uma instância da API, o lease e o compare-and-swap resolvem a concorrência entre
+os workers — é o mesmo caminho de qualquer outro chamador.
+
+Desligável por `NOTIFICATION_RETRY_ENABLED`. O intervalo usa `setInterval` com
+`unref()`, o mesmo padrão do `ReservationExpirationService`.
 
 ## O que o e-mail contém
 

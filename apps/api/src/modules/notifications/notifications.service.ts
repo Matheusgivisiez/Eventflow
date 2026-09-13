@@ -31,6 +31,9 @@ export type PurchaseApprovedInput = {
   ticketCount: number;
 };
 
+/** Prefix of the purchase confirmation dedupe key: `purchase-confirmed:<orderId>`. */
+export const PURCHASE_CONFIRMED_DEDUPE_PREFIX = "purchase-confirmed:";
+
 const PRISMA_UNIQUE_VIOLATION = "P2002";
 const MAX_DELIVERY_ATTEMPTS = 5;
 /**
@@ -227,7 +230,7 @@ export class NotificationsService {
   /** Delivery state of the purchase confirmation for an order, if any. */
   async purchaseConfirmationStatus(orderId: string) {
     const log = await this.prisma.notificationLog.findUnique({
-      where: { dedupeKey: `purchase-confirmed:${orderId}` },
+      where: { dedupeKey: `${PURCHASE_CONFIRMED_DEDUPE_PREFIX}${orderId}` },
       select: { status: true, recipient: true }
     });
     return log ?? null;
@@ -260,7 +263,7 @@ export class NotificationsService {
       event: NotificationEvent.PURCHASE_CONFIRMED,
       recipient: input.email,
       payload,
-      dedupeKey: `purchase-confirmed:${input.orderId}`,
+      dedupeKey: `${PURCHASE_CONFIRMED_DEDUPE_PREFIX}${input.orderId}`,
       mail
     });
 

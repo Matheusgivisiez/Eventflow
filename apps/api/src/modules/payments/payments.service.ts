@@ -251,8 +251,11 @@ export class PaymentsService {
    * origin: provider webhook, reconciliation, simulated confirmation or an
    * administrative reprocessing. Idempotent through the notification dedupe
    * key, and it never throws — the payment is already committed.
+   *
+   * Public because NotificationRetryService calls it to re-drive a delivery
+   * that got stuck, instead of rebuilding the message on its own.
    */
-  private async dispatchPurchaseConfirmed(orderId: string) {
+  async dispatchPurchaseConfirmed(orderId: string) {
     try {
       if (this.config.get<boolean>("PURCHASE_EMAIL_ENABLED") === false) {
         return;
