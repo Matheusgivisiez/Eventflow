@@ -1,7 +1,6 @@
 import { Injectable, NotFoundException, Optional } from "@nestjs/common";
 import { PaymentStatus } from "@prisma/client";
 import { AuditService } from "../audit/audit.service";
-import { NotificationsService } from "../notifications/notifications.service";
 import { PaymentsService } from "../payments/payments.service";
 import { PrismaService } from "../../prisma/prisma.service";
 import { BusinessMetricsService } from "../observability/business-metrics.service";
@@ -11,7 +10,6 @@ export class WebhooksService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly payments: PaymentsService,
-    private readonly notifications: NotificationsService,
     private readonly audit: AuditService,
     @Optional() private readonly metrics?: BusinessMetricsService
   ) {}
@@ -60,14 +58,9 @@ export class WebhooksService {
     await this.audit.log({ action: `webhook.${provider}`, entity: "payment", entityId: payment.id, metadata: { status, providerEventId, event: eventName } });
     this.metrics?.increment("eventflow_webhooks_processed_total", { provider, status });
 
-    if (status === PaymentStatus.PAID) {
-      await this.notifications.sendPurchaseApproved({
-        email: payment.order.buyerEmail,
-        phone: payment.order.buyerPhone ?? undefined,
-        orderId: payment.orderId,
-        eventTitle: payment.event.title
-      });
-    }
+    // The purchase confirmation is emitted inside PaymentsService.updateStatus,
+    // so reconciliation and simulated confirmations notify exactly like this
+    // webhook does, and a replayed webhook cannot produce a second message.
 
     return { received: true, provider, status, payment: updated };
   }

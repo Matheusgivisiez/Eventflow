@@ -39,14 +39,11 @@ function createService() {
   const payments = {
     updateStatus: jest.fn()
   };
-  const notifications = {
-    sendPurchaseApproved: jest.fn()
-  };
   const audit = {
     log: jest.fn()
   };
-  const service = new WebhooksService(prisma as any, payments as any, notifications as any, audit as any);
-  return { service, prisma, payments, notifications, audit };
+  const service = new WebhooksService(prisma as any, payments as any, audit as any);
+  return { service, prisma, payments, audit };
 }
 
 describe("WebhooksService paid payment handling", () => {
@@ -54,8 +51,8 @@ describe("WebhooksService paid payment handling", () => {
     jest.clearAllMocks();
   });
 
-  it("processes a paid AbacatePay webhook, updates payment status, marks log, audits, and notifies buyer", async () => {
-    const { service, prisma, payments, notifications, audit } = createService();
+  it("processes a paid AbacatePay webhook, updates payment status, marks the log and audits", async () => {
+    const { service, prisma, payments, audit } = createService();
     prisma.paymentLog.upsert.mockResolvedValue({ id: "log-1", processedAt: null });
     prisma.payment.findFirst.mockResolvedValue(createPayment());
     payments.updateStatus.mockResolvedValue({ id: "payment-1", status: PaymentStatus.PAID });
@@ -98,16 +95,34 @@ describe("WebhooksService paid payment handling", () => {
       entityId: "payment-1",
       metadata: expect.objectContaining({ status: PaymentStatus.PAID })
     }));
-    expect(notifications.sendPurchaseApproved).toHaveBeenCalledWith({
-      email: "buyer@example.com",
-      phone: "11999999999",
-      orderId: "order-1",
-      eventTitle: "Event Flow Conf"
+  });
+
+  it("delegates the purchase confirmation to the payment funnel instead of notifying directly", async () => {
+    const { service, prisma, payments } = createService();
+    prisma.paymentLog.upsert.mockResolvedValue({ id: "log-1", processedAt: null });
+    prisma.payment.findFirst.mockResolvedValue(createPayment());
+    prisma.paymentLog.update.mockResolvedValue({});
+    payments.updateStatus.mockResolvedValue({ id: "payment-1", status: PaymentStatus.PAID });
+
+    await service.handle("abacate_pay", {
+      id: "webhook-1",
+      event: "checkout.completed",
+      data: { id: "checkout-1" }
     });
+
+    // The webhook must not own the message: reconciliation and simulated
+    // confirmations reach PaymentsService.updateStatus by other routes and
+    // have to produce exactly the same notification.
+    expect(payments.updateStatus).toHaveBeenCalledWith(
+      "payment-1",
+      expect.anything(),
+      expect.objectContaining({ status: PaymentStatus.PAID })
+    );
+    expect(Object.keys(service as unknown as Record<string, unknown>)).not.toContain("notifications");
   });
 
   it("does not reprocess duplicate paid webhooks when the payment log is already processed", async () => {
-    const { service, prisma, payments, notifications, audit } = createService();
+    const { service, prisma, payments, audit } = createService();
     prisma.paymentLog.upsert.mockResolvedValue({ id: "log-1", processedAt: new Date() });
 
     const result = await service.handle("abacate_pay", {
@@ -120,12 +135,11 @@ describe("WebhooksService paid payment handling", () => {
     expect(prisma.payment.findFirst).not.toHaveBeenCalled();
     expect(payments.updateStatus).not.toHaveBeenCalled();
     expect(prisma.paymentLog.update).not.toHaveBeenCalled();
-    expect(notifications.sendPurchaseApproved).not.toHaveBeenCalled();
     expect(audit.log).not.toHaveBeenCalled();
   });
 
   it("marks unchanged paid webhook logs without emitting duplicate notifications", async () => {
-    const { service, prisma, payments, notifications, audit } = createService();
+    const { service, prisma, payments, audit } = createService();
     prisma.paymentLog.upsert.mockResolvedValue({ id: "log-1", processedAt: null });
     prisma.payment.findFirst.mockResolvedValue(createPayment({ status: PaymentStatus.PAID }));
     prisma.paymentLog.update.mockResolvedValue({});
@@ -138,14 +152,13 @@ describe("WebhooksService paid payment handling", () => {
 
     expect(result.status).toBe(PaymentStatus.PAID);
     expect(payments.updateStatus).not.toHaveBeenCalled();
-    expect(notifications.sendPurchaseApproved).not.toHaveBeenCalled();
     expect(audit.log).toHaveBeenCalledWith(expect.objectContaining({
       metadata: expect.objectContaining({ unchanged: true })
     }));
   });
 
   it("fails without leaking payment data when webhook cannot be matched to a payment", async () => {
-    const { service, prisma, payments, notifications } = createService();
+    const { service, prisma, payments } = createService();
     prisma.paymentLog.upsert.mockResolvedValue({ id: "log-1", processedAt: null });
     prisma.payment.findFirst.mockResolvedValue(null);
 
@@ -156,6 +169,5 @@ describe("WebhooksService paid payment handling", () => {
     })).rejects.toThrow(NotFoundException);
 
     expect(payments.updateStatus).not.toHaveBeenCalled();
-    expect(notifications.sendPurchaseApproved).not.toHaveBeenCalled();
   });
 });

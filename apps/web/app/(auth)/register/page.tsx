@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation } from "@tanstack/react-query";
 import {
@@ -14,7 +14,7 @@ import {
   ArrowRight,
   Loader2
 } from "lucide-react";
-import { useState } from "react";
+import { Suspense, useState } from "react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { api } from "@/lib/api";
@@ -46,14 +46,20 @@ function maskCpf(value: string) {
   return `${digits.slice(0, 3)}.${digits.slice(3, 6)}.${digits.slice(6, 9)}-${digits.slice(9, 11)}`;
 }
 
-export default function RegisterPage() {
+function RegisterForm() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const setSession = useAuthStore((state) => state.setSession);
   const [showPassword, setShowPassword] = useState(false);
 
+  // Prefilled only as a convenience for whoever just bought as a guest.
+  // It proves nothing: past purchases are only linked after the address is
+  // confirmed by e-mail.
+  const suggestedEmail = searchParams.get("email") ?? "";
+
   const form = useForm<FormData>({
     resolver: zodResolver(schema),
-    defaultValues: { name: "", email: "", phone: "", cpf: "", password: "" }
+    defaultValues: { name: "", email: suggestedEmail, phone: "", cpf: "", password: "" }
   });
 
   const mutation = useMutation({
@@ -285,3 +291,14 @@ export default function RegisterPage() {
   );
 }
 
+export default function RegisterPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="w-full max-w-[490px] xl:max-w-[510px] h-[560px] animate-pulse rounded-[24px] bg-[#150F28]/60 border border-purple-400/15" />
+      }
+    >
+      <RegisterForm />
+    </Suspense>
+  );
+}

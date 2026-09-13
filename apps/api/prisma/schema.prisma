@@ -91,6 +91,13 @@ enum NotificationType {
   SMS
 }
 
+enum NotificationStatus {
+  PENDING
+  SENT
+  FAILED
+  SKIPPED
+}
+
 enum NotificationEvent {
   PURCHASE_CONFIRMED
   PAYMENT_APPROVED
@@ -684,15 +691,23 @@ model BuyerProfile {
 // ─── Notifications ──────────────────────────────────────────────
 
 model NotificationLog {
-  id        String            @id @default(cuid())
-  userId    String?
-  type      NotificationType
-  event     NotificationEvent
-  recipient String
-  payload   Json
-  sentAt    DateTime          @default(now())
+  id          String             @id @default(cuid())
+  userId      String?
+  type        NotificationType
+  event       NotificationEvent
+  recipient   String
+  payload     Json
+  status      NotificationStatus @default(PENDING)
+  attempts    Int                @default(0)
+  lastError   String?
+  /// Idempotency key, e.g. "purchase-confirmed:<orderId>". A second attempt
+  /// with the same key never produces a second message.
+  dedupeKey   String?            @unique
+  deliveredAt DateTime?
+  sentAt      DateTime           @default(now())
 
   @@index([userId, event])
+  @@index([status, sentAt])
 }
 
 // ─── Audit ──────────────────────────────────────────────────────

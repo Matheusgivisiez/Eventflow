@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable, NotFoundException, Optional } from "@nestjs/common";
+import { BadRequestException, Injectable, Logger, NotFoundException, Optional } from "@nestjs/common";
 import { PaymentStatus, TicketStatus } from "@prisma/client";
 import { createHash, createHmac, randomUUID } from "crypto";
 import { ConfigService } from "@nestjs/config";
@@ -7,6 +7,7 @@ import { PrismaService } from "../../prisma/prisma.service";
 import { UpdatePaymentStatusDto } from "./dto/update-payment-status.dto";
 import { AbacatePayGateway } from "./abacate-pay.gateway";
 import { BusinessMetricsService } from "../observability/business-metrics.service";
+import { NotificationsService } from "../notifications/notifications.service";
 
 const VALID_TRANSITIONS: Record<PaymentStatus, PaymentStatus[]> = {
   [PaymentStatus.PENDING]: [PaymentStatus.PAID, PaymentStatus.CANCELED],
@@ -17,12 +18,14 @@ const VALID_TRANSITIONS: Record<PaymentStatus, PaymentStatus[]> = {
 
 @Injectable()
 export class PaymentsService {
+  private readonly logger = new Logger(PaymentsService.name);
   private readonly qrCodeSecret: string;
 
   constructor(
     private readonly prisma: PrismaService,
     private readonly abacatePay: AbacatePayGateway,
     private readonly config: ConfigService,
+    private readonly notifications: NotificationsService,
     @Optional() private readonly metrics?: BusinessMetricsService
   ) {
     const qrCodeSecret = this.config.get<string>("QR_CODE_SECRET");
@@ -94,6 +97,7 @@ export class PaymentsService {
     }
     if (payment.status === PaymentStatus.PAID && dto.status === PaymentStatus.PAID) {
       await this.ensurePaidFulfillment(payment.id, tenantId);
+      await this.dispatchPurchaseConfirmed(payment.orderId);
       return this.prisma.payment.findUnique({ where: { id } });
     }
 
@@ -103,7 +107,11 @@ export class PaymentsService {
     }
 
     if (dto.status === PaymentStatus.PAID) {
-      return this.markPaid(payment.id, tenantId, dto.providerRef ?? payment.providerRef ?? undefined);
+      const paid = await this.markPaid(payment.id, tenantId, dto.providerRef ?? payment.providerRef ?? undefined);
+      // After the transaction commits, never inside it: SMTP latency must not
+      // hold a database transaction and a mail outage must not undo a payment.
+      await this.dispatchPurchaseConfirmed(payment.orderId);
+      return paid;
     }
 
     return this.markTerminal(payment.id, tenantId, dto.status, dto.providerRef ?? payment.providerRef ?? undefined);
@@ -236,6 +244,47 @@ export class PaymentsService {
 
       return updated;
     });
+  }
+
+  /**
+   * Single place where an approved purchase becomes a message, whatever the
+   * origin: provider webhook, reconciliation, simulated confirmation or an
+   * administrative reprocessing. Idempotent through the notification dedupe
+   * key, and it never throws — the payment is already committed.
+   */
+  private async dispatchPurchaseConfirmed(orderId: string) {
+    try {
+      if (this.config.get<boolean>("PURCHASE_EMAIL_ENABLED") === false) {
+        return;
+      }
+
+      const order = await this.prisma.order.findUnique({
+        where: { id: orderId },
+        include: {
+          event: { select: { title: true, startsAt: true } },
+          _count: { select: { tickets: true } }
+        }
+      });
+
+      if (!order || order.status !== PaymentStatus.PAID) {
+        return;
+      }
+
+      await this.notifications.sendPurchaseApproved({
+        userId: order.userId ?? undefined,
+        email: order.buyerEmail,
+        phone: order.buyerPhone ?? undefined,
+        orderId: order.id,
+        orderAccessToken: order.orderAccessToken,
+        buyerName: order.buyerName,
+        eventTitle: order.event.title,
+        eventStartsAt: order.event.startsAt,
+        ticketCount: order._count.tickets
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      this.logger.error(`Falha ao notificar a compra aprovada do pedido ${orderId}: ${message}`);
+    }
   }
 
   private async ensurePaidFulfillment(paymentId: string, tenantId: string) {

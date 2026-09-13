@@ -104,6 +104,13 @@ test.describe("Fluxo de compra", () => {
     );
     await expect(page.getByText("Pagamento Confirmado!", { exact: true })).toBeVisible();
 
+    // A guest must keep the ticket in front of them: no automatic bounce to
+    // /me/ingressos, which would only land on the login screen.
+    await expect(page.getByRole("link", { name: "Criar conta" })).toBeVisible();
+    await expect(page.getByText(/Redirecionando para Meus Ingressos/)).toHaveCount(0);
+    await page.waitForTimeout(4000);
+    expect(new URL(page.url()).pathname).toBe("/checkout/success");
+
     const loginResponse = await request.post(`${apiUrl}/auth/login`, {
       data: {
         email: "organizador@eventflow.local",

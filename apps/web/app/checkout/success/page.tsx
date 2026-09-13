@@ -11,6 +11,9 @@ import {
   ArrowLeft,
   ArrowRight,
   Loader2,
+  LogIn,
+  Mail,
+  UserPlus,
 } from "lucide-react";
 import Link from "next/link";
 import Image from "next/image";
@@ -25,6 +28,7 @@ import {
 import { Skeleton } from "@/components/ui/skeleton";
 import { api } from "@/lib/api";
 import { money } from "@/lib/utils";
+import { useAuthStore } from "@/stores/auth-store";
 
 type PublicOrderDetails = {
   id: string;
@@ -63,6 +67,9 @@ function SuccessContent() {
   const accessToken =
     searchParams.get("accessToken") ?? storedCheckout?.accessToken;
   const isSimulatedPayment = searchParams.get("status") === "paid";
+  // A guest has no session: sending them to /me/ingressos only bounces them
+  // to the login screen and loses the ticket they just paid for.
+  const isAuthenticated = Boolean(useAuthStore((state) => state.accessToken));
   const [simulationRequested, setSimulationRequested] = useState(false);
   const [redirectCountdown, setRedirectCountdown] = useState<number | null>(
     null,
@@ -126,24 +133,30 @@ function SuccessContent() {
   const isPending = order?.status === "PENDING";
 
   useEffect(() => {
-    if (isPaid) {
-      window.localStorage.removeItem("eventflow:last-checkout");
-      void queryClient.invalidateQueries({ queryKey: ["my-tickets"] });
-      setRedirectCountdown(3);
-      const interval = setInterval(() => {
-        setRedirectCountdown((prev) => {
-          if (prev === null || prev <= 1) {
-            clearInterval(interval);
-            router.push("/me/ingressos");
-            return 0;
-          }
-          return prev - 1;
-        });
-      }, 1000);
+    if (!isPaid) return;
 
-      return () => clearInterval(interval);
+    window.localStorage.removeItem("eventflow:last-checkout");
+    void queryClient.invalidateQueries({ queryKey: ["my-tickets"] });
+
+    if (!isAuthenticated) {
+      // Guests stay here: this page and the e-mailed link are their ticket.
+      return;
     }
-  }, [isPaid, queryClient, router]);
+
+    setRedirectCountdown(3);
+    const interval = setInterval(() => {
+      setRedirectCountdown((prev) => {
+        if (prev === null || prev <= 1) {
+          clearInterval(interval);
+          router.push("/me/ingressos");
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, [isAuthenticated, isPaid, queryClient, router]);
 
   if (!orderId || !accessToken) {
     return (
@@ -216,7 +229,38 @@ function SuccessContent() {
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          {isPaid && redirectCountdown !== null && (
+          {isPaid && !isAuthenticated && (
+            <div className="rounded-lg border bg-muted/40 p-4 space-y-3">
+              <div className="flex items-start gap-2.5">
+                <Mail className="mt-0.5 h-4 w-4 shrink-0 text-brand-purple" />
+                <div className="text-sm">
+                  <p className="font-medium">Enviamos este link para {order.buyerEmail}</p>
+                  <p className="mt-0.5 text-xs text-muted-foreground">
+                    Guarde o e-mail: ele é pessoal e dá acesso a este pedido sem precisar de conta.
+                  </p>
+                </div>
+              </div>
+              <div className="flex flex-col gap-2 sm:flex-row">
+                <Button asChild className="flex-1 gap-2">
+                  <Link href={`/register?email=${encodeURIComponent(order.buyerEmail)}`}>
+                    <UserPlus className="h-4 w-4" />
+                    Criar conta
+                  </Link>
+                </Button>
+                <Button asChild variant="outline" className="flex-1 gap-2">
+                  <Link href="/login">
+                    <LogIn className="h-4 w-4" />
+                    Já tenho conta
+                  </Link>
+                </Button>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Com uma conta confirmada você reúne todas as suas compras em Meus Ingressos.
+              </p>
+            </div>
+          )}
+
+          {isPaid && isAuthenticated && redirectCountdown !== null && (
             <div className="rounded-lg border border-brand-purple/20 bg-brand-purple/10 p-3 text-center text-sm font-medium text-brand-purple flex items-center justify-center gap-2">
               <Loader2 className="h-4 w-4 animate-spin shrink-0" />
               <span>
@@ -282,20 +326,21 @@ function SuccessContent() {
           )}
 
           <div className="pt-4 flex flex-col sm:flex-row gap-2">
-            {isPaid && (
+            {isAuthenticated ? (
               <Button asChild className="flex-1 gap-2">
                 <Link href="/me/ingressos">
                   Ir para Meus Ingressos
                   <ArrowRight className="h-4 w-4" />
                 </Link>
               </Button>
+            ) : (
+              <Button asChild variant="outline" className="flex-1 gap-2">
+                <Link href="/">
+                  <ArrowLeft className="h-4 w-4" />
+                  Explorar eventos
+                </Link>
+              </Button>
             )}
-            <Button asChild variant="outline" className="flex-1 gap-2">
-              <Link href="/me/ingressos">
-                <ArrowLeft className="h-4 w-4" />
-                Ir para Meus Ingressos
-              </Link>
-            </Button>
           </div>
         </CardContent>
       </Card>

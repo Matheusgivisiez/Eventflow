@@ -65,6 +65,9 @@ export const envSchema = z.object({
   ENCRYPTION_KEY_REF: z.string().optional(),
   GOOGLE_ANALYTICS_MEASUREMENT_ID: z.string().optional(),
   META_PIXEL_ID: z.string().optional(),
+  // Kill switch for the purchase confirmation e-mail without taking SMTP down
+  // (password recovery depends on the same transport).
+  PURCHASE_EMAIL_ENABLED: z.coerce.boolean().default(true),
   SMTP_HOST: z.string().optional(),
   SMTP_PORT: z.coerce.number().int().positive().optional(),
   SMTP_SECURE: z.coerce.boolean().default(false),

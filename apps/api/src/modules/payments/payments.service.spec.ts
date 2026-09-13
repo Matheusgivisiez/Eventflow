@@ -10,7 +10,8 @@ jest.mock("qrcode", () => ({
 function createService() {
   const prisma = {
     order: {
-      findUnique: jest.fn()
+      findUnique: jest.fn(),
+      update: jest.fn()
     },
     payment: {
       findFirst: jest.fn(),
@@ -45,14 +46,17 @@ function createService() {
     createCheckout: jest.fn()
   };
   const config = {
-    get: jest.fn((key: string) => {
+    get: jest.fn((key: string): any => {
       if (key === "APP_URL") return "https://app.example";
       if (key === "QR_CODE_SECRET") return "test-qrcode-secret";
       return undefined;
     })
   };
-  const service = new PaymentsService(prisma as any, abacatePay as any, config as any);
-  return { service, prisma, abacatePay };
+  const notifications = {
+    sendPurchaseApproved: jest.fn().mockResolvedValue({})
+  };
+  const service = new PaymentsService(prisma as any, abacatePay as any, config as any, notifications as any);
+  return { service, prisma, abacatePay, notifications, config };
 }
 
 function createPayment(overrides: Record<string, any> = {}) {
@@ -251,5 +255,121 @@ describe("PaymentsService", () => {
       },
       data: { sold: { increment: 2 } }
     });
+  });
+});
+
+function createPaidOrder(overrides: Record<string, any> = {}) {
+  return {
+    id: "order-1",
+    status: PaymentStatus.PAID,
+    userId: null,
+    buyerName: "Comprador Convidado",
+    buyerEmail: "buyer@example.com",
+    buyerPhone: "11999999999",
+    orderAccessToken: "order-access-token",
+    event: { title: "Event Flow Conf", startsAt: new Date("2026-10-22T23:00:00.000Z") },
+    _count: { tickets: 2 },
+    ...overrides
+  };
+}
+
+describe("PaymentsService purchase confirmation", () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  it("notifies the buyer once the payment transitions to paid", async () => {
+    const { service, prisma, notifications } = createService();
+    prisma.payment.findFirst.mockResolvedValue(createPayment());
+    prisma.payment.findUnique.mockResolvedValue({ id: "payment-1", status: PaymentStatus.PAID });
+    prisma.ticket.count.mockResolvedValue(0);
+    prisma.ledgerEntry.findFirst.mockResolvedValue(null);
+    prisma.order.findUnique.mockResolvedValue(createPaidOrder());
+
+    await service.updateStatus("payment-1", "tenant-1", { status: PaymentStatus.PAID });
+
+    expect(notifications.sendPurchaseApproved).toHaveBeenCalledWith(
+      expect.objectContaining({
+        orderId: "order-1",
+        email: "buyer@example.com",
+        buyerName: "Comprador Convidado",
+        eventTitle: "Event Flow Conf",
+        orderAccessToken: "order-access-token",
+        ticketCount: 2
+      })
+    );
+  });
+
+  it("still notifies when the payment reaches the funnel already paid", async () => {
+    // Reconciliation or an administrative reprocessing arriving after the
+    // webhook. The dedupe key downstream is what prevents a second message.
+    const { service, prisma, notifications } = createService();
+    prisma.payment.findFirst.mockResolvedValue(createPayment({ status: PaymentStatus.PAID }));
+    prisma.payment.findUnique.mockResolvedValue({ id: "payment-1", status: PaymentStatus.PAID });
+    prisma.ticket.count.mockResolvedValue(2);
+    prisma.ledgerEntry.findFirst.mockResolvedValue({ id: "ledger-1" });
+    prisma.order.findUnique.mockResolvedValue(createPaidOrder());
+
+    await service.updateStatus("payment-1", "tenant-1", { status: PaymentStatus.PAID });
+
+    expect(notifications.sendPurchaseApproved).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not notify when the order did not settle as paid", async () => {
+    const { service, prisma, notifications } = createService();
+    prisma.payment.findFirst.mockResolvedValue(createPayment());
+    prisma.payment.findUnique.mockResolvedValue({ id: "payment-1", status: PaymentStatus.PAID });
+    prisma.ticket.count.mockResolvedValue(0);
+    prisma.ledgerEntry.findFirst.mockResolvedValue(null);
+    prisma.order.findUnique.mockResolvedValue(createPaidOrder({ status: PaymentStatus.PENDING }));
+
+    await service.updateStatus("payment-1", "tenant-1", { status: PaymentStatus.PAID });
+
+    expect(notifications.sendPurchaseApproved).not.toHaveBeenCalled();
+  });
+
+  it("keeps the payment approved when the notification fails", async () => {
+    const { service, prisma, notifications } = createService();
+    prisma.payment.findFirst.mockResolvedValue(createPayment());
+    prisma.payment.findUnique.mockResolvedValue({ id: "payment-1", status: PaymentStatus.PAID });
+    prisma.ticket.count.mockResolvedValue(0);
+    prisma.ledgerEntry.findFirst.mockResolvedValue(null);
+    prisma.order.findUnique.mockResolvedValue(createPaidOrder());
+    notifications.sendPurchaseApproved.mockRejectedValue(new Error("SMTP down"));
+
+    await expect(
+      service.updateStatus("payment-1", "tenant-1", { status: PaymentStatus.PAID })
+    ).resolves.toEqual({ id: "payment-1", status: PaymentStatus.PAID });
+
+    expect(prisma.payment.update).toHaveBeenCalled();
+  });
+
+  it("does not notify when the purchase e-mail is switched off", async () => {
+    const { service, prisma, notifications, config } = createService();
+    config.get.mockImplementation((key: string) => {
+      if (key === "PURCHASE_EMAIL_ENABLED") return false;
+      if (key === "QR_CODE_SECRET") return "test-qrcode-secret";
+      if (key === "APP_URL") return "https://app.example";
+      return undefined;
+    });
+    prisma.payment.findFirst.mockResolvedValue(createPayment());
+    prisma.payment.findUnique.mockResolvedValue({ id: "payment-1", status: PaymentStatus.PAID });
+    prisma.ticket.count.mockResolvedValue(0);
+    prisma.ledgerEntry.findFirst.mockResolvedValue(null);
+    prisma.order.findUnique.mockResolvedValue(createPaidOrder());
+
+    await service.updateStatus("payment-1", "tenant-1", { status: PaymentStatus.PAID });
+
+    expect(notifications.sendPurchaseApproved).not.toHaveBeenCalled();
+  });
+
+  it("does not notify a payment that was canceled", async () => {
+    const { service, prisma, notifications } = createService();
+    prisma.payment.findFirst.mockResolvedValue(createPayment());
+    prisma.payment.update.mockResolvedValue({ id: "payment-1", status: PaymentStatus.CANCELED });
+
+    await service.updateStatus("payment-1", "tenant-1", { status: PaymentStatus.CANCELED });
+
+    expect(notifications.sendPurchaseApproved).not.toHaveBeenCalled();
   });
 });

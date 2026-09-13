@@ -53,12 +53,9 @@ de subir esta mudança, junto com SPF, DKIM e DMARC do domínio remetente.
 3. Rodar a migração (o backfill precisa acontecer junto com o schema).
 4. Subir API e web na mesma janela — `/verificar-email` é o destino do link.
 
-## Ainda em aberto (Bloco B)
+## Ainda em aberto
 
-- Notificação de compra aprovada disparada dentro de `PaymentsService.markPaid`,
-  e não no `WebhooksService` (hoje reconciliação e simulação não notificam).
-- Chave idempotente `purchase-confirmed:<orderId>` em `NotificationLog`.
-- E-mail real de compra com link seguro do pedido.
-- Página `/checkout/success` sem redirecionamento automático para convidados.
 - Rate limit em `GET /checkout/order/:orderId`.
 - `orderAccessToken` deixar de ser nullable.
+- Vinculação retroativa física dos pedidos antigos (hoje a leitura já é
+  compatível por `userId` **ou** e-mail verificado, que resolve o caso de uso).
