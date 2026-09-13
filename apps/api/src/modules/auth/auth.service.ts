@@ -3,9 +3,13 @@ import { ConfigService } from "@nestjs/config";
 import { JwtService } from "@nestjs/jwt";
 import { User, UserRole } from "@prisma/client";
 import * as bcrypt from "bcryptjs";
-import { createHash, randomBytes, randomUUID } from "crypto";
+import { createHash, randomUUID } from "crypto";
 import { PrismaService } from "../../prisma/prisma.service";
 import { MailService } from "../../common/services/mail.service";
+import {
+  EMAIL_VERIFICATION_RESEND_COOLDOWN_MS,
+  EmailVerificationService
+} from "../email-verification/email-verification.service";
 import { BecomeOrganizerDto } from "./dto/become-organizer.dto";
 import { ForgotPasswordDto } from "./dto/forgot-password.dto";
 import { LoginDto } from "./dto/login.dto";
@@ -13,9 +17,6 @@ import { RefreshTokenDto } from "./dto/refresh-token.dto";
 import { RegisterDto } from "./dto/register.dto";
 import { RegisterOrganizerDto } from "./dto/register-organizer.dto";
 import { ResetPasswordDto } from "./dto/reset-password.dto";
-
-const EMAIL_VERIFICATION_TTL_MS = 1000 * 60 * 30;
-const EMAIL_VERIFICATION_RESEND_COOLDOWN_MS = 1000 * 60;
 
 @Injectable()
 export class AuthService {
@@ -25,7 +26,8 @@ export class AuthService {
     private readonly prisma: PrismaService,
     private readonly jwt: JwtService,
     private readonly config: ConfigService,
-    private readonly mail: MailService
+    private readonly mail: MailService,
+    private readonly emailVerification: EmailVerificationService
   ) {}
 
   async register(dto: RegisterDto) {
@@ -261,7 +263,7 @@ export class AuthService {
   async verifyEmail(token: string) {
     const record = await this.prisma.emailVerificationToken.findFirst({
       where: {
-        tokenHash: this.hash(token),
+        tokenHash: this.emailVerification.hash(token),
         usedAt: null,
         expiresAt: { gt: new Date() }
       },
@@ -316,38 +318,8 @@ export class AuthService {
     return neutral;
   }
 
-  private async issueEmailVerification(user: { id: string; email: string; name: string }) {
-    const email = user.email.toLowerCase();
-    const token = randomBytes(32).toString("base64url");
-
-    await this.prisma.$transaction([
-      // A new link invalidates the previous ones.
-      this.prisma.emailVerificationToken.updateMany({
-        where: { userId: user.id, usedAt: null },
-        data: { usedAt: new Date() }
-      }),
-      this.prisma.emailVerificationToken.create({
-        data: {
-          userId: user.id,
-          email,
-          tokenHash: this.hash(token),
-          expiresAt: new Date(Date.now() + EMAIL_VERIFICATION_TTL_MS)
-        }
-      })
-    ]);
-
-    const url = this.verifyEmailUrl(token);
-    try {
-      await this.mail.send({
-        to: email,
-        subject: "Confirme seu e-mail Event Flow",
-        text: `Confirme seu e-mail para reunir seus ingressos: ${url}`,
-        html: `<p>Ola, ${this.escapeHtml(user.name)}.</p><p>Confirme seu e-mail para reunir suas compras em Meus Ingressos.</p><p><a href="${url}">Confirmar e-mail</a></p><p>Este link expira em 30 minutos e so pode ser usado uma vez.</p>`
-      });
-    } catch (error) {
-      // A mail outage must never break the sign-up. The user can ask for a new link.
-      this.logger.error(`Falha ao enviar verificacao de e-mail para o usuario ${user.id}`, error as Error);
-    }
+  private issueEmailVerification(user: { id: string; email: string; name: string }) {
+    return this.emailVerification.issue(user);
   }
 
   async me(userId: string) {
@@ -396,22 +368,6 @@ export class AuthService {
 
   private hash(value: string) {
     return createHash("sha256").update(value).digest("hex");
-  }
-
-  private escapeHtml(value: string) {
-    return value
-      .replace(/&/g, "&amp;")
-      .replace(/</g, "&lt;")
-      .replace(/>/g, "&gt;")
-      .replace(/"/g, "&quot;")
-      .replace(/'/g, "&#39;");
-  }
-
-  private verifyEmailUrl(token: string) {
-    const appUrl = this.config.get<string>("APP_URL") ?? "http://localhost:3000";
-    const url = new URL("/verificar-email", appUrl);
-    url.searchParams.set("token", token);
-    return url.toString();
   }
 
   private resetPasswordUrl(token: string) {

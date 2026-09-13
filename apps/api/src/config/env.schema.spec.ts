@@ -112,3 +112,57 @@ describe("envSchema", () => {
     expect(env.AWS_S3_FORCE_PATH_STYLE).toBe(true);
   });
 });
+
+describe("envSchema boolean flags", () => {
+  // Environment variables are strings. These tests use the exact strings a
+  // hosting panel produces, because that is where the bug lived.
+  it('reads the string "false" as false', () => {
+    const parsed = envSchema.parse(
+      baseEnv({
+        PAYMENT_SIMULATION_ENABLED: "false",
+        PURCHASE_EMAIL_ENABLED: "false",
+        QUEUE_WORKERS_ENABLED: "false",
+        SMTP_SECURE: "false",
+        OTEL_ENABLED: "false",
+        AWS_S3_FORCE_PATH_STYLE: "false"
+      })
+    );
+
+    expect(parsed.PAYMENT_SIMULATION_ENABLED).toBe(false);
+    expect(parsed.PURCHASE_EMAIL_ENABLED).toBe(false);
+    expect(parsed.QUEUE_WORKERS_ENABLED).toBe(false);
+    expect(parsed.SMTP_SECURE).toBe(false);
+    expect(parsed.OTEL_ENABLED).toBe(false);
+    expect(parsed.AWS_S3_FORCE_PATH_STYLE).toBe(false);
+  });
+
+  it('reads the string "true" as true', () => {
+    const parsed = envSchema.parse(
+      baseEnv({ PAYMENT_SIMULATION_ENABLED: "true", PURCHASE_EMAIL_ENABLED: "true" })
+    );
+
+    expect(parsed.PAYMENT_SIMULATION_ENABLED).toBe(true);
+    expect(parsed.PURCHASE_EMAIL_ENABLED).toBe(true);
+  });
+
+  it('reads "0" and "off" as false', () => {
+    const parsed = envSchema.parse(
+      baseEnv({ PAYMENT_SIMULATION_ENABLED: "0", PURCHASE_EMAIL_ENABLED: "off" })
+    );
+
+    expect(parsed.PAYMENT_SIMULATION_ENABLED).toBe(false);
+    expect(parsed.PURCHASE_EMAIL_ENABLED).toBe(false);
+  });
+
+  it("keeps the payment simulation off when the flag is absent", () => {
+    expect(envSchema.parse(baseEnv()).PAYMENT_SIMULATION_ENABLED).toBe(false);
+  });
+
+  it("keeps the purchase e-mail on when the flag is absent", () => {
+    expect(envSchema.parse(baseEnv()).PURCHASE_EMAIL_ENABLED).toBe(true);
+  });
+
+  it("refuses an ambiguous value instead of guessing", () => {
+    expect(() => envSchema.parse(baseEnv({ PAYMENT_SIMULATION_ENABLED: "talvez" }))).toThrow();
+  });
+});

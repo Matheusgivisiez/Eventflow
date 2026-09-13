@@ -6,12 +6,13 @@ import { ReservationExpirationService } from "./reservation-expiration.service";
 
 import { CouponsModule } from "../coupons/coupons.module";
 import { CacheModule } from "../cache/cache.module";
+import { NotificationsModule } from "../notifications/notifications.module";
 import { PaymentsModule } from "../payments/payments.module";
 
 import { PrismaModule } from "../../prisma/prisma.module";
 
 @Module({
-  imports: [PrismaModule, CacheModule, CouponsModule, PaymentsModule],
+  imports: [PrismaModule, CacheModule, CouponsModule, PaymentsModule, NotificationsModule],
   controllers: [CheckoutController],
   providers: [CheckoutService, CreateCheckoutUseCase, ReservationExpirationService],
   exports: [CheckoutService]

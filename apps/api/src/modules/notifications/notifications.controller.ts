@@ -16,7 +16,7 @@ export class NotificationsController {
   @Post()
   @Roles(UserRole.ADMIN, UserRole.ORGANIZER)
   send(@Body() body: { userId?: string; type: NotificationType; event: NotificationEvent; recipient: string; payload: Prisma.InputJsonValue }) {
-    return this.notifications.send(body);
+    return this.notifications.enqueue(body);
   }
 
   @Get()

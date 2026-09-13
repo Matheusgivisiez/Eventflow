@@ -33,6 +33,20 @@ export type PurchaseApprovedInput = {
 
 const PRISMA_UNIQUE_VIOLATION = "P2002";
 const MAX_DELIVERY_ATTEMPTS = 5;
+/**
+ * A row created but never delivered — the process died between the insert and
+ * the SMTP call — must not stay PENDING forever behind the dedupe key.
+ */
+const STALE_PENDING_MS = 1000 * 60 * 5;
+
+/** Legacy response shape of POST /notifications. Do not change. */
+export type EnqueuedNotification = {
+  id?: string;
+  status: "QUEUED";
+  channel: NotificationType;
+  event: NotificationEvent;
+  recipient: string;
+};
 
 @Injectable()
 export class NotificationsService {
@@ -45,25 +59,14 @@ export class NotificationsService {
   ) {}
 
   async send(input: NotifyInput) {
+    const deliverable = input.type === NotificationType.EMAIL && Boolean(input.mail);
+
     const existing = input.dedupeKey
       ? await this.prisma.notificationLog.findUnique({ where: { dedupeKey: input.dedupeKey } })
       : null;
 
     if (existing) {
-      // A previous attempt failed to reach the SMTP server. Whoever touches
-      // this order again — a replayed webhook, a reconciliation, an
-      // administrative reprocessing — gets to try the delivery once more.
-      if (
-        existing.status === NotificationStatus.FAILED &&
-        input.mail &&
-        existing.attempts < MAX_DELIVERY_ATTEMPTS
-      ) {
-        return { ...(await this.deliver(existing.id, input.recipient, input.mail)), retried: true };
-      }
-
-      // Otherwise it is already queued or delivered by another caller
-      // (duplicate webhook, reconciliation racing the webhook).
-      return { id: existing.id, status: existing.status, duplicate: true };
+      return this.resume(existing, input, deliverable);
     }
 
     let log;
@@ -87,19 +90,71 @@ export class NotificationsService {
       throw error;
     }
 
-    if (!input.mail || input.type !== NotificationType.EMAIL) {
-      // No delivery channel wired for this type yet — the row stays as the record.
-      await this.prisma.notificationLog.update({
-        where: { id: log.id },
-        data: { status: NotificationStatus.SKIPPED }
-      });
-      return { id: log.id, status: NotificationStatus.SKIPPED, duplicate: false };
+    if (!deliverable) {
+      // No transport wired for this channel yet. The row stays PENDING, which
+      // is what the public API has always reported as QUEUED.
+      return { id: log.id, status: NotificationStatus.PENDING, duplicate: false };
     }
 
-    return this.deliver(log.id, input.recipient, input.mail);
+    return this.attemptDelivery(log.id, log.attempts, input.recipient, input.mail!);
   }
 
-  private async deliver(logId: string, recipient: string, mail: MailBody) {
+  /**
+   * Decides what to do with a row that already exists for this dedupe key.
+   * Retries a failed delivery, and rescues a PENDING row that was abandoned by
+   * a process that died before reaching SMTP.
+   */
+  private async resume(
+    existing: { id: string; status: NotificationStatus; attempts: number; sentAt: Date },
+    input: NotifyInput,
+    deliverable: boolean
+  ) {
+    const duplicate = { id: existing.id, status: existing.status, duplicate: true };
+
+    if (!deliverable) return duplicate;
+    if (existing.attempts >= MAX_DELIVERY_ATTEMPTS) return duplicate;
+
+    const abandoned =
+      existing.status === NotificationStatus.PENDING &&
+      Date.now() - existing.sentAt.getTime() > STALE_PENDING_MS;
+
+    if (existing.status !== NotificationStatus.FAILED && !abandoned) {
+      return duplicate;
+    }
+
+    const result = await this.attemptDelivery(
+      existing.id,
+      existing.attempts,
+      input.recipient,
+      input.mail!
+    );
+    return { ...result, retried: true };
+  }
+
+  /**
+   * Claims the row before touching SMTP.
+   *
+   * `attempts` doubles as a compare-and-swap token: two processes that read the
+   * same value both try to increment it, and only one update matches. Without
+   * this, a duplicate webhook and a reconciliation could deliver the same
+   * message at the same time — the unique key stops a second row, not a second
+   * send.
+   */
+  private async attemptDelivery(
+    logId: string,
+    seenAttempts: number,
+    recipient: string,
+    mail: MailBody
+  ) {
+    const claimed = await this.prisma.notificationLog.updateMany({
+      where: { id: logId, attempts: seenAttempts },
+      data: { attempts: seenAttempts + 1 }
+    });
+
+    if (claimed.count !== 1) {
+      return { id: logId, status: NotificationStatus.PENDING, duplicate: true };
+    }
+
     try {
       const result = await this.mail.send({ to: recipient, ...mail });
       const status = result.status === "SENT" ? NotificationStatus.SENT : NotificationStatus.SKIPPED;
@@ -108,7 +163,6 @@ export class NotificationsService {
         where: { id: logId },
         data: {
           status,
-          attempts: { increment: 1 },
           deliveredAt: status === NotificationStatus.SENT ? new Date() : null,
           lastError: status === NotificationStatus.SENT ? null : "SMTP nao configurado."
         }
@@ -123,16 +177,43 @@ export class NotificationsService {
       const message = error instanceof Error ? error.message : String(error);
       await this.prisma.notificationLog.update({
         where: { id: logId },
-        data: {
-          status: NotificationStatus.FAILED,
-          attempts: { increment: 1 },
-          lastError: message.slice(0, 500)
-        }
+        data: { status: NotificationStatus.FAILED, lastError: message.slice(0, 500) }
       });
       // Never rethrow: a mail outage must not roll back an approved payment.
       this.logger.error(`[Notification] Falha ao enviar o log ${logId}: ${message}`);
       return { id: logId, status: NotificationStatus.FAILED, duplicate: false };
     }
+  }
+
+  /**
+   * Public API entry point (POST /notifications). Keeps the response shape the
+   * route has always returned; internal callers use send() instead.
+   */
+  async enqueue(input: {
+    userId?: string;
+    type: NotificationType;
+    event: NotificationEvent;
+    recipient: string;
+    payload: Prisma.InputJsonValue;
+  }): Promise<EnqueuedNotification> {
+    const result = await this.send(input);
+
+    return {
+      id: result.id,
+      status: "QUEUED",
+      channel: input.type,
+      event: input.event,
+      recipient: input.recipient
+    };
+  }
+
+  /** Delivery state of the purchase confirmation for an order, if any. */
+  async purchaseConfirmationStatus(orderId: string) {
+    const log = await this.prisma.notificationLog.findUnique({
+      where: { dedupeKey: `purchase-confirmed:${orderId}` },
+      select: { status: true, recipient: true }
+    });
+    return log ?? null;
   }
 
   /**

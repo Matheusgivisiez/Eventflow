@@ -26,12 +26,41 @@ const productionAssetStorageKeys = [
   "AWS_S3_ASSETS_PUBLIC_URL"
 ] as const;
 
+/**
+ * Environment variables arrive as strings, and zod's boolean coercion is
+ * `Boolean(value)`: every non-empty string — "false", "0", "no" — becomes true.
+ * A flag set to "false" in the hosting panel would silently stay on, so parse
+ * the words instead and reject anything ambiguous at boot.
+ */
+const TRUE_VALUES = new Set(["true", "1", "yes", "y", "on"]);
+const FALSE_VALUES = new Set(["false", "0", "no", "n", "off", ""]);
+
+function booleanFromEnv(defaultValue: boolean) {
+  return z
+    .union([z.boolean(), z.string()])
+    .optional()
+    .transform((value, ctx) => {
+      if (value === undefined) return defaultValue;
+      if (typeof value === "boolean") return value;
+
+      const normalized = value.trim().toLowerCase();
+      if (TRUE_VALUES.has(normalized)) return true;
+      if (FALSE_VALUES.has(normalized)) return false;
+
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: `Valor booleano invalido: "${value}". Use "true" ou "false".`
+      });
+      return z.NEVER;
+    });
+}
+
 export const envSchema = z.object({
   NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
   DATABASE_URL: z.string().url(),
   DATABASE_READ_URL: z.string().url().optional(),
   REDIS_URL: z.string().url().default("redis://localhost:6379"),
-  QUEUE_WORKERS_ENABLED: z.coerce.boolean().default(false),
+  QUEUE_WORKERS_ENABLED: booleanFromEnv(false),
   JWT_ACCESS_SECRET: z.string().optional(),
   JWT_REFRESH_SECRET: z.string().optional(),
   JWT_RESET_SECRET: z.string().optional(),
@@ -44,7 +73,8 @@ export const envSchema = z.object({
   ABACATE_WEBHOOK_SECRET: z.string().optional(),
   ABACATE_BASE_URL: z.string().url().default("https://api.abacatepay.com/v2"),
   ABACATE_ENVIRONMENT: z.enum(["sandbox", "production"]).default("sandbox"),
-  PAYMENT_SIMULATION_ENABLED: z.coerce.boolean().default(true),
+  // A payment bypass must never be on by accident: off unless opted in.
+  PAYMENT_SIMULATION_ENABLED: booleanFromEnv(false),
   ORDER_RESERVATION_TTL_MINUTES: z.coerce.number().int().min(5).max(24 * 60).default(30),
   ABACATE_PUBLIC_KEY: z.string().optional(),
   ABACATEPAY_API_KEY: z.string().optional(),
@@ -57,7 +87,7 @@ export const envSchema = z.object({
   AWS_SECRET_ACCESS_KEY: z.string().optional(),
   AWS_REGION: z.string().default("us-east-1"),
   AWS_S3_ENDPOINT: z.string().url().optional(),
-  AWS_S3_FORCE_PATH_STYLE: z.coerce.boolean().default(false),
+  AWS_S3_FORCE_PATH_STYLE: booleanFromEnv(false),
   AWS_S3_ASSETS_BUCKET: z.string().optional(),
   AWS_S3_ASSETS_PUBLIC_URL: z.string().url().optional(),
   AWS_S3_BACKUPS_BUCKET: z.string().optional(),
@@ -67,14 +97,14 @@ export const envSchema = z.object({
   META_PIXEL_ID: z.string().optional(),
   // Kill switch for the purchase confirmation e-mail without taking SMTP down
   // (password recovery depends on the same transport).
-  PURCHASE_EMAIL_ENABLED: z.coerce.boolean().default(true),
+  PURCHASE_EMAIL_ENABLED: booleanFromEnv(true),
   SMTP_HOST: z.string().optional(),
   SMTP_PORT: z.coerce.number().int().positive().optional(),
-  SMTP_SECURE: z.coerce.boolean().default(false),
+  SMTP_SECURE: booleanFromEnv(false),
   SMTP_USER: z.string().optional(),
   SMTP_PASS: z.string().optional(),
   SMTP_FROM: z.string().email().optional(),
-  OTEL_ENABLED: z.coerce.boolean().default(false),
+  OTEL_ENABLED: booleanFromEnv(false),
   THROTTLE_TTL: z.coerce.number().default(60000),
   THROTTLE_LIMIT: z.coerce.number().default(120)
 }).superRefine((env, ctx) => {

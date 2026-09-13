@@ -5,9 +5,10 @@ import { AuthController } from "./auth.controller";
 import { AuthService } from "./auth.service";
 import { JwtStrategy } from "./jwt.strategy";
 import { MailService } from "../../common/services/mail.service";
+import { EmailVerificationModule } from "../email-verification/email-verification.module";
 
 @Module({
-  imports: [PassportModule, JwtModule.register({})],
+  imports: [PassportModule, JwtModule.register({}), EmailVerificationModule],
   controllers: [AuthController],
   providers: [AuthService, JwtStrategy, MailService],
   exports: [AuthService]

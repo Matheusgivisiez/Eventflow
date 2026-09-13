@@ -1,14 +1,28 @@
 import { BadRequestException, Injectable, UnauthorizedException } from "@nestjs/common";
 import * as bcrypt from "bcryptjs";
 import { PrismaService } from "../../prisma/prisma.service";
+import { EmailVerificationService } from "../email-verification/email-verification.service";
 import { ChangePasswordDto, UpdateProfileDto } from "./dto/update-profile.dto";
 
 @Injectable()
 export class ProfileService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly emailVerification: EmailVerificationService
+  ) {}
 
   async update(userId: string, tenantId: string, dto: UpdateProfileDto) {
-    return this.prisma.$transaction(async (tx) => {
+    const current = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { id: true, email: true, name: true }
+    });
+    if (!current) {
+      throw new BadRequestException("Usuario nao encontrado.");
+    }
+
+    const emailChanged = EmailVerificationService.isEmailChange(current.email, dto.email);
+
+    const result = await this.prisma.$transaction(async (tx) => {
       if (dto.email) {
         const exists = await tx.user.findFirst({ where: { email: dto.email.toLowerCase(), NOT: { id: userId } } });
         if (exists) {
@@ -21,9 +35,11 @@ export class ProfileService {
         data: {
           name: dto.name,
           email: dto.email?.toLowerCase(),
-          phone: dto.phone
+          phone: dto.phone,
+          // A changed address carries no proof of ownership until confirmed.
+          ...(emailChanged ? EmailVerificationService.clearedVerificationData() : {})
         },
-        select: { id: true, name: true, email: true, phone: true, role: true, tenantId: true }
+        select: { id: true, name: true, email: true, emailVerifiedAt: true, phone: true, role: true, tenantId: true }
       });
 
       const tenant = await tx.tenant.update({
@@ -31,8 +47,20 @@ export class ProfileService {
         data: { name: dto.companyName, logoUrl: dto.logoUrl }
       });
 
-      return { ...user, tenant };
+      return { ...user, emailVerified: Boolean(user.emailVerifiedAt), tenant };
     });
+
+    if (emailChanged) {
+      // Outside the transaction: SMTP must not hold a lock, and a mail outage
+      // must not roll back a profile the user already saved.
+      await this.emailVerification.handleEmailChanged({
+        id: result.id,
+        email: result.email,
+        name: result.name
+      });
+    }
+
+    return result;
   }
 
   async changePassword(userId: string, dto: ChangePasswordDto) {

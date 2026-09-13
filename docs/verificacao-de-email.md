@@ -21,12 +21,28 @@ por isso a verificação foi feita antes do envio de e-mail, e não depois.
 - `RequestUser.emailVerified` é preenchido pela `JwtStrategy` a partir de `emailVerifiedAt`.
 - `resolveClaimEmail(user)` (`common/utils/claim-email.utils.ts`) é o único ponto que
   autoriza casar dados por e-mail. Retorna `null` para conta não verificada.
+- `EmailVerificationService` (módulo próprio) emite e invalida os links. Fica fora
+  do `AuthService` porque a prova precisa ser destruída em três outros lugares.
 - Os quatro pontos acima passaram a usar `resolveClaimEmail`. Com `null`, as cláusulas
   por `buyerEmail` / `attendeeEmail` simplesmente **não entram** na query.
 - `POST /auth/verify-email` e `POST /auth/resend-verification` (resposta neutra,
   cooldown de 60s, throttle de 3/min). Página web em `/verificar-email`.
 - O link de verificação é enviado no cadastro. Falha de SMTP é registrada em log e
   **não** quebra o cadastro.
+
+## Troca de e-mail
+
+Uma conta verificada que muda de endereço **deixa de ser verificada**. Sem isso o
+buraco reabre inteiro: basta verificar o próprio e-mail, trocar para o e-mail da
+vítima e a prova antiga continuaria valendo.
+
+Toda rota que altera `User.email` — `PATCH /users/me`, `PATCH /users/:id` e
+`PATCH /profile` — escreve `emailVerifiedAt: null` na mesma instrução que grava o
+novo endereço, invalida os links pendentes e envia um novo. A comparação ignora
+caixa e espaços, então salvar o mesmo endereço não derruba a verificação.
+
+O envio acontece **fora** da transação: SMTP não segura lock, e uma falha de
+e-mail não desfaz um perfil que o usuário já salvou.
 
 ## Compatibilidade com contas existentes
 
@@ -53,9 +69,21 @@ de subir esta mudança, junto com SPF, DKIM e DMARC do domínio remetente.
 3. Rodar a migração (o backfill precisa acontecer junto com o schema).
 4. Subir API e web na mesma janela — `/verificar-email` é o destino do link.
 
+## Auditoria antes do deploy
+
+O backfill legitima, sem prova, qualquer conta que tenha sido criada no passado
+com o e-mail de outra pessoa. Rode
+`prisma/scripts/auditoria-contas-vs-pedidos-convidado.sql` antes de aplicar a
+migração: ele lista as contas que passariam a alcançar pedidos de convidado que
+não são delas, destacando as que são **posteriores** ao pedido. Para qualquer
+conta suspeita, basta `UPDATE "User" SET "emailVerifiedAt" = NULL` — a pessoa
+recupera o acesso confirmando o próprio e-mail.
+
 ## Ainda em aberto
 
-- Rate limit em `GET /checkout/order/:orderId`.
 - `orderAccessToken` deixar de ser nullable.
 - Vinculação retroativa física dos pedidos antigos (hoje a leitura já é
   compatível por `userId` **ou** e-mail verificado, que resolve o caso de uso).
+- `UsersService.update` (`PATCH /users/:id`) continua aceitando `role` no corpo,
+  o que permite a um organizador alterar o papel de usuários do próprio tenant.
+  Não tem relação com este trabalho, mas merece revisão.

@@ -6,6 +6,7 @@ import { RequestUser } from "../../common/types/request-user";
 import { getQrCodeReleaseTime, isQrCodeLocked } from "../../common/utils/qr-code.utils";
 import { PrismaService } from "../../prisma/prisma.service";
 import { CacheService } from "../cache/cache.service";
+import { NotificationsService } from "../notifications/notifications.service";
 import { PaymentsService } from "../payments/payments.service";
 import { CreateCheckoutDto } from "./dto/create-checkout.dto";
 import { CreateCheckoutUseCase } from "./use-cases/create-checkout.use-case";
@@ -19,7 +20,8 @@ export class CheckoutService {
     private readonly createCheckout: CreateCheckoutUseCase,
     private readonly payments: PaymentsService,
     private readonly cache: CacheService,
-    private readonly config: ConfigService
+    private readonly config: ConfigService,
+    private readonly notifications: NotificationsService
   ) {}
 
   async create(slug: string, dto: CreateCheckoutDto, user?: RequestUser) {
@@ -89,8 +91,16 @@ export class CheckoutService {
     const locked = isQrCodeLocked(order.event);
     const releaseTime = getQrCodeReleaseTime(order.event);
 
+    // Additive field. The page must not claim "we e-mailed you this link" when
+    // the delivery failed, was skipped for missing SMTP, or never happened.
+    const confirmation =
+      order.status === PaymentStatus.PAID
+        ? await this.notifications.purchaseConfirmationStatus(order.id).catch(() => null)
+        : null;
+
     return {
       id: order.id,
+      confirmationEmailStatus: confirmation?.status ?? null,
       eventId: order.eventId,
       eventTitle: order.event.title,
       eventStartsAt: order.event.startsAt,

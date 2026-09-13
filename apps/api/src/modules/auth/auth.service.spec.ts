@@ -1,3 +1,4 @@
+import { EmailVerificationService } from "../email-verification/email-verification.service";
 import { AuthService } from "./auth.service";
 
 function createService() {
@@ -29,8 +30,11 @@ function createService() {
     getOrThrow: jest.fn()
   };
   const mail = { send: jest.fn() };
-  const service = new AuthService(prisma as any, jwt as any, config as any, mail as any);
-  return { service, prisma, mail };
+  // The real verification service, on the same mocks: the tests below assert
+  // on the token row it writes and the mail it sends.
+  const emailVerification = new EmailVerificationService(prisma as any, mail as any, config as any);
+  const service = new AuthService(prisma as any, jwt as any, config as any, mail as any, emailVerification);
+  return { service, prisma, mail, emailVerification };
 }
 
 describe("AuthService logout", () => {

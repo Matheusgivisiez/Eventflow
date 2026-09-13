@@ -61,8 +61,9 @@ function createService() {
   const payments = { createProviderPreference: jest.fn(), updateStatus: jest.fn(), reconcileProviderStatus: jest.fn() };
   const cache = { get: jest.fn().mockResolvedValue(null), set: jest.fn().mockResolvedValue(undefined) };
   const config = { get: jest.fn((key: string) => key === "PAYMENT_SIMULATION_ENABLED" ? true : undefined) };
-  const service = new CheckoutService(prisma as any, createCheckout as any, payments as any, cache as any, config as any);
-  return { service, prisma, createCheckout, payments, cache, config };
+  const notifications = { purchaseConfirmationStatus: jest.fn().mockResolvedValue(null) };
+  const service = new CheckoutService(prisma as any, createCheckout as any, payments as any, cache as any, config as any, notifications as any);
+  return { service, prisma, createCheckout, payments, cache, config, notifications };
 }
 
 describe("CheckoutService", () => {

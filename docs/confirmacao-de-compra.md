@@ -35,11 +35,20 @@ A chave da confirmação de compra é `purchase-confirmed:<orderId>`. Com isso:
 - uma corrida entre dois processos é resolvida pelo índice único (violação
   `P2002` é tratada como duplicidade, não como erro).
 
+Antes de tocar no SMTP, a linha é **reivindicada**: `attempts` funciona como
+token de compare-and-swap, e de dois processos que leram o mesmo valor só um
+consegue incrementá-lo. A chave única impede uma segunda linha; só a
+reivindicação impede um segundo envio.
+
 Uma entrega que falhou (`status = FAILED`) é retentada na próxima vez que aquele
-pedido passar pelo funil, até `MAX_DELIVERY_ATTEMPTS`. **Não existe worker de
-retentativa automática**: a retentativa depende de um novo evento sobre o pedido.
-Se isso não for suficiente, o índice `(status, sentAt)` já permite varrer as
-falhas em um job futuro.
+pedido passar pelo funil, até `MAX_DELIVERY_ATTEMPTS`. Uma linha que ficou
+`PENDING` por mais de 5 minutos — processo morto entre o insert e o SMTP — é
+tratada como abandonada e também é retentada, em vez de ficar presa para sempre
+atrás da chave de deduplicação.
+
+**Não existe worker de retentativa automática**: a retentativa depende de um novo
+evento sobre o pedido. O índice `(status, sentAt)` já permite varrer as falhas em
+um job futuro.
 
 ## O que o e-mail contém
 
@@ -52,12 +61,28 @@ para a página do pedido, que aplica as regras de liberação de QR do evento.
 
 Formato do link: `/checkout/success?orderId=<id>&accessToken=<token>`.
 
+## Contrato público
+
+`POST /notifications` continua respondendo
+`{ id, status: "QUEUED", channel, event, recipient }`. O método `enqueue()` existe
+só para preservar esse formato; chamadas internas usam `send()`, que devolve o
+estado real da entrega. Um canal sem transporte (WhatsApp, hoje) grava a linha
+como `PENDING`, que é exatamente o que a rota sempre chamou de `QUEUED`.
+
 ## Página de sucesso
 
 Convidado não é mais redirecionado para `/me/ingressos` — o redirecionamento
 levava ao login e tirava da frente o ingresso recém-pago. Agora o convidado
-permanece na página, com o aviso de que o link também foi enviado por e-mail e
-os caminhos "Criar conta" (com o e-mail preenchido) e "Já tenho conta".
+permanece na página, com os caminhos "Criar conta" (com o e-mail preenchido) e
+"Já tenho conta".
+
+A página **não afirma** que o e-mail foi enviado: `GET /checkout/order/:id` passou
+a devolver `confirmationEmailStatus` (campo aditivo, opcional) e só o valor `SENT`
+produz "Enviamos este link para você". Em qualquer outro estado — `FAILED`,
+`SKIPPED` por falta de SMTP, `PENDING` ou API antiga — a página pede que o
+comprador salve o endereço. Pelo mesmo motivo, o backup do checkout no
+`localStorage` só é apagado quando o link é reproduzível pela URL ou o envio foi
+confirmado.
 
 O preenchimento do e-mail no cadastro é conveniência, não prova: as compras
 antigas só aparecem depois da confirmação do endereço (ver

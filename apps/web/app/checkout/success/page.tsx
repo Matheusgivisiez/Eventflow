@@ -13,6 +13,7 @@ import {
   Loader2,
   LogIn,
   Mail,
+  MailWarning,
   UserPlus,
 } from "lucide-react";
 import Link from "next/link";
@@ -40,6 +41,8 @@ type PublicOrderDetails = {
   buyerEmail: string;
   totalCents: number;
   status: "PENDING" | "PAID" | "CANCELED" | "REFUNDED";
+  /** Delivery state of the confirmation e-mail. Absent on older API versions. */
+  confirmationEmailStatus?: "PENDING" | "SENT" | "FAILED" | "SKIPPED" | null;
   paymentMethod?: string;
   createdAt: string;
   items: Array<{
@@ -131,11 +134,20 @@ function SuccessContent() {
 
   const isPaid = order?.status === "PAID";
   const isPending = order?.status === "PENDING";
+  // Only "SENT" means a message actually left the server. PENDING, FAILED,
+  // SKIPPED (no SMTP) and undefined all mean the buyer may have nothing.
+  const emailDelivered = order?.confirmationEmailStatus === "SENT";
+  // The URL alone is enough to come back here, so the localStorage backup is
+  // only expendable once the link is reproducible or the e-mail really went out.
+  const linkIsRecoverable =
+    Boolean(searchParams.get("orderId") && searchParams.get("accessToken")) || emailDelivered;
 
   useEffect(() => {
     if (!isPaid) return;
 
-    window.localStorage.removeItem("eventflow:last-checkout");
+    if (linkIsRecoverable) {
+      window.localStorage.removeItem("eventflow:last-checkout");
+    }
     void queryClient.invalidateQueries({ queryKey: ["my-tickets"] });
 
     if (!isAuthenticated) {
@@ -156,7 +168,7 @@ function SuccessContent() {
     }, 1000);
 
     return () => clearInterval(interval);
-  }, [isAuthenticated, isPaid, queryClient, router]);
+  }, [isAuthenticated, isPaid, linkIsRecoverable, queryClient, router]);
 
   if (!orderId || !accessToken) {
     return (
@@ -231,15 +243,28 @@ function SuccessContent() {
         <CardContent className="space-y-4">
           {isPaid && !isAuthenticated && (
             <div className="rounded-lg border bg-muted/40 p-4 space-y-3">
-              <div className="flex items-start gap-2.5">
-                <Mail className="mt-0.5 h-4 w-4 shrink-0 text-brand-purple" />
-                <div className="text-sm">
-                  <p className="font-medium">Enviamos este link para {order.buyerEmail}</p>
-                  <p className="mt-0.5 text-xs text-muted-foreground">
-                    Guarde o e-mail: ele é pessoal e dá acesso a este pedido sem precisar de conta.
-                  </p>
+              {emailDelivered ? (
+                <div className="flex items-start gap-2.5">
+                  <Mail className="mt-0.5 h-4 w-4 shrink-0 text-brand-purple" />
+                  <div className="text-sm">
+                    <p className="font-medium">Enviamos este link para {order.buyerEmail}</p>
+                    <p className="mt-0.5 text-xs text-muted-foreground">
+                      Guarde o e-mail: ele é pessoal e dá acesso a este pedido sem precisar de conta.
+                    </p>
+                  </div>
                 </div>
-              </div>
+              ) : (
+                <div className="flex items-start gap-2.5">
+                  <MailWarning className="mt-0.5 h-4 w-4 shrink-0 text-amber-500" />
+                  <div className="text-sm">
+                    <p className="font-medium">Salve o endereço desta página agora</p>
+                    <p className="mt-0.5 text-xs text-muted-foreground">
+                      Ainda não confirmamos o envio do e-mail para {order.buyerEmail}. Este endereço é
+                      a sua via de acesso ao ingresso — guarde nos favoritos ou crie uma conta abaixo.
+                    </p>
+                  </div>
+                </div>
+              )}
               <div className="flex flex-col gap-2 sm:flex-row">
                 <Button asChild className="flex-1 gap-2">
                   <Link href={`/register?email=${encodeURIComponent(order.buyerEmail)}`}>

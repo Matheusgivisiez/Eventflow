@@ -6,8 +6,9 @@ function createService() {
     notificationLog: {
       findUnique: jest.fn().mockResolvedValue(null),
       findMany: jest.fn(),
-      create: jest.fn(async ({ data }: any) => ({ id: "log-1", ...data })),
-      update: jest.fn()
+      create: jest.fn(async ({ data }: any) => ({ id: "log-1", attempts: 0, ...data })),
+      update: jest.fn(),
+      updateMany: jest.fn().mockResolvedValue({ count: 1 })
     }
   };
   const mail = { send: jest.fn().mockResolvedValue({ status: "SENT", recipient: "buyer@example.com" }) };
@@ -59,7 +60,9 @@ describe("NotificationsService purchase confirmation", () => {
     const { service, prisma, mail } = createService();
     prisma.notificationLog.findUnique.mockResolvedValue({
       id: "log-1",
-      status: NotificationStatus.SENT
+      status: NotificationStatus.SENT,
+      attempts: 1,
+      sentAt: new Date()
     });
 
     const result = await service.sendPurchaseApproved(purchase);
@@ -74,7 +77,8 @@ describe("NotificationsService purchase confirmation", () => {
     prisma.notificationLog.findUnique.mockResolvedValue({
       id: "log-1",
       status: NotificationStatus.FAILED,
-      attempts: 1
+      attempts: 1,
+      sentAt: new Date()
     });
 
     const result = await service.sendPurchaseApproved(purchase);
@@ -89,7 +93,8 @@ describe("NotificationsService purchase confirmation", () => {
     prisma.notificationLog.findUnique.mockResolvedValue({
       id: "log-1",
       status: NotificationStatus.FAILED,
-      attempts: 5
+      attempts: 5,
+      sentAt: new Date()
     });
 
     const result = await service.sendPurchaseApproved(purchase);
@@ -140,7 +145,9 @@ describe("NotificationsService purchase confirmation", () => {
     const result = await service.sendPurchaseApproved(purchase);
 
     expect(mail.send).toHaveBeenCalledTimes(1);
-    expect(result.whatsapp?.status).toBe(NotificationStatus.SKIPPED);
+    // The row stays PENDING — which is exactly what the API has always
+    // reported as QUEUED for a channel with no transport.
+    expect(result.whatsapp?.status).toBe(NotificationStatus.PENDING);
   });
 
   it("points the buyer at the order page with its access token", async () => {
@@ -199,5 +206,101 @@ describe("NotificationsService purchase confirmation", () => {
         })
       })
     );
+  });
+});
+
+describe("NotificationsService queue safety", () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  it("rescues a PENDING row abandoned before reaching SMTP", async () => {
+    const { service, prisma, mail } = createService();
+    prisma.notificationLog.findUnique.mockResolvedValue({
+      id: "log-1",
+      status: NotificationStatus.PENDING,
+      attempts: 0,
+      sentAt: new Date(Date.now() - 1000 * 60 * 30)
+    });
+
+    const result = await service.sendPurchaseApproved(purchase);
+
+    expect(mail.send).toHaveBeenCalledTimes(1);
+    expect(result.email.status).toBe(NotificationStatus.SENT);
+  });
+
+  it("leaves a freshly created PENDING row to its own caller", async () => {
+    const { service, prisma, mail } = createService();
+    prisma.notificationLog.findUnique.mockResolvedValue({
+      id: "log-1",
+      status: NotificationStatus.PENDING,
+      attempts: 0,
+      sentAt: new Date()
+    });
+
+    const result = await service.sendPurchaseApproved(purchase);
+
+    expect(mail.send).not.toHaveBeenCalled();
+    expect(result.email.duplicate).toBe(true);
+  });
+
+  it("claims the row before touching SMTP", async () => {
+    const { service, prisma, mail } = createService();
+
+    await service.sendPurchaseApproved(purchase);
+
+    expect(prisma.notificationLog.updateMany).toHaveBeenCalledWith({
+      where: { id: "log-1", attempts: 0 },
+      data: { attempts: 1 }
+    });
+    expect(mail.send).toHaveBeenCalled();
+  });
+
+  it("does not send when another process claimed the same row first", async () => {
+    const { service, prisma, mail } = createService();
+    prisma.notificationLog.updateMany.mockResolvedValue({ count: 0 });
+
+    const result = await service.sendPurchaseApproved(purchase);
+
+    expect(mail.send).not.toHaveBeenCalled();
+    expect(result.email.duplicate).toBe(true);
+  });
+});
+
+describe("NotificationsService public API contract", () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  it("keeps the response shape of POST /notifications", async () => {
+    const { service } = createService();
+
+    const result = await service.enqueue({
+      type: NotificationType.EMAIL,
+      event: NotificationEvent.EVENT_TOMORROW,
+      recipient: "buyer@example.com",
+      payload: { hello: "world" }
+    });
+
+    expect(result).toEqual({
+      id: "log-1",
+      status: "QUEUED",
+      channel: NotificationType.EMAIL,
+      event: NotificationEvent.EVENT_TOMORROW,
+      recipient: "buyer@example.com"
+    });
+  });
+
+  it("does not try to deliver a notification posted without a body", async () => {
+    const { service, mail } = createService();
+
+    await service.enqueue({
+      type: NotificationType.EMAIL,
+      event: NotificationEvent.EVENT_TOMORROW,
+      recipient: "buyer@example.com",
+      payload: {}
+    });
+
+    expect(mail.send).not.toHaveBeenCalled();
   });
 });
