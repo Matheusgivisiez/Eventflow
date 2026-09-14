@@ -6,6 +6,9 @@
 html {
   scroll-behavior: smooth;
   -webkit-text-size-adjust: 100%;
+  /* Mata o zoom de duplo-toque do Safari/Chrome mobile ao tocar em campos,
+     botões etc. O pinch-zoom manual do usuário continua funcionando. */
+  touch-action: manipulation;
 }
 
 /* ─── Transição suave ao alternar temas ────────── */
@@ -70,6 +73,7 @@ body {
   select,
   textarea {
     font-size: 16px !important;
+    touch-action: manipulation;
   }
 
   .new-event-form input,

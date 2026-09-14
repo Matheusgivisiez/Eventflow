@@ -99,7 +99,8 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
               variant="ghost"
               size="icon"
               title="Sair"
-              className="hidden rounded-xl text-muted-foreground hover:bg-destructive/10 hover:text-destructive md:inline-flex"
+              aria-label="Sair da conta"
+              className="rounded-xl text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
               onClick={() => { logout(); router.push("/login"); }}
             >
               <LogOut className="h-4 w-4" />

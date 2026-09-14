@@ -10,9 +10,16 @@ type FloatingBuyBarProps = {
   totalCents: number;
   totalItems: number;
   selectedItems: Record<string, number>;
+  onEmptySelectionClick?: () => void;
 };
 
-export function FloatingBuyBar({ slug, totalCents, totalItems, selectedItems }: FloatingBuyBarProps) {
+export function FloatingBuyBar({
+  slug,
+  totalCents,
+  totalItems,
+  selectedItems,
+  onEmptySelectionClick
+}: FloatingBuyBarProps) {
   const itemsParam = Object.entries(selectedItems)
     .filter(([, qty]) => qty > 0)
     .map(([id, qty]) => `${id}:${qty}`)
@@ -59,8 +66,8 @@ export function FloatingBuyBar({ slug, totalCents, totalItems, selectedItems }: 
           <Button
             asChild
             size="lg"
-            disabled={totalItems === 0}
-            className="h-12 shrink-0 rounded-xl px-4 text-base font-bold shadow-lg shadow-primary/25 transition-all hover:scale-[1.02] active:scale-95 disabled:cursor-not-allowed disabled:opacity-50 sm:px-6"
+            onClick={totalItems === 0 ? onEmptySelectionClick : undefined}
+            className="h-12 shrink-0 rounded-xl px-4 text-base font-bold shadow-lg shadow-primary/25 transition-all hover:scale-[1.02] active:scale-95 sm:px-6"
           >
             {totalItems > 0 ? (
               <Link href={checkoutUrl}>
@@ -69,11 +76,11 @@ export function FloatingBuyBar({ slug, totalCents, totalItems, selectedItems }: 
                 <span className="hidden sm:inline">Garantir meu ingresso</span>
               </Link>
             ) : (
-              <span>
+              <button type="button" aria-label="Selecionar ingressos para continuar">
                 <Ticket className="mr-2 h-5 w-5" />
                 <span className="sm:hidden">Garantir</span>
                 <span className="hidden sm:inline">Garantir meu ingresso</span>
-              </span>
+              </button>
             )}
           </Button>
         </div>

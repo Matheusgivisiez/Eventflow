@@ -4,7 +4,7 @@ import { useMemo, useState } from "react";
 import Link from "next/link";
 import { useQuery } from "@tanstack/react-query";
 import {
-  ArrowRight, CalendarPlus, ChevronRight, Compass, MapPin,
+  ArrowRight, CalendarPlus, ChevronRight, Compass, LogOut, MapPin,
   Music, GraduationCap, Dumbbell, Theater, Users, Briefcase,
   Search, ShieldCheck, Zap, TrendingDown
 } from "lucide-react";
@@ -99,6 +99,15 @@ export default function CatalogPage() {
                 >
                   {userInitials}
                 </Link>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={logout}
+                  aria-label="Sair da conta"
+                  className="text-muted-foreground hover:bg-destructive/10 hover:text-destructive md:hidden"
+                >
+                  <LogOut className="h-4 w-4" />
+                </Button>
                 <Button
                   variant="outline"
                   size="sm"

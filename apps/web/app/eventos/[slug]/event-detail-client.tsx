@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState, type ReactNode } from "react";
 import { TicketSelector } from "@/components/event-page/ticket-selector";
 import { FloatingBuyBar } from "@/components/event-page/floating-buy-bar";
 import { ShareButtons } from "@/components/event-page/share-buttons";
@@ -9,10 +9,26 @@ import type { EventFlowEvent } from "@/types/eventflow";
 
 type EventDetailClientProps = {
   event: EventFlowEvent;
+  aboutSection: ReactNode;
+  gallerySection: ReactNode;
+  locationSection: ReactNode;
+  agendaSection: ReactNode;
+  faqSection: ReactNode;
+  organizerSection: ReactNode;
 };
 
-export function EventDetailClient({ event }: EventDetailClientProps) {
+export function EventDetailClient({
+  event,
+  aboutSection,
+  gallerySection,
+  locationSection,
+  agendaSection,
+  faqSection,
+  organizerSection
+}: EventDetailClientProps) {
   const [quantities, setQuantities] = useState<Record<string, number>>({});
+  const mobileTicketsRef = useRef<HTMLDivElement>(null);
+  const desktopTicketsRef = useRef<HTMLDivElement>(null);
 
   const handleQuantityChange = (ticketId: string, quantity: number) => {
     setQuantities((prev) => ({ ...prev, [ticketId]: quantity }));
@@ -31,21 +47,53 @@ export function EventDetailClient({ event }: EventDetailClientProps) {
     return { totalCents: cents, totalItems: items };
   }, [event.ticketTypes, quantities]);
 
+  // Sem ingresso selecionado, o botão "Garantir" leva até o seletor em vez de ficar inerte.
+  function scrollToTickets() {
+    const mobileEl = mobileTicketsRef.current;
+    const desktopEl = desktopTicketsRef.current;
+    const isMobileVisible = mobileEl !== null && mobileEl.offsetParent !== null;
+    const target = isMobileVisible ? mobileEl : desktopEl;
+    target?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }
+
+  const ticketsAndArtists = (
+    <>
+      <ShareButtons title={event.title} slug={event.slug} />
+      <TicketSelector
+        ticketTypes={event.ticketTypes}
+        quantities={quantities}
+        onQuantityChange={handleQuantityChange}
+      />
+      <EventArtists artists={event.artists} compact />
+    </>
+  );
+
   return (
     <>
-      {/* Sticky sidebar com ingressos + compartilhar */}
-      <div className="sticky top-20 min-w-0 space-y-6">
-        {/* Compartilhar */}
-        <ShareButtons title={event.title} slug={event.slug} />
+      <div className="grid min-w-0 grid-cols-1 gap-10 lg:grid-cols-[minmax(0,1fr)_minmax(0,420px)] lg:gap-12">
+        {/* Coluna esquerda: informações */}
+        <div className="min-w-0 space-y-10 sm:space-y-12">
+          {aboutSection}
 
-        {/* Seletor de ingressos */}
-        <TicketSelector
-          ticketTypes={event.ticketTypes}
-          quantities={quantities}
-          onQuantityChange={handleQuantityChange}
-        />
+          {/* No mobile, ingressos + artistas vêm logo após o resumo do evento,
+              antes de galeria/localização/agenda (no desktop isso vira a sidebar abaixo) */}
+          <div ref={mobileTicketsRef} className="space-y-6 lg:hidden">
+            {ticketsAndArtists}
+          </div>
 
-        <EventArtists artists={event.artists} compact />
+          {gallerySection}
+          {locationSection}
+          {agendaSection}
+          {faqSection}
+          {organizerSection}
+        </div>
+
+        {/* Coluna direita: sidebar sticky com ingressos (somente desktop) */}
+        <div className="relative hidden min-w-0 lg:block">
+          <div ref={desktopTicketsRef} className="sticky top-20 space-y-6">
+            {ticketsAndArtists}
+          </div>
+        </div>
       </div>
 
       {/* Barra fixa de compra */}
@@ -54,6 +102,7 @@ export function EventDetailClient({ event }: EventDetailClientProps) {
         totalCents={totalCents}
         totalItems={totalItems}
         selectedItems={quantities}
+        onEmptySelectionClick={scrollToTickets}
       />
     </>
   );

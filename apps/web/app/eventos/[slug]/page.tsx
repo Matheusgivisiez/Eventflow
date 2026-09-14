@@ -115,43 +115,29 @@ export default async function PublicEventPage({ params }: { params: Promise<{ sl
       {/* Hero: nav + banner + título */}
       <HeroBanner event={event} />
 
-      {/* Conteúdo principal: detalhes + ingressos (client-side) */}
+      {/* Conteúdo principal: detalhes + ingressos (client-side cuida da ordem mobile/desktop) */}
       <div className="mx-auto w-full max-w-7xl px-4 sm:px-5 lg:px-8">
-        <div className="grid min-w-0 grid-cols-1 gap-10 lg:grid-cols-[minmax(0,1fr)_minmax(0,420px)] lg:gap-12">
-          {/* Coluna esquerda: informações */}
-          <div className="min-w-0 space-y-10 sm:space-y-12">
-            {/* Sobre o evento */}
+        <EventDetailClient
+          event={event}
+          aboutSection={
             <section className="space-y-4 animate-fade-in">
               <h2 className="text-xl font-bold tracking-tight">Sobre o Evento</h2>
               <p className="whitespace-pre-line break-words text-base leading-relaxed text-muted-foreground [overflow-wrap:anywhere]">
                 {event.description}
               </p>
             </section>
-
-            {/* Galeria de fotos */}
-            <PhotoGallery urls={event.galleryUrls} title={event.title} />
-
-            {/* Mapa */}
-            <LocationMap event={event} />
-
-            {/* Agenda */}
-            <EventAgenda agendaJson={event.agendaJson} />
-
-            {/* FAQ */}
-            <EventFaq faqJson={event.faqJson} />
-
-            {/* Organizador */}
+          }
+          gallerySection={<PhotoGallery urls={event.galleryUrls} title={event.title} />}
+          locationSection={<LocationMap event={event} />}
+          agendaSection={<EventAgenda agendaJson={event.agendaJson} />}
+          faqSection={<EventFaq faqJson={event.faqJson} />}
+          organizerSection={
             <OrganizerInfo
               name={organizerName}
               description="Produtora responsavel por organizar eventos, ingressos e experiencias memoraveis."
             />
-          </div>
-
-          {/* Coluna direita: seletor de ingressos + share (client) */}
-          <div className="relative min-w-0">
-            <EventDetailClient event={event} />
-          </div>
-        </div>
+          }
+        />
       </div>
     </main>
   );
