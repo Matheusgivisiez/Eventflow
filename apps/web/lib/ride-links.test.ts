@@ -1,0 +1,96 @@
+import assert from "node:assert/strict";
+import { describe, it } from "node:test";
+import {
+  buildGoogleMapsLink,
+  buildMapEmbedSrc,
+  buildUberLink,
+  buildWazeLink,
+  getFullAddress,
+} from "./ride-links";
+
+const baseEvent = {
+  address: "Rua das Flores, 123",
+  city: "Coronel Fabriciano",
+  state: "MG",
+  zipCode: "35170-000",
+};
+
+describe("getFullAddress", () => {
+  it("monta o endereco completo com cidade, estado e cep", () => {
+    assert.equal(
+      getFullAddress(baseEvent),
+      "Rua das Flores, 123, Coronel Fabriciano - MG, CEP 35170-000"
+    );
+  });
+
+  it("ignora campos ausentes", () => {
+    assert.equal(getFullAddress({ address: "Rua X" }), "Rua X");
+  });
+});
+
+describe("buildMapEmbedSrc", () => {
+  it("usa coordenadas quando o mapUrl do organizador ja tem @lat,lng", () => {
+    const event = { ...baseEvent, mapUrl: "https://www.google.com/maps/@-19.5197,-42.6267,17z" };
+    assert.equal(
+      buildMapEmbedSrc(event),
+      "https://www.google.com/maps?q=-19.5197,-42.6267&z=16&output=embed"
+    );
+  });
+
+  it("usa coordenadas quando o mapUrl tem ?q=lat,lng", () => {
+    const event = { ...baseEvent, mapUrl: "https://maps.google.com/?q=-19.5197,-42.6267" };
+    assert.equal(
+      buildMapEmbedSrc(event),
+      "https://www.google.com/maps?q=-19.5197,-42.6267&z=16&output=embed"
+    );
+  });
+
+  it("cai para o endereco textual quando nao ha coordenadas", () => {
+    assert.equal(
+      buildMapEmbedSrc(baseEvent),
+      `https://www.google.com/maps?q=${encodeURIComponent(getFullAddress(baseEvent))}&output=embed`
+    );
+  });
+});
+
+describe("buildGoogleMapsLink", () => {
+  it("gera link de busca com o endereco quando nao ha mapUrl", () => {
+    assert.equal(
+      buildGoogleMapsLink(baseEvent),
+      `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(getFullAddress(baseEvent))}`
+    );
+  });
+});
+
+describe("buildUberLink", () => {
+  it("inclui pickup=my_location e o endereco de destino", () => {
+    const link = buildUberLink(baseEvent, "Festa Junina");
+    assert.match(link, /^https:\/\/m\.uber\.com\/ul\/\?/);
+    assert.match(link, /action=setPickup/);
+    assert.match(link, /pickup=my_location/);
+    assert.match(link, /dropoff%5Bformatted_address%5D=/);
+    assert.match(link, /dropoff%5Bnickname%5D=Festa\+Junina/);
+  });
+
+  it("inclui lat/lng do dropoff quando o mapUrl tem coordenadas", () => {
+    const event = { ...baseEvent, mapUrl: "https://www.google.com/maps/@-19.5197,-42.6267,17z" };
+    const link = buildUberLink(event);
+    assert.match(link, /dropoff%5Blatitude%5D=-19\.5197/);
+    assert.match(link, /dropoff%5Blongitude%5D=-42\.6267/);
+  });
+});
+
+describe("buildWazeLink", () => {
+  it("inclui navigate=yes e o endereco", () => {
+    const link = buildWazeLink(baseEvent);
+    assert.match(link, /^https:\/\/waze\.com\/ul\?/);
+    assert.match(link, /navigate=yes/);
+    assert.match(link, /q=/);
+  });
+
+  it("inclui ll quando ha coordenadas", () => {
+    const event = { ...baseEvent, mapUrl: "https://www.google.com/maps/@-19.5197,-42.6267,17z" };
+    const link = buildWazeLink(event);
+    assert.match(link, /ll=-19\.5197%2C-42\.6267/);
+  });
+});
