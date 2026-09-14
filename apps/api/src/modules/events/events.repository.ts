@@ -8,6 +8,15 @@ import { PrismaService } from "../../prisma/prisma.service";
 export class EventsRepository implements IEventsRepository {
   constructor(private readonly prisma: PrismaService) {}
 
+  private publicAvailabilityWhere(now = new Date()): Prisma.EventWhereInput {
+    return {
+      OR: [
+        { endsAt: { gte: now } },
+        { endsAt: null, startsAt: { gte: now } }
+      ]
+    };
+  }
+
   async list(tenantId: string, options: { page: number; perPage: number; search?: string; status?: EventStatus; summary?: boolean }) {
     const where: Prisma.EventWhereInput = {
       tenantId,
@@ -55,14 +64,20 @@ export class EventsRepository implements IEventsRepository {
 
   findPublicBySlug(slug: string) {
     return this.prisma.event.findFirst({
-      where: { slug, status: EventStatus.PUBLISHED },
+      where: {
+        slug,
+        status: EventStatus.PUBLISHED,
+        AND: [this.publicAvailabilityWhere()]
+      },
       include: { ticketTypes: { where: { isActive: true }, orderBy: { priceCents: "asc" } }, artists: { select: { position: true, artist: { select: { id: true, stageName: true, imageUrl: true, instagramUrl: true, spotifyUrl: true, bio: true, genre: true } } }, orderBy: { position: "asc" } } }
     });
   }
 
   async findPublicEvents(options: { page: number; perPage: number; search?: string; category?: string }) {
+    const now = new Date();
     const where: Prisma.EventWhereInput = {
       status: EventStatus.PUBLISHED,
+      AND: [this.publicAvailabilityWhere(now)],
       OR: options.search
         ? [
             { title: { contains: options.search, mode: "insensitive" } },

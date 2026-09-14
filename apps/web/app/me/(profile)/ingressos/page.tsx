@@ -70,6 +70,14 @@ type MyTicket = {
     id: string;
     status: string;
   };
+  pendingTransfer?: {
+    id: string;
+    receiverName: string | null;
+    receiverEmail: string | null;
+    receiverCpfLast4: string | null;
+    createdAt: string;
+    expiresAt: string | null;
+  } | null;
 };
 
 type RecipientLookup = {
@@ -207,11 +215,13 @@ type EventTicketCardProps = {
   ticket: MyTicket;
   expanded: boolean;
   refundPending: boolean;
+  transferCancelPending: boolean;
   onToggleDetails: () => void;
   onQrRelease: () => void;
   onDownload: () => void;
   onWallet: (provider: "google" | "apple") => void;
   onTransfer: () => void;
+  onCancelTransfer: () => void;
   onRefund: () => void;
 };
 
@@ -219,11 +229,13 @@ function EventTicketCard({
   ticket,
   expanded,
   refundPending,
+  transferCancelPending,
   onToggleDetails,
   onQrRelease,
   onDownload,
   onWallet,
   onTransfer,
+  onCancelTransfer,
   onRefund,
 }: EventTicketCardProps) {
   const cfg = statusConfig[ticket.status];
@@ -242,6 +254,12 @@ function EventTicketCard({
     ticket.status === "AVAILABLE" && !qrLocked && Boolean(ticket.qrCodeDataUrl);
   const transferLocked = isTransferLocked(ticket);
   const transferReason = getTransferLockReason(ticket);
+  const pendingTransfer = ticket.pendingTransfer;
+  const pendingRecipient = pendingTransfer?.receiverName
+    ?? pendingTransfer?.receiverEmail
+    ?? (pendingTransfer?.receiverCpfLast4
+      ? `CPF final ${pendingTransfer.receiverCpfLast4}`
+      : "destinatário");
   const bannerUrl = publicAssetUrl(ticket.event.bannerUrl);
   const detailsPanelId = `ticket-details-${ticket.id}`;
 
@@ -296,6 +314,13 @@ function EventTicketCard({
               <MapPin className="mt-0.5 h-3 w-3 shrink-0 text-violet-300 sm:h-4 sm:w-4" />
               <span className="line-clamp-2">{eventLocation(ticket)}</span>
             </span>
+
+            {pendingTransfer && (
+              <span className="mt-2 flex max-w-full items-center gap-1.5 rounded-lg border border-amber-300/20 bg-amber-300/10 px-2 py-1.5 text-[9px] font-semibold text-amber-100 sm:mt-3 sm:text-xs">
+                <Clock className="h-3 w-3 shrink-0 text-amber-300" />
+                <span className="truncate">Aguardando aceite de {pendingRecipient}</span>
+              </span>
+            )}
 
             <span className="mt-3 block border-t border-white/10 pt-3 sm:mt-4 sm:flex sm:items-end sm:justify-between sm:gap-3">
               <span className="block min-w-0">
@@ -425,7 +450,22 @@ function EventTicketCard({
                   Baixar ingresso
                 </Button>
 
-                {ticket.status === "AVAILABLE" ? (
+                {ticket.status === "AVAILABLE" && pendingTransfer ? (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="min-h-11 gap-1.5 rounded-xl border-amber-300/25 bg-amber-300/10 text-xs text-amber-100 hover:bg-amber-300/20 hover:text-amber-50"
+                    disabled={transferCancelPending}
+                    onClick={onCancelTransfer}
+                  >
+                    {transferCancelPending ? (
+                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    ) : (
+                      <XCircle className="h-3.5 w-3.5" />
+                    )}
+                    Cancelar transferência
+                  </Button>
+                ) : ticket.status === "AVAILABLE" ? (
                   <Button
                     size="sm"
                     variant="outline"
@@ -478,8 +518,9 @@ function EventTicketCard({
                 <button
                   type="button"
                   className="mt-3 flex min-h-11 w-full items-center justify-center gap-1.5 rounded-xl text-xs text-white/40 transition-colors hover:bg-rose-300/[0.06] hover:text-rose-200 disabled:opacity-50"
-                  disabled={refundPending}
+                  disabled={refundPending || Boolean(pendingTransfer)}
                   onClick={onRefund}
+                  title={pendingTransfer ? "Cancele a transferência pendente antes de solicitar reembolso" : undefined}
                 >
                   <RefreshCcw className="h-3.5 w-3.5" />
                   Solicitar reembolso
@@ -592,12 +633,20 @@ export default function MyTicketsPage() {
         }),
       });
     },
-    onSuccess: () => {
+    onSuccess: async () => {
+      await tickets.refetch();
       setTransferTicket(null);
       setRecipient("");
       setTransferConfirmation("");
       setRecipientLookup(null);
-      tickets.refetch();
+    },
+  });
+
+  const cancelTransfer = useMutation({
+    mutationFn: (transferId: string) =>
+      api(`/transfers/${transferId}/cancel`, { method: "POST" }),
+    onSuccess: async () => {
+      await tickets.refetch();
     },
   });
 
@@ -879,6 +928,10 @@ export default function MyTicketsPage() {
                       refundPending={
                         refund.isPending && refund.variables?.ticketId === ticket.id
                       }
+                      transferCancelPending={
+                        cancelTransfer.isPending
+                        && cancelTransfer.variables === ticket.pendingTransfer?.id
+                      }
                       onToggleDetails={() =>
                         setExpandedTicket((current) =>
                           current === ticket.id ? null : ticket.id,
@@ -890,6 +943,11 @@ export default function MyTicketsPage() {
                         wallet.mutate({ ticketId: ticket.id, provider })
                       }
                       onTransfer={() => openTransferModal(ticket)}
+                      onCancelTransfer={() => {
+                        if (ticket.pendingTransfer) {
+                          cancelTransfer.mutate(ticket.pendingTransfer.id);
+                        }
+                      }}
                       onRefund={() => openRefundDialog(ticket)}
                     />
                   ))}
@@ -1116,6 +1174,12 @@ export default function MyTicketsPage() {
             </Button>
           </DialogContent>
         </Dialog>
+
+        {cancelTransfer.isError && (
+          <div role="alert" className="fixed bottom-20 left-4 right-4 z-50 rounded-xl border border-rose-300/25 bg-[#211823] p-3 text-center text-sm text-rose-200 shadow-xl md:relative md:bottom-auto md:mt-4">
+            {(cancelTransfer.error as Error).message}
+          </div>
+        )}
 
         {/* Feedbacks */}
         {refund.isSuccess && (

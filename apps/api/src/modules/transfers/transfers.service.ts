@@ -9,6 +9,12 @@ import { PrismaService } from "../../prisma/prisma.service";
 import { AuditService } from "../audit/audit.service";
 import { CacheService } from "../cache/cache.service";
 import { NotificationsService } from "../notifications/notifications.service";
+import {
+  renderTransferAccepted,
+  renderTransferDeclined,
+  renderTransferExpired,
+  renderTransferReceived
+} from "../notifications/templates/ticket-transfer.template";
 import { CreateTransferDto, ResolveTransferRecipientDto } from "./dto/create-transfer.dto";
 
 type RecipientLookup = {
@@ -64,41 +70,59 @@ export class TransfersService {
       throw new BadRequestException("Ja existe uma transferencia pendente para este ingresso.");
     }
 
-    const transfer = await this.prisma.transfer.create({
-      data: {
-        ticketId: ticket.id,
-        senderId: sender.id,
-        receiverId: recipient.receiverId,
-        receiverEmail: recipient.receiverEmail,
-        receiverCpf: recipient.receiverCpf,
-        expiresAt: new Date(Date.now() + 1000 * 60 * 60 * 24 * 7),
-        history: {
-          create: {
-            action: "TRANSFER_CREATED",
-            userId: sender.id,
-            metadata: this.compactJson({
-              receiverEmail: recipient.receiverEmail,
-              receiverCpf: recipient.receiverCpf,
-              receiverId: recipient.receiverId
-            })
+    let transfer;
+    try {
+      transfer = await this.prisma.transfer.create({
+        data: {
+          ticketId: ticket.id,
+          senderId: sender.id,
+          receiverId: recipient.receiverId,
+          receiverEmail: recipient.receiverEmail,
+          receiverCpf: recipient.receiverCpf,
+          expiresAt: this.transferExpiresAt(ticket.event),
+          history: {
+            create: {
+              action: "TRANSFER_CREATED",
+              userId: sender.id,
+              metadata: this.compactJson({
+                receiverEmail: recipient.receiverEmail,
+                receiverCpf: recipient.receiverCpf,
+                receiverId: recipient.receiverId
+              })
+            }
           }
-        }
-      },
-      include: this.transferInclude()
-    });
-
-    await this.notifications.send({
-      userId: recipient.receiverId,
-      type: NotificationType.EMAIL,
-      event: NotificationEvent.TICKET_TRANSFER_RECEIVED,
-      recipient: recipient.receiverEmail ?? recipient.user?.email ?? sender.email,
-      payload: {
-        transferId: transfer.id,
-        ticketId: ticket.id,
-        eventTitle: ticket.event.title,
-        senderId: sender.id
+        },
+        include: this.transferInclude()
+      });
+    } catch (error) {
+      if (this.isPrismaError(error, "P2002")) {
+        throw new BadRequestException("Ja existe uma transferencia pendente para este ingresso.");
       }
-    });
+      throw error;
+    }
+
+    const recipientEmail = recipient.receiverEmail ?? recipient.user?.email;
+    if (recipientEmail) {
+      await this.notifications.send({
+        userId: recipient.receiverId,
+        type: NotificationType.EMAIL,
+        event: NotificationEvent.TICKET_TRANSFER_RECEIVED,
+        recipient: recipientEmail,
+        payload: {
+          transferId: transfer.id,
+          ticketId: ticket.id,
+          eventTitle: ticket.event.title,
+          senderId: sender.id
+        },
+        dedupeKey: `ticket-transfer-received:${transfer.id}`,
+        mail: renderTransferReceived({
+          recipientName: recipient.user?.name ?? "participante",
+          eventTitle: ticket.event.title,
+          counterpartName: sender.email,
+          actionUrl: this.appUrl("/me/recebidos")
+        })
+      });
+    }
 
     await this.audit.log({
       userId: sender.id,
@@ -226,7 +250,11 @@ export class TransfersService {
       }
 
       const updated = await tx.transfer.update({
-        where: { id: transfer.id },
+        where: {
+          id: transfer.id,
+          status: TransferStatus.PENDING,
+          OR: [{ expiresAt: null }, { expiresAt: { gt: new Date() } }]
+        },
         data: {
           status: TransferStatus.ACCEPTED,
           receiverId: user.id,
@@ -238,6 +266,11 @@ export class TransfersService {
       });
 
       return { transfer: updated, sender: transfer.sender };
+    }).catch((error: unknown) => {
+      if (this.isPrismaError(error, "P2025")) {
+        throw new BadRequestException("Esta transferência não está mais pendente ou já expirou.");
+      }
+      throw error;
     });
 
     await this.notifications.send({
@@ -245,7 +278,14 @@ export class TransfersService {
       type: NotificationType.EMAIL,
       event: NotificationEvent.TICKET_TRANSFER_ACCEPTED,
       recipient: result.sender.email,
-      payload: { transferId, ticketId: result.transfer.ticketId, receiverId: user.id }
+      payload: { transferId, ticketId: result.transfer.ticketId, receiverId: user.id },
+      dedupeKey: `ticket-transfer-accepted:${transferId}`,
+      mail: renderTransferAccepted({
+        recipientName: result.sender.name ?? result.sender.email,
+        eventTitle: result.transfer.ticket.event.title,
+        counterpartName: result.transfer.receiver?.name ?? user.email,
+        actionUrl: this.appUrl("/me/ingressos")
+      })
     });
 
     await this.audit.log({
@@ -263,22 +303,37 @@ export class TransfersService {
     await this.expirePendingTransfers();
     await this.ensureTransferTargetsUser(user, transferId);
 
-    const transfer = await this.prisma.transfer.update({
-      where: { id: transferId },
-      data: {
-        status: TransferStatus.DECLINED,
-        declinedAt: new Date(),
-        history: { create: { action: "TRANSFER_DECLINED", userId: user.id } }
-      },
-      include: this.transferInclude()
-    });
+    let transfer;
+    try {
+      transfer = await this.prisma.transfer.update({
+        where: { id: transferId, status: TransferStatus.PENDING },
+        data: {
+          status: TransferStatus.DECLINED,
+          declinedAt: new Date(),
+          history: { create: { action: "TRANSFER_DECLINED", userId: user.id } }
+        },
+        include: this.transferInclude()
+      });
+    } catch (error) {
+      if (this.isPrismaError(error, "P2025")) {
+        throw new BadRequestException("Esta transferência não está mais pendente.");
+      }
+      throw error;
+    }
 
     await this.notifications.send({
       userId: transfer.senderId,
       type: NotificationType.EMAIL,
       event: NotificationEvent.TICKET_TRANSFER_DECLINED,
       recipient: transfer.sender.email,
-      payload: { transferId, ticketId: transfer.ticketId, receiverId: user.id }
+      payload: { transferId, ticketId: transfer.ticketId, receiverId: user.id },
+      dedupeKey: `ticket-transfer-declined:${transferId}`,
+      mail: renderTransferDeclined({
+        recipientName: transfer.sender.name,
+        eventTitle: transfer.ticket.event.title,
+        counterpartName: transfer.receiver?.name ?? user.email,
+        actionUrl: this.appUrl("/me/ingressos")
+      })
     });
 
     await this.audit.log({
@@ -305,15 +360,23 @@ export class TransfersService {
       throw new BadRequestException("Somente transferencias pendentes podem ser canceladas.");
     }
 
-    const updated = await this.prisma.transfer.update({
-      where: { id: transferId },
-      data: {
-        status: TransferStatus.CANCELLED,
-        cancelledAt: new Date(),
-        history: { create: { action: "TRANSFER_CANCELLED", userId: user.id } }
-      },
-      include: this.transferInclude()
-    });
+    let updated;
+    try {
+      updated = await this.prisma.transfer.update({
+        where: { id: transferId, status: TransferStatus.PENDING },
+        data: {
+          status: TransferStatus.CANCELLED,
+          cancelledAt: new Date(),
+          history: { create: { action: "TRANSFER_CANCELLED", userId: user.id } }
+        },
+        include: this.transferInclude()
+      });
+    } catch (error) {
+      if (this.isPrismaError(error, "P2025")) {
+        throw new BadRequestException("Esta transferência não está mais pendente.");
+      }
+      throw error;
+    }
 
     await this.audit.log({
       userId: user.id,
@@ -465,35 +528,44 @@ export class TransfersService {
 
     const expired = await this.prisma.transfer.findMany({
       where: { status: TransferStatus.PENDING, expiresAt: { lt: new Date() } },
-      include: { sender: true },
+      include: {
+        sender: true,
+        receiver: { select: { name: true } },
+        ticket: { include: { event: true } }
+      },
       orderBy: { expiresAt: "asc" },
       take: 100
     });
 
     if (!expired.length) return;
 
-    const ids = expired.map((transfer) => transfer.id);
-    await this.prisma.$transaction([
-      this.prisma.transfer.updateMany({
-        where: { id: { in: ids }, status: TransferStatus.PENDING },
-        data: { status: TransferStatus.EXPIRED }
-      }),
-      this.prisma.transferHistory.createMany({
-        data: expired.map((transfer) => ({
-          transferId: transfer.id,
-          action: "TRANSFER_EXPIRED",
-          userId: transfer.senderId
-        }))
-      })
-    ]);
-
     for (const transfer of expired) {
+      try {
+        await this.prisma.transfer.update({
+          where: { id: transfer.id, status: TransferStatus.PENDING, expiresAt: { lt: new Date() } },
+          data: {
+            status: TransferStatus.EXPIRED,
+            history: { create: { action: "TRANSFER_EXPIRED", userId: transfer.senderId } }
+          }
+        });
+      } catch (error) {
+        if (this.isPrismaError(error, "P2025")) continue;
+        throw error;
+      }
+
       await this.notifications.send({
         userId: transfer.senderId,
         type: NotificationType.EMAIL,
         event: NotificationEvent.TICKET_TRANSFER_EXPIRED,
         recipient: transfer.sender.email,
-        payload: { transferId: transfer.id, ticketId: transfer.ticketId }
+        payload: { transferId: transfer.id, ticketId: transfer.ticketId },
+        dedupeKey: `ticket-transfer-expired:${transfer.id}`,
+        mail: renderTransferExpired({
+          recipientName: transfer.sender.name,
+          eventTitle: transfer.ticket.event.title,
+          counterpartName: transfer.receiver?.name ?? transfer.receiverEmail ?? "destinatário",
+          actionUrl: this.appUrl("/me/ingressos")
+        })
       });
     }
   }
@@ -538,5 +610,20 @@ export class TransfersService {
 
   private compactJson<T extends Record<string, unknown>>(value: T): Prisma.InputJsonObject {
     return Object.fromEntries(Object.entries(value).filter(([, item]) => item !== undefined)) as Prisma.InputJsonObject;
+  }
+
+  private transferExpiresAt(event: { startsAt: Date; endsAt: Date | null; ticketTransferLockTime: Date | null }) {
+    const limits = [Date.now() + 1000 * 60 * 60 * 24 * 7, (event.endsAt ?? event.startsAt).getTime()];
+    if (event.ticketTransferLockTime) limits.push(event.ticketTransferLockTime.getTime());
+    return new Date(Math.min(...limits));
+  }
+
+  private appUrl(path: string) {
+    const base = (this.config.get<string>("APP_URL") ?? "http://localhost:3000").replace(/\/+$/, "");
+    return `${base}${path}`;
+  }
+
+  private isPrismaError(error: unknown, code: string) {
+    return typeof error === "object" && error !== null && (error as { code?: string }).code === code;
   }
 }

@@ -19,6 +19,8 @@ const weakSecretValues = new Set([
 
 const secretKeys = ["JWT_ACCESS_SECRET", "JWT_REFRESH_SECRET", "JWT_RESET_SECRET", "QR_CODE_SECRET"] as const;
 const productionMailKeys = ["SMTP_HOST", "SMTP_PORT", "SMTP_USER", "SMTP_PASS", "SMTP_FROM"] as const;
+const placeholderMailTerms = ["placeholder", "change-me", "example.com"];
+const nonRoutableMailSuffixes = [".local", ".localhost", ".invalid", ".test"];
 const productionAssetStorageKeys = [
   "AWS_ACCESS_KEY_ID",
   "AWS_SECRET_ACCESS_KEY",
@@ -53,6 +55,26 @@ function booleanFromEnv(defaultValue: boolean) {
       });
       return z.NEVER;
     });
+}
+
+function addPlaceholderMailIssue(
+  ctx: z.RefinementCtx,
+  variable: "SMTP_HOST" | "SMTP_FROM",
+  value: string
+) {
+  ctx.addIssue({
+    code: z.ZodIssueCode.custom,
+    path: [variable],
+    message: `${variable} has a placeholder or non-routable value in production: "${value}".`
+  });
+}
+
+function isPlaceholderMailValue(value: string) {
+  const normalized = value.trim().toLowerCase();
+  return (
+    placeholderMailTerms.some((term) => normalized.includes(term)) ||
+    nonRoutableMailSuffixes.some((suffix) => normalized.endsWith(suffix))
+  );
 }
 
 export const envSchema = z.object({
@@ -149,6 +171,24 @@ export const envSchema = z.object({
         path: [key],
         message: `${key} is required in production for password recovery emails.`
       });
+    }
+  }
+
+  if (env.SMTP_HOST) {
+    const normalizedHost = env.SMTP_HOST.trim().toLowerCase();
+    if (
+      normalizedHost === "localhost" ||
+      normalizedHost === "127.0.0.1" ||
+      isPlaceholderMailValue(normalizedHost)
+    ) {
+      addPlaceholderMailIssue(ctx, "SMTP_HOST", env.SMTP_HOST);
+    }
+  }
+
+  if (env.SMTP_FROM) {
+    const fromDomain = env.SMTP_FROM.split("@").at(-1);
+    if (fromDomain && isPlaceholderMailValue(fromDomain)) {
+      addPlaceholderMailIssue(ctx, "SMTP_FROM", fromDomain);
     }
   }
 

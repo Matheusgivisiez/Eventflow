@@ -1,0 +1,96 @@
+// Collects container logs locally and forwards them to Event Flow's Loki instance.
+// Credentials are injected only from the ignored .env file.
+prometheus.scrape "eventflow_api_cloud" {
+  targets = [{
+    "__address__"      = "api:3001",
+    "__metrics_path__" = "/api/metrics",
+    "job"              = "eventflow-api",
+  }]
+
+  scrape_interval = "15s"
+  forward_to      = [prometheus.relabel.eventflow_cloud_labels.receiver]
+}
+
+prometheus.relabel "eventflow_cloud_labels" {
+  forward_to = [prometheus.remote_write.metrics_hosted_prometheus.receiver]
+
+  rule {
+    target_label = "project"
+    replacement  = "eventflow"
+  }
+
+  rule {
+    target_label = "environment"
+    replacement  = "local"
+  }
+}
+
+prometheus.remote_write "metrics_hosted_prometheus" {
+  endpoint {
+    name = "hosted-prometheus"
+    url  = sys.env("GRAFANA_CLOUD_PROMETHEUS_URL")
+
+    basic_auth {
+      username = sys.env("GRAFANA_CLOUD_PROMETHEUS_USER")
+      password = sys.env("GRAFANA_CLOUD_PROMETHEUS_TOKEN")
+    }
+  }
+}
+
+discovery.docker "eventflow" {
+  host = "unix:///var/run/docker.sock"
+}
+
+discovery.relabel "eventflow_services" {
+  targets = discovery.docker.eventflow.targets
+
+  rule {
+    source_labels = ["__meta_docker_container_name"]
+    regex         = "/eventflow-(api|web|postgres|redis|rabbitmq)"
+    action        = "keep"
+  }
+
+  rule {
+    source_labels = ["__meta_docker_container_name"]
+    regex         = "/(.+)"
+    target_label  = "service"
+    replacement   = "$1"
+  }
+}
+
+loki.source.docker "eventflow" {
+  host       = "unix:///var/run/docker.sock"
+  targets    = discovery.relabel.eventflow_services.output
+  forward_to = [loki.process.eventflow.receiver]
+}
+
+loki.process "eventflow" {
+  forward_to = [
+    loki.write.local.receiver,
+    loki.write.grafana_cloud_loki.receiver,
+  ]
+
+  stage.static_labels {
+    values = {
+      project     = "eventflow",
+      environment = "local",
+    }
+  }
+}
+
+loki.write "local" {
+  endpoint {
+    url = "http://loki:3100/loki/api/v1/push"
+  }
+}
+
+loki.write "grafana_cloud_loki" {
+  endpoint {
+    url = sys.env("GRAFANA_CLOUD_LOKI_URL")
+
+    basic_auth {
+      username = sys.env("GRAFANA_CLOUD_LOKI_USER")
+      password = sys.env("GRAFANA_CLOUD_LOKI_TOKEN")
+    }
+  }
+}

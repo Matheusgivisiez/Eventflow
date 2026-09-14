@@ -1,23 +1,16 @@
 "use client";
 
 import { useEffect } from "react";
-import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
-import { Compass, LayoutDashboard, LogOut, Ticket, User, UserCheck2 } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { ThemeToggle } from "@/components/theme-toggle";
-import { BrandLogo } from "@/components/brand-logo";
+import { useRouter } from "next/navigation";
+import { AppTopBar } from "@/components/app-top-bar";
 import { MobileAccountNavigation } from "@/components/mobile-account-navigation";
-import { AccountMenu } from "@/components/account-menu";
 import { useAuthHydration } from "@/hooks/use-auth-hydration";
 import { useAuthStore } from "@/stores/auth-store";
-import { cn } from "@/lib/utils";
 
 export default function ClientLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
-  const pathname = usePathname();
   const hasHydrated = useAuthHydration();
-  const { user, logout } = useAuthStore();
+  const user = useAuthStore((state) => state.user);
 
   useEffect(() => {
     if (!hasHydrated) return;
@@ -30,92 +23,9 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
     return null;
   }
 
-  const isOrganizerOrAdmin = ["ORGANIZER", "ADMIN"].includes(user.role);
-  const navItems = [
-    { href: "/", icon: Compass, label: "Explorar" },
-    { href: "/me/ingressos", icon: Ticket, label: "Ingressos" },
-    { href: "/me/conta", icon: User, label: "Perfil" },
-    ...(isOrganizerOrAdmin
-      ? [{ href: "/dashboard", icon: LayoutDashboard, label: "Painel" }]
-      : [{ href: "/me/organizador", icon: UserCheck2, label: "Ser produtor" }]
-    )
-  ];
-  const initials = user.name
-    .split(" ")
-    .filter(Boolean)
-    .map((part) => part[0])
-    .slice(0, 2)
-    .join("")
-    .toUpperCase();
-
   return (
     <div className="flex min-h-screen flex-col bg-[#F8F8F8] pb-[calc(4rem+env(safe-area-inset-bottom))] dark:bg-background md:pb-0">
-      {/* Header */}
-      <header className="sticky top-0 z-30 w-full border-b bg-white/95 dark:bg-card/95 backdrop-blur shadow-sm">
-        <div className="mx-auto max-w-5xl px-4 h-16 flex items-center justify-between">
-          <Link href="/" className="group hover:opacity-90 transition-opacity">
-            <BrandLogo />
-          </Link>
-
-          {/* Nav desktop */}
-          <nav className="hidden md:flex items-center gap-1">
-            {navItems.map((item) => {
-              const Icon = item.icon;
-              const isActive = pathname === item.href || (item.href !== "/" && pathname.startsWith(item.href));
-              return (
-                <Button
-                  key={item.href}
-                  asChild
-                  variant="ghost"
-                  size="sm"
-                  className={cn(
-                    "gap-2 rounded-xl",
-                    isActive
-                      ? "bg-primary/10 text-primary font-semibold"
-                      : "text-muted-foreground hover:text-foreground"
-                  )}
-                >
-                  <Link href={item.href}>
-                    <Icon className="h-4 w-4" />
-                    {item.label}
-                  </Link>
-                </Button>
-              );
-            })}
-          </nav>
-
-          <div className="flex items-center gap-2">
-            <ThemeToggle />
-            <AccountMenu
-              initials={initials}
-              name={user.name}
-              profileHref="/me/conta"
-              onLogout={() => { logout(); router.push("/login"); }}
-              className="md:hidden"
-            />
-            <Link
-              href="/me/conta"
-              aria-label={`Abrir dados da conta de ${user.name}`}
-              className="hidden h-10 items-center gap-2 rounded-xl bg-muted px-2.5 text-sm font-medium transition-colors hover:bg-muted/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 md:flex"
-            >
-              <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/10 text-xs font-bold text-primary">
-                {initials}
-              </div>
-              <span className="max-w-[100px] truncate">{user.name.split(" ")[0]}</span>
-            </Link>
-            <Button
-              variant="ghost"
-              size="icon"
-              title="Sair"
-              aria-label="Sair da conta"
-              className="hidden rounded-xl text-muted-foreground hover:bg-destructive/10 hover:text-destructive md:inline-flex"
-              onClick={() => { logout(); router.push("/login"); }}
-            >
-              <LogOut className="h-4 w-4" />
-            </Button>
-          </div>
-        </div>
-      </header>
+      <AppTopBar contentClassName="max-w-5xl" />
 
       {/* Conteúdo principal */}
       <div className="flex-grow flex flex-col">

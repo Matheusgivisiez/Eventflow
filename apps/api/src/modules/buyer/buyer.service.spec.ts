@@ -27,6 +27,7 @@ function createTicket(overrides: Record<string, unknown> = {}) {
     },
     ticketType: { id: "ticket-type-1", name: "Inteira" },
     order: { id: "order-1", userId: "user-1", payment: null },
+    transfers: [],
     ...overrides,
   };
 }
@@ -98,9 +99,54 @@ describe("BuyerService.listTickets", () => {
         event: true,
         ticketType: true,
         order: { include: { payment: true } },
+        transfers: {
+          where: {
+            senderId: "user-1",
+            status: "PENDING",
+            OR: [{ expiresAt: null }, { expiresAt: { gt: now } }],
+          },
+          select: {
+            id: true,
+            receiverEmail: true,
+            receiverCpf: true,
+            createdAt: true,
+            expiresAt: true,
+            receiver: { select: { name: true, email: true } },
+          },
+          orderBy: { createdAt: "desc" },
+          take: 1,
+        },
       },
       orderBy: { event: { startsAt: "asc" } },
     });
+  });
+
+  it("returns the active pending transfer with safe recipient details", async () => {
+    const { service, prisma } = createService();
+    prisma.ticket.findMany.mockResolvedValue([
+      createTicket({
+        transfers: [{
+          id: "transfer-1",
+          receiverEmail: "receiver@example.com",
+          receiverCpf: "12345678901",
+          createdAt: now,
+          expiresAt: new Date("2026-09-05T15:00:00.000Z"),
+          receiver: { name: "Matheus", email: "receiver@example.com" },
+        }],
+      }),
+    ]);
+
+    const [ticket] = await service.listTickets("user-1", "buyer@example.com");
+
+    expect(ticket.pendingTransfer).toEqual({
+      id: "transfer-1",
+      receiverName: "Matheus",
+      receiverEmail: "receiver@example.com",
+      receiverCpfLast4: "8901",
+      createdAt: now.toISOString(),
+      expiresAt: "2026-09-05T15:00:00.000Z",
+    });
+    expect(ticket).not.toHaveProperty("transfers");
   });
 
   it("never matches guest orders by e-mail when the account e-mail is unverified", async () => {

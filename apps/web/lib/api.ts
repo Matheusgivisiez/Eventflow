@@ -7,10 +7,55 @@ type ApiOptions = RequestInit & { auth?: boolean };
 type ApiErrorBody = { message?: string | string[] };
 
 export class ApiError extends Error {
-  constructor(message: string, readonly status: number) {
+  constructor(
+    message: string,
+    readonly status: number,
+    readonly retryAfter?: number,
+    readonly requestId?: string
+  ) {
     super(message);
     this.name = "ApiError";
   }
+}
+
+function statusMessage(status: number, retryAfter?: number) {
+  if (status === 429) {
+    const wait = retryAfter ? ` Aguarde ${retryAfter} segundo${retryAfter === 1 ? "" : "s"} e tente novamente.` : " Aguarde alguns segundos e tente novamente.";
+    return `Muitas tentativas em pouco tempo.${wait}`;
+  }
+  if ([502, 503, 504].includes(status)) {
+    return "O servidor está temporariamente indisponível. Tente novamente em instantes.";
+  }
+  return `Não foi possível concluir a solicitação (erro ${status}).`;
+}
+
+async function apiErrorFromResponse(response: Response) {
+  const retryAfterHeader = response.headers.get("retry-after");
+  const retryAfter = retryAfterHeader && /^\d+$/.test(retryAfterHeader)
+    ? Number(retryAfterHeader)
+    : undefined;
+  const requestId = response.headers.get("x-request-id")
+    ?? response.headers.get("x-vercel-id")
+    ?? undefined;
+  const fallback = statusMessage(response.status, retryAfter);
+  const contentType = response.headers.get("content-type") ?? "";
+  let message = fallback;
+
+  if (contentType.includes("application/json")) {
+    const error = await response.json().catch((): ApiErrorBody => ({})) as ApiErrorBody;
+    const parsed = Array.isArray(error.message) ? error.message.join(", ") : error.message;
+    if (parsed?.trim()) message = parsed;
+  }
+
+  if (typeof console !== "undefined") {
+    console.error("[API] Request failed", {
+      status: response.status,
+      requestId,
+      retryAfter
+    });
+  }
+
+  return new ApiError(message, response.status, retryAfter, requestId);
 }
 
 let refreshPromise: Promise<string> | undefined;
@@ -84,9 +129,7 @@ export async function api<T>(path: string, options: ApiOptions = {}): Promise<T>
   }
 
   if (!response.ok) {
-    const error = await response.json().catch((): ApiErrorBody => ({ message: "Erro inesperado." })) as ApiErrorBody;
-    const message = Array.isArray(error.message) ? error.message.join(", ") : error.message ?? "Erro inesperado.";
-    throw new ApiError(message, response.status);
+    throw await apiErrorFromResponse(response);
   }
 
   return response.json();
@@ -105,8 +148,7 @@ export async function uploadFile(file: File): Promise<{ url: string }> {
     credentials: "include"
   });
   if (!response.ok) {
-    const error = await response.json().catch(() => ({ message: "Erro no upload." }));
-    throw new Error(error.message ?? "Erro no upload.");
+    throw await apiErrorFromResponse(response);
   }
   return response.json();
 }

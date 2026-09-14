@@ -8,11 +8,11 @@ const strongSecrets = {
 };
 
 const strongMail = {
-  SMTP_HOST: "smtp.example.com",
+  SMTP_HOST: "smtp.mailtrap.io",
   SMTP_PORT: "587",
   SMTP_USER: "smtp-user",
   SMTP_PASS: "smtp-pass",
-  SMTP_FROM: "no-reply@example.com"
+  SMTP_FROM: "no-reply@eventflow.com.br"
 };
 
 const strongStorage = {
@@ -94,6 +94,37 @@ describe("envSchema", () => {
     expect(env.QR_CODE_SECRET).toBe(strongSecrets.QR_CODE_SECRET);
     expect(env.SMTP_FROM).toBe(strongMail.SMTP_FROM);
     expect(env.AWS_S3_ASSETS_PUBLIC_URL).toBe(strongStorage.AWS_S3_ASSETS_PUBLIC_URL);
+  });
+
+  it("rejects production SMTP host placeholders", () => {
+    expect(() => envSchema.parse(baseEnv({
+      NODE_ENV: "production",
+      ...strongSecrets,
+      ...strongMail,
+      ...strongStorage,
+      SMTP_HOST: "placeholder.smtp.local"
+    }))).toThrow(/SMTP_HOST.*placeholder\.smtp\.local/);
+  });
+
+  it("rejects production SMTP_FROM placeholder domains", () => {
+    expect(() => envSchema.parse(baseEnv({
+      NODE_ENV: "production",
+      ...strongSecrets,
+      ...strongMail,
+      ...strongStorage,
+      SMTP_FROM: "no-reply@example.com"
+    }))).toThrow(/SMTP_FROM.*example\.com/);
+  });
+
+  it("allows development SMTP placeholders", () => {
+    expect(() => envSchema.parse(baseEnv({
+      NODE_ENV: "development",
+      SMTP_HOST: "placeholder.smtp.local",
+      SMTP_PORT: "587",
+      SMTP_USER: "smtp-user",
+      SMTP_PASS: "smtp-pass",
+      SMTP_FROM: "no-reply@example.com"
+    }))).not.toThrow();
   });
 
   it("accepts Cloudflare R2-compatible storage settings", () => {

@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { beforeEach, describe, it } from "node:test";
-import { api } from "./api";
+import { ApiError, api } from "./api";
 import { useAuthStore, type AuthUser } from "@/stores/auth-store";
 
 const user: AuthUser = {
@@ -79,5 +79,38 @@ describe("api refresh handling", () => {
     assert.equal(refreshCount, 1);
     assert.equal(first.path, "/api/first");
     assert.equal(second.path, "/api/second");
+  });
+});
+
+describe("api error handling", () => {
+  beforeEach(() => {
+    useAuthStore.setState({ accessToken: undefined, user: undefined });
+  });
+
+  it("keeps a JSON error message returned by the API", async () => {
+    globalThis.fetch = async () => jsonResponse({ message: "Transferência expirada." }, 400);
+
+    await assert.rejects(
+      api("/transfers/expired", { auth: false }),
+      (error: unknown) => error instanceof ApiError
+        && error.status === 400
+        && error.message === "Transferência expirada."
+    );
+  });
+
+  it("turns a non-JSON 429 into an actionable error", async () => {
+    globalThis.fetch = async () => new Response("Too Many Requests", {
+      status: 429,
+      headers: { "Content-Type": "text/html", "Retry-After": "12", "X-Vercel-Id": "gru1::abc" }
+    });
+
+    await assert.rejects(
+      api("/transfers/accept", { auth: false }),
+      (error: unknown) => error instanceof ApiError
+        && error.status === 429
+        && error.retryAfter === 12
+        && error.requestId === "gru1::abc"
+        && error.message.includes("Aguarde 12 segundos")
+    );
   });
 });

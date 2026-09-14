@@ -71,11 +71,28 @@ export class BuyerService {
         event: true,
         ticketType: true,
         order: { include: { payment: true } },
+        transfers: {
+          where: {
+            senderId: userId,
+            status: "PENDING",
+            OR: [{ expiresAt: null }, { expiresAt: { gt: now } }],
+          },
+          select: {
+            id: true,
+            receiverEmail: true,
+            receiverCpf: true,
+            createdAt: true,
+            expiresAt: true,
+            receiver: { select: { name: true, email: true } },
+          },
+          orderBy: { createdAt: "desc" },
+          take: 1,
+        },
       },
       orderBy: { event: { startsAt: scope === "past" ? "desc" : "asc" } },
     });
 
-    return tickets.map((ticket) => {
+    return tickets.map(({ transfers, ...ticket }) => {
       const locked = isQrCodeLocked(ticket.event);
       const releaseTime = getQrCodeReleaseTime(ticket.event);
 
@@ -86,6 +103,17 @@ export class BuyerService {
         signature: locked ? null : ticket.signature,
         qrCodeLocked: locked,
         qrCodeReleaseAt: releaseTime?.toISOString() ?? null,
+        pendingTransfer: transfers[0]
+          ? {
+              id: transfers[0].id,
+              receiverName: transfers[0].receiver?.name ?? null,
+              receiverEmail:
+                transfers[0].receiverEmail ?? transfers[0].receiver?.email ?? null,
+              receiverCpfLast4: transfers[0].receiverCpf?.slice(-4) ?? null,
+              createdAt: transfers[0].createdAt.toISOString(),
+              expiresAt: transfers[0].expiresAt?.toISOString() ?? null,
+            }
+          : null,
         event: {
           ...ticket.event,
           allowTicketTransfer: ticket.event.allowTicketTransfer,

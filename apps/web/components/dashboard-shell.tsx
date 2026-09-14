@@ -4,12 +4,12 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import {
-  BarChart3, Building2, CalendarDays, Compass, CreditCard, DoorOpen,
-  FileBarChart2, LogOut, Shield, Tag, Ticket, UserCheck,
-  UserCircle, Users, ChevronRight, Bell, Menu, X, Settings,
-  ChevronDown, Megaphone, Search, PanelLeftClose, PanelLeftOpen
+  BarChart3, Bell, Building2, CalendarDays, CreditCard, DoorOpen,
+  FileBarChart2, Shield, Tag, UserCheck,
+  UserCircle, Users, ChevronRight, Menu, X,
+  Megaphone, PanelLeftClose, PanelLeftOpen
 } from "lucide-react";
-import { ThemeToggle } from "@/components/theme-toggle";
+import { AppTopBar } from "@/components/app-top-bar";
 import { BrandLogo } from "@/components/brand-logo";
 import { MobileAccountNavigation } from "@/components/mobile-account-navigation";
 import { PageAnimation } from "@/components/page-animation";
@@ -77,9 +77,8 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
   const hasHydrated = useAuthHydration();
-  const { user, logout } = useAuthStore();
+  const user = useAuthStore((state) => state.user);
   const [mobileOpen, setMobileOpen] = useState(false);
-  const [userMenuOpen, setUserMenuOpen] = useState(false);
   const [isCollapsed, setIsCollapsed] = useState(false);
 
   useEffect(() => {
@@ -172,110 +171,19 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
 
       {/* ─── Content ──────────────────────────────── */}
       <div className={cn("transition-all duration-300 min-h-screen flex flex-col", isCollapsed ? "lg:pl-[80px]" : "lg:pl-64")}>
-        {/* Top bar */}
-        <header className="sticky top-0 z-20 flex h-16 items-center justify-between border-b border-border/50 bg-white/80 dark:bg-card/80 backdrop-blur-xl px-4 shadow-sm lg:px-8">
-          <div className="flex items-center gap-3 flex-1">
-            {/* Mobile menu toggle */}
+        <AppTopBar
+          contentClassName="max-w-none"
+          leadingAddon={
             <button
+              type="button"
+              aria-label="Abrir menu do painel"
               onClick={() => setMobileOpen(true)}
-              className="flex h-9 w-9 items-center justify-center rounded-xl hover:bg-muted transition-colors lg:hidden"
+              className="flex h-9 w-9 items-center justify-center rounded-xl text-muted-foreground transition-colors hover:bg-muted hover:text-foreground lg:hidden"
             >
               <Menu className="h-5 w-5" />
             </button>
-            <div className="hidden sm:block lg:hidden xl:block min-w-0">
-              <p className="text-xs text-muted-foreground font-medium">Bem-vindo de volta,</p>
-              <p className="font-bold text-base leading-tight truncate">{user?.name ?? "Organizador"}</p>
-            </div>
-            {/* Search Bar */}
-            <div className="hidden md:flex ml-4 flex-1 max-w-md relative group">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground group-focus-within:text-primary transition-colors" />
-              <input 
-                type="text" 
-                placeholder="Pesquisar eventos, participantes..." 
-                className="h-10 w-full rounded-full border border-border/50 bg-muted/30 pl-10 pr-4 text-sm outline-none transition-all focus:border-primary/50 focus:bg-background focus:ring-4 focus:ring-primary/10"
-              />
-              <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-1">
-                <kbd className="hidden sm:inline-flex h-5 items-center gap-1 rounded border bg-muted px-1.5 font-mono text-[10px] font-medium text-muted-foreground">⌘K</kbd>
-              </div>
-            </div>
-          </div>
-
-          {/* Client navigation links (desktop) */}
-          <nav className="hidden lg:flex items-center gap-1 ml-auto mr-2">
-            <Link
-              href="/#eventos"
-              className="flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-sm font-medium text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
-            >
-              <Compass className="h-4 w-4" />
-              Eventos
-            </Link>
-            <Link
-              href="/me/ingressos"
-              className="flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-sm font-medium text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
-            >
-              <Ticket className="h-4 w-4" />
-              Ingressos
-            </Link>
-            <Link
-              href="/me/conta"
-              className="flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-sm font-medium text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
-            >
-              <UserCircle className="h-4 w-4" />
-              Meu Perfil
-            </Link>
-          </nav>
-
-          <div className="flex items-center gap-2">
-            <ThemeToggle />
-
-            {/* Notifications bell */}
-            <button className="relative flex h-9 w-9 items-center justify-center rounded-xl hover:bg-muted transition-colors text-muted-foreground hover:text-foreground">
-              <Bell className="h-4 w-4" />
-              <span className="absolute top-1.5 right-1.5 h-2 w-2 rounded-full bg-brand-pink border-2 border-white dark:border-card" />
-            </button>
-
-            {/* User dropdown */}
-            <div className="relative ml-2">
-              <button
-                onClick={() => setUserMenuOpen((v) => !v)}
-                className="flex items-center gap-2 rounded-full p-1 pr-3 hover:bg-muted transition-colors border border-transparent hover:border-border/50"
-              >
-                <div className="flex h-8 w-8 items-center justify-center rounded-full brand-gradient text-white font-bold text-xs shadow-sm">
-                  {initials}
-                </div>
-                <ChevronDown className={cn("h-4 w-4 text-muted-foreground transition-transform duration-200", userMenuOpen && "rotate-180")} />
-              </button>
-
-              {userMenuOpen && (
-                <>
-                  <div className="fixed inset-0 z-10" onClick={() => setUserMenuOpen(false)} />
-                  <div className="absolute right-0 top-12 z-20 min-w-[220px] rounded-2xl border border-border/50 bg-white/95 dark:bg-card/95 backdrop-blur-xl shadow-2xl p-1.5 animate-scale-in origin-top-right">
-                    <div className="px-3 py-2.5 border-b mb-1.5 bg-muted/30 rounded-t-xl">
-                      <p className="text-sm font-semibold truncate text-foreground">{user?.name}</p>
-                      <p className="text-xs text-muted-foreground truncate">{user?.email}</p>
-                    </div>
-                    <Link href="/profile" onClick={() => setUserMenuOpen(false)}
-                      className="flex items-center gap-2.5 rounded-xl px-3 py-2 text-sm font-medium hover:bg-primary/10 hover:text-primary transition-colors">
-                      <UserCircle className="h-4 w-4" /> Meu Perfil
-                    </Link>
-                    <Link href="/enterprise" onClick={() => setUserMenuOpen(false)}
-                      className="flex items-center gap-2.5 rounded-xl px-3 py-2 text-sm font-medium hover:bg-primary/10 hover:text-primary transition-colors">
-                      <Settings className="h-4 w-4" /> Configurações
-                    </Link>
-                    <div className="border-t border-border/50 mt-1.5 pt-1.5">
-                      <button
-                        onClick={() => { logout(); router.push("/login"); }}
-                        className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2 text-sm font-medium text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-900/20 transition-colors"
-                      >
-                        <LogOut className="h-4 w-4" /> Sair
-                      </button>
-                    </div>
-                  </div>
-                </>
-              )}
-            </div>
-          </div>
-        </header>
+          }
+        />
 
         <main className="mx-auto w-full min-w-0 max-w-7xl flex-grow px-4 py-6 lg:px-8">
           <PageAnimation>{children}</PageAnimation>

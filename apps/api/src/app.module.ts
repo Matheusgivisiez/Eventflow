@@ -8,6 +8,7 @@ import { envSchema } from "./config/env.schema";
 import { RequestLoggerMiddleware } from "./common/middleware/request-logger.middleware";
 import { RateLimitMiddleware } from "./common/middleware/rate-limit.middleware";
 import { CustomThrottlerGuard } from "./common/guards/custom-throttler.guard";
+import { MailService } from "./common/services/mail.service";
 import { PrismaModule } from "./prisma/prisma.module";
 import { AuditModule } from "./modules/audit/audit.module";
 import { CacheService } from "./modules/cache/cache.service";
@@ -110,6 +111,7 @@ import { ArtistsModule } from "./modules/artists/artists.module";
   ],
   controllers: [AppController],
   providers: [
+    MailService,
     { provide: APP_GUARD, useClass: CustomThrottlerGuard }
   ]
 })

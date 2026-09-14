@@ -3,7 +3,6 @@
 import Link from "next/link";
 import { Calendar, MapPin, Ticket, ChevronRight } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import { dateTime, money } from "@/lib/utils";
 import { publicAssetUrl } from "@/lib/public-asset-url";
 import type { EventFlowEvent } from "@/types/eventflow";
@@ -17,9 +16,14 @@ export function EventCard({ event }: EventCardProps) {
   const minPrice = activeTicketTypes.length ? Math.min(...activeTicketTypes.map((ticket) => ticket.priceCents)) : null;
   const location = event.format === "ONLINE" ? "Evento online" : `${event.city ?? "Local não definido"}${event.state ? `, ${event.state}` : ""}`;
   const bannerUrl = publicAssetUrl(event.bannerUrl);
+  const eventHref = `/eventos/${event.slug}`;
 
   return (
-    <div className="group flex h-full flex-col overflow-hidden rounded-2xl border bg-white dark:bg-card shadow-sm card-hover">
+    <Link
+      href={eventHref}
+      aria-label={`Ver evento ${event.title}`}
+      className="group flex h-full flex-col overflow-hidden rounded-2xl border bg-white shadow-sm outline-none card-hover focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 dark:bg-card"
+    >
       {/* Banner */}
       <div className="relative h-44 w-full overflow-hidden bg-muted">
         {bannerUrl ? (
@@ -56,7 +60,7 @@ export function EventCard({ event }: EventCardProps) {
       {/* Info */}
       <div className="flex flex-col flex-grow p-4">
         <h3 className="line-clamp-2 text-base font-bold leading-tight text-foreground group-hover:text-primary transition-colors mb-3">
-          <Link href={`/eventos/${event.slug}`}>{event.title}</Link>
+          {event.title}
         </h3>
 
         <div className="space-y-1.5 text-xs text-muted-foreground">
@@ -71,14 +75,12 @@ export function EventCard({ event }: EventCardProps) {
         </div>
 
         <div className="mt-auto pt-4">
-          <Button asChild size="sm" className="w-full bg-primary hover:bg-primary/90 text-white text-xs font-semibold rounded-xl shadow-sm shadow-primary/20">
-            <Link href={`/eventos/${event.slug}`}>
-              Ver evento
-              <ChevronRight className="h-3.5 w-3.5" />
-            </Link>
-          </Button>
+          <div className="inline-flex h-9 w-full items-center justify-center gap-2 rounded-xl bg-primary px-3 text-xs font-semibold text-white shadow-sm shadow-primary/20 transition-colors group-hover:bg-primary/90">
+            Ver evento
+            <ChevronRight className="h-3.5 w-3.5" />
+          </div>
         </div>
       </div>
-    </div>
+    </Link>
   );
 }

@@ -87,6 +87,7 @@ function createService() {
       updateMany: jest.fn()
     },
     transferHistory: {
+      create: jest.fn(),
       createMany: jest.fn()
     },
     $transaction: jest.fn((input) => Array.isArray(input) ? Promise.all(input) : input(prisma))
@@ -131,8 +132,25 @@ describe("TransfersService", () => {
     }));
     expect(notifications.send).toHaveBeenCalledWith(expect.objectContaining({
       event: NotificationEvent.TICKET_TRANSFER_RECEIVED,
-      recipient: receiver.email
+      recipient: receiver.email,
+      dedupeKey: "ticket-transfer-received:transfer-1",
+      mail: expect.objectContaining({ subject: expect.any(String), html: expect.any(String) })
     }));
+  });
+
+  it("limits the transfer lifetime to the event transfer lock time", async () => {
+    const { service, prisma } = createService();
+    const lockTime = new Date(Date.now() + 1000 * 60 * 60);
+    prisma.user.findUnique.mockResolvedValue({ id: receiver.id, name: "Receiver", email: receiver.email, avatarUrl: null });
+    prisma.ticket.findFirst.mockResolvedValue(createTicket({
+      event: { ...createTicket().event, ticketTransferLockTime: lockTime }
+    }));
+    prisma.transfer.findFirst.mockResolvedValue(null);
+    prisma.transfer.create.mockResolvedValue(createTransfer({ expiresAt: lockTime }));
+
+    await service.create(sender, { ticketId: "ticket-1", receiverEmail: receiver.email, confirmation: "CONFIRMAR" });
+
+    expect(prisma.transfer.create.mock.calls[0][0].data.expiresAt).toEqual(lockTime);
   });
 
   it("blocks duplicate pending transfers for the same ticket", async () => {
@@ -142,6 +160,18 @@ describe("TransfersService", () => {
     prisma.transfer.findFirst.mockResolvedValue(createTransfer());
 
     await expect(service.create(sender, { ticketId: "ticket-1", receiverEmail: receiver.email, confirmation: "CONFIRMAR" })).rejects.toThrow(BadRequestException);
+  });
+
+  it("turns a database race for a pending transfer into a friendly conflict", async () => {
+    const { service, prisma } = createService();
+    prisma.user.findUnique.mockResolvedValue({ id: receiver.id, name: "Receiver", email: receiver.email, avatarUrl: null });
+    prisma.ticket.findFirst.mockResolvedValue(createTicket());
+    prisma.transfer.findFirst.mockResolvedValue(null);
+    prisma.transfer.create.mockRejectedValue({ code: "P2002" });
+
+    await expect(
+      service.create(sender, { ticketId: "ticket-1", receiverEmail: receiver.email, confirmation: "CONFIRMAR" })
+    ).rejects.toThrow("Ja existe uma transferencia pendente");
   });
 
   it("blocks transfers for used tickets", async () => {
@@ -181,6 +211,9 @@ describe("TransfersService", () => {
         attendeeEmail: receiver.email,
         qrCodeDataUrl: "data:image/png;base64,new-qr"
       })
+    }));
+    expect(prisma.transfer.update).toHaveBeenCalledWith(expect.objectContaining({
+      where: expect.objectContaining({ id: "transfer-1", status: TransferStatus.PENDING })
     }));
   });
 
@@ -229,22 +262,17 @@ describe("TransfersService", () => {
     prisma.transfer.findMany
       .mockResolvedValueOnce([expired])
       .mockResolvedValueOnce([]);
-    prisma.transfer.updateMany.mockResolvedValue({ count: 1 });
-    prisma.transferHistory.createMany.mockResolvedValue({ count: 1 });
+    prisma.transfer.update.mockResolvedValue(createTransfer({ status: TransferStatus.EXPIRED }));
 
     await service.received(receiver, {});
 
-    expect(prisma.transfer.updateMany).toHaveBeenCalledWith({
-      where: { id: { in: ["expired-transfer-1"] }, status: TransferStatus.PENDING },
-      data: { status: TransferStatus.EXPIRED }
-    });
-    expect(prisma.transferHistory.createMany).toHaveBeenCalledWith({
-      data: [{
-        transferId: "expired-transfer-1",
-        action: "TRANSFER_EXPIRED",
-        userId: sender.id
-      }]
-    });
+    expect(prisma.transfer.update).toHaveBeenCalledWith(expect.objectContaining({
+      where: expect.objectContaining({ id: "expired-transfer-1", status: TransferStatus.PENDING }),
+      data: {
+        status: TransferStatus.EXPIRED,
+        history: { create: { action: "TRANSFER_EXPIRED", userId: sender.id } }
+      }
+    }));
     expect(notifications.send).toHaveBeenCalledWith(expect.objectContaining({
       event: NotificationEvent.TICKET_TRANSFER_EXPIRED,
       recipient: sender.email
@@ -258,8 +286,19 @@ describe("TransfersService", () => {
 
     await service.received(receiver, {});
 
-    expect(prisma.transfer.updateMany).not.toHaveBeenCalled();
-    expect(prisma.transferHistory.createMany).not.toHaveBeenCalled();
+    expect(prisma.transfer.update).not.toHaveBeenCalled();
+  });
+
+  it("does not record or notify an expiration that lost a concurrent state change", async () => {
+    const { service, prisma, notifications } = createService();
+    prisma.transfer.findMany.mockResolvedValueOnce([
+      createTransfer({ expiresAt: new Date(Date.now() - 1000) })
+    ]).mockResolvedValueOnce([]);
+    prisma.transfer.update.mockRejectedValueOnce({ code: "P2025" });
+
+    await service.received(receiver, {});
+
+    expect(notifications.send).not.toHaveBeenCalled();
   });
 });
 

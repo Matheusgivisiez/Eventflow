@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useQuery } from "@tanstack/react-query";
 import {
@@ -8,12 +8,11 @@ import {
   Music, GraduationCap, Dumbbell, Theater, Users, Briefcase,
   Search, ShieldCheck, Zap, TrendingDown
 } from "lucide-react";
-import { AccountMenu } from "@/components/account-menu";
+import { AppTopBar } from "@/components/app-top-bar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { EventCard } from "@/components/event-card";
 import { BrandLogo } from "@/components/brand-logo";
-import { ThemeToggle } from "@/components/theme-toggle";
 import { MobileAccountNavigation } from "@/components/mobile-account-navigation";
 import Topography from "@/components/topography/Topography";
 import { useAuthHydration } from "@/hooks/use-auth-hydration";
@@ -32,13 +31,26 @@ const categories = [
   { id: "Social", label: "Social", icon: Users },
 ];
 
+const MAX_BROWSER_TIMEOUT_MS = 2_147_483_647;
+
+function getPublicEventExpiresAt(event: EventFlowEvent) {
+  const expiresAt = event.endsAt ?? event.startsAt;
+  const timestamp = new Date(expiresAt).getTime();
+  return Number.isNaN(timestamp) ? 0 : timestamp;
+}
+
+function isPublicEventAvailable(event: EventFlowEvent, now: number) {
+  return event.status === "PUBLISHED" && getPublicEventExpiresAt(event) >= now;
+}
+
 export default function CatalogPage() {
   const hasHydrated = useAuthHydration();
-  const { user: storedUser, logout } = useAuthStore();
+  const storedUser = useAuthStore((state) => state.user);
   const user = hasHydrated ? storedUser : undefined;
   const [search, setSearch] = useState("");
   const [city, setCity] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("all");
+  const [now, setNow] = useState(() => Date.now());
 
   const query = useMemo(() => {
     const params = new URLSearchParams();
@@ -53,16 +65,40 @@ export default function CatalogPage() {
     queryFn: () => api(query ? `/events/public?${query}` : "/events/public", { auth: false })
   });
 
-  const events = data?.data ?? [];
+  const events = useMemo(() => data?.data ?? [], [data?.data]);
+  const visibleEvents = useMemo(
+    () => events.filter((event) => isPublicEventAvailable(event, now)),
+    [events, now]
+  );
   const organizerCtaHref = getOrganizerCtaHref(user?.role);
-  const userInitials = (user?.name ?? "U")
-    .split(" ")
-    .filter(Boolean)
-    .map((part) => part[0])
-    .slice(0, 2)
-    .join("")
-    .toUpperCase();
   const hasActiveFilters = Boolean(search || city || selectedCategory !== "all");
+
+  useEffect(() => {
+    const nextExpiration = visibleEvents
+      .map(getPublicEventExpiresAt)
+      .filter((timestamp) => timestamp > now)
+      .sort((a, b) => a - b)[0];
+
+    if (!nextExpiration) return;
+
+    const delay = Math.min(
+      MAX_BROWSER_TIMEOUT_MS,
+      Math.max(0, nextExpiration - Date.now() + 250)
+    );
+
+    const timeout = window.setTimeout(() => {
+      const currentTime = Date.now();
+      setNow(currentTime);
+
+      // Delays above the browser's 32-bit limit are split into safe chunks.
+      // Only refresh the catalog once the event has actually expired.
+      if (currentTime >= nextExpiration) {
+        void refetch();
+      }
+    }, delay);
+
+    return () => window.clearTimeout(timeout);
+  }, [now, refetch, visibleEvents]);
 
   function handleShowAllEvents() {
     setSearch("");
@@ -75,53 +111,7 @@ export default function CatalogPage() {
 
   return (
     <div className={`min-h-screen bg-[#F8F8F8] dark:bg-background ${user ? "pb-[calc(4rem+env(safe-area-inset-bottom))] md:pb-0" : ""}`}>
-      {/* ─── HEADER ─────────────────────────────────────────────── */}
-      <header className="sticky top-0 z-30 glass border-b shadow-sm">
-        <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 lg:px-8">
-          <Link href="/" className="group hover:opacity-90 transition-opacity">
-            <BrandLogo />
-          </Link>
-
-          <nav className="hidden items-center gap-6 text-sm font-medium text-muted-foreground md:flex">
-            <a href="#eventos" className="hover:text-foreground transition-colors">Comprar ingressos</a>
-            {user && <Link href="/me/ingressos" className="hover:text-foreground transition-colors">Meus ingressos</Link>}
-            <Link href={user ? organizerCtaHref : "#vender"} className="hover:text-foreground transition-colors">Para organizadores</Link>
-            {user && <Link href="/me/conta" className="hover:text-foreground transition-colors">Perfil</Link>}
-          </nav>
-
-          <div className="flex items-center gap-2">
-            <ThemeToggle />
-            {user ? (
-              <>
-                <AccountMenu
-                  initials={userInitials}
-                  name={user.name}
-                  profileHref="/me"
-                  onLogout={logout}
-                  className="md:hidden"
-                />
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={logout}
-                  className="hidden border-primary/30 text-primary transition-colors hover:bg-primary hover:text-white md:inline-flex"
-                >
-                  Sair
-                </Button>
-              </>
-            ) : (
-              <>
-                <Button asChild variant="ghost" size="sm">
-                  <Link href="/login">Entrar</Link>
-                </Button>
-                <Button asChild size="sm" className="bg-primary hover:bg-primary/90 shadow-sm shadow-primary/30 text-white">
-                  <Link href="/register">Criar conta</Link>
-                </Button>
-              </>
-            )}
-          </div>
-        </div>
-      </header>
+      <AppTopBar />
 
       {/* ─── HERO ────────────────────────────────────────────────── */}
       <section className="relative overflow-hidden bg-[#1a1528] min-h-[600px] flex items-center">
@@ -246,7 +236,7 @@ export default function CatalogPage() {
               </div>
             ))}
           </div>
-        ) : events.length === 0 ? (
+        ) : visibleEvents.length === 0 ? (
           <div className="flex min-h-[300px] flex-col items-center justify-center rounded-2xl border border-dashed bg-white dark:bg-card p-8 text-center">
             <div className="flex h-16 w-16 items-center justify-center rounded-full bg-primary/10 mb-4">
               <Compass className="h-8 w-8 text-primary" />
@@ -265,7 +255,7 @@ export default function CatalogPage() {
           </div>
         ) : (
           <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 stagger-children">
-            {events.map((event) => (
+            {visibleEvents.map((event) => (
               <EventCard key={event.id} event={event} />
             ))}
           </div>

@@ -28,19 +28,12 @@ export class EventsService {
   }
 
   async publicList(query: { page?: string; perPage?: string; search?: string; category?: string }) {
-    const cacheKey = `events:public:${JSON.stringify(query)}`;
-    const cached = await this.cache.get<any>(cacheKey);
-    if (cached) return cached;
-
-    const result = await this.events.findPublicEvents({
+    return this.events.findPublicEvents({
       page: Number(query.page ?? 1),
       perPage: Number(query.perPage ?? 12),
       search: query.search,
       category: query.category
     });
-
-    await this.cache.set(cacheKey, result, 30);
-    return result;
   }
 
   async create(tenantId: string, ownerId: string, dto: CreateEventDto) {
@@ -116,15 +109,10 @@ export class EventsService {
   }
 
   async publicBySlug(slug: string) {
-    const cacheKey = `events:public:slug:${slug}`;
-    const cached = await this.cache.get<any>(cacheKey);
-    if (cached) return cached;
-
     const event = await this.events.findPublicBySlug(slug);
     if (!event) {
       throw new NotFoundException("Evento indisponivel.");
     }
-    await this.cache.set(cacheKey, event, 30);
     return event;
   }
 

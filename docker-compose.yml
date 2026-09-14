@@ -140,6 +140,8 @@ services:
       GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_PASSWORD:-eventflow}
     volumes:
       - grafana-data:/var/lib/grafana
+      - ./infra/monitoring/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./infra/monitoring/grafana/dashboards:/var/lib/grafana/dashboards:ro
     deploy:
       resources:
         limits:
@@ -159,8 +161,33 @@ services:
           memory: 256M
           cpus: "0.3"
 
+  alloy:
+    image: grafana/alloy:v1.5.1
+    container_name: eventflow-alloy
+    restart: unless-stopped
+    depends_on:
+      - loki
+    command: run --storage.path=/var/lib/alloy --server.http.listen-addr=0.0.0.0:12345 /etc/alloy/config.alloy
+    environment:
+      GRAFANA_CLOUD_PROMETHEUS_URL: ${GRAFANA_CLOUD_PROMETHEUS_URL:-}
+      GRAFANA_CLOUD_PROMETHEUS_USER: ${GRAFANA_CLOUD_PROMETHEUS_USER:-}
+      GRAFANA_CLOUD_PROMETHEUS_TOKEN: ${GRAFANA_CLOUD_PROMETHEUS_TOKEN:-}
+      GRAFANA_CLOUD_LOKI_URL: ${GRAFANA_CLOUD_LOKI_URL:-}
+      GRAFANA_CLOUD_LOKI_USER: ${GRAFANA_CLOUD_LOKI_USER:-}
+      GRAFANA_CLOUD_LOKI_TOKEN: ${GRAFANA_CLOUD_LOKI_TOKEN:-}
+    volumes:
+      - ./infra/monitoring/alloy/config.alloy:/etc/alloy/config.alloy:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - alloy-data:/var/lib/alloy
+    deploy:
+      resources:
+        limits:
+          memory: 128M
+          cpus: "0.2"
+
 volumes:
   postgres-data:
   redis-data:
   rabbitmq-data:
   grafana-data:
+  alloy-data:

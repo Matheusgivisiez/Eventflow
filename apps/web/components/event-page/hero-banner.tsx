@@ -1,11 +1,9 @@
 "use client";
 
-import Link from "next/link";
 import Image from "next/image";
-import { ArrowLeft, CalendarDays, MapPin, Ticket } from "lucide-react";
+import { CalendarDays, MapPin, Ticket } from "lucide-react";
+import { AppTopBar } from "@/components/app-top-bar";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { BrandLogo } from "@/components/brand-logo";
 import { dateTime } from "@/lib/utils";
 import { publicAssetUrl } from "@/lib/public-asset-url";
 import type { EventFlowEvent } from "@/types/eventflow";
@@ -23,30 +21,7 @@ export function HeroBanner({ event }: HeroBannerProps) {
 
   return (
     <section className="relative overflow-hidden">
-      {/* Top navigation bar */}
-      <div className="sticky top-0 z-40 glass border-b">
-        <div className="mx-auto flex h-14 w-full min-w-0 max-w-7xl items-center justify-between px-4 lg:px-8">
-          <Button
-            asChild
-            variant="ghost"
-            size="sm"
-            className="gap-2 text-muted-foreground hover:text-foreground"
-          >
-            <Link href="/">
-              <ArrowLeft className="h-4 w-4" />
-              Voltar
-            </Link>
-          </Button>
-
-          <Link href="/" className="group shrink-0 transition-opacity hover:opacity-90">
-            <BrandLogo />
-          </Link>
-
-          <Button asChild variant="outline" size="sm" className="border-primary/30 text-primary hover:bg-primary hover:text-white transition-colors rounded-full">
-            <Link href="/login">Entrar</Link>
-          </Button>
-        </div>
-      </div>
+      <AppTopBar backHref="/" />
 
       {/* Banner image */}
       <div className="relative w-full aspect-[16/7] sm:aspect-[16/6] lg:aspect-[16/5] max-h-[480px] overflow-hidden bg-muted">
