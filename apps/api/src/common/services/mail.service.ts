@@ -41,7 +41,7 @@ export class MailService implements OnApplicationBootstrap {
     const user = this.config.get<string>("SMTP_USER");
     const pass = this.config.get<string>("SMTP_PASS");
 
-    if (!host || !from || !user || !pass) {
+    if (!host || !from || !user || !pass || this.isPlaceholderConfiguration(host, from)) {
       this.logger.warn(`[Mail Dispatch Skipped] SMTP not configured | Recipient: ${input.to}`);
       return { status: "SKIPPED", recipient: input.to };
     }
@@ -71,7 +71,7 @@ export class MailService implements OnApplicationBootstrap {
     const user = this.config.get<string>("SMTP_USER");
     const pass = this.config.get<string>("SMTP_PASS");
 
-    if (!host || !from || !user || !pass) {
+    if (!host || !from || !user || !pass || this.isPlaceholderConfiguration(host, from)) {
       return { configured: false };
     }
 
@@ -126,7 +126,8 @@ export class MailService implements OnApplicationBootstrap {
       !host ||
       !from ||
       !this.config.get<string>("SMTP_USER") ||
-      !this.config.get<string>("SMTP_PASS")
+      !this.config.get<string>("SMTP_PASS") ||
+      this.isPlaceholderConfiguration(host, from)
     ) {
       return { configured: false };
     }
@@ -160,6 +161,21 @@ export class MailService implements OnApplicationBootstrap {
     }
 
     return this.transporter;
+  }
+
+  private isPlaceholderConfiguration(host: string, from: string) {
+    const normalizedHost = host.trim().toLowerCase();
+    const fromDomain = from.split("@").at(-1)?.trim().toLowerCase() ?? "";
+    const placeholderTerms = ["placeholder", "change-me", "example.com"];
+    const nonRoutableSuffixes = [".local", ".localhost", ".invalid", ".test"];
+    const unusable = (value: string) =>
+      placeholderTerms.some((term) => value.includes(term)) ||
+      nonRoutableSuffixes.some((suffix) => value.endsWith(suffix));
+
+    return normalizedHost === "localhost"
+      || normalizedHost === "127.0.0.1"
+      || unusable(normalizedHost)
+      || unusable(fromDomain);
   }
 
   private async verifyWithTimeout() {

@@ -59,6 +59,7 @@ describe("envSchema", () => {
   it("rejects production config when SMTP settings are missing", () => {
     expect(() => envSchema.parse(baseEnv({
       NODE_ENV: "production",
+      SMTP_REQUIRED: "true",
       ...strongSecrets,
       ...strongStorage
     }))).toThrow(/SMTP_HOST/);
@@ -102,6 +103,7 @@ describe("envSchema", () => {
       ...strongSecrets,
       ...strongMail,
       ...strongStorage,
+      SMTP_REQUIRED: "true",
       SMTP_HOST: "placeholder.smtp.local"
     }))).toThrow(/SMTP_HOST.*placeholder\.smtp\.local/);
   });
@@ -112,8 +114,20 @@ describe("envSchema", () => {
       ...strongSecrets,
       ...strongMail,
       ...strongStorage,
+      SMTP_REQUIRED: "true",
       SMTP_FROM: "no-reply@example.com"
     }))).toThrow(/SMTP_FROM.*example\.com/);
+  });
+
+  it("allows production to run with mail disabled when SMTP is not required", () => {
+    const env = envSchema.parse(baseEnv({
+      NODE_ENV: "production",
+      ...strongSecrets,
+      ...strongStorage,
+      SMTP_REQUIRED: "false"
+    }));
+
+    expect(env.SMTP_REQUIRED).toBe(false);
   });
 
   it("allows development SMTP placeholders", () => {

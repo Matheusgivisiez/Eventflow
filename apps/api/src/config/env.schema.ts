@@ -121,6 +121,9 @@ export const envSchema = z.object({
   // (password recovery depends on the same transport).
   PURCHASE_EMAIL_ENABLED: booleanFromEnv(true),
   NOTIFICATION_RETRY_ENABLED: booleanFromEnv(true),
+  // Staging may run without a mail provider. Set this to true in production
+  // environments where password recovery and transactional e-mail are mandatory.
+  SMTP_REQUIRED: booleanFromEnv(false),
   SMTP_HOST: z.string().optional(),
   SMTP_PORT: z.coerce.number().int().positive().optional(),
   SMTP_SECURE: booleanFromEnv(false),
@@ -164,31 +167,33 @@ export const envSchema = z.object({
     }
   }
 
-  for (const key of productionMailKeys) {
-    if (!env[key]) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        path: [key],
-        message: `${key} is required in production for password recovery emails.`
-      });
+  if (env.SMTP_REQUIRED) {
+    for (const key of productionMailKeys) {
+      if (!env[key]) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: [key],
+          message: `${key} is required in production for password recovery emails.`
+        });
+      }
     }
-  }
 
-  if (env.SMTP_HOST) {
-    const normalizedHost = env.SMTP_HOST.trim().toLowerCase();
-    if (
-      normalizedHost === "localhost" ||
-      normalizedHost === "127.0.0.1" ||
-      isPlaceholderMailValue(normalizedHost)
-    ) {
-      addPlaceholderMailIssue(ctx, "SMTP_HOST", env.SMTP_HOST);
+    if (env.SMTP_HOST) {
+      const normalizedHost = env.SMTP_HOST.trim().toLowerCase();
+      if (
+        normalizedHost === "localhost" ||
+        normalizedHost === "127.0.0.1" ||
+        isPlaceholderMailValue(normalizedHost)
+      ) {
+        addPlaceholderMailIssue(ctx, "SMTP_HOST", env.SMTP_HOST);
+      }
     }
-  }
 
-  if (env.SMTP_FROM) {
-    const fromDomain = env.SMTP_FROM.split("@").at(-1);
-    if (fromDomain && isPlaceholderMailValue(fromDomain)) {
-      addPlaceholderMailIssue(ctx, "SMTP_FROM", fromDomain);
+    if (env.SMTP_FROM) {
+      const fromDomain = env.SMTP_FROM.split("@").at(-1);
+      if (fromDomain && isPlaceholderMailValue(fromDomain)) {
+        addPlaceholderMailIssue(ctx, "SMTP_FROM", fromDomain);
+      }
     }
   }
 

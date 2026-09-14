@@ -25,12 +25,12 @@ describe("MailService", () => {
     const sendMail = jest.fn().mockResolvedValue({ messageId: "message-1" });
     (nodemailer.createTransport as jest.Mock).mockReturnValue({ sendMail });
     const config = createConfig({
-      SMTP_HOST: "smtp.example.com",
+      SMTP_HOST: "smtp.mailtrap.io",
       SMTP_PORT: 587,
       SMTP_SECURE: false,
       SMTP_USER: "smtp-user",
       SMTP_PASS: "smtp-pass",
-      SMTP_FROM: "no-reply@example.com"
+      SMTP_FROM: "no-reply@eventflow.com.br"
     });
     const service = new MailService(config as any);
 
@@ -42,7 +42,7 @@ describe("MailService", () => {
     });
 
     expect(nodemailer.createTransport).toHaveBeenCalledWith({
-      host: "smtp.example.com",
+      host: "smtp.mailtrap.io",
       port: 587,
       secure: false,
       connectionTimeout: 5000,
@@ -54,7 +54,7 @@ describe("MailService", () => {
       }
     });
     expect(sendMail).toHaveBeenCalledWith({
-      from: "no-reply@example.com",
+      from: "no-reply@eventflow.com.br",
       to: "user@example.com",
       subject: "Reset",
       text: "Reset link",
@@ -98,6 +98,27 @@ describe("MailService", () => {
 
     expect(nodemailer.createTransport).not.toHaveBeenCalled();
     expect(result).toEqual({ status: "SKIPPED", recipient: "user@example.com" });
+  });
+
+  it("treats placeholder SMTP settings as disabled", async () => {
+    const service = new MailService(createConfig({
+      SMTP_HOST: "placeholder.smtp.local",
+      SMTP_PORT: 587,
+      SMTP_USER: "smtp-user",
+      SMTP_PASS: "smtp-pass",
+      SMTP_FROM: "no-reply@eventflow.local"
+    }) as any);
+
+    const result = await service.send({
+      to: "user@example.com",
+      subject: "Reset",
+      text: "Reset link",
+      html: "<p>Reset link</p>"
+    });
+
+    expect(nodemailer.createTransport).not.toHaveBeenCalled();
+    expect(result).toEqual({ status: "SKIPPED", recipient: "user@example.com" });
+    await expect(service.checkTransport()).resolves.toEqual({ configured: false });
   });
 
   it("returns unreachable without throwing when SMTP verify rejects", async () => {
