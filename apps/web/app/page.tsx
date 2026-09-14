@@ -4,10 +4,11 @@ import { useMemo, useState } from "react";
 import Link from "next/link";
 import { useQuery } from "@tanstack/react-query";
 import {
-  ArrowRight, CalendarPlus, ChevronRight, Compass, LogOut, MapPin,
+  ArrowRight, CalendarPlus, ChevronRight, Compass, MapPin,
   Music, GraduationCap, Dumbbell, Theater, Users, Briefcase,
   Search, ShieldCheck, Zap, TrendingDown
 } from "lucide-react";
+import { AccountMenu } from "@/components/account-menu";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { EventCard } from "@/components/event-card";
@@ -92,22 +93,13 @@ export default function CatalogPage() {
             <ThemeToggle />
             {user ? (
               <>
-                <Link
-                  href="/me"
-                  aria-label={`Abrir perfil de ${user.name}`}
-                  className="flex h-11 w-11 items-center justify-center rounded-full border border-primary/25 bg-primary/10 text-xs font-bold text-primary transition-colors hover:border-primary/50 hover:bg-primary/15 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 md:hidden"
-                >
-                  {userInitials}
-                </Link>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  onClick={logout}
-                  aria-label="Sair da conta"
-                  className="text-muted-foreground hover:bg-destructive/10 hover:text-destructive md:hidden"
-                >
-                  <LogOut className="h-4 w-4" />
-                </Button>
+                <AccountMenu
+                  initials={userInitials}
+                  name={user.name}
+                  profileHref="/me"
+                  onLogout={logout}
+                  className="md:hidden"
+                />
                 <Button
                   variant="outline"
                   size="sm"

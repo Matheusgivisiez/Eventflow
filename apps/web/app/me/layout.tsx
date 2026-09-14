@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { BrandLogo } from "@/components/brand-logo";
 import { MobileAccountNavigation } from "@/components/mobile-account-navigation";
+import { AccountMenu } from "@/components/account-menu";
 import { useAuthHydration } from "@/hooks/use-auth-hydration";
 import { useAuthStore } from "@/stores/auth-store";
 import { cn } from "@/lib/utils";
@@ -85,22 +86,29 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
 
           <div className="flex items-center gap-2">
             <ThemeToggle />
+            <AccountMenu
+              initials={initials}
+              name={user.name}
+              profileHref="/me/conta"
+              onLogout={() => { logout(); router.push("/login"); }}
+              className="md:hidden"
+            />
             <Link
               href="/me/conta"
               aria-label={`Abrir dados da conta de ${user.name}`}
-              className="flex h-11 items-center gap-2 rounded-full px-1 text-sm font-medium transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 sm:h-10 sm:rounded-xl sm:bg-muted sm:px-2.5"
+              className="hidden h-10 items-center gap-2 rounded-xl bg-muted px-2.5 text-sm font-medium transition-colors hover:bg-muted/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 md:flex"
             >
               <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/10 text-xs font-bold text-primary">
                 {initials}
               </div>
-              <span className="hidden max-w-[100px] truncate sm:inline">{user.name.split(" ")[0]}</span>
+              <span className="max-w-[100px] truncate">{user.name.split(" ")[0]}</span>
             </Link>
             <Button
               variant="ghost"
               size="icon"
               title="Sair"
               aria-label="Sair da conta"
-              className="rounded-xl text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
+              className="hidden rounded-xl text-muted-foreground hover:bg-destructive/10 hover:text-destructive md:inline-flex"
               onClick={() => { logout(); router.push("/login"); }}
             >
               <LogOut className="h-4 w-4" />
