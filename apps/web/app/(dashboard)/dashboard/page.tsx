@@ -7,7 +7,7 @@ import {
   Activity, ArrowUpRight, ArrowDownRight, CalendarCheck,
   CircleDollarSign, TicketCheck, Users, TrendingUp,
   CalendarDays, MapPin, Monitor, CheckCircle2, Clock,
-  ExternalLink, Zap, ChevronRight
+  ExternalLink, Zap, ChevronRight, Trophy, CreditCard
 } from "lucide-react";
 import {
   Area, AreaChart, CartesianGrid, ResponsiveContainer,
@@ -130,6 +130,7 @@ export default function DashboardPage() {
     totalCents: item.totalCents
   })), [data]);
   const barColors = ["#5b3dff", "#a855f7", "#ec4899", "#6366f1", "#8b5cf6"];
+  const topThreeEvents = (data?.topEvents ?? []).slice(0, 3);
 
   if (isLoading) return <DashboardSkeleton />;
   if (error) {
@@ -228,7 +229,7 @@ export default function DashboardPage() {
           </div>
         </div>
 
-        <div className="rounded-2xl glass-premium p-6 flex flex-col transition-all duration-300 hover:shadow-lg">
+        <div className="hidden rounded-2xl glass-premium p-6 sm:flex flex-col transition-all duration-300 hover:shadow-lg">
           <h2 className="font-bold text-lg mb-1">Resumo Financeiro</h2>
           <p className="text-sm text-muted-foreground mb-6">Consolidado geral de receitas.</p>
           <div className="space-y-3 flex-1">
@@ -252,9 +253,64 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      {/* Top Events */}
+      {/* Mobile: Top eventos + Resumo Financeiro compactos, lado a lado (como no modelo) */}
+      <div className="grid grid-cols-2 gap-3 sm:hidden">
+        <Link href="/events" className="group rounded-2xl glass-premium p-4 flex flex-col transition-all duration-300 hover:shadow-lg">
+          <div className="flex items-center justify-between mb-3">
+            <div className="flex min-w-0 items-center gap-2">
+              <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-amber-100 text-amber-600 dark:bg-amber-900/30 dark:text-amber-400">
+                <Trophy className="h-3.5 w-3.5" />
+              </div>
+              <h2 className="truncate text-xs font-bold">Top eventos por receita</h2>
+            </div>
+            <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground transition-transform group-hover:translate-x-0.5" />
+          </div>
+          <div className="space-y-2.5">
+            {topThreeEvents.length > 0 ? topThreeEvents.map((ev) => (
+              <div key={ev.id} className="flex items-center justify-between gap-2 text-xs">
+                <span className="truncate text-muted-foreground">{ev.title}</span>
+                <span className="shrink-0 font-bold">{money(ev.revenueCents)}</span>
+              </div>
+            )) : (
+              <p className="text-xs text-muted-foreground">Sem eventos ainda.</p>
+            )}
+          </div>
+        </Link>
+
+        <Link href="/finance" className="group rounded-2xl glass-premium p-4 flex flex-col transition-all duration-300 hover:shadow-lg">
+          <div className="flex items-center justify-between mb-3">
+            <div className="flex min-w-0 items-center gap-2">
+              <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                <CreditCard className="h-3.5 w-3.5" />
+              </div>
+              <h2 className="truncate text-xs font-bold">Resumo Financeiro</h2>
+            </div>
+            <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground transition-transform group-hover:translate-x-0.5" />
+          </div>
+          <div className="space-y-2 text-xs">
+            <div className="flex items-center justify-between">
+              <span className="text-muted-foreground">Pedidos pagos</span>
+              <span className="font-bold">{data?.paidOrders ?? 0}</span>
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="text-muted-foreground">Receita bruta</span>
+              <span className="font-bold text-primary">{money(data?.totalRevenueCents)}</span>
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="text-muted-foreground">Taxas</span>
+              <span className="font-bold text-rose-500">-{money(data?.totalFeesCents)}</span>
+            </div>
+          </div>
+          <div className="mt-3 flex items-center justify-between rounded-lg brand-gradient px-3 py-2 text-white">
+            <span className="text-[11px] font-semibold text-white/90">Líquida</span>
+            <span className="text-sm font-extrabold">{money(netRevenue)}</span>
+          </div>
+        </Link>
+      </div>
+
+      {/* Top Events completo (grafico + tabela) — a partir do sm; no mobile vira o card compacto acima */}
       {(data?.topEvents ?? []).length > 0 && (
-        <div className="rounded-2xl glass-premium shadow-sm overflow-hidden animate-slide-up">
+        <div className="hidden rounded-2xl glass-premium shadow-sm sm:block overflow-hidden animate-slide-up">
           <div className="flex items-center justify-between px-4 py-4 sm:px-6 sm:py-5 border-b border-border/50">
             <div>
               <h2 className="font-bold text-base sm:text-lg">Top eventos por receita</h2>
