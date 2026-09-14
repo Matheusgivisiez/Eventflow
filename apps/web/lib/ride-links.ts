@@ -90,20 +90,24 @@ export function buildGoogleMapsLink(event: EventLocationInput): string {
  */
 export function buildUberLink(event: EventLocationInput, nickname?: string): string {
   const { coords, address } = getEventLocation(event);
-  const params = new URLSearchParams();
-  params.set("action", "setPickup");
-  params.set("pickup", "my_location");
+
+  // IMPORTANTE: os nomes dos parametros com colchetes (dropoff[formatted_address])
+  // precisam ficar literais na query string. Se usarmos URLSearchParams aqui, ele
+  // tambem faz percent-encode das CHAVES (vira dropoff%5Bformatted_address%5D=...),
+  // e o app do Uber nao reconhece a chave codificada -- o destino chega em branco.
+  // Por isso montamos a query manualmente: chave literal, valor com encodeURIComponent.
+  const parts = ["action=setPickup", "pickup=my_location"];
   if (coords) {
-    params.set("dropoff[latitude]", String(coords.lat));
-    params.set("dropoff[longitude]", String(coords.lng));
+    parts.push(`dropoff[latitude]=${encodeURIComponent(String(coords.lat))}`);
+    parts.push(`dropoff[longitude]=${encodeURIComponent(String(coords.lng))}`);
   }
   if (address) {
-    params.set("dropoff[formatted_address]", address);
+    parts.push(`dropoff[formatted_address]=${encodeURIComponent(address)}`);
   }
   if (nickname) {
-    params.set("dropoff[nickname]", nickname);
+    parts.push(`dropoff[nickname]=${encodeURIComponent(nickname)}`);
   }
-  return `https://m.uber.com/ul/?${params.toString()}`;
+  return `https://m.uber.com/ul/?${parts.join("&")}`;
 }
 
 /**

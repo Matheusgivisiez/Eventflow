@@ -63,20 +63,24 @@ describe("buildGoogleMapsLink", () => {
 });
 
 describe("buildUberLink", () => {
-  it("inclui pickup=my_location e o endereco de destino", () => {
+  it("inclui pickup=my_location e o endereco de destino, com colchetes literais na chave", () => {
     const link = buildUberLink(baseEvent, "Festa Junina");
     assert.match(link, /^https:\/\/m\.uber\.com\/ul\/\?/);
     assert.match(link, /action=setPickup/);
     assert.match(link, /pickup=my_location/);
-    assert.match(link, /dropoff%5Bformatted_address%5D=/);
-    assert.match(link, /dropoff%5Bnickname%5D=Festa\+Junina/);
+    // As chaves dropoff[...] tem que ficar literais (nao %5B%5D) -- e assim que
+    // o exemplo oficial da Uber documenta, e colchetes codificados fazem o
+    // destino chegar em branco no app.
+    assert.match(link, /dropoff\[formatted_address\]=/);
+    assert.match(link, /dropoff\[nickname\]=Festa%20Junina/);
+    assert.doesNotMatch(link, /%5B|%5D/);
   });
 
   it("inclui lat/lng do dropoff quando o mapUrl tem coordenadas", () => {
     const event = { ...baseEvent, mapUrl: "https://www.google.com/maps/@-19.5197,-42.6267,17z" };
     const link = buildUberLink(event);
-    assert.match(link, /dropoff%5Blatitude%5D=-19\.5197/);
-    assert.match(link, /dropoff%5Blongitude%5D=-42\.6267/);
+    assert.match(link, /dropoff\[latitude\]=-19\.5197/);
+    assert.match(link, /dropoff\[longitude\]=-42\.6267/);
   });
 });
 
