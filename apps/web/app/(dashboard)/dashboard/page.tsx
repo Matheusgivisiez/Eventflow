@@ -16,6 +16,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { api } from "@/lib/api";
 import { money, dateTime } from "@/lib/utils";
+import { useAuthStore } from "@/stores/auth-store";
 
 type TopEvent = {
   id: string; title: string; status: string; startsAt: string;
@@ -69,18 +70,18 @@ function KpiCard({ label, value, icon: Icon, iconClass, growth, growthLabel, sub
   growth?: number; growthLabel?: string; sub?: string;
 }) {
   return (
-    <div className="group relative rounded-2xl glass-premium p-5 transition-all duration-300 hover:shadow-xl hover:-translate-y-1 overflow-hidden">
+    <div className="group relative rounded-2xl glass-premium p-4 sm:p-5 transition-all duration-300 hover:shadow-xl hover:-translate-y-1 overflow-hidden">
       <div className="absolute -right-4 -top-4 h-24 w-24 rounded-full bg-gradient-to-br from-primary/5 to-transparent blur-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
-      <div className="flex items-start justify-between mb-4 relative z-10">
-        <div className={`flex h-11 w-11 items-center justify-center rounded-xl shadow-sm transition-transform duration-300 group-hover:scale-110 ${iconClass}`}>
-          <Icon className="h-5 w-5" />
+      <div className="flex items-start justify-between mb-3 sm:mb-4 relative z-10">
+        <div className={`flex h-9 w-9 sm:h-11 sm:w-11 items-center justify-center rounded-xl shadow-sm transition-transform duration-300 group-hover:scale-110 ${iconClass}`}>
+          <Icon className="h-4 w-4 sm:h-5 sm:w-5" />
         </div>
         {growth !== undefined && <GrowthBadge pct={growth} />}
       </div>
-      <p className="text-3xl font-extrabold tracking-tight text-foreground relative z-10">{value}</p>
-      <p className="text-sm text-muted-foreground mt-1 font-medium relative z-10">{label}</p>
-      {growthLabel && <p className="text-xs text-muted-foreground mt-2 relative z-10">{growthLabel}</p>}
-      {sub && <p className="text-xs text-muted-foreground mt-1 relative z-10">{sub}</p>}
+      <p className="text-xl sm:text-3xl font-extrabold tracking-tight text-foreground relative z-10 truncate">{value}</p>
+      <p className="text-xs sm:text-sm text-muted-foreground mt-1 font-medium relative z-10">{label}</p>
+      {growthLabel && <p className="text-[11px] sm:text-xs text-muted-foreground mt-1.5 sm:mt-2 relative z-10">{growthLabel}</p>}
+      {sub && <p className="text-[11px] sm:text-xs text-muted-foreground mt-1 relative z-10">{sub}</p>}
     </div>
   );
 }
@@ -101,8 +102,8 @@ function DashboardSkeleton() {
          {[1, 2, 3].map((i) => <div key={i} className="h-10 w-32 rounded-xl skeleton-shimmer" />)}
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4 stagger-children">
-        {[1, 2, 3, 4].map((i) => <div key={i} className="h-40 rounded-2xl glass-premium skeleton-shimmer" />)}
+      <div className="grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-4 stagger-children">
+        {[1, 2, 3, 4].map((i) => <div key={i} className="h-32 sm:h-40 rounded-2xl glass-premium skeleton-shimmer" />)}
       </div>
       <div className="grid gap-4 lg:grid-cols-[1fr_320px]">
         <div className="h-80 rounded-2xl glass-premium skeleton-shimmer" />
@@ -113,6 +114,8 @@ function DashboardSkeleton() {
 }
 
 export default function DashboardPage() {
+  const user = useAuthStore((s) => s.user);
+  const firstName = (user?.name ?? "").split(" ")[0];
   const { data, isLoading, error } = useQuery({
     queryKey: ["dashboard"],
     queryFn: () => api<Dashboard>("/dashboard"),
@@ -140,23 +143,24 @@ export default function DashboardPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between animate-fade-in">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between animate-fade-in">
         <div>
-          <h1 className="text-3xl font-extrabold tracking-tight">Dashboard</h1>
+          {firstName && <p className="text-sm text-muted-foreground font-medium">Olá, {firstName}! 👋</p>}
+          <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight">Dashboard</h1>
           <p className="text-sm text-muted-foreground mt-1 font-medium">Visão geral dos seus eventos e vendas em tempo real.</p>
         </div>
-        <div className="flex items-center gap-3 self-start sm:self-auto">
+        <div className="flex items-center gap-3 self-stretch sm:self-auto">
           <Button variant="outline" size="sm" asChild className="hidden sm:flex rounded-xl font-semibold">
             <Link href="/finance"><CircleDollarSign className="h-4 w-4" />Financeiro</Link>
           </Button>
-          <Button asChild size="sm" className="bg-primary hover:bg-primary/90 text-white shadow-md shadow-primary/30 rounded-xl font-semibold">
+          <Button asChild size="sm" className="w-full sm:w-auto bg-primary hover:bg-primary/90 text-white shadow-md shadow-primary/30 rounded-xl font-semibold">
             <Link href="/events/new"><Zap className="h-4 w-4" />Criar Evento</Link>
           </Button>
         </div>
       </div>
 
       {/* Primary KPIs */}
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4 stagger-children">
+      <div className="grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-4 stagger-children">
         <KpiCard label="Receita total" value={money(data?.totalRevenueCents)} icon={CircleDollarSign}
           iconClass="bg-brand-purple/10 text-brand-purple dark:bg-brand-purple/20"
           growth={data?.monthlyRevenueGrowthPct} growthLabel="vs. mes anterior" />
@@ -172,7 +176,7 @@ export default function DashboardPage() {
       </div>
 
       {/* Secondary KPIs */}
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4 stagger-children">
+      <div className="grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-4 stagger-children">
         <KpiCard label="Receita esta semana" value={money(data?.weeklyRevenueCents)} icon={TrendingUp}
           iconClass="bg-indigo-100 text-indigo-600 dark:bg-indigo-900/30 dark:text-indigo-400"
           growth={data?.weeklyRevenueGrowthPct} growthLabel="vs. semana passada" />
@@ -251,16 +255,16 @@ export default function DashboardPage() {
       {/* Top Events */}
       {(data?.topEvents ?? []).length > 0 && (
         <div className="rounded-2xl glass-premium shadow-sm overflow-hidden animate-slide-up">
-          <div className="flex items-center justify-between px-6 py-5 border-b border-border/50">
+          <div className="flex items-center justify-between px-4 py-4 sm:px-6 sm:py-5 border-b border-border/50">
             <div>
-              <h2 className="font-bold text-lg">Top eventos por receita</h2>
-              <p className="text-sm text-muted-foreground mt-1">Seus eventos com maior arrecadação.</p>
+              <h2 className="font-bold text-base sm:text-lg">Top eventos por receita</h2>
+              <p className="text-xs sm:text-sm text-muted-foreground mt-1">Seus eventos com maior arrecadação.</p>
             </div>
-            <Button variant="ghost" size="sm" className="hover:bg-primary/10 hover:text-primary transition-colors font-medium rounded-lg" asChild>
+            <Button variant="ghost" size="sm" className="hover:bg-primary/10 hover:text-primary transition-colors font-medium rounded-lg shrink-0" asChild>
               <Link href="/events">Ver todos <ExternalLink className="h-4 w-4 ml-1.5" /></Link>
             </Button>
           </div>
-          <div className="px-6 pt-5 pb-2 h-44">
+          <div className="hidden sm:block px-6 pt-5 pb-2 h-44">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={data?.topEvents ?? []} barCategoryGap="30%" margin={{ top: 0, right: 0, left: 0, bottom: 0 }}>
                 <XAxis dataKey="title" tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }} axisLine={false} tickLine={false}
