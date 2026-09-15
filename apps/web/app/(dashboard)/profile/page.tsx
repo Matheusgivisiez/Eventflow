@@ -11,6 +11,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { ImageUpload } from "@/components/image-upload";
 import { api } from "@/lib/api";
+import { formatBrazilPhone, normalizeBrazilPhone } from "@/lib/br-format";
 import { useAuthStore } from "@/stores/auth-store";
 
 const profileSchema = z.object({ name: z.string().trim().min(2, "Informe seu nome."), email: z.string().trim().email("Informe um e-mail válido."), phone: z.string().optional(), companyName: z.string().optional(), logoUrl: z.string().optional() });
@@ -20,9 +21,9 @@ type PasswordForm = z.infer<typeof passwordSchema>;
 
 export default function ProfilePage() {
   const user = useAuthStore((state) => state.user);
-  const form = useForm<ProfileForm>({ resolver: zodResolver(profileSchema), defaultValues: { name: user?.name ?? "", email: user?.email ?? "", phone: "", companyName: "", logoUrl: "" } });
+  const form = useForm<ProfileForm>({ resolver: zodResolver(profileSchema), defaultValues: { name: user?.name ?? "", email: user?.email ?? "", phone: user?.phone ? formatBrazilPhone(user.phone) : "", companyName: "", logoUrl: "" } });
   const passwordForm = useForm<PasswordForm>({ resolver: zodResolver(passwordSchema), defaultValues: { currentPassword: "", newPassword: "" } });
-  const mutation = useMutation({ mutationFn: (data: ProfileForm) => api("/profile", { method: "PATCH", body: JSON.stringify(data) }) });
+  const mutation = useMutation({ mutationFn: (data: ProfileForm) => api("/profile", { method: "PATCH", body: JSON.stringify({ ...data, phone: data.phone ? normalizeBrazilPhone(data.phone) : data.phone }) }) });
   const passwordMutation = useMutation({ mutationFn: (data: PasswordForm) => api("/profile/password", { method: "PATCH", body: JSON.stringify(data) }), onSuccess: () => passwordForm.reset() });
 
   return (
@@ -39,7 +40,7 @@ export default function ProfilePage() {
           <CardContent className="grid gap-4">
             <Field label="Nome" error={form.formState.errors.name?.message}><Input {...form.register("name")} /></Field>
             <Field label="E-mail" error={form.formState.errors.email?.message}><Input type="email" {...form.register("email")} /></Field>
-            <Field label="Telefone" error={form.formState.errors.phone?.message}><Input {...form.register("phone")} /></Field>
+            <Field label="Telefone" error={form.formState.errors.phone?.message}><Input inputMode="tel" autoComplete="tel" placeholder="+55 (33) 99999-9999" {...form.register("phone", { onChange: (event) => { event.target.value = formatBrazilPhone(event.target.value); } })} /></Field>
           </CardContent>
         </Card>
         <Card>

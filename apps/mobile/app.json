@@ -18,7 +18,7 @@
       }
     },
     "extra": {
-      "apiUrl": "http://localhost:3001/api"
+      "apiUrl": "https://api.eventflowtickets.com.br/api"
     }
   }
 }

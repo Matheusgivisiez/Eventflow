@@ -21,6 +21,7 @@ import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { api } from "@/lib/api";
+import { formatBrazilPhone, normalizeBrazilPhone } from "@/lib/br-format";
 import { useAuthStore } from "@/stores/auth-store";
 
 const UF_LIST = [
@@ -31,7 +32,7 @@ const UF_LIST = [
 const schema = z.object({
   name: z.string().min(2, "Informe seu nome completo."),
   email: z.string().email("Informe um e-mail válido."),
-  phone: z.string().min(10, "Informe um telefone válido com DDD."),
+  phone: z.string().refine((value) => normalizeBrazilPhone(value).length === 11, "Informe um telefone válido com DDD."),
   password: z.string().min(8, "A senha deve ter pelo menos 8 caracteres."),
   confirmPassword: z.string().min(8, "Confirme a senha."),
   cnpj: z.string()
@@ -57,13 +58,6 @@ function formatCnpj(value: string) {
   if (digits.length <= 8) return `${digits.slice(0, 2)}.${digits.slice(2, 5)}.${digits.slice(5)}`;
   if (digits.length <= 12) return `${digits.slice(0, 2)}.${digits.slice(2, 5)}.${digits.slice(5, 8)}/${digits.slice(8)}`;
   return `${digits.slice(0, 2)}.${digits.slice(2, 5)}.${digits.slice(5, 8)}/${digits.slice(8, 12)}-${digits.slice(12)}`;
-}
-
-function formatPhone(value: string) {
-  const digits = value.replace(/\D/g, "").slice(0, 11);
-  if (digits.length <= 2) return digits;
-  if (digits.length <= 7) return `(${digits.slice(0, 2)}) ${digits.slice(2)}`;
-  return `(${digits.slice(0, 2)}) ${digits.slice(2, 7)}-${digits.slice(7)}`;
 }
 
 export default function RegisterOrganizerPage() {
@@ -96,6 +90,7 @@ export default function RegisterOrganizerPage() {
         method: "POST",
         body: JSON.stringify({
           ...payload,
+          phone: normalizeBrazilPhone(payload.phone),
           cnpj: payload.cnpj.replace(/\D/g, ""),
           state: payload.state.toUpperCase(),
         }),
@@ -178,12 +173,12 @@ export default function RegisterOrganizerPage() {
               <div className="relative">
                 <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-[#8E82A8]" />
                 <input
-                  placeholder="(31) 99999-9999"
-                  maxLength={15}
+                  placeholder="+55 (31) 99999-9999"
+                  maxLength={19}
                   className="w-full h-[38px] rounded-xl bg-[#0D081F]/70 border border-purple-400/20 pl-8 pr-3 text-xs text-white placeholder:text-[#6D6288] focus:border-[#8C62FF] focus:ring-1 focus:ring-[#8C62FF]/40 outline-none transition-all"
                   {...form.register("phone")}
                   onChange={(e) => {
-                    const formatted = formatPhone(e.target.value);
+                    const formatted = formatBrazilPhone(e.target.value);
                     form.setValue("phone", formatted, { shouldValidate: true });
                   }}
                 />

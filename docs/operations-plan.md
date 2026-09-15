@@ -553,8 +553,8 @@ npx prisma generate
 Smoke test HTTP:
 
 ```bash
-curl -s https://api.seu-dominio.com/health
-curl -s https://api.seu-dominio.com/metrics
+curl -s https://api.eventflowtickets.com.br/health
+curl -s https://api.eventflowtickets.com.br/metrics
 ```
 
 ## Dono do Processo

@@ -9,6 +9,7 @@ import { api } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { formatBrazilPhone, normalizeBrazilPhone } from "@/lib/br-format";
 import { useAuthStore } from "@/stores/auth-store";
 
 const accountSchema = z.object({
@@ -28,7 +29,7 @@ export default function AccountPage() {
     defaultValues: {
       name: user?.name || "",
       email: user?.email || "",
-      phone: user?.phone || "",
+      phone: user?.phone ? formatBrazilPhone(user.phone) : "",
     },
   });
 
@@ -36,7 +37,7 @@ export default function AccountPage() {
     mutationFn: (data: AccountFormValues) =>
       api<any>("/users/me", {
         method: "PATCH",
-        body: JSON.stringify(data),
+        body: JSON.stringify({ ...data, phone: data.phone ? normalizeBrazilPhone(data.phone) : data.phone }),
       }),
     onSuccess: (updatedUser) => {
       updateUser({
@@ -70,7 +71,17 @@ export default function AccountPage() {
 
         <div className="space-y-2">
           <Label htmlFor="phone">Telefone (opcional)</Label>
-          <Input id="phone" {...form.register("phone")} placeholder="(00) 00000-0000" />
+          <Input
+            id="phone"
+            inputMode="tel"
+            autoComplete="tel"
+            {...form.register("phone", {
+              onChange: (event) => {
+                event.target.value = formatBrazilPhone(event.target.value);
+              },
+            })}
+            placeholder="+55 (33) 99999-9999"
+          />
           {form.formState.errors.phone && (
             <p className="text-sm text-destructive">{form.formState.errors.phone.message}</p>
           )}

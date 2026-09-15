@@ -30,7 +30,7 @@ describe("MailService", () => {
       SMTP_SECURE: false,
       SMTP_USER: "smtp-user",
       SMTP_PASS: "smtp-pass",
-      SMTP_FROM: "no-reply@eventflow.com.br"
+      SMTP_FROM: "no-reply@eventflowtickets.com.br"
     });
     const service = new MailService(config as any);
 
@@ -54,7 +54,7 @@ describe("MailService", () => {
       }
     });
     expect(sendMail).toHaveBeenCalledWith({
-      from: "no-reply@eventflow.com.br",
+      from: "no-reply@eventflowtickets.com.br",
       to: "user@example.com",
       subject: "Reset",
       text: "Reset link",
@@ -86,7 +86,7 @@ describe("MailService", () => {
       SMTP_HOST: "smtp.no-credentials.host",
       SMTP_PORT: 587,
       SMTP_SECURE: false,
-      SMTP_FROM: "no-reply@eventflow.com.br"
+      SMTP_FROM: "no-reply@eventflowtickets.com.br"
     }) as any);
 
     const result = await service.send({
@@ -130,7 +130,7 @@ describe("MailService", () => {
       SMTP_SECURE: false,
       SMTP_USER: "smtp-user",
       SMTP_PASS: "smtp-pass",
-      SMTP_FROM: "no-reply@eventflow.com.br"
+      SMTP_FROM: "no-reply@eventflowtickets.com.br"
     }) as any);
 
     await expect(service.checkTransport()).resolves.toEqual({
@@ -144,7 +144,7 @@ describe("MailService", () => {
     const verify = jest.fn();
     (nodemailer.createTransport as jest.Mock).mockReturnValue({ verify });
     const service = new MailService(createConfig({
-      SMTP_FROM: "no-reply@eventflow.com.br"
+      SMTP_FROM: "no-reply@eventflowtickets.com.br"
     }) as any);
 
     await expect(service.checkTransport()).resolves.toEqual({ configured: false });
@@ -160,7 +160,7 @@ describe("MailService", () => {
       SMTP_HOST: "smtp.no-credentials.host",
       SMTP_PORT: 587,
       SMTP_SECURE: false,
-      SMTP_FROM: "no-reply@eventflow.com.br"
+      SMTP_FROM: "no-reply@eventflowtickets.com.br"
     }) as any);
 
     await expect(service.checkTransport()).resolves.toEqual({ configured: false });
@@ -179,7 +179,7 @@ describe("MailService", () => {
       SMTP_SECURE: false,
       SMTP_USER: "smtp-user",
       SMTP_PASS: "smtp-pass",
-      SMTP_FROM: "no-reply@eventflow.com.br"
+      SMTP_FROM: "no-reply@eventflowtickets.com.br"
     }) as any);
 
     const result = service.checkTransport();
@@ -202,7 +202,7 @@ describe("MailService", () => {
       SMTP_SECURE: false,
       SMTP_USER: "smtp-user",
       SMTP_PASS: "smtp-pass",
-      SMTP_FROM: "no-reply@eventflow.com.br"
+      SMTP_FROM: "no-reply@eventflowtickets.com.br"
     }) as any);
 
     await expect(service.checkTransport()).resolves.toEqual({

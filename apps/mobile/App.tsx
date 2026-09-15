@@ -299,7 +299,7 @@ function LoginScreen({
             autoCapitalize="none"
             autoCorrect={false}
             keyboardType="url"
-            placeholder="https://api.seudominio.com/api"
+            placeholder="https://api.eventflowtickets.com.br/api"
             style={styles.input}
             placeholderTextColor={MID_TEXT}
           />
@@ -406,7 +406,7 @@ function CheckInTab({
             autoCapitalize="none"
             autoCorrect={false}
             keyboardType="url"
-            placeholder="https://api.seudominio.com/api"
+            placeholder="https://api.eventflowtickets.com.br/api"
             style={styles.input}
             placeholderTextColor={MID_TEXT}
           />

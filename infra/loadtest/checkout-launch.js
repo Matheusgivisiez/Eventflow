@@ -23,7 +23,7 @@
  *
  * Uso:
  *   k6 run infra/loadtest/checkout-launch.js \
- *     -e BASE_URL=https://eventflow-ctdc.onrender.com/api \
+ *     -e BASE_URL=https://api.eventflowtickets.com.br/api \
  *     -e EVENT_SLUG=slug-do-evento-de-teste \
  *     -e TICKET_TYPE_NAME="Lote Promocional" \
  *     -e LOT_QUANTITY=50 \

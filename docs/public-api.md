@@ -23,7 +23,7 @@ The public API is designed for organizers, partners and white-label storefronts.
 import { EventFlowClient } from "@eventflow/sdk";
 
 const eventflow = new EventFlowClient({
-  baseUrl: "https://api.seudominio.com/api",
+  baseUrl: "https://api.eventflowtickets.com.br/api",
   apiKey: "ehk_..."
 });
 

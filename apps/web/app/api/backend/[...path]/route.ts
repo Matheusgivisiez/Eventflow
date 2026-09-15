@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 
-const API_URL = (process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001/api").replace(/\/+$/, "");
+const DEFAULT_API_URL = "https://api.eventflowtickets.com.br/api";
+const API_URL = normalizeApiUrl(process.env.NEXT_PUBLIC_API_URL);
 const HOP_BY_HOP_HEADERS = new Set([
   "connection",
   "content-encoding",
@@ -50,13 +51,23 @@ async function proxy(request: NextRequest, context: RouteContext) {
   if (forwardedFor) headers.set("x-forwarded-for", forwardedFor);
   if (realIp) headers.set("x-real-ip", realIp);
 
-  const upstream = await fetch(upstreamUrl, {
-    method: request.method,
-    headers,
-    body: request.method === "GET" || request.method === "HEAD" ? undefined : request.body,
-    duplex: "half",
-    cache: "no-store"
-  } as RequestInit & { duplex: "half" });
+  let upstream: Response;
+  try {
+    upstream = await fetch(upstreamUrl, {
+      method: request.method,
+      headers,
+      body: request.method === "GET" || request.method === "HEAD" ? undefined : request.body,
+      duplex: "half",
+      cache: "no-store"
+    } as RequestInit & { duplex: "half" });
+  } catch (error) {
+    console.error("Backend proxy failed", {
+      upstream: upstreamUrl.origin,
+      path: upstreamUrl.pathname,
+      error: error instanceof Error ? error.message : String(error)
+    });
+    return NextResponse.json({ message: "Nao foi possivel conectar ao backend." }, { status: 502 });
+  }
 
   const responseHeaders = new Headers(upstream.headers);
   for (const header of HOP_BY_HOP_HEADERS) responseHeaders.delete(header);
@@ -71,4 +82,9 @@ async function proxy(request: NextRequest, context: RouteContext) {
     statusText: upstream.statusText,
     headers: responseHeaders
   });
+}
+
+function normalizeApiUrl(value: string | undefined) {
+  const normalized = value?.trim().replace(/^["']|["']$/g, "");
+  return (normalized || DEFAULT_API_URL).replace(/\/+$/, "");
 }

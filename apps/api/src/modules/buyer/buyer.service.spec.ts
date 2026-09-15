@@ -15,6 +15,7 @@ function createTicket(overrides: Record<string, unknown> = {}) {
     ownerId: "user-1",
     attendeeName: "Comprador",
     attendeeEmail: "buyer@example.com",
+    status: TicketStatus.AVAILABLE,
     event: {
       id: "event-1",
       title: "Event Flow Conf",
@@ -308,5 +309,20 @@ describe("BuyerService.listTickets", () => {
       service.requestRefund("user-1", "buyer@example.com", "ticket-1", "cancelar"),
     ).rejects.toThrow("Digite CONFIRMAR");
     expect(prisma.ticket.findFirst).not.toHaveBeenCalled();
+  });
+
+  it("renders a downloadable ticket PDF with the visual ticket and QR code", async () => {
+    jest.useRealTimers();
+    const { service, prisma } = createService();
+    prisma.ticket.findFirst.mockResolvedValue(createTicket({ qrCodeDataUrl: null }));
+
+    const pdf = await service.ticketPdf("user-1", "buyer@example.com", "ticket-1");
+
+    expect(pdf.subarray(0, 5).toString()).toBe("%PDF-");
+    expect(pdf.length).toBeGreaterThan(10_000);
+    expect(prisma.ticket.findFirst).toHaveBeenCalledWith(expect.objectContaining({
+      where: expect.objectContaining({ id: "ticket-1" }),
+      include: { event: true, ticketType: true, order: true },
+    }));
   });
 });

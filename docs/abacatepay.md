@@ -181,7 +181,7 @@ Content-Type: application/json
 Registre a seguinte URL no painel do AbacatePay:
 
 ```
-https://seu-dominio.com/api/webhooks/abacatepay?webhookSecret=SEU_SECRET
+https://api.eventflowtickets.com.br/api/webhooks/abacatepay?webhookSecret=SEU_SECRET
 ```
 
 Eventos que devem ser habilitados:

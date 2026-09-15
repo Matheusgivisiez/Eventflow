@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { DEFAULT_API_URL, fetchCurrentUser, loginWithPassword, normalizeApiUrl, registerMobileDevice } from "./mobile-auth";
 
-test("normalizes configured API URL and falls back to local default", () => {
+test("normalizes configured API URL and falls back to default API URL", () => {
   assert.equal(normalizeApiUrl("https://api.eventflow.app/api///"), "https://api.eventflow.app/api");
   assert.equal(normalizeApiUrl("   "), DEFAULT_API_URL);
 });

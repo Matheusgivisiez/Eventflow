@@ -1,4 +1,4 @@
-const DEFAULT_API_URL = "http://localhost:3001/api";
+const DEFAULT_API_URL = "https://api.eventflowtickets.com.br/api";
 
 export function getApiUrl() {
   if (typeof window !== "undefined") {

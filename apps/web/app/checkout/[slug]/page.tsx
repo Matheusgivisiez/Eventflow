@@ -26,6 +26,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { api } from "@/lib/api";
+import { formatBrazilPhone, formatCpfOrCnpj, normalizeBrazilPhone, onlyDigits } from "@/lib/br-format";
 import { money } from "@/lib/utils";
 import type { EventFlowEvent } from "@/types/eventflow";
 
@@ -37,8 +38,6 @@ type CheckoutResponse = {
   totalCents: number;
   checkoutUrl?: string;
 };
-
-const onlyDigits = (value: string) => value.replace(/\D/g, "");
 
 const buyerSchema = z.object({
   buyerName: z.string().min(2, "Informe seu nome."),
@@ -54,7 +53,7 @@ const buyerSchema = z.object({
     .string()
     .min(1, "Informe seu telefone.")
     .refine(
-      (value) => [10, 11].includes(onlyDigits(value).length),
+      (value) => normalizeBrazilPhone(value).length === 11,
       "Informe um telefone com DDD.",
     ),
   paymentMethod: z.literal("PIX"),
@@ -121,7 +120,7 @@ function CheckoutForm() {
           ...data,
           promoterCode,
           buyerDocument: onlyDigits(data.buyerDocument),
-          buyerPhone: onlyDigits(data.buyerPhone),
+          buyerPhone: normalizeBrazilPhone(data.buyerPhone),
           items: Object.entries(quantities)
             .filter(([, quantity]) => quantity > 0)
             .map(([ticketTypeId, quantity]) => ({ ticketTypeId, quantity })),
@@ -290,7 +289,12 @@ function CheckoutForm() {
                 <Input
                   inputMode="numeric"
                   autoComplete="off"
-                  {...form.register("buyerDocument")}
+                  placeholder="000.000.000-00"
+                  {...form.register("buyerDocument", {
+                    onChange: (event) => {
+                      event.target.value = formatCpfOrCnpj(event.target.value);
+                    },
+                  })}
                 />
               </Field>
               <Field
@@ -300,7 +304,12 @@ function CheckoutForm() {
                 <Input
                   inputMode="tel"
                   autoComplete="tel"
-                  {...form.register("buyerPhone")}
+                  placeholder="+55 (33) 99999-9999"
+                  {...form.register("buyerPhone", {
+                    onChange: (event) => {
+                      event.target.value = formatBrazilPhone(event.target.value);
+                    },
+                  })}
                 />
               </Field>
               <Field label="Pagamento">

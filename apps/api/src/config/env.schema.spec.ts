@@ -12,7 +12,7 @@ const strongMail = {
   SMTP_PORT: "587",
   SMTP_USER: "smtp-user",
   SMTP_PASS: "smtp-pass",
-  SMTP_FROM: "no-reply@eventflow.com.br"
+  SMTP_FROM: "no-reply@eventflowtickets.com.br"
 };
 
 const strongStorage = {

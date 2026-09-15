@@ -11,6 +11,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { api } from "@/lib/api";
+import { formatBrazilPhone, formatCpf, normalizeBrazilPhone, onlyDigits } from "@/lib/br-format";
 import { cn } from "@/lib/utils";
 import Link from "next/link";
 
@@ -65,8 +66,8 @@ export default function PromotersManagementPage() {
       body: JSON.stringify({
         name: inviteForm.name,
         email: inviteForm.email,
-        phone: inviteForm.phone || undefined,
-        document: inviteForm.document || undefined,
+        phone: inviteForm.phone ? normalizeBrazilPhone(inviteForm.phone) : undefined,
+        document: inviteForm.document ? onlyDigits(inviteForm.document) : undefined,
         pixKey: inviteForm.pixKey || undefined,
         password: inviteForm.password || undefined
       })
@@ -111,10 +112,10 @@ export default function PromotersManagementPage() {
                   <Input required type="email" value={inviteForm.email} onChange={(event) => setInviteForm((form) => ({ ...form, email: event.target.value }))} />
                 </Field>
                 <Field label="Telefone">
-                  <Input value={inviteForm.phone} onChange={(event) => setInviteForm((form) => ({ ...form, phone: event.target.value }))} />
+                  <Input inputMode="tel" autoComplete="tel" placeholder="+55 (33) 99999-9999" value={inviteForm.phone} onChange={(event) => setInviteForm((form) => ({ ...form, phone: formatBrazilPhone(event.target.value) }))} />
                 </Field>
                 <Field label="CPF">
-                  <Input value={inviteForm.document} onChange={(event) => setInviteForm((form) => ({ ...form, document: event.target.value }))} />
+                  <Input inputMode="numeric" placeholder="000.000.000-00" value={inviteForm.document} onChange={(event) => setInviteForm((form) => ({ ...form, document: formatCpf(event.target.value) }))} />
                 </Field>
                 <Field label="Chave PIX">
                   <Input value={inviteForm.pixKey} onChange={(event) => setInviteForm((form) => ({ ...form, pixKey: event.target.value }))} />

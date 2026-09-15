@@ -38,7 +38,7 @@ Atualizado em: 2026-08-16
 - Install command: `pnpm install --frozen-lockfile`.
 - Build command: `pnpm --filter @eventflow/web build`.
 - Deployment ID: `dpl_5hGH3WxivgVCJVsLGoxcVRgSjnoH`.
-- URL principal: `https://eventflow-web.vercel.app`.
+- URL principal: `https://eventflowtickets.com.br`.
 - URL de deployment: `https://eventflow-fo9ba52au-riquelmydevs-projects.vercel.app`.
 - Alias antigo removido apos rename.
 - SSO deployment protection desativado para permitir acesso publico ao staging web.
@@ -57,7 +57,7 @@ Atualizado em: 2026-08-16
 - `pnpm --filter @eventflow/api build`: Prisma generate e Nest build passaram.
 - `git diff --check`: passou sem erros.
 - Build Docker local nao executado porque o Docker daemon nao estava rodando.
-- API hospedada no Render: serviço `eventflow-api-staging`, URL `https://eventflow-ctdc.onrender.com`.
+- API hospedada no Render: serviço `eventflow-api-staging`, URL `https://api.eventflowtickets.com.br`.
 - Render configurado para auto-deploy a partir da branch `master`, usando o `Dockerfile` da raiz.
 - Healthcheck do serviço: `/api/health`.
 - Banco PostgreSQL provisionado no Neon no projeto `eventflow-staging`.

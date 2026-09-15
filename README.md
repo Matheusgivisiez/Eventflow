@@ -13,8 +13,8 @@ Event Flow e uma plataforma SaaS multi-tenant para venda de ingressos online, ev
 
 Serviços confirmados no ambiente atual:
 
-- **Vercel** — hospedagem do frontend `eventflow-web`: https://eventflow-web.vercel.app
-- **Render** — hospedagem da API NestJS `eventflow-api-staging`: https://eventflow-ctdc.onrender.com
+- **Vercel** — hospedagem do frontend `eventflow-web`: https://eventflowtickets.com.br
+- **Render** — hospedagem da API NestJS `eventflow-api-staging`: https://api.eventflowtickets.com.br
 - **Neon** — PostgreSQL do projeto `eventflow-staging`.
 - **Cloudflare R2** — armazenamento de banners, logos e imagens públicas de eventos.
 - **AbacatePay** — checkout, pagamentos PIX e webhooks de pagamento.

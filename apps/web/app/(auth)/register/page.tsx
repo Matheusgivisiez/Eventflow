@@ -18,33 +18,18 @@ import { Suspense, useState } from "react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { api } from "@/lib/api";
+import { formatBrazilPhone, formatCpf, normalizeBrazilPhone, onlyDigits } from "@/lib/br-format";
 import { useAuthStore } from "@/stores/auth-store";
 
 const schema = z.object({
   name: z.string().min(2, "Informe seu nome."),
   email: z.string().email("Informe um e-mail válido."),
-  phone: z.string().min(10, "Informe um telefone válido com DDD."),
-  cpf: z.string().min(11, "Informe um CPF válido."),
+  phone: z.string().refine((value) => normalizeBrazilPhone(value).length === 11, "Informe um telefone válido com DDD."),
+  cpf: z.string().refine((value) => onlyDigits(value).length === 11, "Informe um CPF válido."),
   password: z.string().min(8, "A senha deve ter pelo menos 8 caracteres.")
 });
 
 type FormData = z.infer<typeof schema>;
-
-function maskPhone(value: string) {
-  const digits = value.replace(/\D/g, "").slice(0, 11);
-  if (digits.length <= 2) return digits.length ? `(${digits}` : "";
-  if (digits.length <= 6) return `(${digits.slice(0, 2)}) ${digits.slice(2)}`;
-  if (digits.length <= 10) return `(${digits.slice(0, 2)}) ${digits.slice(2, 6)}-${digits.slice(6)}`;
-  return `(${digits.slice(0, 2)}) ${digits.slice(2, 7)}-${digits.slice(7, 11)}`;
-}
-
-function maskCpf(value: string) {
-  const digits = value.replace(/\D/g, "").slice(0, 11);
-  if (digits.length <= 3) return digits;
-  if (digits.length <= 6) return `${digits.slice(0, 3)}.${digits.slice(3)}`;
-  if (digits.length <= 9) return `${digits.slice(0, 3)}.${digits.slice(3, 6)}.${digits.slice(6)}`;
-  return `${digits.slice(0, 3)}.${digits.slice(3, 6)}.${digits.slice(6, 9)}-${digits.slice(9, 11)}`;
-}
 
 function RegisterForm() {
   const router = useRouter();
@@ -66,7 +51,11 @@ function RegisterForm() {
     mutationFn: (data: FormData) =>
       api<{ accessToken: string; user: any }>("/auth/register", {
         method: "POST",
-        body: JSON.stringify(data),
+        body: JSON.stringify({
+          ...data,
+          phone: normalizeBrazilPhone(data.phone),
+          cpf: onlyDigits(data.cpf),
+        }),
         auth: false
       }),
     onSuccess: (session) => {
@@ -160,11 +149,11 @@ function RegisterForm() {
                 id="phone"
                 type="tel"
                 autoComplete="tel"
-                placeholder="(11) 99999-9999"
+                placeholder="+55 (33) 99999-9999"
                 className="w-full h-[48px] rounded-xl bg-[#0D081F]/70 border border-purple-400/20 pl-10 pr-3 text-sm text-white placeholder:text-[#6D6288] focus:border-[#8C62FF] focus:ring-1 focus:ring-[#8C62FF]/40 outline-none transition-all"
                 {...form.register("phone", {
                   onChange: (e) => {
-                    e.target.value = maskPhone(e.target.value);
+                    e.target.value = formatBrazilPhone(e.target.value);
                   }
                 })}
               />
@@ -194,7 +183,7 @@ function RegisterForm() {
                 className="w-full h-[48px] rounded-xl bg-[#0D081F]/70 border border-purple-400/20 pl-10 pr-3 text-sm text-white placeholder:text-[#6D6288] focus:border-[#8C62FF] focus:ring-1 focus:ring-[#8C62FF]/40 outline-none transition-all"
                 {...form.register("cpf", {
                   onChange: (e) => {
-                    e.target.value = maskCpf(e.target.value);
+                    e.target.value = formatCpf(e.target.value);
                   }
                 })}
               />
