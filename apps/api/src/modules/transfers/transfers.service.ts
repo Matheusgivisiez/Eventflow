@@ -1,4 +1,4 @@
-import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from "@nestjs/common";
+import { BadRequestException, ForbiddenException, Injectable, NotFoundException, Optional } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { NotificationEvent, NotificationType, Prisma, TicketStatus, TransferStatus, User, UserRole } from "@prisma/client";
 import * as QRCode from "qrcode";
@@ -9,6 +9,7 @@ import { PrismaService } from "../../prisma/prisma.service";
 import { AuditService } from "../audit/audit.service";
 import { CacheService } from "../cache/cache.service";
 import { NotificationsService } from "../notifications/notifications.service";
+import { GoogleWalletService } from "../wallet/google-wallet.service";
 import {
   renderTransferAccepted,
   renderTransferDeclined,
@@ -31,7 +32,8 @@ export class TransfersService {
     private readonly audit: AuditService,
     private readonly notifications: NotificationsService,
     private readonly cache: CacheService,
-    private readonly config: ConfigService
+    private readonly config: ConfigService,
+    @Optional() private readonly googleWallet?: GoogleWalletService
   ) {}
 
   async resolveRecipient(sender: RequestUser, dto: ResolveTransferRecipientDto) {
@@ -265,13 +267,16 @@ export class TransfersService {
         include: this.transferInclude()
       });
 
-      return { transfer: updated, sender: transfer.sender };
+      return { transfer: updated, sender: transfer.sender, previousUuid: transfer.ticket.uuid };
     }).catch((error: unknown) => {
       if (this.isPrismaError(error, "P2025")) {
         throw new BadRequestException("Esta transferência não está mais pendente ou já expirou.");
       }
       throw error;
     });
+
+    // O passe do Google Wallet de quem transferiu deixa de valer.
+    void this.googleWallet?.deactivateTicket(result.previousUuid);
 
     await this.notifications.send({
       userId: result.sender.id,

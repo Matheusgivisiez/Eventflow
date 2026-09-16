@@ -10,6 +10,7 @@ import { InfinitePayGateway } from "./infinite-pay.gateway";
 import { PaymentProvider, PaymentProviderId } from "./payment-provider";
 import { BusinessMetricsService } from "../observability/business-metrics.service";
 import { NotificationsService } from "../notifications/notifications.service";
+import { GoogleWalletService } from "../wallet/google-wallet.service";
 
 const VALID_TRANSITIONS: Record<PaymentStatus, PaymentStatus[]> = {
   [PaymentStatus.PENDING]: [PaymentStatus.PAID, PaymentStatus.CANCELED],
@@ -29,7 +30,8 @@ export class PaymentsService {
     private readonly config: ConfigService,
     private readonly notifications: NotificationsService,
     @Optional() private readonly metrics?: BusinessMetricsService,
-    @Optional() private readonly infinitePay?: InfinitePayGateway
+    @Optional() private readonly infinitePay?: InfinitePayGateway,
+    @Optional() private readonly googleWallet?: GoogleWalletService
   ) {
     const qrCodeSecret = this.config.get<string>("QR_CODE_SECRET");
     if (!qrCodeSecret) {
@@ -239,6 +241,20 @@ export class PaymentsService {
   }
 
   private async markTerminal(paymentId: string, tenantId: string, status: PaymentStatus, providerRef?: string) {
+    const updated = await this.markTerminalTx(paymentId, tenantId, status, providerRef);
+
+    if (this.googleWallet?.isEnabled()) {
+      const tickets = await this.prisma.ticket.findMany({
+        where: { orderId: updated.orderId },
+        select: { uuid: true }
+      });
+      void Promise.all(tickets.map((ticket) => this.googleWallet!.deactivateTicket(ticket.uuid)));
+    }
+
+    return updated;
+  }
+
+  private async markTerminalTx(paymentId: string, tenantId: string, status: PaymentStatus, providerRef?: string) {
     return this.prisma.$transaction(async (tx) => {
       const payment = await tx.payment.findFirst({
         where: { id: paymentId, event: { tenantId } },

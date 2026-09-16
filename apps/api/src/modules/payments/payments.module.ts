@@ -4,9 +4,10 @@ import { AbacatePayGateway } from "./abacate-pay.gateway";
 import { PaymentsController } from "./payments.controller";
 import { PaymentsService } from "./payments.service";
 import { InfinitePayGateway } from "./infinite-pay.gateway";
+import { WalletModule } from "../wallet/wallet.module";
 
 @Module({
-  imports: [NotificationsModule],
+  imports: [NotificationsModule, WalletModule],
   controllers: [PaymentsController],
   providers: [PaymentsService, AbacatePayGateway, InfinitePayGateway],
   exports: [PaymentsService, AbacatePayGateway, InfinitePayGateway]

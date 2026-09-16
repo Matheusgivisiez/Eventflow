@@ -2,6 +2,7 @@ import {
   BadRequestException,
   Injectable,
   NotFoundException,
+  Optional,
 } from "@nestjs/common";
 import { PaymentStatus, TicketStatus } from "@prisma/client";
 import * as QRCode from "qrcode";
@@ -11,6 +12,7 @@ import { AuditService } from "../audit/audit.service";
 import { PaymentsService } from "../payments/payments.service";
 import { PrismaService } from "../../prisma/prisma.service";
 import { CacheService } from "../cache/cache.service";
+import { GoogleWalletService } from "../wallet/google-wallet.service";
 import {
   getQrCodeReleaseTime,
   isQrCodeLocked,
@@ -23,6 +25,7 @@ export class BuyerService {
     private readonly audit: AuditService,
     private readonly payments: PaymentsService,
     private readonly cache: CacheService,
+    @Optional() private readonly googleWallet?: GoogleWalletService,
   ) {}
 
   /**
@@ -202,6 +205,8 @@ export class BuyerService {
       }
     });
 
+    void this.googleWallet?.deactivateTicket(ticket.uuid);
+
     await this.audit.log({
       userId,
       action: "refund.requested",
@@ -242,42 +247,37 @@ export class BuyerService {
     });
   }
 
-  async walletPayload(
-    userId: string,
-    email: string | null,
-    ticketId: string,
-    provider: "google" | "apple",
-  ) {
+  walletConfig() {
+    return { google: this.googleWallet?.isEnabled() ?? false };
+  }
+
+  async googleWalletSaveUrl(userId: string, email: string | null, ticketId: string) {
+    if (!this.googleWallet?.isEnabled()) {
+      throw new BadRequestException("Google Wallet ainda não está disponível.");
+    }
+
     const ticket = await this.findOwnedTicket(userId, email, ticketId);
 
+    if (ticket.status !== TicketStatus.AVAILABLE) {
+      throw new BadRequestException("Somente ingressos ativos podem ir para a carteira.");
+    }
     if (isQrCodeLocked(ticket.event)) {
       throw new BadRequestException(
         "O QR Code ainda não está disponível. Aguarde a liberação próxima ao evento.",
       );
     }
+    if (!ticket.signature) {
+      throw new BadRequestException("QR Code indisponível para este ingresso.");
+    }
 
-    return {
-      provider,
-      passType: "event_ticket",
-      id: ticket.uuid,
-      eventName: ticket.event.title,
-      holderName: ticket.attendeeName,
-      startsAt: ticket.event.startsAt,
-      venue:
-        ticket.event.format === "ONLINE"
-          ? "Online"
-          : [ticket.event.address, ticket.event.city, ticket.event.state]
-              .filter(Boolean)
-              .join(", "),
-      barcode: {
-        format: "QR_CODE",
-        message: JSON.stringify({
-          uuid: ticket.uuid,
-          orderId: ticket.orderId,
-          signature: ticket.signature,
-        }),
-      },
-    };
+    return this.googleWallet.createSaveUrl({
+      uuid: ticket.uuid,
+      orderId: ticket.orderId,
+      signature: ticket.signature,
+      attendeeName: ticket.attendeeName,
+      ticketTypeName: ticket.ticketType.name,
+      event: ticket.event,
+    });
   }
 
   private async findOwnedTicket(

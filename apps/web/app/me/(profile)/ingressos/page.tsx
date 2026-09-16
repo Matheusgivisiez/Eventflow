@@ -8,7 +8,6 @@ import {
   Download,
   MapPin,
   RefreshCcw,
-  Smartphone,
   Ticket,
   WalletCards,
   QrCode,
@@ -219,7 +218,9 @@ type EventTicketCardProps = {
   onToggleDetails: () => void;
   onQrRelease: () => void;
   onDownload: () => void;
-  onWallet: (provider: "google" | "apple") => void;
+  walletEnabled: boolean;
+  walletPending: boolean;
+  onWallet: () => void;
   onTransfer: () => void;
   onCancelTransfer: () => void;
   onRefund: () => void;
@@ -233,6 +234,8 @@ function EventTicketCard({
   onToggleDetails,
   onQrRelease,
   onDownload,
+  walletEnabled,
+  walletPending,
   onWallet,
   onTransfer,
   onCancelTransfer,
@@ -433,7 +436,7 @@ function EventTicketCard({
             )}
 
             <div className="border-t border-dashed border-white/15 bg-[#14121f] p-3 sm:p-4">
-              <div className="grid grid-cols-2 gap-2 sm:grid-cols-[1fr_1fr_44px_44px]">
+              <div className="grid grid-cols-2 gap-2">
                 <Button
                   size="sm"
                   variant="outline"
@@ -492,26 +495,27 @@ function EventTicketCard({
                   </Button>
                 )}
 
-                <Button
-                  size="icon"
-                  variant="outline"
-                  aria-label="Adicionar ao Google Wallet"
-                  className="min-h-11 w-full rounded-xl border-white/10 bg-white/[0.05] text-white hover:bg-white/10 hover:text-white sm:w-11"
-                  disabled={ticket.status !== "AVAILABLE" || qrLocked}
-                  onClick={() => onWallet("google")}
-                >
-                  <WalletCards className="h-4 w-4" />
-                </Button>
-                <Button
-                  size="icon"
-                  variant="outline"
-                  aria-label="Adicionar à Apple Wallet"
-                  className="min-h-11 w-full rounded-xl border-white/10 bg-white/[0.05] text-white hover:bg-white/10 hover:text-white sm:w-11"
-                  disabled={ticket.status !== "AVAILABLE" || qrLocked}
-                  onClick={() => onWallet("apple")}
-                >
-                  <Smartphone className="h-4 w-4" />
-                </Button>
+                {walletEnabled && ticket.status === "AVAILABLE" && (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="col-span-2 min-h-11 gap-2 rounded-xl border-white/15 bg-black text-xs font-semibold text-white hover:bg-white/10 hover:text-white"
+                    disabled={qrLocked || walletPending}
+                    onClick={onWallet}
+                    title={
+                      qrLocked
+                        ? "Disponível quando o QR Code for liberado"
+                        : undefined
+                    }
+                  >
+                    {walletPending ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <WalletCards className="h-4 w-4" />
+                    )}
+                    Adicionar ao Google Wallet
+                  </Button>
+                )}
               </div>
 
               {ticket.status === "AVAILABLE" && (
@@ -602,14 +606,21 @@ export default function MyTicketsPage() {
     },
   });
 
+  const walletConfig = useQuery({
+    queryKey: ["wallet-config"],
+    queryFn: () => api<{ google: boolean }>("/buyer/wallet/config"),
+    enabled: Boolean(user?.id),
+    staleTime: 5 * 60_000,
+    refetchOnWindowFocus: false,
+  });
+
   const wallet = useMutation({
-    mutationFn: ({
-      ticketId,
-      provider,
-    }: {
-      ticketId: string;
-      provider: "google" | "apple";
-    }) => api(`/buyer/tickets/${ticketId}/${provider}-wallet`),
+    mutationFn: (ticketId: string) =>
+      api<{ saveUrl: string }>(`/buyer/tickets/${ticketId}/google-wallet`, {
+        method: "POST",
+      }),
+    // Leva o usuário para o Google: no Android abre o app Wallet direto.
+    onSuccess: ({ saveUrl }) => window.location.assign(saveUrl),
   });
 
   const resolveRecipient = useMutation({
@@ -939,9 +950,11 @@ export default function MyTicketsPage() {
                       }
                       onQrRelease={() => void tickets.refetch()}
                       onDownload={() => void downloadPdf(ticket.id)}
-                      onWallet={(provider) =>
-                        wallet.mutate({ ticketId: ticket.id, provider })
+                      walletEnabled={walletConfig.data?.google === true}
+                      walletPending={
+                        wallet.isPending && wallet.variables === ticket.id
                       }
+                      onWallet={() => wallet.mutate(ticket.id)}
                       onTransfer={() => openTransferModal(ticket)}
                       onCancelTransfer={() => {
                         if (ticket.pendingTransfer) {
@@ -1188,9 +1201,9 @@ export default function MyTicketsPage() {
             foi enviada.
           </div>
         )}
-        {wallet.isSuccess && (
-          <div className="fixed bottom-20 left-4 right-4 md:relative md:bottom-auto md:mt-4 rounded-xl bg-blue-50 border border-blue-200 p-3 text-sm text-blue-700 text-center">
-            ✓ Passe Wallet gerado com sucesso.
+        {wallet.isError && (
+          <div role="alert" className="fixed bottom-20 left-4 right-4 z-50 rounded-xl border border-rose-300/25 bg-[#211823] p-3 text-center text-sm text-rose-200 shadow-xl md:relative md:bottom-auto md:mt-4">
+            {(wallet.error as Error).message}
           </div>
         )}
       </div>

@@ -35,13 +35,14 @@ export class BuyerController {
     return new StreamableFile(buffer);
   }
 
-  @Get("tickets/:id/google-wallet")
-  googleWallet(@CurrentUser() user: RequestUser, @Param("id") id: string) {
-    return this.buyer.walletPayload(user.id, resolveClaimEmail(user), id, "google");
+  @Get("wallet/config")
+  walletConfig() {
+    return this.buyer.walletConfig();
   }
 
-  @Get("tickets/:id/apple-wallet")
-  appleWallet(@CurrentUser() user: RequestUser, @Param("id") id: string) {
-    return this.buyer.walletPayload(user.id, resolveClaimEmail(user), id, "apple");
+  @Post("tickets/:id/google-wallet")
+  @Throttle({ sensitive: { limit: 10, ttl: 60000 } })
+  googleWallet(@CurrentUser() user: RequestUser, @Param("id") id: string) {
+    return this.buyer.googleWalletSaveUrl(user.id, resolveClaimEmail(user), id);
   }
 }

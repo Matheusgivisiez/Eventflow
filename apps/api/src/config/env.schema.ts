@@ -110,6 +110,11 @@ export const envSchema = z.object({
   INFINITEPAY_WEBHOOK_URL: z.string().url().optional(),
   INFINITEPAY_WEBHOOK_SECRET: z.string().optional(),
   QR_CODE_SECRET: z.string().optional(),
+  // Google Wallet: sem estas duas variáveis o botão fica escondido no site.
+  GOOGLE_WALLET_ISSUER_ID: z.string().optional(),
+  GOOGLE_WALLET_SERVICE_ACCOUNT_JSON: z.string().optional(),
+  GOOGLE_WALLET_ISSUER_NAME: z.string().optional(),
+  GOOGLE_WALLET_LOGO_URL: z.string().url().optional(),
   RABBITMQ_URL: z.string().url().default("amqp://eventflow:eventflow@localhost:5672"),
   AWS_ACCESS_KEY_ID: z.string().optional(),
   AWS_SECRET_ACCESS_KEY: z.string().optional(),
