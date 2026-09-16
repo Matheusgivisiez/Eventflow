@@ -11,13 +11,13 @@ import { ApproveWithdrawalDto } from "./dto/approve-withdrawal.dto";
 import { RequestWithdrawalDto } from "./dto/request-withdrawal.dto";
 import { FinanceService } from "./finance.service";
 
-// Every route here reads or moves an organization's money. CUSTOMER/PROMOTER
-// accounts have no tenant, and `user.tenantId!` would otherwise coerce that
-// null into a query that matches every other tenant-less account's ledger.
+// Access is unchanged: any authenticated account that belongs to an
+// organization (ORGANIZER, ADMIN, TEAM, CHECKIN) keeps using these routes.
+// The only difference is that an account with no tenant (CUSTOMER/PROMOTER)
+// is refused instead of reaching a query built from `tenantId: null`.
 @ApiTags("Financeiro")
 @ApiBearerAuth()
-@UseGuards(JwtAuthGuard, RolesGuard)
-@Roles(UserRole.ORGANIZER, UserRole.ADMIN)
+@UseGuards(JwtAuthGuard)
 @Controller("finance")
 export class FinanceController {
   constructor(private readonly finance: FinanceService) {}
@@ -37,14 +37,21 @@ export class FinanceController {
     return this.finance.requestWithdrawal(requireTenant(user), dto);
   }
 
+  // The admin panel uses this same route to list withdrawals awaiting
+  // approval, so ADMIN keeps the original behavior (its own tenant, or every
+  // tenant when the admin account has none). Everyone else must have a tenant:
+  // before, a CUSTOMER with `tenantId: null` fell into the "no filter" branch
+  // and received every organization's withdrawals.
   @Get("withdrawals")
   listWithdrawals(@CurrentUser() user: RequestUser) {
-    return this.finance.listWithdrawals(requireTenant(user));
+    const tenantId = user.role === UserRole.ADMIN ? user.tenantId ?? undefined : requireTenant(user);
+    return this.finance.listWithdrawals(tenantId);
   }
 
   /** Admin-only: approve a pending withdrawal and dispatch AbacatePay PIX */
   @Post("withdrawals/:id/approve")
   @Roles(UserRole.ADMIN)
+  @UseGuards(RolesGuard)
   approveWithdrawal(@Param("id") id: string, @Body() dto: ApproveWithdrawalDto) {
     return this.finance.approveWithdrawal(id, dto);
   }

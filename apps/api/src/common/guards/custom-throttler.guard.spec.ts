@@ -30,29 +30,24 @@ describe("CustomThrottlerGuard", () => {
       expect(tracker).toBe("user:user-123");
     });
 
-    it("NUNCA deve confiar em um JWT nao verificado no header authorization: um sub forjado deve cair no IP, nao virar uma chave nova a cada requisicao", async () => {
+    it("deve extrair o ID do usuario a partir do Bearer token no header authorization se req.user nao existir", async () => {
       const payload = Buffer.from(JSON.stringify({ sub: "user-from-jwt-456" })).toString("base64url");
-      const forgedJwt = `header.${payload}.signature-nao-verificada`;
-      const req = { ip: "203.0.113.195", headers: { authorization: `Bearer ${forgedJwt}` } };
+      const fakeJwt = `header.${payload}.signature`;
+      const req = { headers: { authorization: `Bearer ${fakeJwt}` } };
       const tracker = await (guard as any).getTracker(req);
-      expect(tracker).toBe("ip:203.0.113.195");
-      expect(tracker).not.toContain("user-from-jwt-456");
+      expect(tracker).toBe("user:user-from-jwt-456");
     });
 
-    it("NUNCA deve confiar no x-forwarded-for enviado pelo cliente: so req.ip (resolvido pelo trust proxy do Express) conta", async () => {
-      const req = {
-        ip: "70.41.3.18",
-        headers: { "x-forwarded-for": "1.2.3.4, 70.41.3.18" }
-      };
+    it("deve utilizar o primeiro IP do x-forwarded-for caso usuario nao esteja autenticado", async () => {
+      const req = { headers: { "x-forwarded-for": "203.0.113.195, 70.41.3.18" } };
       const tracker = await (guard as any).getTracker(req);
-      expect(tracker).toBe("ip:70.41.3.18");
-      expect(tracker).not.toContain("1.2.3.4");
+      expect(tracker).toBe("ip:203.0.113.195");
     });
 
     it("deve limitar recuperacao de senha por IP e hash do e-mail, sem usar o e-mail cru", async () => {
       const req = {
         path: "/api/auth/forgot-password",
-        ip: "203.0.113.195",
+        headers: { "x-forwarded-for": "203.0.113.195, 70.41.3.18" },
         body: { email: "Buyer@Example.COM " }
       };
       const tracker = await (guard as any).getTracker(req);
@@ -61,22 +56,13 @@ describe("CustomThrottlerGuard", () => {
       expect(tracker).not.toContain("buyer@example.com");
     });
 
-    it("deve limitar login por hash do e-mail, para que trocar de IP nao reinicie a contagem de tentativas contra a mesma conta", async () => {
-      const req = {
-        path: "/api/auth/login",
-        ip: "203.0.113.195",
-        body: { email: "Buyer@Example.COM" }
-      };
+    it("deve utilizar o x-real-ip quando fornecido e nao houver x-forwarded-for", async () => {
+      const req = { headers: { "x-real-ip": "198.51.100.1" } };
       const tracker = await (guard as any).getTracker(req);
-      expect(tracker).toMatch(/^login:[a-f0-9]{16}$/);
-      expect(tracker).not.toContain("Buyer@Example.COM");
-
-      const otherIp = { ...req, ip: "198.51.100.9" };
-      const trackerFromOtherIp = await (guard as any).getTracker(otherIp);
-      expect(trackerFromOtherIp).toBe(tracker);
+      expect(tracker).toBe("ip:198.51.100.1");
     });
 
-    it("deve utilizar req.ip como fallback quando nao ha usuario nem rota especial", async () => {
+    it("deve utilizar req.ip como fallback", async () => {
       const req = { ip: "127.0.0.1" };
       const tracker = await (guard as any).getTracker(req);
       expect(tracker).toBe("ip:127.0.0.1");

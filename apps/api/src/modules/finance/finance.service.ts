@@ -44,9 +44,9 @@ export class FinanceService {
     });
   }
 
-  listWithdrawals(tenantId: string) {
+  listWithdrawals(tenantId?: string) {
     return this.prisma.withdrawal.findMany({
-      where: { tenantId },
+      where: tenantId ? { tenantId } : undefined,
       orderBy: { requestedAt: "desc" },
       take: 100
     });
