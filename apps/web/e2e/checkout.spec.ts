@@ -31,7 +31,7 @@ test.describe("Fluxo de compra", () => {
     await page.goto(`/eventos/${eventSlug}`);
 
     await expect(page.getByRole("heading", { level: 1 })).toContainText("Summit Event Flow 2026");
-    await expect(page.locator('[data-testid="ticket-selector"]')).toBeVisible();
+    await expect(page.getByTestId("ticket-selector").first()).toBeVisible();
     await expect.poll(() => runtimeErrors).toEqual([]);
     expect(failedResponses).toEqual([]);
   });
