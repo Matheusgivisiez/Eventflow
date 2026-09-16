@@ -91,8 +91,10 @@ jobs:
       - run: pnpm --filter @eventflow/web test:e2e
         env:
           CI: true
+          NEXT_PUBLIC_API_URL: http://localhost:3001/api
           DATABASE_URL: postgresql://eventflow:eventflow@localhost:5432/eventflow_test
           REDIS_URL: redis://localhost:6379
+          PAYMENT_SIMULATION_ENABLED: true
           ABACATE_WEBHOOK_SECRET: eventflow-local-webhook-secret
           ABACATE_PUBLIC_KEY: eventflow-local-public-key
 
