@@ -11,3 +11,4 @@ tmp
 *.tsbuildinfo
 .pnpm-store
 logs
+Claude outputs/

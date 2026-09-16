@@ -25,13 +25,30 @@ env:
 
 jobs:
   deploy:
-    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event.workflow_run.conclusion == 'success' &&
+       github.event.workflow_run.head_repository.full_name == github.repository &&
+       github.event.workflow_run.event != 'pull_request')
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
         with:
           ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+          fetch-depth: 0
+
+      # So publica commits que ja estao no master deste repositorio. Sem isso,
+      # um PR vindo de fork (repo publico) com uma branch chamada "master"
+      # dispara o CI, este workflow faz checkout do codigo do atacante e o
+      # publica em producao com as credenciais do deploy.
+      - name: Garantir que o commit esta no master
+        run: |
+          git fetch --no-tags origin master
+          if ! git merge-base --is-ancestor HEAD origin/master; then
+            echo "::error::Commit $(git rev-parse HEAD) nao esta no master deste repositorio. Deploy bloqueado."
+            exit 1
+          fi
 
       - name: Deploy de producao no Vercel
         run: npx --yes vercel@latest deploy --prod --yes --token="${{ secrets.VERCEL_TOKEN }}"
