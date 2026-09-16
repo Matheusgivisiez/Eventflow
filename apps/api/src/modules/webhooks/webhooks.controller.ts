@@ -1,4 +1,4 @@
-import { Body, Controller, Headers, Post, RawBodyRequest, Req, UnauthorizedException } from "@nestjs/common";
+import { Body, Controller, Headers, HttpCode, Post, Query, RawBodyRequest, Req, UnauthorizedException } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { ApiTags } from "@nestjs/swagger";
 import { createHmac, timingSafeEqual } from "crypto";
@@ -81,6 +81,7 @@ export class WebhooksController {
   private readonly asaasSecret: string;
   private readonly abacatePaySecret: string;
   private readonly abacatePayPublicKey: string;
+  private readonly infinitePaySecret: string;
 
   constructor(
     private readonly webhooks: WebhooksService,
@@ -91,6 +92,7 @@ export class WebhooksController {
     this.asaasSecret = config.get<string>("ASAAS_WEBHOOK_SECRET") ?? "";
     this.abacatePaySecret = config.get<string>("ABACATE_WEBHOOK_SECRET") ?? config.get<string>("ABACATEPAY_WEBHOOK_SECRET") ?? "";
     this.abacatePayPublicKey = config.get<string>("ABACATE_PUBLIC_KEY") ?? config.get<string>("ABACATEPAY_PUBLIC_KEY") ?? ABACATEPAY_PUBLIC_KEY;
+    this.infinitePaySecret = config.get<string>("INFINITEPAY_WEBHOOK_SECRET") ?? "";
   }
 
   @Post("mercado-pago")
@@ -156,5 +158,19 @@ export class WebhooksController {
     @Headers("x-webhook-signature") xSignature?: string
   ) {
     return this.abacatePay(body, req, xSecret, xSignature);
+  }
+
+  @Post("infinitepay")
+  @HttpCode(200)
+  infinitePay(
+    @Body() body: Record<string, unknown>,
+    @Query("secret") querySecret?: string,
+    @Headers("x-webhook-secret") headerSecret?: string
+  ) {
+    const providedSecret = headerSecret ?? querySecret;
+    if (!validateWebhookSecret(this.infinitePaySecret, providedSecret)) {
+      throw new UnauthorizedException("Secret do webhook InfinitePay invalido ou nao configurado.");
+    }
+    return this.webhooks.handle("infinite_pay", body);
   }
 }

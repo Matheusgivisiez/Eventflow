@@ -103,6 +103,12 @@ export const envSchema = z.object({
   ABACATEPAY_WEBHOOK_SECRET: z.string().optional(),
   ABACATEPAY_BASE_URL: z.string().url().optional(),
   ABACATEPAY_PUBLIC_KEY: z.string().optional(),
+  PAYMENT_PROVIDER: z.enum(["abacate_pay", "infinite_pay"]).default("abacate_pay"),
+  INFINITEPAY_HANDLE: z.string().optional(),
+  INFINITEPAY_API_KEY: z.string().optional(),
+  INFINITEPAY_BASE_URL: z.string().url().default("https://api.checkout.infinitepay.io"),
+  INFINITEPAY_WEBHOOK_URL: z.string().url().optional(),
+  INFINITEPAY_WEBHOOK_SECRET: z.string().optional(),
   QR_CODE_SECRET: z.string().optional(),
   RABBITMQ_URL: z.string().url().default("amqp://eventflow:eventflow@localhost:5672"),
   AWS_ACCESS_KEY_ID: z.string().optional(),
@@ -145,6 +151,15 @@ export const envSchema = z.object({
       path: ["PAYMENT_SIMULATION_ENABLED"],
       message: "PAYMENT_SIMULATION_ENABLED must be false in production: it issues tickets without charging."
     });
+  }
+
+  if (env.PAYMENT_PROVIDER === "infinite_pay") {
+    if (!env.INFINITEPAY_HANDLE) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["INFINITEPAY_HANDLE"], message: "INFINITEPAY_HANDLE is required when InfinitePay is active." });
+    }
+    if (!env.INFINITEPAY_WEBHOOK_SECRET || env.INFINITEPAY_WEBHOOK_SECRET.length < 32) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["INFINITEPAY_WEBHOOK_SECRET"], message: "INFINITEPAY_WEBHOOK_SECRET must have at least 32 characters when InfinitePay is active." });
+    }
   }
 
   for (const key of secretKeys) {

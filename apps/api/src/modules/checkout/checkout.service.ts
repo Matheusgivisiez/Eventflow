@@ -49,7 +49,11 @@ export class CheckoutService {
     };
   }
 
-  async getOrderStatus(orderId: string, accessToken?: string) {
+  async getOrderStatus(
+    orderId: string,
+    accessToken?: string,
+    providerReferences?: { checkoutId?: string; transactionId?: string }
+  ) {
     let order = await this.prisma.order.findUnique({
       where: { id: orderId },
       include: {
@@ -65,6 +69,27 @@ export class CheckoutService {
     }
     if (!order.orderAccessToken || !accessToken || order.orderAccessToken !== accessToken) {
       throw new UnauthorizedException("Token de acesso do pedido invalido.");
+    }
+
+    if (order.payment && (providerReferences?.checkoutId || providerReferences?.transactionId)) {
+      await this.payments.recordProviderReferences(order.payment.id, order.event.tenantId, {
+        providerRef: providerReferences.transactionId ?? providerReferences.checkoutId,
+        checkoutId: providerReferences.checkoutId,
+        transactionId: providerReferences.transactionId
+      });
+      order = await this.prisma.order.findUnique({
+        where: { id: orderId },
+        include: {
+          event: true,
+          items: { include: { ticketType: true } },
+          tickets: true,
+          payment: true
+        }
+      });
+    }
+
+    if (!order) {
+      throw new NotFoundException("Pedido nao encontrado.");
     }
 
     if (order.status === PaymentStatus.PENDING && order.payment && await this.shouldReconcileOrder(order.id)) {

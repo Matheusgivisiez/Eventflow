@@ -14,7 +14,7 @@ export class WebhooksService {
     @Optional() private readonly metrics?: BusinessMetricsService
   ) {}
 
-  async handle(provider: "mercado_pago" | "stripe" | "asaas" | "abacate_pay", payload: Record<string, any>) {
+  async handle(provider: "mercado_pago" | "stripe" | "asaas" | "abacate_pay" | "infinite_pay", payload: Record<string, any>) {
     this.metrics?.increment("eventflow_webhooks_received_total", { provider });
     const eventName = this.extractEventName(payload);
     const providerEventId = this.extractProviderEventId(payload);
@@ -45,7 +45,18 @@ export class WebhooksService {
       throw new NotFoundException("Pagamento do webhook nao encontrado.");
     }
 
-    const status = this.mapStatus(provider, payload);
+    let status = this.mapStatus(provider, payload);
+    if (provider === "infinite_pay") {
+      const transactionId = this.extractTransactionId(provider, payload);
+      const checkoutId = this.extractCheckoutId(provider, payload);
+      await this.payments.recordProviderReferences(payment.id, payment.event.tenantId, {
+        providerRef: transactionId ?? checkoutId,
+        checkoutId,
+        transactionId
+      });
+      const verified = await this.payments.reconcileProviderStatus(payment.id, payment.event.tenantId);
+      if (verified) status = verified.status;
+    }
     if (status === payment.status) {
       await this.markPaymentLogProcessed(log?.id, payment.id, payment.orderId, status);
       await this.audit.log({ action: `webhook.${provider}`, entity: "payment", entityId: payment.id, metadata: { status, providerEventId, event: eventName, unchanged: true } });
@@ -99,6 +110,8 @@ export class WebhooksService {
   private extractOrderId(provider: string, payload: Record<string, any>): string | undefined {
     const value = provider === "abacate_pay"
       ? payload.data?.checkout?.externalId ?? payload.data?.checkout?.metadata?.orderId ?? payload.data?.metadata?.orderId ?? payload.data?.externalId ?? payload.metadata?.orderId ?? payload.externalId
+      : provider === "infinite_pay"
+        ? payload.order_nsu ?? payload.orderNsu
       : payload.orderId ?? payload.metadata?.orderId;
     return value ? String(value) : undefined;
   }
@@ -116,10 +129,25 @@ export class WebhooksService {
       return value ? String(value) : "";
     }
 
-    return String(payload.providerRef ?? payload.id ?? payload.data?.id ?? payload.payment?.id ?? "");
+    return String(payload.providerRef ?? payload.transaction_nsu ?? payload.invoice_slug ?? payload.id ?? payload.data?.id ?? payload.payment?.id ?? "");
+  }
+
+  private extractTransactionId(provider: string, payload: Record<string, any>): string | undefined {
+    if (provider !== "infinite_pay") return undefined;
+    const value = payload.transaction_nsu ?? payload.transactionNsu;
+    return value ? String(value) : undefined;
+  }
+
+  private extractCheckoutId(provider: string, payload: Record<string, any>): string | undefined {
+    if (provider !== "infinite_pay") return undefined;
+    const value = payload.invoice_slug ?? payload.slug;
+    return value ? String(value) : undefined;
   }
 
   private mapStatus(provider: string, payload: Record<string, any>): PaymentStatus {
+    if (provider === "infinite_pay") {
+      return payload.paid === true ? PaymentStatus.PAID : PaymentStatus.PENDING;
+    }
     const raw = String(payload.status ?? payload.event ?? payload.data?.status ?? payload.payment?.status ?? "").toLowerCase();
     // AbacatePay events: checkout.completed, transparent.completed
     if (["checkout.completed", "transparent.completed", "subscription.completed"].includes(raw)) return PaymentStatus.PAID;

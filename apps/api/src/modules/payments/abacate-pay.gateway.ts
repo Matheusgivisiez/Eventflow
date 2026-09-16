@@ -1,27 +1,10 @@
 import { Injectable, Logger, InternalServerErrorException, HttpException } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
+import { CreatedPaymentCheckout, CreatePaymentCheckoutInput, PaymentProvider, PaymentVerification, VerifyPaymentInput } from "./payment-provider";
 
-export type AbacateCheckoutInput = {
-  orderId: string;
-  amountCents: number;
-  buyerEmail: string;
-  buyerName: string;
-  buyerDocument?: string;
-  buyerPhone?: string;
-  description: string;
-  returnUrl: string;
-  completionUrl: string;
-  paymentMethod?: string; // "PIX" | "CREDIT_CARD"
-};
+export type AbacateCheckoutInput = CreatePaymentCheckoutInput;
 
-export type AbacateCheckoutResult = {
-  provider: string;
-  providerRef: string;
-  checkoutId?: string;
-  billId?: string;
-  transactionId?: string;
-  checkoutUrl: string;
-};
+export type AbacateCheckoutResult = CreatedPaymentCheckout;
 
 export type AbacateCheckoutStatus = {
   id: string;
@@ -41,7 +24,8 @@ export type AbacatePixTransferResult = {
 };
 
 @Injectable()
-export class AbacatePayGateway {
+export class AbacatePayGateway implements PaymentProvider {
+  readonly id = "abacate_pay" as const;
   private readonly logger = new Logger(AbacatePayGateway.name);
 
   constructor(private readonly config: ConfigService) {}
@@ -207,6 +191,18 @@ export class AbacatePayGateway {
     return this.request<AbacateCheckoutStatus>(`/checkouts/get?id=${encodeURIComponent(id)}`, {
       method: "GET"
     });
+  }
+
+  verifyPayment(input: VerifyPaymentInput): Promise<PaymentVerification> {
+    const ref = input.providerRef ?? input.checkoutId ?? input.transactionId;
+    if (!ref) {
+      return Promise.resolve({ id: input.orderId, status: "PENDING" });
+    }
+    return this.getCheckout(ref).then((checkout): PaymentVerification => ({
+      id: checkout.id,
+      status: checkout.status === "CANCELLED" || checkout.status === "EXPIRED" ? "CANCELED" : checkout.status,
+      providerRef: checkout.id
+    }));
   }
 
   /**

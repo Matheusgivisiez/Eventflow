@@ -69,6 +69,9 @@ function SuccessContent() {
   const orderId = searchParams.get("orderId") ?? storedCheckout?.orderId;
   const accessToken =
     searchParams.get("accessToken") ?? storedCheckout?.accessToken;
+  const infinitePaySlug =
+    searchParams.get("invoice_slug") ?? searchParams.get("slug");
+  const infinitePayTransactionNsu = searchParams.get("transaction_nsu");
   const isSimulatedPayment = searchParams.get("status") === "paid";
   // A guest has no session: sending them to /me/ingressos only bounces them
   // to the login screen and loses the ticket they just paid for.
@@ -107,12 +110,18 @@ function SuccessContent() {
     isLoading,
     error,
   } = useQuery({
-    queryKey: ["public-order", orderId, accessToken],
-    queryFn: () =>
-      api<PublicOrderDetails>(
-        `/checkout/order/${orderId}?accessToken=${encodeURIComponent(accessToken ?? "")}`,
+    queryKey: ["public-order", orderId, accessToken, infinitePaySlug, infinitePayTransactionNsu],
+    queryFn: () => {
+      const params = new URLSearchParams({
+        accessToken: accessToken ?? "",
+      });
+      if (infinitePaySlug) params.set("slug", infinitePaySlug);
+      if (infinitePayTransactionNsu) params.set("transaction_nsu", infinitePayTransactionNsu);
+      return api<PublicOrderDetails>(
+        `/checkout/order/${orderId}?${params.toString()}`,
         { auth: false },
-      ),
+      );
+    },
     enabled: Boolean(orderId && accessToken),
     refetchInterval: (query) =>
       query.state.data?.status === "PENDING" ? 4000 : false,

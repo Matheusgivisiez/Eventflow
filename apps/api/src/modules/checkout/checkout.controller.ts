@@ -24,8 +24,17 @@ export class CheckoutController {
   @Get("order/:orderId")
   @Throttle({ default: { limit: 600, ttl: 60000 } })
   @ApiOperation({ summary: "Consultar status público de um pedido", description: "Permite que compradores consultem o status e ingressos do seu pedido sem login." })
-  getOrderStatus(@Param("orderId") orderId: string, @Query("accessToken") accessToken?: string) {
-    return this.checkout.getOrderStatus(orderId, accessToken);
+  getOrderStatus(
+    @Param("orderId") orderId: string,
+    @Query("accessToken") accessToken?: string,
+    @Query("slug") slug?: string,
+    @Query("invoice_slug") invoiceSlug?: string,
+    @Query("transaction_nsu") transactionNsu?: string
+  ) {
+    return this.checkout.getOrderStatus(orderId, accessToken, {
+      checkoutId: invoiceSlug ?? slug,
+      transactionId: transactionNsu
+    });
   }
 
   @Post("order/:orderId/confirm-simulation")

@@ -6,6 +6,8 @@ import * as QRCode from "qrcode";
 import { PrismaService } from "../../prisma/prisma.service";
 import { UpdatePaymentStatusDto } from "./dto/update-payment-status.dto";
 import { AbacatePayGateway } from "./abacate-pay.gateway";
+import { InfinitePayGateway } from "./infinite-pay.gateway";
+import { PaymentProvider, PaymentProviderId } from "./payment-provider";
 import { BusinessMetricsService } from "../observability/business-metrics.service";
 import { NotificationsService } from "../notifications/notifications.service";
 
@@ -26,7 +28,8 @@ export class PaymentsService {
     private readonly abacatePay: AbacatePayGateway,
     private readonly config: ConfigService,
     private readonly notifications: NotificationsService,
-    @Optional() private readonly metrics?: BusinessMetricsService
+    @Optional() private readonly metrics?: BusinessMetricsService,
+    @Optional() private readonly infinitePay?: InfinitePayGateway
   ) {
     const qrCodeSecret = this.config.get<string>("QR_CODE_SECRET");
     if (!qrCodeSecret) {
@@ -61,7 +64,8 @@ export class PaymentsService {
       successParams.set("accessToken", order.orderAccessToken);
     }
     const successUrl = `${appUrl}/checkout/success?${successParams.toString()}`;
-    const result = await this.abacatePay.createCheckout({
+    const provider = this.getProviderForNewPayment();
+    const result = await provider.createCheckout({
       orderId,
       amountCents: order.totalCents,
       buyerEmail: order.buyerEmail,
@@ -77,7 +81,7 @@ export class PaymentsService {
     await this.prisma.payment.update({
       where: { orderId },
       data: {
-        provider: "abacate_pay",
+        provider: result.provider,
         providerRef: result.providerRef,
         checkoutId: result.checkoutId,
         billId: result.billId,
@@ -125,16 +129,32 @@ export class PaymentsService {
     if (!payment) {
       throw new NotFoundException("Pagamento nao encontrado.");
     }
-    if (payment.provider !== "abacate_pay" || !payment.providerRef) {
+    if (!payment.providerRef) {
       return payment;
     }
 
-    const checkout = await this.abacatePay.getCheckout(payment.providerRef);
+    // Keep historical providers readable even when this deployment no longer
+    // creates new payments with them.
+    if (payment.provider !== "abacate_pay" && payment.provider !== "infinite_pay") {
+      return payment;
+    }
+
+    const provider = this.getProvider(payment.provider);
+    const checkout = await provider.verifyPayment({
+      orderId: payment.orderId,
+      providerRef: payment.providerRef,
+      checkoutId: payment.checkoutId,
+      transactionId: payment.transactionId
+    });
+    if (checkout.status === "PAID" && checkout.amountCents !== undefined && checkout.amountCents !== payment.amountCents) {
+      this.logger.error(`Valor divergente no pagamento ${payment.id}: esperado=${payment.amountCents} recebido=${checkout.amountCents}`);
+      return payment;
+    }
     const status = checkout.status === "PAID"
       ? PaymentStatus.PAID
       : checkout.status === "REFUNDED"
         ? PaymentStatus.REFUNDED
-        : checkout.status === "EXPIRED" || checkout.status === "CANCELLED"
+        : checkout.status === "CANCELED"
           ? PaymentStatus.CANCELED
           : PaymentStatus.PENDING;
 
@@ -144,8 +164,36 @@ export class PaymentsService {
 
     return this.updateStatus(payment.id, tenantId, {
       status,
-      providerRef: checkout.id
+      providerRef: checkout.providerRef ?? checkout.id
     });
+  }
+
+  async recordProviderReferences(
+    id: string,
+    tenantId: string,
+    references: { providerRef?: string; checkoutId?: string; transactionId?: string }
+  ) {
+    const payment = await this.prisma.payment.findFirst({ where: { id, event: { tenantId } } });
+    if (!payment) throw new NotFoundException("Pagamento nao encontrado.");
+    return this.prisma.payment.update({
+      where: { id },
+      data: {
+        providerRef: references.providerRef ?? payment.providerRef,
+        checkoutId: references.checkoutId ?? payment.checkoutId,
+        transactionId: references.transactionId ?? payment.transactionId
+      }
+    });
+  }
+
+  private getProviderForNewPayment(): PaymentProvider {
+    const provider = (this.config.get<string>("PAYMENT_PROVIDER") ?? "abacate_pay") as PaymentProviderId;
+    return this.getProvider(provider);
+  }
+
+  private getProvider(provider: string): PaymentProvider {
+    if (provider === "abacate_pay") return this.abacatePay;
+    if (provider === "infinite_pay" && this.infinitePay) return this.infinitePay;
+    throw new Error(`Provedor de pagamento nao configurado: ${provider}`);
   }
 
   private async markPaid(paymentId: string, tenantId: string, providerRef?: string) {

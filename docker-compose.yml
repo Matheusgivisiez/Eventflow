@@ -80,8 +80,8 @@ services:
       RABBITMQ_URL: amqp://${RABBITMQ_USER:-eventflow}:${RABBITMQ_PASS:-eventflow}@rabbitmq:5672
       ABACATE_WEBHOOK_SECRET: ${ABACATE_WEBHOOK_SECRET:-eventflow-local-webhook-secret}
       ABACATE_PUBLIC_KEY: ${ABACATE_PUBLIC_KEY:-eventflow-local-public-key}
-      APP_URL: http://localhost:3000
-      API_URL: http://localhost:3001
+      APP_URL: ${APP_URL:-http://localhost:3000}
+      API_URL: ${API_URL:-http://localhost:3001}
     ports:
       - "3001:3001"
     volumes:

@@ -58,7 +58,12 @@ function createService() {
     $transaction: jest.fn((callback) => callback(prisma))
   };
   const createCheckout = { execute: jest.fn() };
-  const payments = { createProviderPreference: jest.fn(), updateStatus: jest.fn(), reconcileProviderStatus: jest.fn() };
+  const payments = {
+    createProviderPreference: jest.fn(),
+    updateStatus: jest.fn(),
+    reconcileProviderStatus: jest.fn(),
+    recordProviderReferences: jest.fn().mockResolvedValue(undefined)
+  };
   const cache = { get: jest.fn().mockResolvedValue(null), set: jest.fn().mockResolvedValue(undefined) };
   const config = { get: jest.fn((key: string) => key === "PAYMENT_SIMULATION_ENABLED" ? true : undefined) };
   const notifications = { purchaseConfirmationStatus: jest.fn().mockResolvedValue(null) };
@@ -129,6 +134,39 @@ describe("CheckoutService", () => {
     await service.getOrderStatus("order-1", "public-token");
 
     expect(payments.reconcileProviderStatus).not.toHaveBeenCalled();
+  });
+
+  it("records InfinitePay redirect references before reconciling a pending public order", async () => {
+    const { service, prisma, payments } = createService();
+    prisma.order.findUnique
+      .mockResolvedValueOnce(createOrder({
+        status: PaymentStatus.PENDING,
+        payment: { id: "payment-1", method: PaymentMethod.PIX },
+        event: { id: "event-1", tenantId: "tenant-1", title: "Event Flow Conf" },
+      }))
+      .mockResolvedValueOnce(createOrder({
+        status: PaymentStatus.PENDING,
+        payment: {
+          id: "payment-1",
+          method: PaymentMethod.PIX,
+          checkoutId: "invoice-1",
+          transactionId: "tx-1"
+        },
+        event: { id: "event-1", tenantId: "tenant-1", title: "Event Flow Conf" },
+      }))
+      .mockResolvedValueOnce(createOrder());
+
+    await service.getOrderStatus("order-1", "public-token", {
+      checkoutId: "invoice-1",
+      transactionId: "tx-1"
+    });
+
+    expect(payments.recordProviderReferences).toHaveBeenCalledWith("payment-1", "tenant-1", {
+      providerRef: "tx-1",
+      checkoutId: "invoice-1",
+      transactionId: "tx-1"
+    });
+    expect(payments.reconcileProviderStatus).toHaveBeenCalledWith("payment-1", "tenant-1");
   });
 
   it("returns the order access token after checkout creation", async () => {
