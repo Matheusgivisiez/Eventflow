@@ -1,0 +1,37 @@
+name: Deploy Web (Vercel)
+
+# Roda sozinho depois que o deploy da API termina com sucesso, para o site
+# novo nunca chamar uma API antiga. As variaveis do site (ex.:
+# NEXT_PUBLIC_API_URL) ficam no painel do Vercel.
+# Precisa do secret VERCEL_TOKEN no repositorio.
+
+on:
+  workflow_run:
+    workflows: ["Deploy API (Cloud Run)"]
+    types: [completed]
+    branches: [master]
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy-web
+  cancel-in-progress: false
+
+env:
+  VERCEL_ORG_ID: team_pN9NiuK6QYMHBDIFbnn7AOkM
+  VERCEL_PROJECT_ID: prj_dw9CY4ZOjp9twqnqM1e7Gvb16rzO
+
+jobs:
+  deploy:
+    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+
+      - name: Deploy de producao no Vercel
+        run: npx --yes vercel@latest deploy --prod --yes --token="${{ secrets.VERCEL_TOKEN }}"

@@ -1,0 +1,52 @@
+name: Deploy API (Cloud Run)
+
+# Roda sozinho depois que o CI passa no master e publica a API no Cloud Run.
+# Autenticacao sem chave: Workload Identity Federation (so aceita este repo
+# na branch master). As variaveis de ambiente ficam guardadas no proprio
+# Cloud Run e nao sao alteradas por este deploy.
+
+on:
+  workflow_run:
+    workflows: ["CI"]
+    types: [completed]
+    branches: [master]
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: deploy-api
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+
+      - uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: projects/283790508777/locations/global/workloadIdentityPools/github/providers/eventflow
+          service_account: github-deployer@eventflow-api-508718.iam.gserviceaccount.com
+
+      - uses: google-github-actions/setup-gcloud@v2
+
+      - name: Deploy no Cloud Run
+        run: gcloud run deploy eventflow-api --source . --region us-east1 --quiet
+
+      - name: Health check
+        run: |
+          for i in 1 2 3 4 5 6; do
+            if curl -fsS --max-time 20 https://eventflow-api-283790508777.us-east1.run.app/api/health; then
+              echo; echo "API saudavel."; exit 0
+            fi
+            sleep 10
+          done
+          echo "::error::API nao respondeu ao health check apos o deploy."
+          exit 1
