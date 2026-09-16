@@ -13,8 +13,11 @@ import { AuditService } from "./audit.service";
 export class AuditController {
   constructor(private readonly audit: AuditService) {}
 
+  // AuditLog has no tenantId column, so it cannot be scoped to one
+  // organization. Registration for ORGANIZER is open to anyone, so admitting
+  // that role here would let any signup read every tenant's audit trail.
   @Get()
-  @Roles(UserRole.ADMIN, UserRole.ORGANIZER)
+  @Roles(UserRole.ADMIN)
   list(@Query() query: { userId?: string; entity?: string; page?: string; perPage?: string }) {
     return this.audit.list(query);
   }

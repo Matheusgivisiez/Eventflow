@@ -9,3 +9,5 @@ coverage
 uploads
 tmp
 *.tsbuildinfo
+.pnpm-store
+logs

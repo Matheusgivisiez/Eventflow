@@ -55,7 +55,7 @@ export class UsersService {
 
   private async applyUpdate(
     user: { id: string; email: string; name: string },
-    data: { name?: string; email?: string; phone?: string; role?: UpdateUserDto["role"] }
+    data: { name?: string; email?: string; phone?: string }
   ) {
     const emailChanged = EmailVerificationService.isEmailChange(user.email, data.email);
 

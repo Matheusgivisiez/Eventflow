@@ -120,7 +120,10 @@ export default async function PublicEventPage({ params }: { params: Promise<{ sl
     <main className="min-h-screen bg-background pb-32 sm:pb-24">
       <script
         type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+        // JSON.stringify does not escape "</", so an event title/description
+        // containing "</script><script>" would otherwise close this tag and
+        // run attacker HTML as a script in every visitor's session.
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd).replace(/</g, "\\u003c") }}
       />
 
       {/* Hero: nav + banner + título */}
