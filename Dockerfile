@@ -1,7 +1,7 @@
 FROM node:22-alpine AS base
 WORKDIR /app
 RUN corepack enable && \
-    apk add --no-cache openssl && \
+    apk add --no-cache openssl fontconfig ttf-dejavu && \
     addgroup --system --gid 1001 nodejs && \
     adduser --system --uid 1001 nestjs
 

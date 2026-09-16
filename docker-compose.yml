@@ -75,6 +75,7 @@ services:
     env_file:
       - .env
     environment:
+      NODE_ENV: development
       DATABASE_URL: postgresql://${POSTGRES_USER:-eventflow}:${POSTGRES_PASSWORD:-eventflow}@postgres:5432/${POSTGRES_DB:-eventflow}
       REDIS_URL: redis://redis:6379
       RABBITMQ_URL: amqp://${RABBITMQ_USER:-eventflow}:${RABBITMQ_PASS:-eventflow}@rabbitmq:5672
