@@ -35,8 +35,11 @@ function createEvent(sold = 0) {
         priceCents: 10000,
         startsAt: new Date(Date.now() - 1000 * 60 * 60),
         endsAt: new Date(Date.now() + 1000 * 60 * 60),
+        salesEndQuantity: null,
         limitPerBuy: 5,
         isActive: true,
+        createdAt: new Date(Date.now() - 1000 * 60 * 60),
+        updatedAt: new Date(Date.now() - 1000 * 60 * 60),
       },
     ],
   };
@@ -53,12 +56,12 @@ function createDto() {
   };
 }
 
-function createService() {
+function createService(eventFactory: () => ReturnType<typeof createEvent> = () => createEvent(0)) {
   let sold = 0;
   const orders: any[] = [];
   const tx = {
     event: {
-      findFirst: jest.fn(async () => createEvent(0)),
+      findFirst: jest.fn(async () => eventFactory()),
     },
     order: {
       findMany: jest.fn().mockResolvedValue([]),
@@ -247,6 +250,79 @@ describe("CreateCheckoutUseCase default write order (hot-row writes last)", () =
     ).rejects.toThrow("Nao ha ingressos suficientes");
 
     expect(getSold()).toBe(1);
+  });
+
+  it("rejects checkout for a future lot while the first lot is still available", async () => {
+    const event = createEvent(50);
+    event.ticketTypes = [
+      {
+        ...event.ticketTypes[0],
+        id: "ticket-type-1",
+        name: "Lote 1",
+        quantity: 100,
+        sold: 50,
+        startsAt: new Date(Date.now() - 60_000),
+        endsAt: new Date(Date.now() + 60_000),
+      },
+      {
+        ...event.ticketTypes[0],
+        id: "ticket-type-2",
+        name: "Lote 2",
+        quantity: 100,
+        sold: 0,
+        priceCents: 15000,
+        startsAt: new Date(Date.now() + 60_000),
+        endsAt: new Date(Date.now() + 120_000),
+      },
+    ];
+    const { service } = createService(() => event);
+
+    await expect(
+      service.execute("eventflow-conf", {
+        ...createDto(),
+        items: [{ ticketTypeId: "ticket-type-2", quantity: 1 }],
+      } as any),
+    ).rejects.toThrow("Lote de ingresso indisponivel");
+  });
+
+  it("opens the next lot with the unsold capacity from an expired previous lot", async () => {
+    const event = createEvent(50);
+    event.ticketTypes = [
+      {
+        ...event.ticketTypes[0],
+        id: "ticket-type-1",
+        name: "Lote 1",
+        quantity: 100,
+        sold: 50,
+        startsAt: new Date(Date.now() - 120_000),
+        endsAt: new Date(Date.now() - 60_000),
+      },
+      {
+        ...event.ticketTypes[0],
+        id: "ticket-type-2",
+        name: "Lote 2",
+        quantity: 100,
+        sold: 0,
+        priceCents: 15000,
+        startsAt: new Date(Date.now() + 60_000),
+        endsAt: new Date(Date.now() + 120_000),
+      },
+    ];
+    const { service, tx } = createService(() => event);
+
+    await service.execute("eventflow-conf", {
+      ...createDto(),
+      items: [{ ticketTypeId: "ticket-type-2", quantity: 5 }],
+    } as any);
+
+    expect(tx.order.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          subtotalCents: 75000,
+          items: { create: [expect.objectContaining({ ticketTypeId: "ticket-type-2", quantity: 5 })] },
+        }),
+      }),
+    );
   });
 
   it("defers the coupon reservation until after the order is created and still enforces the limit", async () => {

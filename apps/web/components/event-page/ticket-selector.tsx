@@ -3,6 +3,7 @@
 import { Minus, Plus, Tag } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { getVisibleTicketLots } from "@/lib/ticket-lots";
 import { money } from "@/lib/utils";
 import type { TicketType } from "@/types/eventflow";
 
@@ -13,6 +14,8 @@ type TicketSelectorProps = {
 };
 
 export function TicketSelector({ ticketTypes, quantities, onQuantityChange }: TicketSelectorProps) {
+  const visibleLots = getVisibleTicketLots(ticketTypes);
+
   return (
     <section className="space-y-4" data-testid="ticket-selector">
       <div className="flex items-center gap-2">
@@ -21,9 +24,8 @@ export function TicketSelector({ ticketTypes, quantities, onQuantityChange }: Ti
       </div>
 
       <div className="space-y-3">
-        {ticketTypes.map((ticket, index) => {
-          const available = ticket.quantity - ticket.sold;
-          const isSoldOut = available <= 0;
+        {visibleLots.map(({ ticket, status, available, lotNumber }) => {
+          const isSoldOut = status !== "current";
           const qty = quantities[ticket.id] ?? 0;
 
           return (
@@ -31,7 +33,7 @@ export function TicketSelector({ ticketTypes, quantities, onQuantityChange }: Ti
               key={ticket.id}
               className={`rounded-2xl border p-5 transition-all duration-200 ${
                 isSoldOut
-                  ? "bg-muted/30 opacity-60 cursor-not-allowed"
+                  ? "border-dashed bg-muted/30 opacity-60 cursor-not-allowed"
                   : qty > 0
                     ? "border-primary/40 bg-primary/[0.03] shadow-sm"
                     : "bg-white dark:bg-card hover:border-primary/30 hover:shadow-sm"
@@ -47,7 +49,7 @@ export function TicketSelector({ ticketTypes, quantities, onQuantityChange }: Ti
                       : "border-primary/30 text-primary"
                   }`}
                 >
-                  {`${index + 1}º Lote`}
+                  {`${lotNumber}º Lote`}
                 </Badge>
                 {isSoldOut && (
                   <Badge variant="destructive" className="text-xs">
@@ -71,6 +73,9 @@ export function TicketSelector({ ticketTypes, quantities, onQuantityChange }: Ti
                     )}
                     {!isSoldOut && (
                       <span>Máx. {ticket.limitPerBuy} por compra</span>
+                    )}
+                    {isSoldOut && (
+                      <span>Este lote foi encerrado</span>
                     )}
                   </div>
                 </div>

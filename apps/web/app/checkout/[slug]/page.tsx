@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useMemo, useState } from "react";
+import { Suspense, useEffect, useMemo, useState } from "react";
 import { useParams, useSearchParams } from "next/navigation";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation, useQuery } from "@tanstack/react-query";
@@ -27,6 +27,7 @@ import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { api } from "@/lib/api";
 import { formatBrazilPhone, formatCpfOrCnpj, normalizeBrazilPhone, onlyDigits } from "@/lib/br-format";
+import { getCurrentTicketLots } from "@/lib/ticket-lots";
 import { money } from "@/lib/utils";
 import type { EventFlowEvent } from "@/types/eventflow";
 
@@ -107,6 +108,27 @@ function CheckoutForm() {
       api<EventFlowEvent>(`/events/public/${slug}`, { auth: false }),
   });
 
+  const currentLots = useMemo(
+    () => (event ? getCurrentTicketLots(event.ticketTypes) : []),
+    [event],
+  );
+  const currentTicketIds = useMemo(
+    () => new Set(currentLots.map(({ ticket }) => ticket.id)),
+    [currentLots],
+  );
+  const purchasableQuantities = useMemo(
+    () => Object.fromEntries(Object.entries(quantities).filter(([ticketId, quantity]) => currentTicketIds.has(ticketId) && quantity > 0)),
+    [currentTicketIds, quantities],
+  );
+
+  useEffect(() => {
+    if (!event) return;
+    setQuantities((prev) => {
+      const next = Object.fromEntries(Object.entries(prev).filter(([ticketId, quantity]) => currentTicketIds.has(ticketId) && quantity > 0));
+      return Object.keys(next).length === Object.keys(prev).length ? prev : next;
+    });
+  }, [currentTicketIds, event]);
+
   const form = useForm<z.infer<typeof buyerSchema>>({
     resolver: zodResolver(buyerSchema),
     defaultValues: { paymentMethod: "PIX" },
@@ -121,7 +143,7 @@ function CheckoutForm() {
           promoterCode,
           buyerDocument: onlyDigits(data.buyerDocument),
           buyerPhone: normalizeBrazilPhone(data.buyerPhone),
-          items: Object.entries(quantities)
+          items: Object.entries(purchasableQuantities)
             .filter(([, quantity]) => quantity > 0)
             .map(([ticketTypeId, quantity]) => ({ ticketTypeId, quantity })),
         }),
@@ -147,11 +169,11 @@ function CheckoutForm() {
   const subtotal = useMemo(() => {
     return (
       event?.ticketTypes.reduce(
-        (sum, ticket) => sum + (quantities[ticket.id] ?? 0) * ticket.priceCents,
+        (sum, ticket) => sum + (purchasableQuantities[ticket.id] ?? 0) * ticket.priceCents,
         0,
       ) ?? 0
     );
-  }, [event, quantities]);
+  }, [event, purchasableQuantities]);
   const fee = Math.round(subtotal * 0.08);
 
   if (isLoading) return <Skeleton className="m-6 h-[620px]" />;
@@ -222,8 +244,8 @@ function CheckoutForm() {
               <CardTitle>Seus ingressos</CardTitle>
             </CardHeader>
             <CardContent className="space-y-3">
-              {event?.ticketTypes.map((ticket) => {
-                const qty = quantities[ticket.id] ?? 0;
+              {currentLots.map(({ ticket, available }) => {
+                const qty = purchasableQuantities[ticket.id] ?? 0;
                 if (qty <= 0) return null;
                 return (
                   <div
@@ -240,19 +262,23 @@ function CheckoutForm() {
                       className="w-20 text-center"
                       type="number"
                       min={0}
-                      max={ticket.limitPerBuy}
+                      max={Math.min(available, ticket.limitPerBuy)}
                       value={qty}
                       onChange={(e) =>
                         setQuantities((state) => ({
                           ...state,
-                          [ticket.id]: Number(e.target.value),
+                          [ticket.id]: Math.min(
+                            Number(e.target.value),
+                            available,
+                            ticket.limitPerBuy,
+                          ),
                         }))
                       }
                     />
                   </div>
                 );
               })}
-              {Object.values(quantities).every((q) => q <= 0) && (
+              {Object.values(purchasableQuantities).every((q) => q <= 0) && (
                 <p className="py-4 text-center text-sm text-muted-foreground">
                   Nenhum ingresso selecionado.{" "}
                   <Link

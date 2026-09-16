@@ -16,6 +16,7 @@ type ProcessedItem = {
   quantity: number;
   seatIds: string[];
   totalCents: number;
+  availableQuantity: number;
 };
 
 type CheckoutTx = Prisma.TransactionClient;
@@ -361,22 +362,22 @@ export class CreateCheckoutUseCase {
 
   private validateAndPrepareItems(event: CheckoutEvent, dto: CreateCheckoutDto): ProcessedItem[] {
     const now = new Date();
+    const availableLots = this.getVisibleTicketLots(event.ticketTypes, now);
+    const currentLot = availableLots.find((lot) => lot.status === "current");
 
     return dto.items.map((item) => {
-      const ticketType = event.ticketTypes.find((t) => t.id === item.ticketTypeId);
-      if (!ticketType || !ticketType.isActive) {
+      const visibleLot = availableLots.find((lot) => lot.ticketType.id === item.ticketTypeId);
+      if (!visibleLot || visibleLot.status !== "current" || !currentLot) {
         throw new BadRequestException("Lote de ingresso indisponivel.");
       }
+      const { ticketType } = visibleLot;
       if (item.quantity > ticketType.limitPerBuy) {
         throw new BadRequestException(`Limite de ${ticketType.limitPerBuy} ingressos por compra para ${ticketType.name}.`);
-      }
-      if (now < ticketType.startsAt || now > ticketType.endsAt) {
-        throw new BadRequestException(`As vendas do lote ${ticketType.name} nao estao abertas.`);
       }
       if (hasReachedSalesEnd(ticketType.sold, ticketType.salesEndQuantity)) {
         throw new BadRequestException(`O lote ${ticketType.name} atingiu o limite de vendas.`);
       }
-      if (ticketType.quantity - ticketType.sold < item.quantity) {
+      if (visibleLot.availableQuantity < item.quantity) {
         throw new BadRequestException(`Nao ha ingressos suficientes para ${ticketType.name}.`);
       }
       if (item.seatIds?.length && item.seatIds.length !== item.quantity) {
@@ -387,7 +388,8 @@ export class CreateCheckoutUseCase {
         ticketType,
         quantity: item.quantity,
         seatIds: item.seatIds ?? [],
-        totalCents: item.quantity * ticketType.priceCents
+        totalCents: item.quantity * ticketType.priceCents,
+        availableQuantity: visibleLot.availableQuantity
       };
     });
   }
@@ -397,7 +399,7 @@ export class CreateCheckoutUseCase {
       const updated = await tx.ticketType.updateMany({
         where: {
           id: item.ticketType.id,
-          sold: { lte: item.ticketType.quantity - item.quantity }
+          sold: { lte: item.ticketType.sold + item.availableQuantity - item.quantity }
         },
         data: {
           sold: { increment: item.quantity }
@@ -409,6 +411,45 @@ export class CreateCheckoutUseCase {
         throw new BadRequestException(`Nao ha ingressos suficientes para ${item.ticketType.name}.`);
       }
     }
+  }
+
+  private getVisibleTicketLots(ticketTypes: CheckoutEvent["ticketTypes"], now: Date) {
+    const orderedLots = [...ticketTypes]
+      .filter((ticketType) => ticketType.isActive)
+      .sort((a, b) => a.startsAt.getTime() - b.startsAt.getTime() || (a.createdAt?.getTime() ?? 0) - (b.createdAt?.getTime() ?? 0));
+
+    const visibleLots: Array<{
+      ticketType: CheckoutEvent["ticketTypes"][number];
+      status: "past" | "current";
+      availableQuantity: number;
+    }> = [];
+    let cumulativeQuantity = 0;
+    let cumulativeSold = 0;
+    let previousLotsClosed = true;
+
+    for (const ticketType of orderedLots) {
+      cumulativeQuantity += ticketType.quantity;
+      cumulativeSold += ticketType.sold;
+
+      const availableQuantity = Math.max(0, cumulativeQuantity - cumulativeSold);
+      const hasStarted = now >= ticketType.startsAt;
+      const hasEnded = now > ticketType.endsAt;
+      const soldOut = availableQuantity <= 0 || hasReachedSalesEnd(ticketType.sold, ticketType.salesEndQuantity);
+      const canOpen = (hasStarted || previousLotsClosed) && !hasEnded && !soldOut;
+
+      if (canOpen) {
+        visibleLots.push({ ticketType, status: "current", availableQuantity });
+        break;
+      }
+
+      if (hasStarted || hasEnded || soldOut) {
+        visibleLots.push({ ticketType, status: "past", availableQuantity: 0 });
+      }
+
+      previousLotsClosed = hasEnded || soldOut;
+    }
+
+    return visibleLots;
   }
 
   private createOrderAccessToken() {

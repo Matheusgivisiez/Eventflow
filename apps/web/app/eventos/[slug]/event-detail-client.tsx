@@ -1,10 +1,11 @@
 "use client";
 
-import { useMemo, useRef, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { TicketSelector } from "@/components/event-page/ticket-selector";
 import { FloatingBuyBar } from "@/components/event-page/floating-buy-bar";
 import { ShareButtons } from "@/components/event-page/share-buttons";
 import { EventArtists } from "@/components/event-page/event-artists";
+import { getCurrentTicketLots } from "@/lib/ticket-lots";
 import type { EventFlowEvent } from "@/types/eventflow";
 
 type EventDetailClientProps = {
@@ -34,18 +35,34 @@ export function EventDetailClient({
     setQuantities((prev) => ({ ...prev, [ticketId]: quantity }));
   };
 
+  const currentTicketIds = useMemo(
+    () => new Set(getCurrentTicketLots(event.ticketTypes).map(({ ticket }) => ticket.id)),
+    [event.ticketTypes],
+  );
+  const purchasableQuantities = useMemo(
+    () => Object.fromEntries(Object.entries(quantities).filter(([ticketId, quantity]) => currentTicketIds.has(ticketId) && quantity > 0)),
+    [currentTicketIds, quantities],
+  );
+
+  useEffect(() => {
+    setQuantities((prev) => {
+      const next = Object.fromEntries(Object.entries(prev).filter(([ticketId, quantity]) => currentTicketIds.has(ticketId) && quantity > 0));
+      return Object.keys(next).length === Object.keys(prev).length ? prev : next;
+    });
+  }, [currentTicketIds]);
+
   const { totalCents, totalItems } = useMemo(() => {
     let cents = 0;
     let items = 0;
 
     for (const ticket of event.ticketTypes) {
-      const qty = quantities[ticket.id] ?? 0;
+      const qty = purchasableQuantities[ticket.id] ?? 0;
       cents += qty * ticket.priceCents;
       items += qty;
     }
 
     return { totalCents: cents, totalItems: items };
-  }, [event.ticketTypes, quantities]);
+  }, [event.ticketTypes, purchasableQuantities]);
 
   // Sem ingresso selecionado, o botão "Garantir" leva até o seletor em vez de ficar inerte.
   function scrollToTickets() {
@@ -101,7 +118,7 @@ export function EventDetailClient({
         slug={event.slug}
         totalCents={totalCents}
         totalItems={totalItems}
-        selectedItems={quantities}
+        selectedItems={purchasableQuantities}
         onEmptySelectionClick={scrollToTickets}
       />
     </>
