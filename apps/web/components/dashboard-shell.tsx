@@ -30,7 +30,7 @@ const nav = [
   { href: "/promoters", label: "Promoters", icon: Megaphone, roles: ["ORGANIZER", "ADMIN", "TEAM"] },
   { href: "/team", label: "Equipe", icon: Users, roles: ["ORGANIZER", "ADMIN"] },
   { href: "/coupons", label: "Cupons", icon: Tag, roles: ["ORGANIZER", "ADMIN", "TEAM"] },
-  { href: "/notifications", label: "Notificações", icon: Bell, roles: ["ORGANIZER", "ADMIN"] },
+  { href: "/notifications", label: "Notificações", icon: Bell, roles: ["ADMIN"] },
   { href: "/profile", label: "Perfil", icon: UserCircle, roles: ["ORGANIZER", "ADMIN", "TEAM", "CHECKIN"] },
   { href: "/admin", label: "Admin", icon: Shield, roles: ["ADMIN"] }
 ];
