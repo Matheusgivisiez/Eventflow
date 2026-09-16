@@ -19,7 +19,7 @@ import { CategorySelector } from "@/components/events/new-event/category-selecto
 import { resolveEventCategory } from "@/lib/event-category";
 import { LocationFields } from "@/components/events/new-event/location-fields";
 import { formatCep } from "@/lib/cep";
-import { formatScheduleValue } from "@/lib/new-event-schedule";
+import { formatScheduleValue, scheduleValueToDate, scheduleValueToIso } from "@/lib/new-event-schedule";
 import { TicketLotEditor } from "@/components/events/new-event/ticket-lot-editor";
 import { AdditionalTicketLots } from "@/components/events/new-event/additional-ticket-lots";
 
@@ -70,8 +70,8 @@ const schema = z.object({
   transferLockHours: z.coerce.number().int().min(0),
   qrCodeReleaseMinutesBeforeStart: z.coerce.number().int().min(0)
 }).superRefine((data, ctx) => {
-  const startsAt = data.startsAt ? new Date(data.startsAt) : undefined;
-  const endsAt = data.endsAt ? new Date(data.endsAt) : undefined;
+  const startsAt = data.startsAt ? scheduleValueToDate(data.startsAt) : undefined;
+  const endsAt = data.endsAt ? scheduleValueToDate(data.endsAt) : undefined;
 
   if (startsAt && startsAt <= new Date()) {
     ctx.addIssue({ code: "custom", path: ["startsAt"], message: "A data de inicio deve ser futura." });
@@ -175,7 +175,7 @@ export default function NewEventPage() {
 
   const mutation = useMutation({
     mutationFn: (data: FormData) => {
-      const startsAt = new Date(data.startsAt);
+      const startsAt = scheduleValueToDate(data.startsAt);
       const transferLockTime = data.allowTicketTransfer
         ? new Date(startsAt.getTime() - data.transferLockHours * 60 * 60 * 1000).toISOString()
         : undefined;
@@ -190,7 +190,7 @@ export default function NewEventPage() {
           description: data.description,
           category: resolveEventCategory(data.category, data.categoryOther),
           startsAt: startsAt.toISOString(),
-          endsAt: data.endsAt ? new Date(data.endsAt).toISOString() : undefined,
+          endsAt: scheduleValueToIso(data.endsAt),
           bannerUrl: data.bannerUrl || undefined,
           galleryUrls: [],
           city: data.format === "IN_PERSON" ? data.city : undefined,
@@ -212,8 +212,8 @@ export default function NewEventPage() {
             priceCents: Math.round(data.firstTicketPrice * 100),
             quantity: data.firstTicketQuantity,
             limitPerBuy: data.firstTicketLimitPerBuy,
-            startsAt: data.firstTicketStartsAt ? new Date(data.firstTicketStartsAt).toISOString() : undefined,
-            endsAt: data.firstTicketEndsAt ? new Date(data.firstTicketEndsAt).toISOString() : undefined,
+            startsAt: scheduleValueToIso(data.firstTicketStartsAt),
+            endsAt: scheduleValueToIso(data.firstTicketEndsAt),
             salesEndQuantity: data.firstTicketClosingRule !== "DATE" ? data.firstTicketSalesEndQuantity : undefined
             ,priceMode: data.firstTicketPriceMode
             ,priceAdjustmentPercent: data.firstTicketPriceMode === "PERCENTAGE" ? data.firstTicketPriceAdjustmentPercent : undefined
@@ -223,8 +223,8 @@ export default function NewEventPage() {
             priceCents: Math.round(lot.price * 100),
             quantity: lot.quantity,
             limitPerBuy: lot.limitPerBuy,
-            startsAt: lot.startsAt ? new Date(lot.startsAt).toISOString() : undefined,
-            endsAt: lot.endsAt ? new Date(lot.endsAt).toISOString() : undefined,
+            startsAt: scheduleValueToIso(lot.startsAt),
+            endsAt: scheduleValueToIso(lot.endsAt),
             salesEndQuantity: lot.closingRule !== "DATE" ? lot.salesEndQuantity : undefined
             ,priceMode: lot.priceMode
             ,priceAdjustmentPercent: lot.priceMode === "PERCENTAGE" ? lot.priceAdjustmentPercent : undefined

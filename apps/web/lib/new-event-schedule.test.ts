@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { compareScheduleValues, formatScheduleValue, getTodayDateValue, joinScheduleValue, splitScheduleValue } from "./new-event-schedule";
+import { compareScheduleValues, formatScheduleValue, getTodayDateValue, isoToScheduleValue, joinScheduleValue, scheduleValueToIso, splitScheduleValue } from "./new-event-schedule";
 
 describe("new event schedule helpers", () => {
   it("separa data e horário para edição independente", () => {
@@ -11,6 +11,11 @@ describe("new event schedule helpers", () => {
     assert.equal(joinScheduleValue({ date: "2026-10-24", time: "19:30" }), "2026-10-24T19:30");
     assert.equal(joinScheduleValue({ date: "2026-10-24", time: "" }), "2026-10-24T00:00");
     assert.equal(joinScheduleValue({ date: "", time: "" }), "");
+  });
+
+  it("converte horario brasileiro do formulário para ISO UTC sem mudar a hora escolhida", () => {
+    assert.equal(scheduleValueToIso("2026-10-24T15:00"), "2026-10-24T18:00:00.000Z");
+    assert.equal(isoToScheduleValue("2026-10-24T18:00:00.000Z"), "2026-10-24T15:00");
   });
 
   it("formata o resumo em português e trata valores vazios", () => {

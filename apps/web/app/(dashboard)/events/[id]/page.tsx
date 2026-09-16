@@ -17,6 +17,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Switch } from "@/components/ui/switch";
 import dynamic from "next/dynamic";
 import { api } from "@/lib/api";
+import { isoToScheduleValue, scheduleValueToIso } from "@/lib/new-event-schedule";
 
 const ImageUpload = dynamic(() => import("@/components/image-upload").then(m => m.ImageUpload), { ssr: false, loading: () => <Skeleton className="h-40 w-full" /> });
 import type { EventFlowEvent } from "@/types/eventflow";
@@ -92,9 +93,6 @@ export default function EditEventPage() {
 
   useEffect(() => {
     if (event) {
-      const toLocal = (iso?: string) =>
-        iso ? new Date(iso).toISOString().slice(0, 16) : "";
-
       // Determine QR code mode from event data
       if (event.qrCodeReleaseAt) {
         setQrCodeMode("fixed_date");
@@ -108,8 +106,8 @@ export default function EditEventPage() {
         title: event.title,
         description: event.description,
         category: event.category,
-        startsAt: toLocal(event.startsAt),
-        endsAt: toLocal(event.endsAt),
+        startsAt: isoToScheduleValue(event.startsAt),
+        endsAt: isoToScheduleValue(event.endsAt),
         bannerUrl: event.bannerUrl ?? "",
         city: event.city ?? "",
         state: event.state ?? "",
@@ -121,11 +119,11 @@ export default function EditEventPage() {
         seoTitle: event.seoTitle ?? "",
         seoDescription: event.seoDescription ?? "",
         allowTicketTransfer: event.allowTicketTransfer ?? true,
-        ticketTransferLockTime: toLocal(event.ticketTransferLockTime),
+        ticketTransferLockTime: isoToScheduleValue(event.ticketTransferLockTime),
         qrCodeReleaseMinutesBeforeStart: event.qrCodeReleaseMinutesBeforeStart ?? 60,
-        qrCodeReleaseAt: toLocal(event.qrCodeReleaseAt),
-        checkInOpensAt: toLocal(event.checkInOpensAt ?? event.startsAt),
-        checkInClosesAt: toLocal(event.checkInClosesAt)
+        qrCodeReleaseAt: isoToScheduleValue(event.qrCodeReleaseAt),
+        checkInOpensAt: isoToScheduleValue(event.checkInOpensAt ?? event.startsAt),
+        checkInClosesAt: isoToScheduleValue(event.checkInClosesAt)
       });
     }
   }, [event, form]);
@@ -133,7 +131,9 @@ export default function EditEventPage() {
   function prepareSubmit(data: FormData) {
     const payload: Record<string, unknown> = {
       ...data,
-      bannerUrl: data.bannerUrl || undefined
+      bannerUrl: data.bannerUrl || undefined,
+      startsAt: scheduleValueToIso(data.startsAt),
+      endsAt: scheduleValueToIso(data.endsAt)
     };
 
     // Handle QR code mode
@@ -149,9 +149,12 @@ export default function EditEventPage() {
     // Clear lock time if empty
     if (!data.ticketTransferLockTime) {
       payload.ticketTransferLockTime = undefined;
+    } else {
+      payload.ticketTransferLockTime = scheduleValueToIso(data.ticketTransferLockTime);
     }
-    payload.checkInOpensAt = data.checkInOpensAt || null;
-    payload.checkInClosesAt = data.checkInClosesAt || null;
+    payload.qrCodeReleaseAt = data.qrCodeReleaseAt ? scheduleValueToIso(data.qrCodeReleaseAt) : undefined;
+    payload.checkInOpensAt = data.checkInOpensAt ? scheduleValueToIso(data.checkInOpensAt) : null;
+    payload.checkInClosesAt = data.checkInClosesAt ? scheduleValueToIso(data.checkInClosesAt) : null;
 
     return payload;
   }

@@ -20,6 +20,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { api } from "@/lib/api";
+import { isoToScheduleValue, scheduleValueToIso } from "@/lib/new-event-schedule";
 import { dateTime, money } from "@/lib/utils";
 import type { TicketType } from "@/types/eventflow";
 
@@ -59,7 +60,12 @@ export default function TicketTypesPage() {
     mutationFn: (data: TicketForm) =>
       api(`/events/${eventId}/ticket-types`, {
         method: "POST",
-        body: JSON.stringify({ ...data, priceCents: brlToCents(data.priceCents as unknown as number) })
+        body: JSON.stringify({
+          ...data,
+          priceCents: brlToCents(data.priceCents as unknown as number),
+          startsAt: scheduleValueToIso(data.startsAt),
+          endsAt: scheduleValueToIso(data.endsAt)
+        })
       }),
     onSuccess: () => { invalidate(); setShowNewForm(false); }
   });
@@ -68,7 +74,12 @@ export default function TicketTypesPage() {
     mutationFn: ({ ticketId, data }: { ticketId: string; data: TicketForm }) =>
       api(`/events/${eventId}/ticket-types/${ticketId}`, {
         method: "PATCH",
-        body: JSON.stringify({ ...data, priceCents: brlToCents(data.priceCents as unknown as number) })
+        body: JSON.stringify({
+          ...data,
+          priceCents: brlToCents(data.priceCents as unknown as number),
+          startsAt: scheduleValueToIso(data.startsAt),
+          endsAt: scheduleValueToIso(data.endsAt)
+        })
       }),
     onSuccess: () => { invalidate(); setEditingId(null); }
   });
@@ -153,7 +164,7 @@ export default function TicketTypesPage() {
                         defaultValues={{
                           name: ticket.name, description: ticket.description ?? "",
                           quantity: ticket.quantity, priceCents: ticket.priceCents / 100,
-                          startsAt: ticket.startsAt.slice(0, 16), endsAt: ticket.endsAt.slice(0, 16),
+                          startsAt: isoToScheduleValue(ticket.startsAt), endsAt: isoToScheduleValue(ticket.endsAt),
                           limitPerBuy: ticket.limitPerBuy, isActive: ticket.isActive
                         }}
                         onSubmit={(data: TicketForm) => updateMutation.mutate({ ticketId: ticket.id, data })}
