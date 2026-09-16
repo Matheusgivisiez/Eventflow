@@ -27,6 +27,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useAuthHydration } from "@/hooks/use-auth-hydration";
 import { api } from "@/lib/api";
 import { money } from "@/lib/utils";
 import { useAuthStore } from "@/stores/auth-store";
@@ -75,7 +76,9 @@ function SuccessContent() {
   const isSimulatedPayment = searchParams.get("status") === "paid";
   // A guest has no session: sending them to /me/ingressos only bounces them
   // to the login screen and loses the ticket they just paid for.
-  const isAuthenticated = Boolean(useAuthStore((state) => state.accessToken));
+  const hasHydratedAuth = useAuthHydration();
+  const sessionAccessToken = useAuthStore((state) => state.accessToken);
+  const isAuthenticated = hasHydratedAuth && Boolean(sessionAccessToken);
   const [simulationRequested, setSimulationRequested] = useState(false);
   const [redirectCountdown, setRedirectCountdown] = useState<number | null>(
     null,
@@ -152,7 +155,7 @@ function SuccessContent() {
     Boolean(searchParams.get("orderId") && searchParams.get("accessToken")) || emailDelivered;
 
   useEffect(() => {
-    if (!isPaid) return;
+    if (!isPaid || !hasHydratedAuth) return;
 
     if (linkIsRecoverable) {
       window.localStorage.removeItem("eventflow:last-checkout");
@@ -177,7 +180,7 @@ function SuccessContent() {
     }, 1000);
 
     return () => clearInterval(interval);
-  }, [isAuthenticated, isPaid, linkIsRecoverable, queryClient, router]);
+  }, [hasHydratedAuth, isAuthenticated, isPaid, linkIsRecoverable, queryClient, router]);
 
   if (!orderId || !accessToken) {
     return (
@@ -250,7 +253,7 @@ function SuccessContent() {
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          {isPaid && !isAuthenticated && (
+          {isPaid && hasHydratedAuth && !isAuthenticated && (
             <div className="rounded-lg border bg-muted/40 p-4 space-y-3">
               {emailDelivered ? (
                 <div className="flex items-start gap-2.5">
@@ -367,14 +370,14 @@ function SuccessContent() {
                   <ArrowRight className="h-4 w-4" />
                 </Link>
               </Button>
-            ) : (
+            ) : hasHydratedAuth ? (
               <Button asChild variant="outline" className="flex-1 gap-2">
                 <Link href="/">
                   <ArrowLeft className="h-4 w-4" />
                   Explorar eventos
                 </Link>
               </Button>
-            )}
+            ) : null}
           </div>
         </CardContent>
       </Card>

@@ -118,7 +118,33 @@ test.describe("Fluxo de compra", () => {
       }
     });
     await expectOk(loginResponse);
-    const session = await loginResponse.json() as { accessToken: string };
+    const session = await loginResponse.json() as {
+      accessToken: string;
+      user: {
+        id: string;
+        tenantId: string;
+        name: string;
+        email: string;
+        role: string;
+      };
+    };
+
+    await page.evaluate((authSession) => {
+      window.localStorage.setItem(
+        "eventflow-session",
+        JSON.stringify({
+          state: authSession,
+          version: 0
+        })
+      );
+    }, session);
+
+    await page.goto(
+      `/checkout/success?orderId=${checkout.orderId}&accessToken=${encodeURIComponent(checkout.orderAccessToken)}`
+    );
+    await expect(page.getByText("Pagamento Confirmado!", { exact: true })).toBeVisible();
+    await expect(page.getByRole("link", { name: "Criar conta" })).toHaveCount(0);
+    await expect(page.getByText(/Redirecionando para Meus Ingressos/)).toBeVisible();
 
     const validateTicket = () => request.post(`${apiUrl}/check-in/events/${event.id}/validate`, {
       headers: { Authorization: `Bearer ${session.accessToken}` },
