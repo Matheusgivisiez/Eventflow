@@ -68,6 +68,8 @@ const schema = z.object({
   feePayer: z.enum(["BUYER", "ORGANIZER"]),
   allowTicketTransfer: z.boolean(),
   transferLockHours: z.coerce.number().int().min(0),
+  allowTicketRefund: z.boolean(),
+  refundLockHours: z.coerce.number({ invalid_type_error: "Informe as horas." }).int("Use horas inteiras.").min(0, "Não pode ser negativo.").max(8760, "Máximo de 365 dias."),
   qrCodeReleaseMinutesBeforeStart: z.coerce.number().int().min(0)
 }).superRefine((data, ctx) => {
   const startsAt = data.startsAt ? scheduleValueToDate(data.startsAt) : undefined;
@@ -138,6 +140,8 @@ export default function NewEventPage() {
       feePayer: "BUYER",
       allowTicketTransfer: true,
       transferLockHours: 24,
+      allowTicketRefund: false,
+      refundLockHours: 48,
       qrCodeReleaseMinutesBeforeStart: 60
     }
   });
@@ -145,6 +149,7 @@ export default function NewEventPage() {
   const format = form.watch("format");
   const zipCode = form.watch("zipCode");
   const allowTicketTransfer = form.watch("allowTicketTransfer");
+  const allowTicketRefund = form.watch("allowTicketRefund");
 
   useEffect(() => {
     const cep = zipCode?.replace(/\D/g, "");
@@ -206,6 +211,8 @@ export default function NewEventPage() {
           feeAbsorbedByOrganizer: data.feePayer === "ORGANIZER",
           allowTicketTransfer: data.allowTicketTransfer,
           ticketTransferLockTime: transferLockTime,
+          allowTicketRefund: data.allowTicketRefund,
+          ticketRefundLockHours: data.allowTicketRefund ? data.refundLockHours : undefined,
           qrCodeReleaseMinutesBeforeStart: data.qrCodeReleaseMinutesBeforeStart,
           firstTicket: {
             name: data.firstTicketName,
@@ -241,7 +248,7 @@ export default function NewEventPage() {
         ? ["title", "description", "category", "categoryOther", "startsAt", "endsAt", "zipCode", "city", "state", "address", "number"]
         : ["title", "description", "category", "categoryOther", "startsAt", "endsAt", "onlineUrl"],
       1: ["firstTicketName", "firstTicketPrice", "firstTicketQuantity", "firstTicketLimitPerBuy", "firstTicketStartsAt", "firstTicketEndsAt", "firstTicketClosingRule", "firstTicketSalesEndQuantity", "additionalTicketLots"],
-      2: ["feePayer", "allowTicketTransfer", "transferLockHours", "qrCodeReleaseMinutesBeforeStart"]
+      2: ["feePayer", "allowTicketTransfer", "transferLockHours", "allowTicketRefund", "refundLockHours", "qrCodeReleaseMinutesBeforeStart"]
     };
     const valid = await form.trigger(fieldsByStep[step]);
     if (valid) {
@@ -397,6 +404,18 @@ export default function NewEventPage() {
                 {allowTicketTransfer && (
                   <Field label="Bloquear transferencia quantas horas antes?" error={form.formState.errors.transferLockHours?.message}>
                     <Input type="number" min="0" {...form.register("transferLockHours", { valueAsNumber: true })} />
+                  </Field>
+                )}
+                <label className="flex min-h-14 items-center justify-between gap-4 rounded-lg border p-4 text-sm">
+                  <span>
+                    <span className="block font-medium">Permitir reembolso pelo site</span>
+                    <span className="text-muted-foreground">O comprador pode cancelar o ingresso e pedir o dinheiro de volta. Voce pode mudar isso depois.</span>
+                  </span>
+                  <input type="checkbox" className="h-5 w-5" {...form.register("allowTicketRefund")} />
+                </label>
+                {allowTicketRefund && (
+                  <Field label="Encerrar reembolsos quantas horas antes do evento?" error={form.formState.errors.refundLockHours?.message}>
+                    <Input type="number" min="0" {...form.register("refundLockHours", { valueAsNumber: true })} />
                   </Field>
                 )}
                 <Field label="Liberar QR Code">

@@ -283,7 +283,18 @@ describe("BuyerService.listTickets", () => {
 
   it("cancels only the selected ticket and preserves the order payment", async () => {
     const { service, prisma } = createService();
-    const ticket = createTicket({ status: TicketStatus.AVAILABLE, seatId: null });
+    const base = createTicket();
+    const ticket = createTicket({
+      status: TicketStatus.AVAILABLE,
+      seatId: null,
+      event: {
+        ...base.event,
+        startsAt: new Date("2026-09-10T20:00:00.000Z"),
+        endsAt: null,
+        allowTicketRefund: true,
+        ticketRefundLockHours: 24,
+      },
+    });
     prisma.ticket.findFirst.mockResolvedValue(ticket);
     prisma.ticket.updateMany.mockResolvedValue({ count: 1 });
     prisma.ticketType.updateMany.mockResolvedValue({ count: 1 });
@@ -300,6 +311,66 @@ describe("BuyerService.listTickets", () => {
     });
     expect(service["payments"].updateStatus).not.toHaveBeenCalled();
     expect(result.status).toBe("REFUND_REQUESTED");
+  });
+
+  it("refuses refunds when the organizer disabled them for the event", async () => {
+    const { service, prisma } = createService();
+    const base = createTicket();
+    prisma.ticket.findFirst.mockResolvedValue(createTicket({
+      event: { ...base.event, startsAt: new Date("2026-09-10T20:00:00.000Z"), allowTicketRefund: false },
+    }));
+
+    await expect(
+      service.requestRefund("user-1", "buyer@example.com", "ticket-1", "CONFIRMAR"),
+    ).rejects.toThrow("não aceita reembolso");
+    expect(prisma.ticket.updateMany).not.toHaveBeenCalled();
+  });
+
+  it("refuses refunds after the organizer deadline", async () => {
+    const { service, prisma } = createService();
+    const base = createTicket();
+    // Evento em 5h, prazo fecha 24h antes: já passou.
+    prisma.ticket.findFirst.mockResolvedValue(createTicket({
+      event: {
+        ...base.event,
+        startsAt: new Date("2026-09-04T20:00:00.000Z"),
+        allowTicketRefund: true,
+        ticketRefundLockHours: 24,
+      },
+    }));
+
+    await expect(
+      service.requestRefund("user-1", "buyer@example.com", "ticket-1", "CONFIRMAR"),
+    ).rejects.toThrow("prazo");
+    expect(prisma.ticket.updateMany).not.toHaveBeenCalled();
+  });
+
+  it("exposes the refund policy on each ticket of the wallet", async () => {
+    const { service, prisma } = createService();
+    const base = createTicket();
+    prisma.ticket.findMany.mockResolvedValue([
+      createTicket({
+        event: {
+          ...base.event,
+          startsAt: new Date("2026-09-10T20:00:00.000Z"),
+          allowTicketRefund: true,
+          ticketRefundLockHours: 48,
+        },
+      }),
+      createTicket({ id: "ticket-2", event: { ...base.event, allowTicketRefund: false } }),
+    ]);
+
+    const [allowed, disabled] = await service.listTickets("user-1", "buyer@example.com");
+
+    expect(allowed).toEqual(expect.objectContaining({
+      refundAvailable: true,
+      refundBlockedReason: null,
+      refundDeadline: "2026-09-08T20:00:00.000Z",
+    }));
+    expect(disabled).toEqual(expect.objectContaining({
+      refundAvailable: false,
+      refundDeadline: null,
+    }));
   });
 
   it("requires the CONFIRMAR phrase before cancelling a ticket", async () => {

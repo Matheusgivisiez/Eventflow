@@ -331,6 +331,11 @@ model Event {
   allowTicketTransfer            Boolean   @default(true)
   ticketTransferLockTime         DateTime?
 
+  // Configurações de Reembolso solicitado pelo comprador. Desligado por padrão:
+  // o organizador decide por evento. Horas = prazo antes do início (null = até o início).
+  allowTicketRefund              Boolean   @default(false)
+  ticketRefundLockHours          Int?
+
   // Configurações de Liberação de QR Code
   qrCodeReleaseMinutesBeforeStart Int?      @default(60)
   qrCodeReleaseAt                DateTime?

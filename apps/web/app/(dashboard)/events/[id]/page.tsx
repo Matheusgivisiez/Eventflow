@@ -3,7 +3,7 @@
 import { useParams, useRouter } from "next/navigation";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ArrowLeft, Loader2, Save, Ticket, Trash2, Megaphone, Shield, Lock, QrCode, DoorOpen } from "lucide-react";
+import { ArrowLeft, Loader2, Save, Ticket, Trash2, Megaphone, Shield, Lock, QrCode, DoorOpen, RefreshCcw } from "lucide-react";
 import Link from "next/link";
 import { useEffect, memo, useState } from "react";
 import { useForm, Controller } from "react-hook-form";
@@ -43,6 +43,8 @@ const schema = z.object({
   feeAbsorbedByOrganizer: z.boolean().optional(),
   allowTicketTransfer: z.boolean().optional(),
   ticketTransferLockTime: z.string().optional(),
+  allowTicketRefund: z.boolean().optional(),
+  ticketRefundLockHours: z.number({ invalid_type_error: "Informe as horas." }).int("Use horas inteiras.").min(0, "Não pode ser negativo.").max(8760, "Máximo de 365 dias.").nullable().optional(),
   qrCodeReleaseMinutesBeforeStart: z.coerce.number().int().min(0).optional().nullable(),
   qrCodeReleaseAt: z.string().optional(),
   checkInOpensAt: z.string().optional(),
@@ -88,7 +90,7 @@ export default function EditEventPage() {
 
   const form = useForm<FormData>({
     resolver: zodResolver(schema),
-    defaultValues: { format: "IN_PERSON", status: "DRAFT", allowTicketTransfer: true }
+    defaultValues: { format: "IN_PERSON", status: "DRAFT", allowTicketTransfer: true, allowTicketRefund: false }
   });
 
   useEffect(() => {
@@ -120,6 +122,8 @@ export default function EditEventPage() {
         seoDescription: event.seoDescription ?? "",
         allowTicketTransfer: event.allowTicketTransfer ?? true,
         ticketTransferLockTime: isoToScheduleValue(event.ticketTransferLockTime),
+        allowTicketRefund: event.allowTicketRefund ?? false,
+        ticketRefundLockHours: event.ticketRefundLockHours ?? null,
         qrCodeReleaseMinutesBeforeStart: event.qrCodeReleaseMinutesBeforeStart ?? 60,
         qrCodeReleaseAt: isoToScheduleValue(event.qrCodeReleaseAt),
         checkInOpensAt: isoToScheduleValue(event.checkInOpensAt ?? event.startsAt),
@@ -152,6 +156,8 @@ export default function EditEventPage() {
     } else {
       payload.ticketTransferLockTime = scheduleValueToIso(data.ticketTransferLockTime);
     }
+    payload.allowTicketRefund = data.allowTicketRefund ?? false;
+    payload.ticketRefundLockHours = data.allowTicketRefund ? data.ticketRefundLockHours ?? null : undefined;
     payload.qrCodeReleaseAt = data.qrCodeReleaseAt ? scheduleValueToIso(data.qrCodeReleaseAt) : undefined;
     payload.checkInOpensAt = data.checkInOpensAt ? scheduleValueToIso(data.checkInOpensAt) : null;
     payload.checkInClosesAt = data.checkInClosesAt ? scheduleValueToIso(data.checkInClosesAt) : null;
@@ -373,7 +379,7 @@ export default function EditEventPage() {
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Shield className="h-4 w-4 text-primary" />
-                Segurança e Transferência
+                Segurança, Transferência e Reembolso
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-5">
@@ -411,6 +417,52 @@ export default function EditEventPage() {
                     type="datetime-local"
                     {...form.register("ticketTransferLockTime")}
                   />
+                </div>
+              )}
+
+              <hr className="border-border" />
+
+              {/* Reembolso */}
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <Label className="text-sm font-medium">Permitir reembolso</Label>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    O comprador pode cancelar o ingresso pelo site e pedir o dinheiro de volta
+                  </p>
+                </div>
+                <Controller
+                  control={form.control}
+                  name="allowTicketRefund"
+                  render={({ field }) => (
+                    <Switch
+                      checked={field.value ?? false}
+                      onCheckedChange={field.onChange}
+                    />
+                  )}
+                />
+              </div>
+
+              {form.watch("allowTicketRefund") === true && (
+                <div className="space-y-2 rounded-lg border bg-muted/30 p-3">
+                  <div className="flex items-center gap-2">
+                    <RefreshCcw className="h-3.5 w-3.5 text-muted-foreground" />
+                    <Label className="text-sm">Prazo do reembolso</Label>
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    Quantas horas antes do início os pedidos são encerrados. Deixe vazio para aceitar até o início do evento.
+                  </p>
+                  <Input
+                    type="number"
+                    min="0"
+                    step="1"
+                    placeholder="Ex.: 48"
+                    {...form.register("ticketRefundLockHours", {
+                      setValueAs: (value) => (value === "" || value === null || value === undefined ? null : Number(value))
+                    })}
+                  />
+                  {form.formState.errors.ticketRefundLockHours && (
+                    <p className="text-xs text-destructive">{form.formState.errors.ticketRefundLockHours.message}</p>
+                  )}
                 </div>
               )}
 

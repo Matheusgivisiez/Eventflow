@@ -49,6 +49,9 @@ type MyTicket = {
   qrCodeDataUrl?: string | null;
   qrCodeLocked?: boolean;
   qrCodeReleaseAt?: string | null;
+  refundAvailable?: boolean;
+  refundBlockedReason?: string | null;
+  refundDeadline?: string | null;
   event: {
     title: string;
     slug: string;
@@ -518,17 +521,29 @@ function EventTicketCard({
                 )}
               </div>
 
-              {ticket.status === "AVAILABLE" && (
+              {ticket.status === "AVAILABLE" && ticket.refundAvailable && (
                 <button
                   type="button"
-                  className="mt-3 flex min-h-11 w-full items-center justify-center gap-1.5 rounded-xl text-xs text-white/40 transition-colors hover:bg-rose-300/[0.06] hover:text-rose-200 disabled:opacity-50"
+                  className="mt-3 flex min-h-11 w-full flex-col items-center justify-center rounded-xl text-xs text-white/40 transition-colors hover:bg-rose-300/[0.06] hover:text-rose-200 disabled:opacity-50"
                   disabled={refundPending || Boolean(pendingTransfer)}
                   onClick={onRefund}
                   title={pendingTransfer ? "Cancele a transferência pendente antes de solicitar reembolso" : undefined}
                 >
-                  <RefreshCcw className="h-3.5 w-3.5" />
-                  Solicitar reembolso
+                  <span className="flex items-center gap-1.5">
+                    <RefreshCcw className="h-3.5 w-3.5" />
+                    Solicitar reembolso
+                  </span>
+                  {ticket.refundDeadline && (
+                    <span className="text-[11px] text-white/30">
+                      Disponível até {dateTime(ticket.refundDeadline)}
+                    </span>
+                  )}
                 </button>
+              )}
+              {ticket.status === "AVAILABLE" && !ticket.refundAvailable && ticket.refundBlockedReason && (
+                <p className="mt-3 flex min-h-11 items-center justify-center text-center text-[11px] text-white/30">
+                  {ticket.refundBlockedReason}
+                </p>
               )}
             </div>
           </div>

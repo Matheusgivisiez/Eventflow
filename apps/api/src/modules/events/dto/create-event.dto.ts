@@ -1,6 +1,6 @@
 import { EventFormat, EventStatus } from "@prisma/client";
 import { Type } from "class-transformer";
-import { IsArray, IsBoolean, IsDateString, IsEnum, IsInt, IsNotEmpty, IsOptional, IsString, Min, ValidateNested } from "class-validator";
+import { IsArray, IsBoolean, IsDateString, IsEnum, IsInt, IsNotEmpty, IsOptional, IsString, Max, Min, ValidateNested } from "class-validator";
 import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger";
 
 export class CreateEventFirstTicketDto {
@@ -170,6 +170,18 @@ export class CreateEventDto {
   @IsOptional()
   @IsBoolean()
   allowTicketTransfer?: boolean;
+
+  @ApiPropertyOptional({ description: "Permitir que o comprador solicite reembolso pelo site" })
+  @IsOptional()
+  @IsBoolean()
+  allowTicketRefund?: boolean;
+
+  @ApiPropertyOptional({ description: "Reembolso bloqueado quantas horas antes do início (null = até o início)", nullable: true })
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  @Max(8760)
+  ticketRefundLockHours?: number | null;
 
   @ApiPropertyOptional({ description: "Horário limite para transferências (ISO 8601)" })
   @IsOptional()

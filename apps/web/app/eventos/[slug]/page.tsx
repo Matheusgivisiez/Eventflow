@@ -60,6 +60,17 @@ export async function generateMetadata(
   };
 }
 
+function refundPolicyText(event: EventFlowEvent) {
+  if (!event.allowTicketRefund) {
+    return "este evento não oferece reembolso pelo site. Em caso de cancelamento ou adiamento, fale com o organizador.";
+  }
+  const hours = event.ticketRefundLockHours ?? 0;
+  if (hours === 0) {
+    return "você pode solicitar pelo site até o início do evento.";
+  }
+  return `você pode solicitar pelo site até ${hours}h antes do início do evento.`;
+}
+
 export default async function PublicEventPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
   const event = await getEvent(slug);
@@ -124,6 +135,10 @@ export default async function PublicEventPage({ params }: { params: Promise<{ sl
               <h2 className="text-xl font-bold tracking-tight">Sobre o Evento</h2>
               <p className="whitespace-pre-line break-words text-base leading-relaxed text-muted-foreground [overflow-wrap:anywhere]">
                 {event.description}
+              </p>
+              <p className="rounded-lg border bg-muted/30 p-3 text-sm text-muted-foreground">
+                <span className="font-medium text-foreground">Reembolso: </span>
+                {refundPolicyText(event)}
               </p>
             </section>
           }

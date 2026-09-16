@@ -17,6 +17,12 @@ import {
   getQrCodeReleaseTime,
   isQrCodeLocked,
 } from "../../common/utils/qr-code.utils";
+import {
+  getRefundBlockReason,
+  getRefundDeadline,
+} from "../../common/utils/refund-policy.utils";
+
+const TICKET_FONT_FAMILY = "DejaVu Sans, Arial, Helvetica, sans-serif";
 
 @Injectable()
 export class BuyerService {
@@ -101,6 +107,10 @@ export class BuyerService {
     return tickets.map(({ transfers, ...ticket }) => {
       const locked = isQrCodeLocked(ticket.event);
       const releaseTime = getQrCodeReleaseTime(ticket.event);
+      const refundBlockedReason =
+        ticket.status === TicketStatus.AVAILABLE
+          ? getRefundBlockReason(ticket.event, now)
+          : null;
 
       return {
         ...ticket,
@@ -109,6 +119,12 @@ export class BuyerService {
         signature: locked ? null : ticket.signature,
         qrCodeLocked: locked,
         qrCodeReleaseAt: releaseTime?.toISOString() ?? null,
+        refundAvailable:
+          ticket.status === TicketStatus.AVAILABLE && refundBlockedReason === null,
+        refundBlockedReason,
+        refundDeadline: ticket.event.allowTicketRefund
+          ? getRefundDeadline(ticket.event).toISOString()
+          : null,
         pendingTransfer: transfers[0]
           ? {
               id: transfers[0].id,
@@ -174,6 +190,11 @@ export class BuyerService {
       throw new BadRequestException(
         "Somente ingressos disponiveis podem solicitar reembolso.",
       );
+    }
+
+    const refundBlockedReason = getRefundBlockReason(ticket.event);
+    if (refundBlockedReason) {
+      throw new BadRequestException(refundBlockedReason);
     }
 
     await this.prisma.$transaction(async (tx) => {
@@ -393,8 +414,8 @@ export class BuyerService {
     <path d="M33 33 H82 C88 33 91 33 95 32 C91 45 83 51 70 51 H29 C28 43 29 37 33 33 Z" fill="#743cff"/>
     <path d="M29 59 H82 C78 72 70 78 57 78 H29 Z" fill="#9140ff"/>
     <path d="M29 86 H73 C69 99 61 105 48 105 H29 Z" fill="#e84791"/>
-    <text x="142" y="48" font-family="Arial, Helvetica, sans-serif" font-size="34" font-weight="800" fill="#171321">event</text>
-    <text x="142" y="88" font-family="Arial, Helvetica, sans-serif" font-size="34" font-weight="800" fill="#171321">flow</text>
+    <text x="142" y="48" font-family="${TICKET_FONT_FAMILY}" font-size="34" font-weight="800" fill="#171321">event</text>
+    <text x="142" y="88" font-family="${TICKET_FONT_FAMILY}" font-size="34" font-weight="800" fill="#171321">flow</text>
   </g>
   <g filter="url(#shadow)">
     <rect x="96" y="262" width="1048" height="1268" rx="44" fill="url(#ticket)"/>
@@ -402,11 +423,11 @@ export class BuyerService {
     <circle cx="1102" cy="896" r="32" fill="url(#page)"/>
   </g>
   <g transform="translate(148 330)">
-    <text x="0" y="0" font-family="Arial, Helvetica, sans-serif" font-size="22" font-weight="800" fill="#ffffff" opacity="0.72" letter-spacing="7">EVENTFLOW PASS</text>
+    <text x="0" y="0" font-family="${TICKET_FONT_FAMILY}" font-size="22" font-weight="800" fill="#ffffff" opacity="0.72" letter-spacing="7">EVENTFLOW PASS</text>
     <rect x="742" y="-36" width="154" height="54" rx="27" fill="#ffffff" opacity="0.1" stroke="#ffffff" stroke-opacity="0.26"/>
-    <text x="819" y="-2" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="20" font-weight="800" fill="#cbfff1">${this.escapeXml(status)}</text>
+    <text x="819" y="-2" text-anchor="middle" font-family="${TICKET_FONT_FAMILY}" font-size="20" font-weight="800" fill="#cbfff1">${this.escapeXml(status)}</text>
 
-    ${eventLines.map((line, index) => `<text x="0" y="${126 + index * 82}" font-family="Arial, Helvetica, sans-serif" font-size="68" font-weight="900" fill="#ffffff">${this.escapeXml(line)}</text>`).join("")}
+    ${eventLines.map((line, index) => `<text x="0" y="${126 + index * 82}" font-family="${TICKET_FONT_FAMILY}" font-size="68" font-weight="900" fill="#ffffff">${this.escapeXml(line)}</text>`).join("")}
 
     <g transform="translate(0 360)">
       ${this.infoBox(0, 0, "DATA", date)}
@@ -416,22 +437,22 @@ export class BuyerService {
 
     <line x1="0" y1="562" x2="896" y2="562" stroke="#ffffff" stroke-opacity="0.24" stroke-width="2" stroke-dasharray="10 10"/>
 
-    <text x="0" y="650" font-family="Arial, Helvetica, sans-serif" font-size="22" font-weight="800" fill="#ffffff" opacity="0.62" letter-spacing="5">PARTICIPANTE</text>
-    <text x="0" y="706" font-family="Arial, Helvetica, sans-serif" font-size="44" font-weight="900" fill="#ffffff">${this.escapeXml(ticket.attendeeName)}</text>
-    <text x="0" y="746" font-family="Arial, Helvetica, sans-serif" font-size="24" fill="#ffffff" opacity="0.68">${this.escapeXml(ticket.attendeeEmail)}</text>
+    <text x="0" y="650" font-family="${TICKET_FONT_FAMILY}" font-size="22" font-weight="800" fill="#ffffff" opacity="0.62" letter-spacing="5">PARTICIPANTE</text>
+    <text x="0" y="706" font-family="${TICKET_FONT_FAMILY}" font-size="44" font-weight="900" fill="#ffffff">${this.escapeXml(ticket.attendeeName)}</text>
+    <text x="0" y="746" font-family="${TICKET_FONT_FAMILY}" font-size="24" fill="#ffffff" opacity="0.68">${this.escapeXml(ticket.attendeeEmail)}</text>
 
-    <text x="0" y="838" font-family="Arial, Helvetica, sans-serif" font-size="22" font-weight="800" fill="#ffffff" opacity="0.62" letter-spacing="5">LOCAL</text>
-    ${venueLines.map((line, index) => `<text x="0" y="${894 + index * 34}" font-family="Arial, Helvetica, sans-serif" font-size="28" fill="#ffffff" opacity="0.9">${this.escapeXml(line)}</text>`).join("")}
+    <text x="0" y="838" font-family="${TICKET_FONT_FAMILY}" font-size="22" font-weight="800" fill="#ffffff" opacity="0.62" letter-spacing="5">LOCAL</text>
+    ${venueLines.map((line, index) => `<text x="0" y="${894 + index * 34}" font-family="${TICKET_FONT_FAMILY}" font-size="28" fill="#ffffff" opacity="0.9">${this.escapeXml(line)}</text>`).join("")}
 
     <g transform="translate(582 620)">
       <rect x="0" y="0" width="314" height="314" rx="30" fill="#ffffff"/>
       <image href="${qr}" x="26" y="26" width="262" height="262"/>
-      <text x="157" y="368" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="24" font-weight="900" fill="#ffffff" letter-spacing="3">${this.escapeXml(ticket.shortCode)}</text>
+      <text x="157" y="368" text-anchor="middle" font-family="${TICKET_FONT_FAMILY}" font-size="24" font-weight="900" fill="#ffffff" letter-spacing="3">${this.escapeXml(ticket.shortCode)}</text>
     </g>
 
     <rect x="0" y="1050" width="896" height="92" rx="22" fill="#fff8e8"/>
-    <text x="32" y="1086" font-family="Arial, Helvetica, sans-serif" font-size="22" font-weight="800" fill="#3b2d00">Apresente este QR code na entrada.</text>
-    <text x="32" y="1120" font-family="Arial, Helvetica, sans-serif" font-size="18" fill="#685b35">Este ingresso e pessoal e sera validado uma unica vez.</text>
+    <text x="32" y="1086" font-family="${TICKET_FONT_FAMILY}" font-size="22" font-weight="800" fill="#3b2d00">Apresente este QR code na entrada.</text>
+    <text x="32" y="1120" font-family="${TICKET_FONT_FAMILY}" font-size="18" fill="#685b35">Este ingresso e pessoal e sera validado uma unica vez.</text>
   </g>
 </svg>`.trim();
   }
@@ -440,8 +461,8 @@ export class BuyerService {
     return `
       <g transform="translate(${x} ${y})">
         <rect width="272" height="118" rx="20" fill="#ffffff" opacity="0.09" stroke="#ffffff" stroke-opacity="0.16"/>
-        <text x="24" y="42" font-family="Arial, Helvetica, sans-serif" font-size="18" font-weight="800" fill="#ffffff" opacity="0.62">${this.escapeXml(label)}</text>
-        <text x="24" y="82" font-family="Arial, Helvetica, sans-serif" font-size="24" font-weight="900" fill="#ffffff">${this.escapeXml(this.truncate(value, 18))}</text>
+        <text x="24" y="42" font-family="${TICKET_FONT_FAMILY}" font-size="18" font-weight="800" fill="#ffffff" opacity="0.62">${this.escapeXml(label)}</text>
+        <text x="24" y="82" font-family="${TICKET_FONT_FAMILY}" font-size="24" font-weight="900" fill="#ffffff">${this.escapeXml(this.truncate(value, 18))}</text>
       </g>`;
   }
 
