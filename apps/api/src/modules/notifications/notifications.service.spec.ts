@@ -27,7 +27,14 @@ const purchase = {
   buyerName: "Comprador Convidado",
   eventTitle: "Hallowparty",
   eventStartsAt: new Date("2026-10-22T23:00:00.000Z"),
-  ticketCount: 2
+  eventVenue: "Rua das Flores, 100, Sao Paulo",
+  ticketCount: 2,
+  qrCodeLocked: false,
+  qrCodeReleaseAt: null,
+  tickets: [
+    { id: "ticket-1", attendeeName: "Comprador Convidado", ticketTypeName: "Inteira", shortCode: "TICKET0001" },
+    { id: "ticket-2", attendeeName: "Convidado 2", ticketTypeName: "Inteira", shortCode: "TICKET0002" }
+  ]
 };
 
 describe("NotificationsService purchase confirmation", () => {

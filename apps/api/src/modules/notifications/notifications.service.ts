@@ -28,7 +28,16 @@ export type PurchaseApprovedInput = {
   buyerName: string;
   eventTitle: string;
   eventStartsAt: Date;
+  eventVenue: string;
   ticketCount: number;
+  qrCodeLocked: boolean;
+  qrCodeReleaseAt: Date | null;
+  tickets: Array<{
+    id: string;
+    attendeeName: string;
+    ticketTypeName: string;
+    shortCode: string;
+  }>;
 };
 
 /** Prefix of the purchase confirmation dedupe key: `purchase-confirmed:<orderId>`. */
@@ -253,10 +262,24 @@ export class NotificationsService {
       buyerName: input.buyerName,
       eventTitle: input.eventTitle,
       eventStartsAt: input.eventStartsAt,
+      eventVenue: input.eventVenue,
       orderId: input.orderId,
       ticketCount: input.ticketCount,
       orderUrl: this.orderUrl(input.orderId, input.orderAccessToken),
-      createAccountUrl: this.appUrl("/register")
+      createAccountUrl: this.appUrl("/register"),
+      qrCodeLocked: input.qrCodeLocked,
+      qrCodeReleaseAt: input.qrCodeReleaseAt,
+      logoLightUrl: this.appUrl("/images/eventflow-logo-purple-black.png"),
+      logoDarkUrl: this.appUrl("/images/eventflow-logo-purple-white.png"),
+      qrLockedImageUrl: this.appUrl("/images/eventflow-ticket-qr-locked.png"),
+      assetsBaseUrl: this.appUrl("/images/email"),
+      tickets: input.tickets.map((ticket) => ({
+        id: ticket.id,
+        attendeeName: ticket.attendeeName,
+        ticketTypeName: ticket.ticketTypeName,
+        shortCode: ticket.shortCode,
+        pdfUrl: this.ticketPdfUrl(input.orderId, ticket.id, input.orderAccessToken)
+      }))
     });
 
     const payload = {
@@ -310,11 +333,30 @@ export class NotificationsService {
     return `${base}${path}`;
   }
 
+  private apiUrl(path: string) {
+    const base = (this.config.get<string>("API_URL") ?? "http://localhost:3001").replace(/\/+$/, "");
+    return `${base}${path}`;
+  }
+
   private orderUrl(orderId: string, accessToken?: string | null) {
     const params = new URLSearchParams({ orderId });
     if (accessToken) {
       params.set("accessToken", accessToken);
     }
     return `${this.appUrl("/checkout/success")}?${params.toString()}`;
+  }
+
+  /**
+   * Guest-safe PDF link for a single ticket, authorized by the order's
+   * access token (see CheckoutService.ticketPdf) — never a session, so it
+   * still works for a buyer who never created an account.
+   */
+  private ticketPdfUrl(orderId: string, ticketId: string, accessToken?: string | null) {
+    const params = new URLSearchParams();
+    if (accessToken) {
+      params.set("accessToken", accessToken);
+    }
+    const query = params.toString();
+    return `${this.apiUrl(`/checkout/order/${orderId}/tickets/${ticketId}/pdf`)}${query ? `?${query}` : ""}`;
   }
 }

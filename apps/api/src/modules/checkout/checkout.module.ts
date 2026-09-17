@@ -8,11 +8,12 @@ import { CouponsModule } from "../coupons/coupons.module";
 import { CacheModule } from "../cache/cache.module";
 import { NotificationsModule } from "../notifications/notifications.module";
 import { PaymentsModule } from "../payments/payments.module";
+import { BuyerModule } from "../buyer/buyer.module";
 
 import { PrismaModule } from "../../prisma/prisma.module";
 
 @Module({
-  imports: [PrismaModule, CacheModule, CouponsModule, PaymentsModule, NotificationsModule],
+  imports: [PrismaModule, CacheModule, CouponsModule, PaymentsModule, NotificationsModule, BuyerModule],
   controllers: [CheckoutController],
   providers: [CheckoutService, CreateCheckoutUseCase, ReservationExpirationService],
   exports: [CheckoutService]

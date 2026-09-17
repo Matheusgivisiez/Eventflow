@@ -1,4 +1,4 @@
-import { UnauthorizedException } from "@nestjs/common";
+import { NotFoundException, UnauthorizedException } from "@nestjs/common";
 import { PaymentMethod, PaymentStatus } from "@prisma/client";
 import { CheckoutService } from "./checkout.service";
 
@@ -46,6 +46,9 @@ function createService() {
       findUnique: jest.fn(),
       update: jest.fn()
     },
+    ticket: {
+      findFirst: jest.fn()
+    },
     ticketType: {
       update: jest.fn()
     },
@@ -67,11 +70,55 @@ function createService() {
   const cache = { get: jest.fn().mockResolvedValue(null), set: jest.fn().mockResolvedValue(undefined) };
   const config = { get: jest.fn((key: string) => key === "PAYMENT_SIMULATION_ENABLED" ? true : undefined) };
   const notifications = { purchaseConfirmationStatus: jest.fn().mockResolvedValue(null) };
-  const service = new CheckoutService(prisma as any, createCheckout as any, payments as any, cache as any, config as any, notifications as any);
-  return { service, prisma, createCheckout, payments, cache, config, notifications };
+  const buyer = { renderTicketPdfFor: jest.fn().mockResolvedValue(Buffer.from("pdf")) };
+  const service = new CheckoutService(prisma as any, createCheckout as any, payments as any, cache as any, config as any, notifications as any, buyer as any);
+  return { service, prisma, createCheckout, payments, cache, config, notifications, buyer };
 }
 
 describe("CheckoutService", () => {
+
+  describe("ticketPdf (guest download, order-token scoped)", () => {
+    it("rejects a missing order", async () => {
+      const { service, prisma } = createService();
+      prisma.order.findUnique.mockResolvedValue(null);
+
+      await expect(service.ticketPdf("order-1", "ticket-1", "public-token")).rejects.toThrow(NotFoundException);
+    });
+
+    it("rejects a missing or wrong access token", async () => {
+      const { service, prisma } = createService();
+      prisma.order.findUnique.mockResolvedValue({ orderAccessToken: "public-token" });
+
+      await expect(service.ticketPdf("order-1", "ticket-1")).rejects.toThrow(UnauthorizedException);
+      await expect(service.ticketPdf("order-1", "ticket-1", "wrong-token")).rejects.toThrow(UnauthorizedException);
+    });
+
+    it("rejects a ticket that does not belong to this order", async () => {
+      const { service, prisma } = createService();
+      prisma.order.findUnique.mockResolvedValue({ orderAccessToken: "public-token" });
+      prisma.ticket.findFirst.mockResolvedValue(null);
+
+      await expect(service.ticketPdf("order-1", "ticket-from-another-order", "public-token")).rejects.toThrow(
+        NotFoundException
+      );
+      expect(prisma.ticket.findFirst).toHaveBeenCalledWith(
+        expect.objectContaining({ where: { id: "ticket-from-another-order", orderId: "order-1" } })
+      );
+    });
+
+    it("renders the ticket once the order token and ticket ownership check out", async () => {
+      const { service, prisma, buyer } = createService();
+      prisma.order.findUnique.mockResolvedValue({ orderAccessToken: "public-token" });
+      const ticket = { id: "ticket-1", orderId: "order-1", event: {}, ticketType: { name: "Inteira" } };
+      prisma.ticket.findFirst.mockResolvedValue(ticket);
+
+      const result = await service.ticketPdf("order-1", "ticket-1", "public-token");
+
+      expect(buyer.renderTicketPdfFor).toHaveBeenCalledWith(ticket);
+      expect(result).toEqual(Buffer.from("pdf"));
+    });
+  });
+
   beforeEach(() => {
     jest.clearAllMocks();
   });

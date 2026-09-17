@@ -247,7 +247,35 @@ export class BuyerService {
 
   async ticketPdf(userId: string, email: string | null, ticketId: string) {
     const ticket = await this.findOwnedTicket(userId, email, ticketId);
+    return this.renderTicketPdfFor(ticket);
+  }
 
+  /**
+   * Renders a ticket's PDF given an already-authorized ticket record.
+   * Callers are responsible for proving the requester may see this ticket:
+   * findOwnedTicket() covers the logged-in path, and CheckoutService's
+   * order-access-token check covers the guest (order-page / e-mail) path.
+   */
+  async renderTicketPdfFor(ticket: {
+    event: {
+      title: string;
+      startsAt: Date;
+      format?: string | null;
+      address?: string | null;
+      city?: string | null;
+      state?: string | null;
+      qrCodeReleaseAt?: Date | string | null;
+      qrCodeReleaseMinutesBeforeStart?: number | null;
+    };
+    ticketType: { name: string };
+    attendeeName: string;
+    attendeeEmail: string;
+    status: TicketStatus;
+    uuid: string;
+    orderId: string;
+    signature: string | null;
+    qrCodeDataUrl: string | null;
+  }) {
     if (isQrCodeLocked(ticket.event)) {
       throw new BadRequestException(
         "O QR Code ainda não está disponível. Aguarde a liberação próxima ao evento.",

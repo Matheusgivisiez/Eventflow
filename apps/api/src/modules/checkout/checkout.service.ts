@@ -7,6 +7,7 @@ import { getQrCodeReleaseTime, isQrCodeLocked } from "../../common/utils/qr-code
 import { PrismaService } from "../../prisma/prisma.service";
 import { CacheService } from "../cache/cache.service";
 import { NotificationsService } from "../notifications/notifications.service";
+import { BuyerService } from "../buyer/buyer.service";
 import { PaymentsService } from "../payments/payments.service";
 import { CreateCheckoutDto } from "./dto/create-checkout.dto";
 import { CreateCheckoutUseCase } from "./use-cases/create-checkout.use-case";
@@ -21,7 +22,8 @@ export class CheckoutService {
     private readonly payments: PaymentsService,
     private readonly cache: CacheService,
     private readonly config: ConfigService,
-    private readonly notifications: NotificationsService
+    private readonly notifications: NotificationsService,
+    private readonly buyer: BuyerService
   ) {}
 
   async create(slug: string, dto: CreateCheckoutDto, user?: RequestUser) {
@@ -187,6 +189,35 @@ export class CheckoutService {
       providerRef: `sandbox:${order.id}`,
     });
     return { status: PaymentStatus.PAID };
+  }
+
+  /**
+   * Guest-safe ticket PDF download: proven by the order's access token
+   * (same one used by the order page and the purchase e-mail), never by a
+   * logged-in session. Scoped to `orderId` so a valid token for one order
+   * can never be used to fetch another order's ticket by guessing an id.
+   */
+  async ticketPdf(orderId: string, ticketId: string, accessToken?: string) {
+    const order = await this.prisma.order.findUnique({
+      where: { id: orderId },
+      select: { orderAccessToken: true }
+    });
+    if (!order) {
+      throw new NotFoundException("Pedido nao encontrado.");
+    }
+    if (!order.orderAccessToken || !accessToken || order.orderAccessToken !== accessToken) {
+      throw new UnauthorizedException("Token de acesso do pedido invalido.");
+    }
+
+    const ticket = await this.prisma.ticket.findFirst({
+      where: { id: ticketId, orderId },
+      include: { event: true, ticketType: true }
+    });
+    if (!ticket) {
+      throw new NotFoundException("Ingresso nao encontrado.");
+    }
+
+    return this.buyer.renderTicketPdfFor(ticket);
   }
 
   private async cancelOrderAfterProviderFailure(orderId: string) {

@@ -11,6 +11,7 @@ import { PaymentProvider, PaymentProviderId } from "./payment-provider";
 import { BusinessMetricsService } from "../observability/business-metrics.service";
 import { NotificationsService } from "../notifications/notifications.service";
 import { GoogleWalletService } from "../wallet/google-wallet.service";
+import { getQrCodeReleaseTime, isQrCodeLocked } from "../../common/utils/qr-code.utils";
 
 const VALID_TRANSITIONS: Record<PaymentStatus, PaymentStatus[]> = {
   [PaymentStatus.PENDING]: [PaymentStatus.PAID, PaymentStatus.CANCELED],
@@ -328,7 +329,26 @@ export class PaymentsService {
       const order = await this.prisma.order.findUnique({
         where: { id: orderId },
         include: {
-          event: { select: { title: true, startsAt: true } },
+          event: {
+            select: {
+              title: true,
+              startsAt: true,
+              format: true,
+              address: true,
+              city: true,
+              state: true,
+              qrCodeReleaseAt: true,
+              qrCodeReleaseMinutesBeforeStart: true
+            }
+          },
+          tickets: {
+            select: {
+              id: true,
+              uuid: true,
+              attendeeName: true,
+              ticketType: { select: { name: true } }
+            }
+          },
           _count: { select: { tickets: true } }
         }
       });
@@ -336,6 +356,12 @@ export class PaymentsService {
       if (!order || order.status !== PaymentStatus.PAID) {
         return;
       }
+
+      const eventVenue =
+        order.event.format === "ONLINE"
+          ? "Online"
+          : [order.event.address, order.event.city, order.event.state].filter(Boolean).join(", ") ||
+            "Local a confirmar";
 
       await this.notifications.sendPurchaseApproved({
         userId: order.userId ?? undefined,
@@ -346,7 +372,16 @@ export class PaymentsService {
         buyerName: order.buyerName,
         eventTitle: order.event.title,
         eventStartsAt: order.event.startsAt,
-        ticketCount: order._count.tickets
+        eventVenue,
+        ticketCount: order._count.tickets,
+        qrCodeLocked: isQrCodeLocked(order.event),
+        qrCodeReleaseAt: getQrCodeReleaseTime(order.event),
+        tickets: order.tickets.map((ticket) => ({
+          id: ticket.id,
+          attendeeName: ticket.attendeeName,
+          ticketTypeName: ticket.ticketType.name,
+          shortCode: ticket.uuid.replace(/-/g, "").slice(0, 10).toUpperCase()
+        }))
       });
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
