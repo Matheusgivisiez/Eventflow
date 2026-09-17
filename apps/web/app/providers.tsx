@@ -2,6 +2,7 @@
 
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { ThemeProvider } from "next-themes";
+import { usePathname } from "next/navigation";
 import { ReactNode, useEffect, useState } from "react";
 import { api } from "@/lib/api";
 import { useAuthHydration } from "@/hooks/use-auth-hydration";
@@ -9,12 +10,14 @@ import { useAuthStore } from "@/stores/auth-store";
 
 function AuthSessionBootstrap() {
   const hydrated = useAuthHydration();
+  const pathname = usePathname();
   const user = useAuthStore((state) => state.user);
   const updateUser = useAuthStore((state) => state.updateUser);
   const [restored, setRestored] = useState(false);
 
   useEffect(() => {
     if (!hydrated || restored || !user) return;
+    if (pathname === "/checkout/success") return;
     setRestored(true);
 
     // This also refreshes an expired access token through api(), using the
@@ -22,7 +25,7 @@ function AuthSessionBootstrap() {
     void api<typeof user>("/auth/me")
       .then((currentUser) => updateUser(currentUser))
       .catch(() => undefined);
-  }, [hydrated, restored, updateUser, user]);
+  }, [hydrated, pathname, restored, updateUser, user]);
 
   return null;
 }

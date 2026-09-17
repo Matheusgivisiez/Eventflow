@@ -133,7 +133,10 @@ test.describe("Fluxo de compra", () => {
       window.localStorage.setItem(
         "eventflow-session",
         JSON.stringify({
-          state: authSession,
+          state: {
+            ...authSession,
+            accessToken: "stale-access-token-from-before-payment-redirect"
+          },
           version: 0
         })
       );

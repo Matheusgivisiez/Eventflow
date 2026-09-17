@@ -78,7 +78,8 @@ function SuccessContent() {
   // to the login screen and loses the ticket they just paid for.
   const hasHydratedAuth = useAuthHydration();
   const sessionAccessToken = useAuthStore((state) => state.accessToken);
-  const isAuthenticated = hasHydratedAuth && Boolean(sessionAccessToken);
+  const sessionUser = useAuthStore((state) => state.user);
+  const isAuthenticated = hasHydratedAuth && Boolean(sessionAccessToken && sessionUser);
   const [simulationRequested, setSimulationRequested] = useState(false);
   const [redirectCountdown, setRedirectCountdown] = useState<number | null>(
     null,
