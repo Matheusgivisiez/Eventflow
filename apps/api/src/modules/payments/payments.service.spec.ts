@@ -267,7 +267,20 @@ function createPaidOrder(overrides: Record<string, any> = {}) {
     buyerEmail: "buyer@example.com",
     buyerPhone: "11999999999",
     orderAccessToken: "order-access-token",
-    event: { title: "Event Flow Conf", startsAt: new Date("2026-10-22T23:00:00.000Z") },
+    event: {
+      title: "Event Flow Conf",
+      startsAt: new Date("2026-10-22T23:00:00.000Z"),
+      format: "IN_PERSON",
+      address: "Rua das Flores, 123",
+      city: "Salvador",
+      state: "BA",
+      qrCodeReleaseAt: null,
+      qrCodeReleaseMinutesBeforeStart: null
+    },
+    tickets: [
+      { id: "ticket-1", uuid: "aaaaaaaa-bbbb-cccc-dddd-111111111111", attendeeName: "Riquelmy Vasconcelos", ticketType: { name: "Pista" } },
+      { id: "ticket-2", uuid: "aaaaaaaa-bbbb-cccc-dddd-222222222222", attendeeName: "Maria Souza", ticketType: { name: "Pista" } }
+    ],
     _count: { tickets: 2 },
     ...overrides
   };
@@ -294,8 +307,15 @@ describe("PaymentsService purchase confirmation", () => {
         email: "buyer@example.com",
         buyerName: "Comprador Convidado",
         eventTitle: "Event Flow Conf",
+        eventVenue: "Rua das Flores, 123, Salvador, BA",
         orderAccessToken: "order-access-token",
-        ticketCount: 2
+        ticketCount: 2,
+        qrCodeLocked: false,
+        qrCodeReleaseAt: null,
+        tickets: [
+          { id: "ticket-1", attendeeName: "Riquelmy Vasconcelos", ticketTypeName: "Pista", shortCode: "AAAAAAAABB" },
+          { id: "ticket-2", attendeeName: "Maria Souza", ticketTypeName: "Pista", shortCode: "AAAAAAAABB" }
+        ]
       })
     );
   });
