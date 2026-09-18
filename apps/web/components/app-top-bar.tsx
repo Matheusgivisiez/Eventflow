@@ -58,7 +58,7 @@ export function AppTopBar({
 
   const navItems = [
     {
-      href: "/#eventos",
+      href: "/",
       label: "Explorar",
       icon: Compass,
       active: pathname === "/"

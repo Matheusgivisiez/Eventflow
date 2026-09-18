@@ -39,7 +39,7 @@ export function getMobileAccountNavItems(
   return [
     {
       id: "explore",
-      href: "/#eventos",
+      href: "/",
       label: "Explorar",
       ariaLabel: "Explorar eventos",
       isActive: pathname === "/"
