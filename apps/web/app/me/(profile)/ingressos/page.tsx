@@ -223,6 +223,8 @@ function eventLocation(ticket: MyTicket) {
 type TicketShape = {
   w: number;
   h: number;
+  /** vertical: picotado entre conteúdo e canhoto (desktop); horizontal: entre topo e rodapé (celular) */
+  mode: "vertical" | "horizontal";
   divider: number;
   radius: number;
   notch: number;
@@ -230,15 +232,36 @@ type TicketShape = {
 };
 
 /**
- * Contorno do bilhete: retângulo arredondado com 4 recortes semicirculares
- * (meio das laterais + topo/base da linha picotada). A borda acompanha a curva.
+ * Contorno do bilhete com recortes semicirculares. No desktop: meio das
+ * laterais + topo/base da linha picotada. No celular: as duas laterais, na
+ * altura do picotado horizontal. A borda acompanha cada curva.
  */
-function ticketPath({ w, h, divider, radius: r, notch: d, sideNotch: n }: TicketShape) {
+function ticketPath({ w, h, mode, divider, radius: r, notch: d, sideNotch: n }: TicketShape) {
   const i = 0.75;
   const L = i;
   const T = i;
   const R = w - i;
   const B = h - i;
+
+  if (mode === "horizontal") {
+    return [
+      `M ${L + r} ${T}`,
+      `H ${R - r}`,
+      `A ${r} ${r} 0 0 1 ${R} ${T + r}`,
+      `V ${divider - d}`,
+      `A ${d} ${d} 0 0 0 ${R} ${divider + d}`,
+      `V ${B - r}`,
+      `A ${r} ${r} 0 0 1 ${R - r} ${B}`,
+      `H ${L + r}`,
+      `A ${r} ${r} 0 0 1 ${L} ${B - r}`,
+      `V ${divider + d}`,
+      `A ${d} ${d} 0 0 0 ${L} ${divider - d}`,
+      `V ${T + r}`,
+      `A ${r} ${r} 0 0 1 ${L + r} ${T}`,
+      "Z",
+    ].join(" ");
+  }
+
   const cy = h / 2;
   return [
     `M ${L + r} ${T}`,
@@ -265,24 +288,25 @@ function ticketPath({ w, h, divider, radius: r, notch: d, sideNotch: n }: Ticket
 function useTicketShape() {
   const ticketRef = useRef<HTMLButtonElement>(null);
   const stubRef = useRef<HTMLSpanElement>(null);
+  const holderRef = useRef<HTMLSpanElement>(null);
   const [shape, setShape] = useState<TicketShape | null>(null);
 
   useLayoutEffect(() => {
     const ticket = ticketRef.current;
     const stub = stubRef.current;
-    if (!ticket || !stub) return;
+    const holder = holderRef.current;
+    if (!ticket || !stub || !holder) return;
 
     const update = () => {
-      const w = ticket.offsetWidth;
-      const h = ticket.offsetHeight;
-      const compact = w < 560;
+      const desktop = window.matchMedia("(min-width: 640px)").matches;
       setShape({
-        w,
-        h,
-        divider: stub.offsetLeft,
-        radius: compact ? 18 : 22,
-        notch: compact ? 8 : 10,
-        sideNotch: compact ? 9 : 12,
+        w: ticket.offsetWidth,
+        h: ticket.offsetHeight,
+        mode: desktop ? "vertical" : "horizontal",
+        divider: desktop ? stub.offsetLeft : holder.offsetTop,
+        radius: desktop ? 22 : 20,
+        notch: desktop ? 10 : 11,
+        sideNotch: desktop ? 12 : 11,
       });
     };
 
@@ -292,7 +316,7 @@ function useTicketShape() {
     return () => observer.disconnect();
   }, []);
 
-  return { ticketRef, stubRef, shape };
+  return { ticketRef, stubRef, holderRef, shape };
 }
 
 /** Separa um sufixo entre colchetes do título, ex.: "Show [DADOS DEMONSTRATIVOS]". */
@@ -373,7 +397,7 @@ function EventTicketCard({
   const detailsPanelId = `ticket-details-${ticket.id}`;
   const topBadgeLabel = `Ingresso ${cfg.label}`;
   const TopBadgeIcon = ticket.status === "AVAILABLE" ? Sparkles : StatusIcon;
-  const { ticketRef, stubRef, shape } = useTicketShape();
+  const { ticketRef, stubRef, holderRef, shape } = useTicketShape();
   const [titleMain, titleTag] = splitEventTitle(ticket.event.title);
   const gradientId = `ticket-${useId().replace(/:/g, "")}`;
   const stubLabel =
@@ -393,7 +417,7 @@ function EventTicketCard({
           aria-expanded={expanded}
           aria-label={`${expanded ? "Recolher" : "Abrir"} ingresso de ${ticket.event.title}`}
           onClick={onToggleDetails}
-          className={`relative isolate z-10 grid min-h-[164px] grid-cols-[96px_minmax(0,1fr)_88px] rounded-[26px] text-left text-[#f7f5ff] transition-[margin,width] duration-300 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-violet-400 sm:min-h-[216px] sm:grid-cols-[172px_minmax(0,1fr)_160px] ${
+          className={`relative isolate z-10 grid grid-cols-[104px_minmax(0,1fr)_auto] rounded-[22px] text-left text-[#f7f5ff] transition-[margin,width] duration-300 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-violet-400/70 sm:min-h-[216px] sm:grid-cols-[172px_minmax(0,1fr)_160px] sm:grid-rows-[1fr_auto] ${
             expanded
               ? "mx-2.5 w-[calc(100%-20px)] sm:mx-6 sm:w-[calc(100%-48px)]"
               : "w-full"
@@ -424,25 +448,38 @@ function EventTicketCard({
                 stroke={`url(#${gradientId}-stroke)`}
                 strokeWidth="1.5"
               />
-              <line
-                x1={shape.divider}
-                y1={shape.notch + 8}
-                x2={shape.divider}
-                y2={shape.h - shape.notch - 8}
-                stroke="rgba(255,255,255,0.22)"
-                strokeWidth="1.2"
-                strokeDasharray="4 5"
-              />
+              {shape.mode === "vertical" ? (
+                <line
+                  x1={shape.divider}
+                  y1={shape.notch + 8}
+                  x2={shape.divider}
+                  y2={shape.h - shape.notch - 8}
+                  stroke="rgba(255,255,255,0.22)"
+                  strokeWidth="1.2"
+                  strokeDasharray="4 5"
+                />
+              ) : (
+                <line
+                  x1={shape.notch + 8}
+                  y1={shape.divider}
+                  x2={shape.w - shape.notch - 8}
+                  y2={shape.divider}
+                  stroke="rgba(255,255,255,0.22)"
+                  strokeWidth="1.2"
+                  strokeDasharray="4 5"
+                />
+              )}
             </svg>
           )}
 
-          <span className="relative m-2.5 overflow-hidden rounded-[12px] border border-white/10 bg-[#211c38] shadow-[0_12px_30px_rgba(0,0,0,0.45)] sm:m-4 sm:rounded-[16px]">
+          {/* capa */}
+          <span className="relative col-start-1 row-start-1 m-3 min-h-[124px] overflow-hidden rounded-[12px] border border-white/10 bg-[#211c38] shadow-[0_12px_30px_rgba(0,0,0,0.45)] sm:row-span-2 sm:m-4 sm:min-h-0 sm:rounded-[16px]">
             {bannerUrl ? (
               <Image
                 src={bannerUrl}
                 alt={`Capa do evento ${ticket.event.title}`}
                 fill
-                sizes="(min-width: 640px) 140px, 76px"
+                sizes="(min-width: 640px) 140px, 80px"
                 className="object-cover transition-transform duration-500 group-hover:scale-[1.03]"
               />
             ) : (
@@ -452,9 +489,10 @@ function EventTicketCard({
             )}
           </span>
 
-          <span className="flex min-w-0 flex-col py-3 pl-1 pr-3 sm:py-4 sm:pl-2 sm:pr-6">
-            <span className="flex flex-wrap items-center justify-between gap-2">
-              <span className="inline-flex items-center gap-1.5 text-[9px] font-medium uppercase tracking-[0.14em] text-white/75 sm:gap-2 sm:text-[12px]">
+          {/* dados do evento */}
+          <span className="col-span-2 col-start-2 row-start-1 flex min-w-0 flex-col py-3.5 pr-4 sm:col-span-1 sm:pb-2 sm:pl-2 sm:pr-6 sm:pt-4">
+            <span className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1.5">
+              <span className="inline-flex items-center gap-1.5 text-[10px] font-medium uppercase tracking-[0.12em] text-white/75 sm:gap-2 sm:text-[12px] sm:tracking-[0.14em]">
                 <Calendar className="h-3.5 w-3.5 text-white/70 sm:h-4 sm:w-4" strokeWidth={1.75} />
                 <span>{schedule.weekday}</span>
                 <span className="text-white/35">·</span>
@@ -463,7 +501,7 @@ function EventTicketCard({
                 <span>{schedule.time}</span>
               </span>
               <span
-                className={`inline-flex shrink-0 items-center gap-1.5 rounded-full border px-2.5 py-1 text-[8px] font-semibold uppercase tracking-[0.16em] sm:gap-1.5 sm:px-3 sm:py-1 sm:text-[10px] ${
+                className={`inline-flex shrink-0 items-center gap-1.5 rounded-full border px-2.5 py-[3px] text-[9px] font-semibold uppercase tracking-[0.14em] sm:px-3 sm:py-1 sm:text-[10px] sm:tracking-[0.16em] ${
                   ticket.status === "AVAILABLE"
                     ? "border-violet-400/25 bg-violet-500/[0.08] text-violet-300"
                     : cfg.color
@@ -474,7 +512,7 @@ function EventTicketCard({
               </span>
             </span>
 
-            <h3 className="mt-2.5 line-clamp-2 text-[15px] font-medium leading-[1.2] tracking-[-0.01em] text-white sm:mt-2.5 sm:text-[21px]">
+            <h3 className="mt-2 line-clamp-3 text-[16px] font-medium leading-[1.22] tracking-[-0.01em] text-white sm:mt-2.5 sm:line-clamp-2 sm:text-[21px]">
               {titleMain}
               {titleTag && (
                 <>
@@ -486,74 +524,86 @@ function EventTicketCard({
               )}
             </h3>
 
-            <span className="mt-2 flex min-w-0 items-start gap-2 text-[10px] leading-snug text-white/60 sm:mt-2 sm:gap-2 sm:text-[13px]">
+            <span className="mt-2 flex min-w-0 items-start gap-1.5 text-[11.5px] leading-snug text-white/60 sm:gap-2 sm:text-[13px]">
               <MapPin className="mt-px h-3.5 w-3.5 shrink-0 text-violet-300 sm:h-4 sm:w-4" strokeWidth={1.75} />
               <span className="line-clamp-2">{eventLocation(ticket)}</span>
             </span>
 
             {pendingTransfer && (
-              <span className="mt-2 flex max-w-full items-center gap-1.5 rounded-lg border border-amber-300/20 bg-amber-300/10 px-2 py-1.5 text-[9px] font-semibold text-amber-100 sm:text-xs">
+              <span className="mt-2 flex max-w-full items-center gap-1.5 rounded-lg border border-amber-300/20 bg-amber-300/10 px-2 py-1.5 text-[10px] font-semibold text-amber-100 sm:text-xs">
                 <Clock className="h-3 w-3 shrink-0 text-amber-300" />
                 <span className="truncate">Aguardando aceite de {pendingRecipient}</span>
               </span>
             )}
+          </span>
 
-            <span className="mt-auto block pt-3 sm:pt-3">
-              <span className="block border-t border-white/10 pt-3 sm:flex sm:items-end sm:justify-between sm:gap-4 sm:pt-3">
-                <span className="block min-w-0">
-                  <span className="block text-[8px] font-medium uppercase tracking-[0.2em] text-white/45 sm:text-[10px]">
-                    Titular
-                  </span>
-                  <span className="mt-1 block truncate text-[12px] font-semibold text-white sm:text-[15px]">
-                    {ticket.attendeeName}
-                  </span>
+          {/* titular + badges (no celular fica abaixo do picotado) */}
+          <span
+            ref={holderRef}
+            className="col-span-2 col-start-1 row-start-2 flex min-w-0 flex-col justify-center py-3.5 pl-4 pr-2 sm:col-span-1 sm:col-start-2 sm:block sm:py-0 sm:pb-4 sm:pl-2 sm:pr-6"
+          >
+            <span className="block sm:flex sm:items-end sm:justify-between sm:gap-4 sm:border-t sm:border-white/10 sm:pt-3">
+              <span className="block min-w-0">
+                <span className="block text-[9px] font-medium uppercase tracking-[0.2em] text-white/45 sm:text-[10px]">
+                  Titular
                 </span>
-                <span className="mt-2 flex flex-wrap items-center gap-1.5 sm:mt-0 sm:shrink-0 sm:flex-nowrap sm:justify-end sm:gap-2">
-                  <span className="inline-flex max-w-full items-center gap-1.5 truncate rounded-full border border-violet-400/35 bg-violet-500/10 px-2.5 py-1 text-[9px] font-medium text-white/90 sm:gap-1.5 sm:px-3 sm:py-1.5 sm:text-[12px]">
-                    <Ticket className="h-3 w-3 shrink-0 text-violet-300 sm:h-3.5 sm:w-3.5" strokeWidth={1.75} />
-                    {ticket.ticketType.name}
-                  </span>
-                  <span
-                    className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[9px] font-semibold sm:gap-1.5 sm:px-3 sm:py-1.5 sm:text-[12px] ${
-                      ticket.status === "AVAILABLE"
-                        ? "border-emerald-400/50 bg-emerald-400/10 text-emerald-300"
-                        : cfg.color
-                    }`}
-                  >
-                    {ticket.status === "AVAILABLE" ? (
-                      <CircleDot className="h-3 w-3 sm:h-3.5 sm:w-3.5" strokeWidth={2} />
-                    ) : (
-                      <StatusIcon className="h-3 w-3 sm:h-3.5 sm:w-3.5" />
-                    )}
-                    {cfg.label}
-                  </span>
+                <span className="mt-0.5 block truncate text-[14px] font-semibold text-white sm:mt-1 sm:text-[15px]">
+                  {ticket.attendeeName}
+                </span>
+              </span>
+              <span className="mt-2 flex flex-wrap items-center gap-1.5 sm:mt-0 sm:shrink-0 sm:flex-nowrap sm:justify-end sm:gap-2">
+                <span className="inline-flex max-w-full items-center gap-1.5 truncate rounded-full border border-violet-400/35 bg-violet-500/10 px-2.5 py-1 text-[11px] font-medium text-white/90 sm:px-3 sm:py-1.5 sm:text-[12px]">
+                  <Ticket className="h-3.5 w-3.5 shrink-0 text-violet-300" strokeWidth={1.75} />
+                  {ticket.ticketType.name}
+                </span>
+                <span
+                  className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-semibold sm:px-3 sm:py-1.5 sm:text-[12px] ${
+                    ticket.status === "AVAILABLE"
+                      ? "border-emerald-400/50 bg-emerald-400/10 text-emerald-300"
+                      : cfg.color
+                  }`}
+                >
+                  {ticket.status === "AVAILABLE" ? (
+                    <CircleDot className="h-3.5 w-3.5" strokeWidth={2} />
+                  ) : (
+                    <StatusIcon className="h-3.5 w-3.5" />
+                  )}
+                  {cfg.label}
                 </span>
               </span>
             </span>
           </span>
 
+          {/* canhoto do QR */}
           <span
             ref={stubRef}
-            className="relative flex flex-col items-center justify-between px-2 py-3 text-center sm:px-4 sm:py-4"
+            className="relative col-start-3 row-start-2 flex flex-col items-center justify-center gap-1.5 py-3.5 pl-2 pr-4 text-center sm:row-span-2 sm:row-start-1 sm:justify-between sm:gap-0 sm:px-4 sm:py-4"
           >
-            <span className="text-[8px] font-medium uppercase tracking-[0.2em] text-white/80 sm:text-[11px] sm:tracking-[0.22em]">
+            <span className="hidden text-[11px] font-medium uppercase tracking-[0.22em] text-white/80 sm:block">
               QR entrada
             </span>
-            <span className="flex h-12 w-12 items-center justify-center rounded-xl border border-white/10 bg-white/[0.04] shadow-[inset_0_1px_0_rgba(255,255,255,0.06)] sm:h-[80px] sm:w-[80px] sm:rounded-[18px]">
+            <span className="flex h-14 w-14 items-center justify-center rounded-[14px] border border-white/10 bg-white/[0.04] shadow-[inset_0_1px_0_rgba(255,255,255,0.06)] sm:h-[80px] sm:w-[80px] sm:rounded-[18px]">
               {qrLocked ? (
-                <Lock className="h-5 w-5 text-white/80 sm:h-7 sm:w-7" strokeWidth={1.75} />
+                <Lock className="h-6 w-6 text-white/80 sm:h-7 sm:w-7" strokeWidth={1.75} />
               ) : (
-                <QrGlyph className="h-6 w-6 text-white sm:h-[40px] sm:w-[40px]" />
+                <QrGlyph className="h-7 w-7 text-white sm:h-[40px] sm:w-[40px]" />
               )}
             </span>
-            <span className="max-w-[84px] text-[7px] font-normal uppercase leading-relaxed tracking-[0.18em] text-white/55 sm:max-w-[120px] sm:text-[9px] sm:tracking-[0.2em]">
-              {stubLabel}
+            <span className="max-w-[72px] text-[8px] font-normal uppercase leading-snug tracking-[0.14em] text-white/55 sm:max-w-[120px] sm:text-[9px] sm:leading-relaxed sm:tracking-[0.2em]">
+              <span className="sm:hidden">
+                {qrLocked && qrHoursRemaining !== null
+                  ? `Libera em ${qrHoursRemaining}h`
+                  : canOpenQr
+                    ? "Toque p/ abrir"
+                    : "Indisponível"}
+              </span>
+              <span className="hidden sm:inline">{stubLabel}</span>
             </span>
-            <span className="flex w-full flex-col items-center gap-2 sm:gap-2.5">
+            <span className="hidden w-full flex-col items-center gap-2.5 sm:flex">
               <span className="h-px w-4/5 bg-white/10" />
-              <span className="inline-flex items-center gap-1.5 sm:gap-2">
-                <Zap className="h-3 w-3 fill-violet-500 text-violet-500 sm:h-4 sm:w-4" />
-                <span className="text-[7px] font-medium uppercase tracking-[0.24em] text-white/60 sm:text-[9px] sm:tracking-[0.26em]">
+              <span className="inline-flex items-center gap-2">
+                <Zap className="h-4 w-4 fill-violet-500 text-violet-500" />
+                <span className="text-[9px] font-medium uppercase tracking-[0.26em] text-white/60">
                   Event Flow
                 </span>
               </span>
