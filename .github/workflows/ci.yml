@@ -97,6 +97,15 @@ jobs:
           PAYMENT_SIMULATION_ENABLED: true
           ABACATE_WEBHOOK_SECRET: eventflow-local-webhook-secret
           ABACATE_PUBLIC_KEY: eventflow-local-public-key
+      - name: Upload Playwright report on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report-${{ github.run_id }}
+          path: |
+            apps/web/playwright-report
+            apps/web/test-results
+          retention-days: 7
 
   build:
     runs-on: ubuntu-latest
