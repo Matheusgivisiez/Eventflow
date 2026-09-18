@@ -30,8 +30,6 @@ import {
   RotateCw,
   Calendar,
   Sparkles,
-  CircleDot,
-  Zap,
   Smartphone,
 } from "lucide-react";
 import { api } from "@/lib/api";
@@ -50,6 +48,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { dateTime } from "@/lib/utils";
+import { BrandMark } from "@/components/brand-logo";
 
 type MyTicket = {
   id: string;
@@ -556,20 +555,6 @@ function EventTicketCard({
                   <Ticket className="h-3.5 w-3.5 shrink-0 text-violet-300" strokeWidth={1.75} />
                   {ticket.ticketType.name}
                 </span>
-                <span
-                  className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-semibold sm:px-3 sm:py-1.5 sm:text-[12px] ${
-                    ticket.status === "AVAILABLE"
-                      ? "border-emerald-400/50 bg-emerald-400/10 text-emerald-300"
-                      : cfg.color
-                  }`}
-                >
-                  {ticket.status === "AVAILABLE" ? (
-                    <CircleDot className="h-3.5 w-3.5" strokeWidth={2} />
-                  ) : (
-                    <StatusIcon className="h-3.5 w-3.5" />
-                  )}
-                  {cfg.label}
-                </span>
               </span>
             </span>
           </span>
@@ -601,10 +586,11 @@ function EventTicketCard({
             </span>
             <span className="hidden w-full flex-col items-center gap-2.5 sm:flex">
               <span className="h-px w-4/5 bg-white/10" />
-              <span className="inline-flex items-center gap-2">
-                <Zap className="h-4 w-4 fill-violet-500 text-violet-500" />
-                <span className="text-[9px] font-medium uppercase tracking-[0.26em] text-white/60">
-                  Event Flow
+              <span className="inline-flex items-center gap-1.5">
+                <BrandMark className="h-6 w-7" />
+                <span className="text-left text-[11px] font-extrabold leading-[0.86] text-white">
+                  <span className="block">event</span>
+                  <span className="block">flow</span>
                 </span>
               </span>
             </span>
