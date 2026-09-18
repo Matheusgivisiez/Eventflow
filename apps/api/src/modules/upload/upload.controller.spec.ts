@@ -1,3 +1,12 @@
+jest.mock("sharp", () =>
+  jest.fn(() => ({
+    rotate: jest.fn().mockReturnThis(),
+    resize: jest.fn().mockReturnThis(),
+    webp: jest.fn().mockReturnThis(),
+    toBuffer: jest.fn().mockResolvedValue(Buffer.from("optimized-webp"))
+  }))
+);
+
 import { GUARDS_METADATA } from "@nestjs/common/constants";
 import { JwtAuthGuard } from "../../common/guards/jwt-auth.guard";
 import { UploadController } from "./upload.controller";

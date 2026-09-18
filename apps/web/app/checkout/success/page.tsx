@@ -52,10 +52,11 @@ type PublicOrderDetails = {
     totalCents: number;
   }>;
   tickets: Array<{
-    uuid: string;
+    uuid: string | null;
     attendeeName: string;
-    qrCodeDataUrl?: string;
+    qrCodeDataUrl?: string | null;
     status: string;
+    isTransferred?: boolean;
   }>;
 };
 
@@ -336,29 +337,38 @@ function SuccessContent() {
                 Seus Ingressos ({order.tickets.length})
               </h3>
               <div className="grid gap-3">
-                {order.tickets.map((t) => (
-                  <div
-                    key={t.uuid}
-                    className="rounded-lg border p-4 flex flex-col sm:flex-row items-center justify-between gap-4 bg-card"
-                  >
-                    <div className="space-y-1 text-center sm:text-left">
-                      <p className="font-medium text-sm">{t.attendeeName}</p>
-                      <p className="text-xs text-muted-foreground font-mono">
-                        ID: {t.uuid}
-                      </p>
+                {order.tickets.map((t, index) => {
+                  const isTransferred = t.status === "TRANSFERRED" || t.isTransferred;
+                  return (
+                    <div
+                      key={t.uuid || `${t.attendeeName}-${index}`}
+                      className="rounded-lg border p-4 flex flex-col sm:flex-row items-center justify-between gap-4 bg-card"
+                    >
+                      <div className="space-y-1 text-center sm:text-left">
+                        <p className="font-medium text-sm">{t.attendeeName}</p>
+                        {isTransferred ? (
+                          <span className="inline-block text-xs font-medium px-2 py-0.5 rounded bg-muted text-muted-foreground">
+                            Transferido para outro titular
+                          </span>
+                        ) : t.uuid ? (
+                          <p className="text-xs text-muted-foreground font-mono">
+                            ID: {t.uuid}
+                          </p>
+                        ) : null}
+                      </div>
+                      {!isTransferred && t.qrCodeDataUrl && (
+                        <Image
+                          src={t.qrCodeDataUrl}
+                          alt="QR Code Ingresso"
+                          width={96}
+                          height={96}
+                          unoptimized
+                          className="h-24 w-24 rounded border bg-white p-1"
+                        />
+                      )}
                     </div>
-                    {t.qrCodeDataUrl && (
-                      <Image
-                        src={t.qrCodeDataUrl}
-                        alt="QR Code Ingresso"
-                        width={96}
-                        height={96}
-                        unoptimized
-                        className="h-24 w-24 rounded border bg-white p-1"
-                      />
-                    )}
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </div>
           )}

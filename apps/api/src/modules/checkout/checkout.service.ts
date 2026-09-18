@@ -1,6 +1,6 @@
-import { ForbiddenException, Injectable, Logger, NotFoundException, UnauthorizedException } from "@nestjs/common";
+import { BadRequestException, ForbiddenException, Injectable, Logger, NotFoundException, UnauthorizedException } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
-import { PaymentStatus } from "@prisma/client";
+import { PaymentStatus, TransferStatus } from "@prisma/client";
 import { isPerfDiagnosticsEnabled, PhaseTimer } from "../../common/diagnostics/perf-diagnostics";
 import { RequestUser } from "../../common/types/request-user";
 import { getQrCodeReleaseTime, isQrCodeLocked } from "../../common/utils/qr-code.utils";
@@ -58,12 +58,7 @@ export class CheckoutService {
   ) {
     let order = await this.prisma.order.findUnique({
       where: { id: orderId },
-      include: {
-        event: true,
-        items: { include: { ticketType: true } },
-        tickets: true,
-        payment: true
-      }
+      include: this.orderInclude()
     });
 
     if (!order) {
@@ -81,12 +76,7 @@ export class CheckoutService {
       });
       order = await this.prisma.order.findUnique({
         where: { id: orderId },
-        include: {
-          event: true,
-          items: { include: { ticketType: true } },
-          tickets: true,
-          payment: true
-        }
+        include: this.orderInclude()
       });
     }
 
@@ -99,12 +89,7 @@ export class CheckoutService {
         await this.payments.reconcileProviderStatus(order.payment.id, order.event.tenantId);
         order = await this.prisma.order.findUnique({
           where: { id: orderId },
-          include: {
-            event: true,
-            items: { include: { ticketType: true } },
-            tickets: true,
-            payment: true
-          }
+          include: this.orderInclude()
         });
       } catch {
         // Return the locally known state if the provider is temporarily unavailable.
@@ -143,12 +128,24 @@ export class CheckoutService {
         quantity: i.quantity,
         totalCents: i.totalCents
       })),
-      tickets: order.tickets.map((t) => ({
-        uuid: locked ? null : t.uuid,
-        attendeeName: t.attendeeName,
-        qrCodeDataUrl: locked ? null : t.qrCodeDataUrl,
-        status: t.status
-      })),
+      tickets: order.tickets.map((t) => {
+        const transferred = this.isTicketTransferred(t, order);
+        if (transferred) {
+          return {
+            uuid: null,
+            attendeeName: "Ingresso transferido",
+            qrCodeDataUrl: null,
+            status: "TRANSFERRED"
+          };
+        }
+
+        return {
+          uuid: locked ? null : t.uuid,
+          attendeeName: t.attendeeName,
+          qrCodeDataUrl: locked ? null : t.qrCodeDataUrl,
+          status: t.status
+        };
+      }),
       qrCodeLocked: locked,
       qrCodeReleaseAt: releaseTime?.toISOString() ?? null
     };
@@ -200,7 +197,7 @@ export class CheckoutService {
   async ticketPdf(orderId: string, ticketId: string, accessToken?: string) {
     const order = await this.prisma.order.findUnique({
       where: { id: orderId },
-      select: { orderAccessToken: true }
+      select: { orderAccessToken: true, userId: true }
     });
     if (!order) {
       throw new NotFoundException("Pedido nao encontrado.");
@@ -211,13 +208,61 @@ export class CheckoutService {
 
     const ticket = await this.prisma.ticket.findFirst({
       where: { id: ticketId, orderId },
-      include: { event: true, ticketType: true }
+      include: {
+        event: true,
+        ticketType: true,
+        transfers: {
+          where: { status: TransferStatus.ACCEPTED },
+          select: { id: true }
+        }
+      }
     });
     if (!ticket) {
       throw new NotFoundException("Ingresso nao encontrado.");
     }
 
+    if (this.isTicketTransferred(ticket, order)) {
+      throw new BadRequestException(
+        "Este ingresso foi transferido para outro titular e não está mais disponível neste pedido."
+      );
+    }
+
     return this.buyer.renderTicketPdfFor(ticket);
+  }
+
+  private orderInclude() {
+    return {
+      event: true,
+      items: { include: { ticketType: true } },
+      tickets: {
+        include: {
+          transfers: {
+            where: { status: TransferStatus.ACCEPTED },
+            select: { id: true, acceptedAt: true }
+          }
+        }
+      },
+      payment: true
+    };
+  }
+
+  private isTicketTransferred(
+    ticket: {
+      ownerId?: string | null;
+      transfers?: Array<{ id?: string; status?: TransferStatus }>;
+    },
+    order: { userId?: string | null }
+  ) {
+    if (ticket.transfers && ticket.transfers.length > 0) {
+      return true;
+    }
+    if (order.userId && ticket.ownerId && ticket.ownerId !== order.userId) {
+      return true;
+    }
+    if (!order.userId && ticket.ownerId !== null && ticket.ownerId !== undefined) {
+      return true;
+    }
+    return false;
   }
 
   private async cancelOrderAfterProviderFailure(orderId: string) {

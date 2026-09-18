@@ -1,4 +1,13 @@
-import { NotFoundException, UnauthorizedException } from "@nestjs/common";
+jest.mock("sharp", () =>
+  jest.fn(() => ({
+    rotate: jest.fn().mockReturnThis(),
+    resize: jest.fn().mockReturnThis(),
+    webp: jest.fn().mockReturnThis(),
+    toBuffer: jest.fn().mockResolvedValue(Buffer.from("optimized-webp"))
+  }))
+);
+
+import { BadRequestException, NotFoundException, UnauthorizedException } from "@nestjs/common";
 import { PaymentMethod, PaymentStatus } from "@prisma/client";
 import { CheckoutService } from "./checkout.service";
 
@@ -117,6 +126,27 @@ describe("CheckoutService", () => {
       expect(buyer.renderTicketPdfFor).toHaveBeenCalledWith(ticket);
       expect(result).toEqual(Buffer.from("pdf"));
     });
+
+    it("rejects downloading PDF for a ticket that was transferred to another user", async () => {
+      const { service, prisma } = createService();
+      prisma.order.findUnique.mockResolvedValue({ orderAccessToken: "public-token", userId: "buyer-1" });
+      const ticket = {
+        id: "ticket-1",
+        orderId: "order-1",
+        ownerId: "new-recipient-2",
+        transfers: [{ id: "transfer-1" }],
+        event: {},
+        ticketType: { name: "Inteira" }
+      };
+      prisma.ticket.findFirst.mockResolvedValue(ticket);
+
+      await expect(service.ticketPdf("order-1", "ticket-1", "public-token")).rejects.toThrow(
+        BadRequestException
+      );
+      await expect(service.ticketPdf("order-1", "ticket-1", "public-token")).rejects.toThrow(
+        "Este ingresso foi transferido para outro titular e não está mais disponível neste pedido."
+      );
+    });
   });
 
   beforeEach(() => {
@@ -151,6 +181,50 @@ describe("CheckoutService", () => {
         attendeeName: "Buyer",
         qrCodeDataUrl: "data:image/png;base64,qr",
         status: "AVAILABLE"
+      }
+    ]);
+  });
+
+  it("masks QR code, UUID and attendee name for transferred tickets in public order lookup", async () => {
+    const { service, prisma } = createService();
+    prisma.order.findUnique.mockResolvedValue(
+      createOrder({
+        userId: "user-1",
+        tickets: [
+          {
+            uuid: "ticket-uuid-active",
+            attendeeName: "Original Buyer",
+            qrCodeDataUrl: "data:image/png;base64,active",
+            status: "AVAILABLE",
+            ownerId: "user-1",
+            transfers: []
+          },
+          {
+            uuid: "ticket-uuid-transferred",
+            attendeeName: "New Recipient",
+            qrCodeDataUrl: "data:image/png;base64,newqr",
+            status: "AVAILABLE",
+            ownerId: "user-recipient-2",
+            transfers: [{ id: "transfer-1" }]
+          }
+        ]
+      })
+    );
+
+    const result = await service.getOrderStatus("order-1", "public-token");
+
+    expect(result.tickets).toEqual([
+      {
+        uuid: "ticket-uuid-active",
+        attendeeName: "Original Buyer",
+        qrCodeDataUrl: "data:image/png;base64,active",
+        status: "AVAILABLE"
+      },
+      {
+        uuid: null,
+        attendeeName: "Ingresso transferido",
+        qrCodeDataUrl: null,
+        status: "TRANSFERRED"
       }
     ]);
   });

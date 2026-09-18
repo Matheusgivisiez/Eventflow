@@ -1,3 +1,14 @@
+jest.mock("sharp", () =>
+  jest.fn(() => ({
+    rotate: jest.fn().mockReturnThis(),
+    resize: jest.fn().mockReturnThis(),
+    webp: jest.fn().mockReturnThis(),
+    jpeg: jest.fn().mockReturnThis(),
+    png: jest.fn().mockReturnThis(),
+    toBuffer: jest.fn().mockResolvedValue(Buffer.alloc(12000, 0xff))
+  }))
+);
+
 import { PaymentStatus, TicketStatus } from "@prisma/client";
 import { BuyerService } from "./buyer.service";
 
