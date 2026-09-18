@@ -38,6 +38,12 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
           <div className="mx-auto max-w-5xl px-4 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-muted-foreground">
             <p>© {new Date().getFullYear()} Event Flow.</p>
             <div className="flex items-center gap-4">
+              <a href="/termos-de-uso" className="hover:text-primary transition-colors">
+                Termos de Uso
+              </a>
+              <a href="/politica-de-privacidade" className="hover:text-primary transition-colors">
+                Política de Privacidade
+              </a>
               <a href="/politica-de-cookies" className="hover:text-primary transition-colors">
                 Política de Cookies
               </a>

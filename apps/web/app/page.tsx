@@ -306,22 +306,44 @@ export default function CatalogPage() {
 
       {/* ─── FOOTER ─────────────────────────────────────────────── */}
       <footer className="border-t bg-white dark:bg-card py-8">
-        <div className="mx-auto max-w-7xl px-4 lg:px-8 flex flex-col sm:flex-row items-center justify-between gap-4 text-sm text-muted-foreground">
-          <div className="flex items-center gap-2">
-            <BrandLogo iconOnly className="h-6 w-6" />
-            <p>© {new Date().getFullYear()} Event Flow.</p>
+        <div className="mx-auto max-w-7xl px-4 lg:px-8 flex flex-col gap-6">
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-4 text-sm text-muted-foreground">
+            <div className="flex items-center gap-2">
+              <BrandLogo iconOnly className="h-6 w-6" />
+              <p>© {new Date().getFullYear()} Event Flow.</p>
+            </div>
+            <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-2">
+              <a href="/termos-de-uso" className="hover:text-primary transition-colors">
+                Termos de Uso
+              </a>
+              <a href="/politica-de-privacidade" className="hover:text-primary transition-colors">
+                Política de Privacidade
+              </a>
+              <a href="/politica-de-cookies" className="hover:text-primary transition-colors">
+                Política de Cookies
+              </a>
+              <button 
+                onClick={() => window.dispatchEvent(new CustomEvent('open-cookie-settings'))}
+                className="hover:text-primary transition-colors"
+              >
+                Configurações de Cookies
+              </button>
+              <a
+                href="https://instagram.com/eventflow_ofc"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="hover:text-primary transition-colors"
+              >
+                Instagram
+              </a>
+              <a href="mailto:suporte@eventflowtickets.com.br" className="hover:text-primary transition-colors">
+                suporte@eventflowtickets.com.br
+              </a>
+            </div>
           </div>
-          <div className="flex items-center gap-4">
-            <a href="/politica-de-cookies" className="hover:text-primary transition-colors">
-              Política de Cookies
-            </a>
-            <button 
-              onClick={() => window.dispatchEvent(new CustomEvent('open-cookie-settings'))}
-              className="hover:text-primary transition-colors"
-            >
-              Configurações de Cookies
-            </button>
-          </div>
+          <p className="text-center text-xs text-muted-foreground/80">
+            Event Flow é operado por Matheus Givisiez Nalon — CNPJ 69.109.143/0001-32 — Ipatinga, MG
+          </p>
         </div>
       </footer>
 
