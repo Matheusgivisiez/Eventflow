@@ -93,7 +93,9 @@ export class EventsRepository implements IEventsRepository {
             { category: { contains: options.search, mode: "insensitive" } }
           ]
         : undefined,
-      category: options.category || undefined
+      category: options.category
+        ? { equals: options.category, mode: "insensitive" }
+        : undefined
     };
     const [data, total] = await this.prisma.$transaction([
       this.prisma.event.findMany({
