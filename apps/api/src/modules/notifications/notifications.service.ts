@@ -40,6 +40,26 @@ export type PurchaseApprovedInput = {
   }>;
 };
 
+export type TicketTransferDeliveredInput = {
+  userId?: string;
+  email: string;
+  transferId: string;
+  recipientName: string;
+  senderName: string;
+  orderId: string;
+  eventTitle: string;
+  eventStartsAt: Date;
+  eventVenue: string;
+  qrCodeLocked: boolean;
+  qrCodeReleaseAt: Date | null;
+  ticket: {
+    id: string;
+    attendeeName: string;
+    ticketTypeName: string;
+    shortCode: string;
+  };
+};
+
 /** Prefix of the purchase confirmation dedupe key: `purchase-confirmed:<orderId>`. */
 export const PURCHASE_CONFIRMED_DEDUPE_PREFIX = "purchase-confirmed:";
 
@@ -310,6 +330,56 @@ export class NotificationsService {
       : null;
 
     return { email, whatsapp };
+  }
+
+  /**
+   * Called once per transfer acceptance, from TransfersService. Delivers the
+   * ticket to the new owner the same way a purchase does — same ticket-card
+   * e-mail, same QR-locked-placeholder security model — instead of leaving
+   * them with only the in-app "meus ingressos" list to notice it arrived.
+   * Safe to call again: the dedupe key keeps it to one message per transfer.
+   */
+  async sendTicketTransferDelivered(input: TicketTransferDeliveredInput) {
+    const myTicketsUrl = this.appUrl("/me/ingressos");
+    const mail = renderPurchaseConfirmed({
+      buyerName: input.recipientName,
+      eventTitle: input.eventTitle,
+      eventStartsAt: input.eventStartsAt,
+      eventVenue: input.eventVenue,
+      orderId: input.orderId,
+      ticketCount: 1,
+      orderUrl: myTicketsUrl,
+      createAccountUrl: myTicketsUrl,
+      qrCodeLocked: input.qrCodeLocked,
+      qrCodeReleaseAt: input.qrCodeReleaseAt,
+      logoLightUrl: this.appUrl("/images/eventflow-logo-purple-black.png"),
+      logoDarkUrl: this.appUrl("/images/eventflow-logo-purple-white.png"),
+      qrLockedImageUrl: this.appUrl("/images/eventflow-ticket-qr-locked.png"),
+      assetsBaseUrl: this.appUrl("/images/email"),
+      transfer: { fromName: input.senderName },
+      tickets: [
+        {
+          id: input.ticket.id,
+          attendeeName: input.ticket.attendeeName,
+          ticketTypeName: input.ticket.ticketTypeName,
+          shortCode: input.ticket.shortCode,
+          // Receiver is an authenticated user, not a guest with an
+          // order-access token — send them to their own ticket list
+          // rather than a bare, unauthenticated API download link.
+          pdfUrl: myTicketsUrl
+        }
+      ]
+    });
+
+    return this.send({
+      userId: input.userId,
+      type: NotificationType.EMAIL,
+      event: NotificationEvent.TICKET_TRANSFER_ACCEPTED,
+      recipient: input.email,
+      payload: { transferId: input.transferId, ticketId: input.ticket.id, orderId: input.orderId },
+      dedupeKey: `ticket-transfer-delivered:${input.transferId}`,
+      mail
+    });
   }
 
   list(query: { userId?: string; event?: NotificationEvent; type?: NotificationType }) {

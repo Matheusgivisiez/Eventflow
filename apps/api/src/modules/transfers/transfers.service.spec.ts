@@ -92,7 +92,7 @@ function createService() {
     $transaction: jest.fn((input) => Array.isArray(input) ? Promise.all(input) : input(prisma))
   };
   const audit = { log: jest.fn().mockResolvedValue({}) };
-  const notifications = { send: jest.fn().mockResolvedValue({}) };
+  const notifications = { send: jest.fn().mockResolvedValue({}), sendTicketTransferDelivered: jest.fn().mockResolvedValue({}) };
   const config = { get: jest.fn().mockReturnValue("test-secret") };
   const cache = { get: jest.fn().mockResolvedValue(null), set: jest.fn().mockResolvedValue(undefined) };
   const service = new TransfersService(prisma as any, audit as any, notifications as any, cache as any, config as any);

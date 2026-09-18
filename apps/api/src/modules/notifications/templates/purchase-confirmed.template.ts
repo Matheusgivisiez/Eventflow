@@ -25,6 +25,12 @@ export type PurchaseConfirmedTemplateInput = {
   /** Base URL for the hero/ticket-frame/icon assets, e.g. `${APP_URL}/images/email`. */
   assetsBaseUrl: string;
   tickets: PurchaseConfirmedTemplateTicket[];
+  /**
+   * Present only when this e-mail delivers a ticket received via transfer,
+   * not a fresh purchase — swaps the payment/order-specific copy for
+   * transfer-appropriate wording while reusing the exact same ticket card.
+   */
+  transfer?: { fromName: string };
 };
 
 const BRAND = "Event Flow";
@@ -122,19 +128,26 @@ export function renderPurchaseConfirmed(input: PurchaseConfirmedTemplateInput) {
   const ticketLine = plural ? `${input.ticketCount} ingressos` : "1 ingresso";
   const possessive = plural ? "Seus ingressos" : "Seu ingresso";
   const verb = plural ? "estão prontos" : "está pronto";
+  const transfer = input.transfer;
 
-  const subject = `${possessive} para ${input.eventTitle} já ${verb}!`;
-  const preheader = `Pagamento aprovado. ${possessive} para ${input.eventTitle} já ${plural ? "estão disponíveis" : "está disponível"}.`;
+  const subject = transfer
+    ? `${possessive} para ${input.eventTitle} chegou!`
+    : `${possessive} para ${input.eventTitle} já ${verb}!`;
+  const preheader = transfer
+    ? `${transfer.fromName} transferiu ${ticketLine} para você. ${possessive} para ${input.eventTitle} já ${plural ? "estão disponíveis" : "está disponível"}.`
+    : `Pagamento aprovado. ${possessive} para ${input.eventTitle} já ${plural ? "estão disponíveis" : "está disponível"}.`;
 
   const text = [
     `Ola, ${input.buyerName}.`,
     "",
-    `Seu pagamento foi aprovado e ${ticketLine} ja ${plural ? "estao disponiveis" : "esta disponivel"}.`,
+    transfer
+      ? `${transfer.fromName} transferiu ${ticketLine} para ${input.eventTitle} para voce, e ja ${plural ? "estao disponiveis" : "esta disponivel"}.`
+      : `Seu pagamento foi aprovado e ${ticketLine} ja ${plural ? "estao disponiveis" : "esta disponivel"}.`,
     "",
     `Evento: ${input.eventTitle}`,
     `Local: ${input.eventVenue}`,
     `Data: ${when}`,
-    `Pedido: ${code}`,
+    ...(transfer ? [] : [`Pedido: ${code}`]),
     "",
     ...input.tickets.flatMap((ticket) => [
       `- ${ticket.attendeeName} | ${ticket.ticketTypeName} | codigo ${ticket.shortCode}`,
@@ -145,8 +158,9 @@ export function renderPurchaseConfirmed(input: PurchaseConfirmedTemplateInput) {
     "",
     "O QR Code de cada ingresso so fica disponivel dentro do link acima (nao vai por e-mail, por seguranca).",
     "Este link e pessoal: quem tiver o endereco consegue ver este pedido. Nao compartilhe.",
-    "",
-    `Quer todos os seus ingressos em um lugar so? Crie uma conta: ${input.createAccountUrl}`,
+    ...(transfer
+      ? []
+      : ["", `Quer todos os seus ingressos em um lugar so? Crie uma conta: ${input.createAccountUrl}`]),
     "",
     BRAND
   ].join("\n");
@@ -331,6 +345,7 @@ function renderHtml(
   const iconAccent = (name: string) => asset(input.assetsBaseUrl, `icon-accent-${name}.png`);
   const iconDark = (name: string) => asset(input.assetsBaseUrl, `icon-dark-${name}.png`);
   const iconAmber = (name: string) => asset(input.assetsBaseUrl, `icon-amber-${name}.png`);
+  const isTransfer = Boolean(input.transfer);
 
   const showInlineDownload = input.ticketCount > 1;
 
@@ -371,7 +386,7 @@ function renderHtml(
                   <tr>
                     <td valign="middle" width="110"><img src="${escapeAttr(input.logoDarkUrl)}" width="110" alt="${BRAND}" style="display:block;border:0" /></td>
                     <td valign="middle" align="right" style="padding-left:16px">
-                      <span style="display:inline-block;background-color:rgba(45,212,191,0.18);color:#8ff2d6;font-family:Arial,Helvetica,sans-serif;font-size:12px;font-weight:700;padding:7px 14px;border-radius:999px;white-space:nowrap">&#10003; Pagamento confirmado</span>
+                      <span style="display:inline-block;background-color:rgba(45,212,191,0.18);color:#8ff2d6;font-family:Arial,Helvetica,sans-serif;font-size:12px;font-weight:700;padding:7px 14px;border-radius:999px;white-space:nowrap">&#10003; ${isTransfer ? "Ingresso recebido" : "Pagamento confirmado"}</span>
                     </td>
                   </tr>
                 </table>
@@ -386,7 +401,9 @@ function renderHtml(
               <td style="padding:30px 32px 8px 32px;font-family:Arial,Helvetica,sans-serif">
                 <div style="font-size:20px;font-weight:800;color:${INK}">Olá, ${escapeHtml(input.buyerName)}!</div>
                 <div style="font-size:14px;line-height:1.6;color:${MUTED};margin-top:8px">
-                  Sua compra foi aprovada e ${escapeHtml(ctx.ticketLine)} já ${input.ticketCount !== 1 ? "estão disponíveis" : "está disponível"} abaixo.
+                  ${isTransfer
+                    ? `${escapeHtml(input.transfer!.fromName)} transferiu ${escapeHtml(ctx.ticketLine)} para você e já ${input.ticketCount !== 1 ? "estão disponíveis" : "está disponível"} abaixo.`
+                    : `Sua compra foi aprovada e ${escapeHtml(ctx.ticketLine)} já ${input.ticketCount !== 1 ? "estão disponíveis" : "está disponível"} abaixo.`}
                   O QR Code de entrada fica protegido dentro do ingresso — abra pelo botão abaixo quando for usar.
                 </div>
               </td>
@@ -402,7 +419,9 @@ function renderHtml(
                   </tr>
                   <tr>
                     <td style="padding:6px 20px 18px 20px" width="50%">${infoCell(iconBadge("pin"), "Local", escapeHtml(input.eventVenue))}</td>
-                    <td style="padding:6px 20px 18px 20px" width="50%">${infoCell(iconBadge("ticket"), "Pedido", ctx.code)}</td>
+                    <td style="padding:6px 20px 18px 20px" width="50%">${isTransfer
+                      ? infoCell(iconBadge("ticket"), "Ingresso", escapeHtml(formatShortCode(input.tickets[0]?.shortCode ?? "")))
+                      : infoCell(iconBadge("ticket"), "Pedido", ctx.code)}</td>
                   </tr>
                 </table>
               </td>
@@ -424,7 +443,7 @@ function renderHtml(
                     ${input.ticketCount === 1 && input.tickets[0]
                       ? `<td style="padding-right:10px;padding-bottom:10px">${pillButton({ href: input.tickets[0].pdfUrl, iconUrl: iconAccent("download"), label: "Baixar PDF", variant: "light", textColor: INK })}</td>`
                       : ""}
-                    <td style="padding-right:10px;padding-bottom:10px">${pillButton({ href: input.createAccountUrl, iconUrl: iconAccent("person"), label: "Criar conta / Entrar", variant: "light", textColor: ACCENT_TEXT })}</td>
+                    <td style="padding-right:10px;padding-bottom:10px">${pillButton({ href: input.createAccountUrl, iconUrl: iconAccent("person"), label: isTransfer ? "Meus ingressos" : "Criar conta / Entrar", variant: "light", textColor: ACCENT_TEXT })}</td>
                   </tr>
                 </table>
               </td>
@@ -451,7 +470,7 @@ function renderHtml(
                 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
                   <tr>
                     <td valign="middle" style="font-family:Arial,Helvetica,sans-serif;font-size:12px;color:${MUTED};line-height:1.5">
-                      Compra processada com segurança pela ${BRAND}.<br />
+                      ${isTransfer ? `Transferência confirmada com segurança pela ${BRAND}.` : `Compra processada com segurança pela ${BRAND}.`}<br />
                       Em caso de dúvidas, <a href="${escapeAttr(input.createAccountUrl)}" style="color:${ACCENT_SOLID}">fale com nosso time de suporte</a>.
                     </td>
                     <td valign="middle" align="right">

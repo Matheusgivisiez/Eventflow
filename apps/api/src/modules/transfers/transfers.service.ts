@@ -5,6 +5,7 @@ import * as QRCode from "qrcode";
 import { createHash, createHmac, randomUUID } from "crypto";
 import { resolveClaimEmail } from "../../common/utils/claim-email.utils";
 import { maskEmail, maskName } from "../../common/utils/mask.utils";
+import { getQrCodeReleaseTime, isQrCodeLocked } from "../../common/utils/qr-code.utils";
 import { RequestUser } from "../../common/types/request-user";
 import { PrismaService } from "../../prisma/prisma.service";
 import { AuditService } from "../audit/audit.service";
@@ -265,7 +266,7 @@ export class TransfersService {
         include: this.transferInclude()
       });
 
-      return { transfer: updated, sender: transfer.sender, previousUuid: transfer.ticket.uuid };
+      return { transfer: updated, sender: transfer.sender, recipient, previousUuid: transfer.ticket.uuid };
     }).catch((error: unknown) => {
       if (this.isPrismaError(error, "P2025")) {
         throw new BadRequestException("Esta transferência não está mais pendente ou já expirou.");
@@ -289,6 +290,35 @@ export class TransfersService {
         counterpartName: result.transfer.receiver?.name ?? user.email,
         actionUrl: this.appUrl("/me/ingressos")
       })
+    });
+
+    // O destinatario precisa do ingresso de verdade por e-mail, igual a
+    // confirmacao de compra — antes so o remetente era avisado aqui.
+    const acceptedEvent = result.transfer.ticket.event;
+    const acceptedEventVenue =
+      acceptedEvent.format === "ONLINE"
+        ? "Online"
+        : [acceptedEvent.address, acceptedEvent.city, acceptedEvent.state].filter(Boolean).join(", ") ||
+          "Local a confirmar";
+
+    await this.notifications.sendTicketTransferDelivered({
+      userId: result.recipient.id,
+      email: result.recipient.email,
+      transferId,
+      recipientName: result.recipient.name ?? result.recipient.email,
+      senderName: result.sender.name ?? result.sender.email,
+      orderId: result.transfer.ticket.orderId,
+      eventTitle: acceptedEvent.title,
+      eventStartsAt: acceptedEvent.startsAt,
+      eventVenue: acceptedEventVenue,
+      qrCodeLocked: isQrCodeLocked(acceptedEvent),
+      qrCodeReleaseAt: getQrCodeReleaseTime(acceptedEvent),
+      ticket: {
+        id: result.transfer.ticketId,
+        attendeeName: result.transfer.ticket.attendeeName,
+        ticketTypeName: result.transfer.ticket.ticketType.name,
+        shortCode: result.transfer.ticket.uuid.replace(/-/g, "").slice(0, 10).toUpperCase()
+      }
     });
 
     await this.audit.log({
