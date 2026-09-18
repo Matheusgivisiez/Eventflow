@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { formatBrazilPhone, formatCpf, normalizeBrazilPhone } from "./br-format";
+import { formatBrazilPhone, formatCpf, hasFullName, normalizeBrazilPhone } from "./br-format";
 
 describe("formatCpf", () => {
   it("formata CPF com pontos e traco", () => {
@@ -44,5 +44,20 @@ describe("formatBrazilPhone", () => {
 
   it("nao deixa passar numero incompleto na validacao do formulario", () => {
     assert.notEqual(normalizeBrazilPhone("(33) 9854-2884").length, 11);
+  });
+});
+
+describe("hasFullName", () => {
+  it("exige nome e sobrenome (a InfinitePay recusa nome de uma palavra)", () => {
+    assert.equal(hasFullName("ba"), false);
+    assert.equal(hasFullName("Sarah"), false);
+    assert.equal(hasFullName("  Maria  "), false);
+    assert.equal(hasFullName("Ana B"), false);
+  });
+
+  it("aceita nomes compostos, com acento e espacos extras", () => {
+    assert.equal(hasFullName("Bárbara Santos"), true);
+    assert.equal(hasFullName("  João   da Silva "), true);
+    assert.equal(hasFullName("Zé Lu"), true);
   });
 });

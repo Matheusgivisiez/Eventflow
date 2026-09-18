@@ -28,7 +28,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { api } from "@/lib/api";
-import { formatBrazilPhone, formatCpfOrCnpj, normalizeBrazilPhone, onlyDigits } from "@/lib/br-format";
+import { formatBrazilPhone, formatCpfOrCnpj, hasFullName, normalizeBrazilPhone, onlyDigits } from "@/lib/br-format";
 import { getCurrentTicketLots } from "@/lib/ticket-lots";
 import { money } from "@/lib/utils";
 import type { EventFlowEvent } from "@/types/eventflow";
@@ -43,7 +43,10 @@ type CheckoutResponse = {
 };
 
 const buyerSchema = z.object({
-  buyerName: z.string().min(2, "Informe seu nome."),
+  buyerName: z
+    .string()
+    .min(2, "Informe seu nome.")
+    .refine(hasFullName, "Informe nome e sobrenome."),
   buyerEmail: z.string().email("Informe um e-mail valido."),
   buyerDocument: z
     .string()
@@ -169,6 +172,7 @@ function CheckoutForm() {
           ...data,
           promoterCode,
           couponCode: appliedCoupon?.code,
+          buyerName: data.buyerName.trim().replace(/\s+/g, " "),
           buyerDocument: onlyDigits(data.buyerDocument),
           buyerPhone: normalizeBrazilPhone(data.buyerPhone),
           items: Object.entries(purchasableQuantities)

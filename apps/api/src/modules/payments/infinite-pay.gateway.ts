@@ -50,6 +50,12 @@ export class InfinitePayGateway implements PaymentProvider {
       const payload = await response.json().catch(() => null) as T | { message?: string } | null;
       if (!response.ok) {
         const message = payload && typeof payload === "object" && "message" in payload ? String(payload.message) : `HTTP ${response.status}`;
+        // Sem isso o unico rastro era "Invalid checkout link params", sem dizer
+        // qual campo a InfinitePay recusou. Loga a resposta crua (nao tem dado
+        // do comprador) e o formato do que foi enviado, sem os valores.
+        this.logger.warn(
+          `InfinitePay recusou ${path}: HTTP ${response.status} ${JSON.stringify(payload)?.slice(0, 500)} campos=${JSON.stringify(this.describeShape(body))}`
+        );
         throw new InternalServerErrorException(`Falha na InfinitePay: ${message}`);
       }
       return payload as T;
@@ -113,6 +119,15 @@ export class InfinitePayGateway implements PaymentProvider {
       checkoutId: slug,
       transactionId: transactionNsu
     };
+  }
+
+  private describeShape(value: unknown): unknown {
+    if (Array.isArray(value)) return value.map((item) => this.describeShape(item));
+    if (value && typeof value === "object") {
+      return Object.fromEntries(Object.entries(value).map(([key, item]) => [key, this.describeShape(item)]));
+    }
+    if (typeof value === "string") return `string(${value.length})`;
+    return typeof value;
   }
 
   private formatBrazilianPhone(phone?: string) {

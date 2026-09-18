@@ -45,9 +45,17 @@ export class CreateCheckoutUseCase {
     if (!this.isValidBrazilianPhone(normalizedBuyerPhone)) {
       throw new BadRequestException("Informe um telefone com DDD.");
     }
+    const normalizedBuyerName = (dto.buyerName ?? "").trim().replace(/\s+/g, " ");
+    // A InfinitePay recusa o link inteiro ("Invalid checkout link params")
+    // quando o nome do cliente tem uma palavra so. Barrar aqui evita criar um
+    // pedido que nunca vai conseguir gerar o PIX.
+    if (!this.hasFullName(normalizedBuyerName)) {
+      throw new BadRequestException("Informe nome e sobrenome.");
+    }
 
     const normalizedDto = {
       ...dto,
+      buyerName: normalizedBuyerName,
       buyerDocument: normalizedBuyerDocument,
       buyerPhone: normalizedBuyerPhone,
       paymentMethod: PaymentMethod.PIX
@@ -196,6 +204,10 @@ export class CreateCheckoutUseCase {
 
   private onlyDigits(value: string) {
     return value.replace(/\D/g, "");
+  }
+
+  private hasFullName(value: string) {
+    return value.split(" ").filter((part) => /\p{L}.*\p{L}/u.test(part)).length >= 2;
   }
 
   private isValidBrazilianPhone(value: string) {

@@ -202,4 +202,35 @@ describe("WebhooksService paid payment handling", () => {
 
     expect(payments.updateStatus).not.toHaveBeenCalled();
   });
+
+  it("processes a paid webhook directly in simulation mode without calling external provider", async () => {
+    const { prisma, payments, audit } = createService();
+    const config = { get: jest.fn((key: string) => (key === "PAYMENT_SIMULATION_ENABLED" ? true : undefined)) };
+    const simulationService = new WebhooksService(prisma as any, payments as any, audit as any, undefined, config as any);
+
+    prisma.paymentLog.upsert.mockResolvedValue({ id: "log-sim", processedAt: null });
+    prisma.payment.findFirst.mockResolvedValue(createPayment({ providerRef: "sandbox:order-1" }));
+    payments.updateStatus.mockResolvedValue({ id: "payment-1", status: PaymentStatus.PAID });
+    prisma.paymentLog.update.mockResolvedValue({});
+
+    const result = await simulationService.handle("abacate_pay", {
+      id: "webhook-sim",
+      event: "checkout.completed",
+      data: {
+        checkout: {
+          id: "sandbox:order-1",
+          externalId: "order-1",
+          status: "PAID"
+        }
+      }
+    });
+
+    expect(result.status).toBe(PaymentStatus.PAID);
+    expect(payments.reconcileProviderStatus).not.toHaveBeenCalled();
+    expect(payments.updateStatus).toHaveBeenCalledWith("payment-1", "tenant-1", {
+      status: PaymentStatus.PAID,
+      providerRef: "sandbox:order-1"
+    });
+  });
 });
+

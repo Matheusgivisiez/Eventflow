@@ -46,3 +46,13 @@ export function formatBrazilPhone(value: string) {
   if (national.length <= 7) return `+55 (${national.slice(0, 2)}) ${national.slice(2)}`;
   return `+55 (${national.slice(0, 2)}) ${national.slice(2, 7)}-${national.slice(7, 11)}`;
 }
+
+/**
+ * Nome e sobrenome. A InfinitePay recusa o link de pagamento inteiro
+ * ("Invalid checkout link params") quando o nome do cliente tem uma palavra so,
+ * entao o checkout exige pelo menos duas palavras, cada uma com 2+ letras.
+ */
+export function hasFullName(value: string) {
+  const parts = value.trim().split(/\s+/).filter((part) => /\p{L}.*\p{L}/u.test(part));
+  return parts.length >= 2;
+}

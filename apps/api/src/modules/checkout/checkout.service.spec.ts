@@ -12,7 +12,7 @@ function createOrder(overrides: Record<string, unknown> = {}) {
       startsAt: new Date("2026-09-12T18:00:00.000Z"),
       address: "Avenida Paulista, 1000"
     },
-    buyerName: "Buyer",
+    buyerName: "Buyer Test",
     buyerEmail: "buyer@example.com",
     totalCents: 10800,
     status: PaymentStatus.PAID,

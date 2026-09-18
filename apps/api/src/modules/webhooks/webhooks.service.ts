@@ -1,4 +1,5 @@
 import { Injectable, Logger, NotFoundException, Optional, ServiceUnavailableException } from "@nestjs/common";
+import { ConfigService } from "@nestjs/config";
 import { PaymentStatus } from "@prisma/client";
 import { AuditService } from "../audit/audit.service";
 import { PaymentsService } from "../payments/payments.service";
@@ -13,7 +14,8 @@ export class WebhooksService {
     private readonly prisma: PrismaService,
     private readonly payments: PaymentsService,
     private readonly audit: AuditService,
-    @Optional() private readonly metrics?: BusinessMetricsService
+    @Optional() private readonly metrics?: BusinessMetricsService,
+    @Optional() private readonly config?: ConfigService
   ) {}
 
   async handle(provider: "mercado_pago" | "stripe" | "asaas" | "abacate_pay" | "infinite_pay", payload: Record<string, any>) {
@@ -71,13 +73,24 @@ export class WebhooksService {
         });
       }
 
+      const isSimulation =
+        (payment.providerRef?.startsWith("sandbox:") || providerRef?.startsWith("sandbox:")) &&
+        Boolean(this.config?.get<boolean>("PAYMENT_SIMULATION_ENABLED") ?? process.env.PAYMENT_SIMULATION_ENABLED === "true");
+
       let verified: { status: PaymentStatus } | null | undefined;
-      try {
-        verified = await this.payments.reconcileProviderStatus(payment.id, payment.event.tenantId);
-      } catch (error) {
-        this.logger.error(
-          `Falha ao verificar o pagamento ${payment.id} em ${provider}: ${(error as Error)?.message}`
-        );
+      if (isSimulation) {
+        verified = await this.payments.updateStatus(payment.id, payment.event.tenantId, {
+          status: PaymentStatus.PAID,
+          providerRef: providerRef ?? payment.providerRef ?? undefined
+        });
+      } else {
+        try {
+          verified = await this.payments.reconcileProviderStatus(payment.id, payment.event.tenantId);
+        } catch (error) {
+          this.logger.error(
+            `Falha ao verificar o pagamento ${payment.id} em ${provider}: ${(error as Error)?.message}`
+          );
+        }
       }
 
       if (verified?.status !== PaymentStatus.PAID) {

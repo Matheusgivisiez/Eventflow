@@ -47,7 +47,7 @@ function createEvent(sold = 0) {
 
 function createDto() {
   return {
-    buyerName: "Buyer",
+    buyerName: "Buyer Test",
     buyerEmail: "buyer@example.com",
     buyerDocument: "12201513600",
     buyerPhone: "11999999999",
@@ -128,6 +128,28 @@ describe("CreateCheckoutUseCase stock reservation (legacy write order, CHECKOUT_
   afterEach(() => {
     if (originalFlag === undefined) delete process.env.CHECKOUT_HOT_ROW_WRITES_LAST;
     else process.env.CHECKOUT_HOT_ROW_WRITES_LAST = originalFlag;
+  });
+
+  it.each(["ba", "Sarah", "  Maria  ", "Ana B"])(
+    "rejects a buyer name without surname (%p) before creating the order",
+    async (buyerName) => {
+      const { service, tx } = createService();
+
+      await expect(
+        service.execute("eventflow-conf", { ...createDto(), buyerName } as any),
+      ).rejects.toThrow("Informe nome e sobrenome.");
+      expect(tx.order.create).not.toHaveBeenCalled();
+    },
+  );
+
+  it("stores the buyer name trimmed and with single spaces", async () => {
+    const { service, tx } = createService();
+
+    await service.execute("eventflow-conf", { ...createDto(), buyerName: "  Bárbara   dos Santos " } as any);
+
+    expect(tx.order.create).toHaveBeenCalledWith(
+      expect.objectContaining({ data: expect.objectContaining({ buyerName: "Bárbara dos Santos" }) }),
+    );
   });
 
   it("reserves the last ticket atomically and blocks the next competing checkout", async () => {
