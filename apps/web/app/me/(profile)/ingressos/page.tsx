@@ -1,6 +1,14 @@
 "use client";
 
-import { useState, useEffect, useCallback, useMemo } from "react";
+import {
+  useState,
+  useEffect,
+  useCallback,
+  useMemo,
+  useRef,
+  useLayoutEffect,
+  useId,
+} from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import Image from "next/image";
 import Link from "next/link";
@@ -10,7 +18,6 @@ import {
   RefreshCcw,
   Ticket,
   WalletCards,
-  QrCode,
   CheckCircle2,
   XCircle,
   Clock,
@@ -24,6 +31,8 @@ import {
   RotateCw,
   Calendar,
   Sparkles,
+  CircleDot,
+  Zap,
 } from "lucide-react";
 import { api } from "@/lib/api";
 import { getApiUrl } from "@/lib/api-url";
@@ -41,7 +50,6 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { dateTime } from "@/lib/utils";
-import { BrandMark } from "@/components/brand-logo";
 
 type MyTicket = {
   id: string;
@@ -212,6 +220,105 @@ function eventLocation(ticket: MyTicket) {
   );
 }
 
+type TicketShape = {
+  w: number;
+  h: number;
+  divider: number;
+  radius: number;
+  notch: number;
+  sideNotch: number;
+};
+
+/**
+ * Contorno do bilhete: retângulo arredondado com 4 recortes semicirculares
+ * (meio das laterais + topo/base da linha picotada). A borda acompanha a curva.
+ */
+function ticketPath({ w, h, divider, radius: r, notch: d, sideNotch: n }: TicketShape) {
+  const i = 0.75;
+  const L = i;
+  const T = i;
+  const R = w - i;
+  const B = h - i;
+  const cy = h / 2;
+  return [
+    `M ${L + r} ${T}`,
+    `H ${divider - d}`,
+    `A ${d} ${d} 0 0 0 ${divider + d} ${T}`,
+    `H ${R - r}`,
+    `A ${r} ${r} 0 0 1 ${R} ${T + r}`,
+    `V ${cy - n}`,
+    `A ${n} ${n} 0 0 0 ${R} ${cy + n}`,
+    `V ${B - r}`,
+    `A ${r} ${r} 0 0 1 ${R - r} ${B}`,
+    `H ${divider + d}`,
+    `A ${d} ${d} 0 0 0 ${divider - d} ${B}`,
+    `H ${L + r}`,
+    `A ${r} ${r} 0 0 1 ${L} ${B - r}`,
+    `V ${cy + n}`,
+    `A ${n} ${n} 0 0 0 ${L} ${cy - n}`,
+    `V ${T + r}`,
+    `A ${r} ${r} 0 0 1 ${L + r} ${T}`,
+    "Z",
+  ].join(" ");
+}
+
+function useTicketShape() {
+  const ticketRef = useRef<HTMLButtonElement>(null);
+  const stubRef = useRef<HTMLSpanElement>(null);
+  const [shape, setShape] = useState<TicketShape | null>(null);
+
+  useLayoutEffect(() => {
+    const ticket = ticketRef.current;
+    const stub = stubRef.current;
+    if (!ticket || !stub) return;
+
+    const update = () => {
+      const w = ticket.offsetWidth;
+      const h = ticket.offsetHeight;
+      const compact = w < 560;
+      setShape({
+        w,
+        h,
+        divider: stub.offsetLeft,
+        radius: compact ? 20 : 26,
+        notch: compact ? 8 : 12,
+        sideNotch: compact ? 9 : 14,
+      });
+    };
+
+    update();
+    const observer = new ResizeObserver(update);
+    observer.observe(ticket);
+    return () => observer.disconnect();
+  }, []);
+
+  return { ticketRef, stubRef, shape };
+}
+
+/** Separa um sufixo entre colchetes do título, ex.: "Show [DADOS DEMONSTRATIVOS]". */
+function splitEventTitle(title: string): [string, string | null] {
+  const match = title.match(/^(.*?)\s*(\[[^\]]+\])\s*$/);
+  return match ? [match[1], match[2]] : [title, null];
+}
+
+function QrGlyph({ className }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" fill="currentColor" className={className} aria-hidden="true">
+      <rect x="3.5" y="3.5" width="7" height="7" rx="1.6" fill="none" stroke="currentColor" strokeWidth="2" />
+      <rect x="13.5" y="3.5" width="7" height="7" rx="1.6" fill="none" stroke="currentColor" strokeWidth="2" />
+      <rect x="3.5" y="13.5" width="7" height="7" rx="1.6" fill="none" stroke="currentColor" strokeWidth="2" />
+      <rect x="5.75" y="5.75" width="2.5" height="2.5" rx="0.5" />
+      <rect x="15.75" y="5.75" width="2.5" height="2.5" rx="0.5" />
+      <rect x="5.75" y="15.75" width="2.5" height="2.5" rx="0.5" />
+      <rect x="13" y="13" width="3" height="3" rx="0.6" />
+      <rect x="18" y="13" width="3" height="3" rx="0.6" />
+      <rect x="15.5" y="15.5" width="3" height="3" rx="0.6" />
+      <rect x="13" y="18" width="3" height="3" rx="0.6" />
+      <rect x="18" y="18" width="3" height="3" rx="0.6" />
+    </svg>
+  );
+}
+
 type EventTicketCardProps = {
   ticket: MyTicket;
   expanded: boolean;
@@ -266,59 +373,119 @@ function EventTicketCard({
   const detailsPanelId = `ticket-details-${ticket.id}`;
   const topBadgeLabel = `Ingresso ${cfg.label}`;
   const TopBadgeIcon = ticket.status === "AVAILABLE" ? Sparkles : StatusIcon;
+  const { ticketRef, stubRef, shape } = useTicketShape();
+  const [titleMain, titleTag] = splitEventTitle(ticket.event.title);
+  const gradientId = `ticket-${useId().replace(/:/g, "")}`;
+  const stubLabel =
+    qrLocked && qrHoursRemaining !== null
+      ? `Libera em ${qrHoursRemaining}h`
+      : canOpenQr
+        ? "Escaneie para entrar"
+        : "QR indisponível";
 
   return (
     <article className="group mx-1 animate-slide-up">
-      <div className="relative isolate overflow-hidden rounded-[24px] border border-violet-500/25 bg-[#151226]/95 text-[#f7f5ff] shadow-[0_20px_50px_rgba(0,0,0,0.4),0_0_30px_rgba(139,92,246,0.08)] backdrop-blur-md sm:rounded-[28px]">
+      <div className="relative">
         <button
+          ref={ticketRef}
           type="button"
           aria-controls={detailsPanelId}
           aria-expanded={expanded}
           aria-label={`${expanded ? "Recolher" : "Abrir"} ingresso de ${ticket.event.title}`}
           onClick={onToggleDetails}
-          className="relative grid w-full grid-cols-[100px_minmax(0,1fr)_92px] items-stretch text-left transition-colors duration-300 hover:bg-white/[0.025] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-violet-400 sm:grid-cols-[224px_minmax(0,1fr)_176px]"
+          className={`relative isolate grid min-h-[184px] w-full grid-cols-[112px_minmax(0,1fr)_96px] rounded-[26px] text-left text-[#f7f5ff] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-violet-400 sm:min-h-[292px] sm:grid-cols-[240px_minmax(0,1fr)_200px] ${
+            shape ? "" : "border border-violet-400/40 bg-[#17142a]"
+          }`}
         >
-          <span className="relative h-full min-h-[168px] w-full overflow-hidden rounded-l-[24px] sm:rounded-l-[28px]">
+          {shape && (
+            <svg
+              aria-hidden="true"
+              className="pointer-events-none absolute inset-0 -z-10 h-full w-full overflow-visible drop-shadow-[0_0_22px_rgba(139,92,246,0.18)]"
+              width={shape.w}
+              height={shape.h}
+              viewBox={`0 0 ${shape.w} ${shape.h}`}
+            >
+              <defs>
+                <linearGradient id={`${gradientId}-fill`} x1="0" y1="0" x2="1" y2="1">
+                  <stop offset="0%" stopColor="#1d1930" />
+                  <stop offset="55%" stopColor="#16131f" />
+                  <stop offset="100%" stopColor="#12101b" />
+                </linearGradient>
+                <linearGradient id={`${gradientId}-stroke`} x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor="#a78bfa" stopOpacity="0.8" />
+                  <stop offset="100%" stopColor="#7c3aed" stopOpacity="0.5" />
+                </linearGradient>
+              </defs>
+              <path
+                d={ticketPath(shape)}
+                fill={`url(#${gradientId}-fill)`}
+                stroke={`url(#${gradientId}-stroke)`}
+                strokeWidth="1.5"
+              />
+              <line
+                x1={shape.divider}
+                y1={shape.notch + 8}
+                x2={shape.divider}
+                y2={shape.h - shape.notch - 8}
+                stroke="rgba(255,255,255,0.22)"
+                strokeWidth="1.2"
+                strokeDasharray="4 5"
+              />
+            </svg>
+          )}
+
+          <span className="relative m-3 overflow-hidden rounded-[14px] border border-white/10 bg-[#211c38] shadow-[0_12px_30px_rgba(0,0,0,0.45)] sm:m-5 sm:rounded-[18px]">
             {bannerUrl ? (
               <Image
                 src={bannerUrl}
                 alt={`Capa do evento ${ticket.event.title}`}
                 fill
-                sizes="(min-width: 640px) 224px, 100px"
+                sizes="(min-width: 640px) 200px, 88px"
                 className="object-cover transition-transform duration-500 group-hover:scale-[1.03]"
               />
             ) : (
-              <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-violet-900/60 to-[#211c38]">
+              <span className="flex h-full w-full items-center justify-center bg-gradient-to-br from-violet-900/60 to-[#211c38]">
                 <Ticket className="h-8 w-8 text-violet-300/70 sm:h-11 sm:w-11" />
-              </div>
+              </span>
             )}
-            <div className="absolute inset-0 bg-gradient-to-t from-black/30 via-transparent to-transparent" />
           </span>
 
-          <span className="min-w-0 px-4 py-3.5 sm:px-8 sm:py-6">
+          <span className="flex min-w-0 flex-col py-3.5 pl-1 pr-3 sm:py-6 sm:pl-3 sm:pr-8">
             <span className="flex flex-wrap items-center justify-between gap-2">
-              <span className="inline-flex items-center gap-1.5 text-[9px] font-semibold uppercase tracking-[0.13em] text-violet-200/80 sm:text-xs sm:tracking-[0.16em]">
-                <Calendar className="h-3 w-3 text-violet-300 sm:h-3.5 sm:w-3.5" />
-                {schedule.weekday} · {schedule.dayAndMonth} · {schedule.time}
+              <span className="inline-flex items-center gap-1.5 text-[9px] font-medium uppercase tracking-[0.14em] text-white/75 sm:gap-2.5 sm:text-[13px]">
+                <Calendar className="h-3.5 w-3.5 text-white/70 sm:h-[18px] sm:w-[18px]" strokeWidth={1.75} />
+                <span>{schedule.weekday}</span>
+                <span className="text-white/35">·</span>
+                <span>{schedule.dayAndMonth}</span>
+                <span className="text-white/35">·</span>
+                <span>{schedule.time}</span>
               </span>
               <span
-                className={`inline-flex shrink-0 items-center gap-1 rounded-full border px-2.5 py-1 text-[9px] font-semibold uppercase tracking-[0.08em] sm:text-[10px] ${
+                className={`inline-flex shrink-0 items-center gap-1.5 rounded-full border px-2.5 py-1 text-[8px] font-semibold uppercase tracking-[0.16em] sm:gap-2 sm:px-4 sm:py-1.5 sm:text-[11px] ${
                   ticket.status === "AVAILABLE"
-                    ? "border-violet-400/30 bg-gradient-to-r from-violet-500/20 to-fuchsia-500/20 text-violet-100"
+                    ? "border-violet-400/25 bg-violet-500/[0.08] text-violet-300"
                     : cfg.color
                 }`}
               >
-                <TopBadgeIcon className="h-3 w-3" />
+                <TopBadgeIcon className="h-3 w-3 fill-current sm:h-4 sm:w-4" />
                 {topBadgeLabel}
               </span>
             </span>
 
-            <h3 className="mt-2 line-clamp-2 text-sm font-bold leading-[1.22] tracking-[-0.02em] text-white sm:mt-3 sm:text-2xl">
-              {ticket.event.title}
+            <h3 className="mt-2.5 line-clamp-2 text-[15px] font-medium leading-[1.2] tracking-[-0.01em] text-white sm:mt-4 sm:text-[26px]">
+              {titleMain}
+              {titleTag && (
+                <>
+                  {" "}
+                  <span className="text-[0.8em] font-normal tracking-[0.01em] text-white/80">
+                    {titleTag}
+                  </span>
+                </>
+              )}
             </h3>
 
-            <span className="mt-1.5 flex min-w-0 items-start gap-1.5 text-[10px] leading-relaxed text-white/55 sm:mt-2.5 sm:text-sm">
-              <MapPin className="mt-0.5 h-3 w-3 shrink-0 text-violet-300 sm:h-4 sm:w-4" />
+            <span className="mt-2 flex min-w-0 items-start gap-2 text-[10px] leading-snug text-white/60 sm:mt-3.5 sm:gap-3 sm:text-[15px]">
+              <MapPin className="mt-px h-3.5 w-3.5 shrink-0 text-violet-300 sm:h-5 sm:w-5" strokeWidth={1.75} />
               <span className="line-clamp-2">{eventLocation(ticket)}</span>
             </span>
 
@@ -329,69 +496,71 @@ function EventTicketCard({
               </span>
             )}
 
-            <span className="mt-2.5 block border-t border-dashed border-white/10 pt-2.5 sm:mt-4 sm:flex sm:items-end sm:justify-between sm:gap-3 sm:pt-4">
-              <span className="block min-w-0">
-                <span className="block text-[8px] font-semibold uppercase tracking-[0.17em] text-white/35 sm:text-[10px]">
-                  Titular
+            <span className="mt-auto block pt-3 sm:pt-5">
+              <span className="block border-t border-white/10 pt-3 sm:flex sm:items-end sm:justify-between sm:gap-4 sm:pt-4">
+                <span className="block min-w-0">
+                  <span className="block text-[8px] font-medium uppercase tracking-[0.2em] text-white/45 sm:text-[11px]">
+                    Titular
+                  </span>
+                  <span className="mt-1 block truncate text-[12px] font-semibold text-white sm:text-[17px]">
+                    {ticket.attendeeName}
+                  </span>
                 </span>
-                <span className="mt-0.5 block truncate text-[11px] font-semibold text-white/90 sm:text-sm">
-                  {ticket.attendeeName}
-                </span>
-              </span>
-              <span className="mt-2 flex flex-wrap items-center gap-1.5 sm:mt-0 sm:justify-end">
-                <span className="inline-flex max-w-full items-center gap-1 truncate rounded-full border border-violet-300/15 bg-violet-300/10 px-2 py-1 text-[9px] font-semibold text-violet-100 sm:max-w-[150px] sm:px-2.5 sm:text-[10px]">
-                  <Ticket className="h-2.5 w-2.5 shrink-0" />
-                  {ticket.ticketType.name}
-                </span>
-                <span
-                  className={`inline-flex items-center gap-1 rounded-full border px-2 py-1 text-[9px] font-semibold sm:text-[10px] ${cfg.color}`}
-                >
-                  <StatusIcon className="h-2.5 w-2.5" />
-                  {cfg.label}
+                <span className="mt-2 flex flex-wrap items-center gap-1.5 sm:mt-0 sm:justify-end sm:gap-3">
+                  <span className="inline-flex max-w-full items-center gap-1.5 truncate rounded-full border border-violet-400/35 bg-violet-500/10 px-2.5 py-1 text-[9px] font-medium text-white/90 sm:gap-2 sm:px-4 sm:py-2 sm:text-[13px]">
+                    <Ticket className="h-3 w-3 shrink-0 text-violet-300 sm:h-4 sm:w-4" strokeWidth={1.75} />
+                    {ticket.ticketType.name}
+                  </span>
+                  <span
+                    className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[9px] font-semibold sm:gap-2 sm:px-4 sm:py-2 sm:text-[13px] ${
+                      ticket.status === "AVAILABLE"
+                        ? "border-emerald-400/50 bg-emerald-400/10 text-emerald-300"
+                        : cfg.color
+                    }`}
+                  >
+                    {ticket.status === "AVAILABLE" ? (
+                      <CircleDot className="h-3 w-3 sm:h-4 sm:w-4" strokeWidth={2} />
+                    ) : (
+                      <StatusIcon className="h-3 w-3 sm:h-4 sm:w-4" />
+                    )}
+                    {cfg.label}
+                  </span>
                 </span>
               </span>
             </span>
           </span>
 
-          <span className="relative flex h-full flex-col items-center justify-between gap-2 border-l border-dashed border-violet-300/25 px-2.5 py-4 text-center sm:gap-3 sm:px-6 sm:py-6">
-            <span className="text-[8px] font-bold uppercase leading-tight tracking-[0.14em] text-white/40 sm:text-[11px] sm:tracking-[0.2em]">
+          <span
+            ref={stubRef}
+            className="relative flex flex-col items-center justify-between px-2 py-4 text-center sm:px-6 sm:py-7"
+          >
+            <span className="text-[8px] font-medium uppercase tracking-[0.2em] text-white/80 sm:text-[13px] sm:tracking-[0.24em]">
               QR entrada
             </span>
-            <span className="flex h-10 w-10 items-center justify-center rounded-xl border border-violet-300/25 bg-white/[0.03] text-violet-200 sm:h-16 sm:w-16 sm:rounded-2xl">
+            <span className="flex h-12 w-12 items-center justify-center rounded-xl border border-white/10 bg-white/[0.04] shadow-[inset_0_1px_0_rgba(255,255,255,0.06)] sm:h-[116px] sm:w-[116px] sm:rounded-[22px]">
               {qrLocked ? (
-                <Lock className="h-4 w-4 sm:h-6 sm:w-6" />
+                <Lock className="h-5 w-5 text-white/80 sm:h-10 sm:w-10" strokeWidth={1.75} />
               ) : (
-                <QrCode className="h-5 w-5 sm:h-7 sm:w-7" />
+                <QrGlyph className="h-6 w-6 text-white sm:h-[58px] sm:w-[58px]" />
               )}
             </span>
-            <span className="max-w-[80px] text-[8px] font-bold uppercase leading-tight tracking-[0.06em] text-white/50 sm:max-w-[140px] sm:text-[10px] sm:tracking-[0.1em]">
-              {qrLocked && qrHoursRemaining !== null
-                ? `Libera em ${qrHoursRemaining}h`
-                : canOpenQr
-                  ? "Escaneie para entrar"
-                  : "QR indisponível"}
+            <span className="max-w-[84px] text-[7px] font-normal uppercase leading-relaxed tracking-[0.18em] text-white/55 sm:max-w-[140px] sm:text-[11px] sm:tracking-[0.22em]">
+              {stubLabel}
             </span>
-
-            <span className="mt-auto flex items-center gap-1 text-white/40">
-              <BrandMark className="h-3 w-3.5 opacity-70 sm:h-3.5 sm:w-4" />
-              <span className="text-[7px] font-bold uppercase tracking-[0.18em] sm:text-[9px] sm:tracking-[0.22em]">
-                Event Flow
+            <span className="flex w-full flex-col items-center gap-2 sm:gap-3">
+              <span className="h-px w-4/5 bg-white/10" />
+              <span className="inline-flex items-center gap-1.5 sm:gap-2">
+                <Zap className="h-3 w-3 fill-violet-500 text-violet-500 sm:h-5 sm:w-5" />
+                <span className="text-[7px] font-medium uppercase tracking-[0.24em] text-white/60 sm:text-[11px] sm:tracking-[0.3em]">
+                  Event Flow
+                </span>
               </span>
             </span>
-
-            <span
-              aria-hidden="true"
-              className="pointer-events-none absolute -top-3 left-0 h-6 w-6 -translate-x-1/2 -translate-y-1/2 rounded-full bg-[#F8F8F8] dark:bg-background"
-            />
-            <span
-              aria-hidden="true"
-              className="pointer-events-none absolute -bottom-3 left-0 h-6 w-6 -translate-x-1/2 translate-y-1/2 rounded-full bg-[#F8F8F8] dark:bg-background"
-            />
           </span>
         </button>
 
         {expanded && (
-          <div id={detailsPanelId} className="animate-slide-up border-t border-dashed border-violet-300/20">
+          <div id={detailsPanelId} className="mt-3 animate-slide-up overflow-hidden rounded-[24px] border border-violet-400/25 shadow-[0_20px_50px_rgba(0,0,0,0.35)] sm:rounded-[28px]">
             <div className="bg-[#121024]/90 backdrop-blur-xl">
               {canOpenQr && (
                 <div className="px-4 py-6 sm:px-8 sm:py-8">
