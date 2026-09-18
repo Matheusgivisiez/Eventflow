@@ -92,7 +92,6 @@ export class BuyerService {
           select: {
             id: true,
             receiverEmail: true,
-            receiverCpf: true,
             createdAt: true,
             expiresAt: true,
             receiver: { select: { name: true, email: true } },
@@ -131,7 +130,6 @@ export class BuyerService {
               receiverName: transfers[0].receiver?.name ?? null,
               receiverEmail:
                 transfers[0].receiverEmail ?? transfers[0].receiver?.email ?? null,
-              receiverCpfLast4: transfers[0].receiverCpf?.slice(-4) ?? null,
               createdAt: transfers[0].createdAt.toISOString(),
               expiresAt: transfers[0].expiresAt?.toISOString() ?? null,
             }

@@ -109,7 +109,6 @@ describe("BuyerService.listTickets", () => {
           select: {
             id: true,
             receiverEmail: true,
-            receiverCpf: true,
             createdAt: true,
             expiresAt: true,
             receiver: { select: { name: true, email: true } },
@@ -129,7 +128,6 @@ describe("BuyerService.listTickets", () => {
         transfers: [{
           id: "transfer-1",
           receiverEmail: "receiver@example.com",
-          receiverCpf: "12345678901",
           createdAt: now,
           expiresAt: new Date("2026-09-05T15:00:00.000Z"),
           receiver: { name: "Matheus", email: "receiver@example.com" },
@@ -143,7 +141,6 @@ describe("BuyerService.listTickets", () => {
       id: "transfer-1",
       receiverName: "Matheus",
       receiverEmail: "receiver@example.com",
-      receiverCpfLast4: "8901",
       createdAt: now.toISOString(),
       expiresAt: "2026-09-05T15:00:00.000Z",
     });

@@ -18,7 +18,6 @@ type Transfer = {
   declinedAt?: string;
   cancelledAt?: string;
   receiverEmail?: string;
-  receiverCpf?: string;
   sender: { id: string; name: string; email: string };
   receiver?: { id: string; name: string; email: string };
   ticket: {
@@ -73,7 +72,7 @@ export default function TransferHistoryPage() {
             const StatusIcon = cfg.icon;
             const sentByMe = transfer.sender.id === user?.id;
             const counterparty = sentByMe
-              ? transfer.receiver?.name ?? transfer.receiverEmail ?? transfer.receiverCpf ?? "Destinatario convidado"
+              ? transfer.receiver?.name ?? transfer.receiverEmail ?? "Destinatario convidado"
               : transfer.sender.name;
 
             return (

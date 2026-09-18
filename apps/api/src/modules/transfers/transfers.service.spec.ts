@@ -54,7 +54,6 @@ function createTransfer(overrides: Record<string, unknown> = {}) {
     senderId: sender.id,
     receiverId: receiver.id,
     receiverEmail: receiver.email,
-    receiverCpf: null,
     status: TransferStatus.PENDING,
     expiresAt: new Date(Date.now() + 1000 * 60 * 60),
     ticket: createTicket(),
@@ -324,14 +323,27 @@ describe("TransfersService ownership by e-mail", () => {
     expect(JSON.stringify(where)).not.toContain("attendeeEmail");
   });
 
-  it("does not read the CPF of guest orders when the sender e-mail is unverified", async () => {
+});
+
+describe("TransfersService resolveRecipient", () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  it("nao devolve o e-mail nem o nome completo de quem foi encontrado pelo e-mail", async () => {
     const { service, prisma } = createService();
-    prisma.order.findMany.mockResolvedValue([]);
-    prisma.transfer.findMany.mockResolvedValue([]);
+    prisma.user.findUnique.mockResolvedValue({
+      id: "receiver-1",
+      name: "Maria Aparecida Souza",
+      email: "maria.aparecida@gmail.com",
+      avatarUrl: null
+    });
 
-    await service.received({ ...sender, emailVerified: false }, {});
+    const result = await service.resolveRecipient(sender, { receiverEmail: "maria.aparecida@gmail.com" });
 
-    const where = prisma.order.findMany.mock.calls[0][0].where;
-    expect(where.OR).toEqual([{ userId: sender.id }]);
+    expect(result.exists).toBe(true);
+    expect(result.user).toEqual({ name: "Maria A. S.", email: "ma****@gmail.com" });
+    expect(JSON.stringify(result)).not.toContain("Aparecida Souza");
+    expect((result.user as any).id).toBeUndefined();
   });
 });

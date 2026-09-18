@@ -4,6 +4,7 @@ import { NotificationEvent, NotificationType, Prisma, TicketStatus, TransferStat
 import * as QRCode from "qrcode";
 import { createHash, createHmac, randomUUID } from "crypto";
 import { resolveClaimEmail } from "../../common/utils/claim-email.utils";
+import { maskEmail, maskName } from "../../common/utils/mask.utils";
 import { RequestUser } from "../../common/types/request-user";
 import { PrismaService } from "../../prisma/prisma.service";
 import { AuditService } from "../audit/audit.service";
@@ -21,7 +22,6 @@ import { CreateTransferDto, ResolveTransferRecipientDto } from "./dto/create-tra
 type RecipientLookup = {
   receiverId?: string;
   receiverEmail?: string;
-  receiverCpf?: string;
   user?: Pick<User, "id" | "name" | "email" | "avatarUrl">;
 };
 
@@ -36,6 +36,13 @@ export class TransfersService {
     @Optional() private readonly googleWallet?: GoogleWalletService
   ) {}
 
+  /**
+   * Confirma para quem o ingresso vai — sem virar uma consulta de dados
+   * pessoais. Antes esta rota devolvia nome, id e e-mail completos de qualquer
+   * conta: com um CPF em maos, qualquer usuario logado descobria o nome e o
+   * e-mail do titular. Agora so volta o que serve para reconhecer a pessoa,
+   * mascarado, e o e-mail cru jamais e revelado a partir de um CPF.
+   */
   async resolveRecipient(sender: RequestUser, dto: ResolveTransferRecipientDto) {
     const recipient = await this.lookupRecipient(dto);
     this.ensureNotSelf(sender, recipient);
@@ -44,14 +51,11 @@ export class TransfersService {
       exists: Boolean(recipient.user),
       user: recipient.user
         ? {
-            id: recipient.user.id,
-            name: recipient.user.name,
-            email: recipient.user.email,
-            avatarUrl: recipient.user.avatarUrl
+            name: maskName(recipient.user.name),
+            email: maskEmail(recipient.user.email)
           }
         : undefined,
-      receiverEmail: recipient.receiverEmail,
-      receiverCpf: recipient.receiverCpf
+      receiverEmail: dto.receiverEmail.trim().toLowerCase()
     };
   }
 
@@ -80,7 +84,6 @@ export class TransfersService {
           senderId: sender.id,
           receiverId: recipient.receiverId,
           receiverEmail: recipient.receiverEmail,
-          receiverCpf: recipient.receiverCpf,
           expiresAt: this.transferExpiresAt(ticket.event),
           history: {
             create: {
@@ -88,7 +91,6 @@ export class TransfersService {
               userId: sender.id,
               metadata: this.compactJson({
                 receiverEmail: recipient.receiverEmail,
-                receiverCpf: recipient.receiverCpf,
                 receiverId: recipient.receiverId
               })
             }
@@ -140,7 +142,6 @@ export class TransfersService {
   async received(user: RequestUser, query: { page?: string; perPage?: string; status?: TransferStatus }) {
     await this.expirePendingTransfers();
     const { page, perPage } = this.pagination(query);
-    const receiverCpfValues = await this.userCpfValues(user);
     const claimEmail = resolveClaimEmail(user);
 
     return this.prisma.transfer.findMany({
@@ -148,8 +149,7 @@ export class TransfersService {
         status: query.status,
         OR: [
           { receiverId: user.id },
-          ...(claimEmail ? [{ receiverEmail: claimEmail }] : []),
-          ...(receiverCpfValues.length ? [{ receiverCpf: { in: receiverCpfValues } }] : [])
+          ...(claimEmail ? [{ receiverEmail: claimEmail }] : [])
         ]
       },
       include: this.transferInclude(),
@@ -175,7 +175,6 @@ export class TransfersService {
   async history(user: RequestUser, query: { page?: string; perPage?: string }) {
     await this.expirePendingTransfers();
     const { page, perPage } = this.pagination(query);
-    const receiverCpfValues = await this.userCpfValues(user);
     const claimEmail = resolveClaimEmail(user);
 
     return this.prisma.transfer.findMany({
@@ -183,8 +182,7 @@ export class TransfersService {
         OR: [
           { senderId: user.id },
           { receiverId: user.id },
-          ...(claimEmail ? [{ receiverEmail: claimEmail }] : []),
-          ...(receiverCpfValues.length ? [{ receiverCpf: { in: receiverCpfValues } }] : [])
+          ...(claimEmail ? [{ receiverEmail: claimEmail }] : [])
         ]
       },
       include: this.transferInclude(),
@@ -396,32 +394,15 @@ export class TransfersService {
 
   private async lookupRecipient(dto: ResolveTransferRecipientDto): Promise<RecipientLookup> {
     const receiverEmail = dto.receiverEmail?.trim().toLowerCase();
-    const receiverCpf = dto.receiverCpf ? this.onlyDigits(dto.receiverCpf) : undefined;
-
-    if (!receiverEmail && !receiverCpf) {
-      throw new BadRequestException("Informe o e-mail ou CPF do destinatario.");
+    if (!receiverEmail) {
+      throw new BadRequestException("Informe o e-mail do destinatario.");
     }
 
-    if (receiverEmail) {
-      const user = await this.prisma.user.findUnique({
-        where: { email: receiverEmail },
-        select: { id: true, name: true, email: true, avatarUrl: true }
-      });
-      return { receiverId: user?.id, receiverEmail, user: user ?? undefined };
-    }
-
-    const order = await this.prisma.order.findFirst({
-      where: { buyerDocument: receiverCpf, userId: { not: null } },
-      include: { user: { select: { id: true, name: true, email: true, avatarUrl: true } } },
-      orderBy: { createdAt: "desc" }
+    const user = await this.prisma.user.findUnique({
+      where: { email: receiverEmail },
+      select: { id: true, name: true, email: true, avatarUrl: true }
     });
-
-    return {
-      receiverId: order?.user?.id,
-      receiverEmail: order?.user?.email,
-      receiverCpf,
-      user: order?.user ?? undefined
-    };
+    return { receiverId: user?.id, receiverEmail, user: user ?? undefined };
   }
 
   private async findOwnedTicket(user: RequestUser, ticketId: string) {
@@ -489,12 +470,6 @@ export class TransfersService {
     if (claimEmail && transfer.receiverEmail === claimEmail) {
       return transfer;
     }
-    if (transfer.receiverCpf) {
-      const cpfValues = await this.userCpfValues(user);
-      if (cpfValues.includes(transfer.receiverCpf)) {
-        return transfer;
-      }
-    }
     throw new ForbiddenException("Esta transferencia nao pertence ao usuario autenticado.");
   }
 
@@ -508,22 +483,6 @@ export class TransfersService {
     if (confirmation.trim().toUpperCase() !== "CONFIRMAR") {
       throw new BadRequestException("Digite CONFIRMAR para concluir esta ação.");
     }
-  }
-
-  private async userCpfValues(user: RequestUser) {
-    // buyerEmail may only be used once the address is proven — otherwise this
-    // hands the CPF of any guest buyer to whoever registers with their e-mail.
-    const claimEmail = resolveClaimEmail(user);
-    const orders = await this.prisma.order.findMany({
-      where: {
-        OR: [{ userId: user.id }, ...(claimEmail ? [{ buyerEmail: claimEmail }] : [])],
-        buyerDocument: { not: null }
-      },
-      select: { buyerDocument: true },
-      take: 100
-    });
-
-    return Array.from(new Set(orders.map((order) => this.onlyDigits(order.buyerDocument ?? "")).filter(Boolean)));
   }
 
   private async expirePendingTransfers() {
@@ -607,10 +566,6 @@ export class TransfersService {
     const page = Math.max(Number(query.page ?? 1), 1);
     const perPage = Math.min(Math.max(Number(query.perPage ?? 20), 1), 100);
     return { page, perPage };
-  }
-
-  private onlyDigits(value: string) {
-    return value.replace(/\D/g, "");
   }
 
   private compactJson<T extends Record<string, unknown>>(value: T): Prisma.InputJsonObject {

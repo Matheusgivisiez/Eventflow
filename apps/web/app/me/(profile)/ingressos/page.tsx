@@ -76,7 +76,6 @@ type MyTicket = {
     id: string;
     receiverName: string | null;
     receiverEmail: string | null;
-    receiverCpfLast4: string | null;
     createdAt: string;
     expiresAt: string | null;
   } | null;
@@ -84,14 +83,12 @@ type MyTicket = {
 
 type RecipientLookup = {
   exists: boolean;
+  /** Nome e e-mail vem mascarados pela API: servem para conferir, nao para copiar. */
   user?: {
-    id: string;
     name: string;
     email: string;
-    avatarUrl?: string;
   };
   receiverEmail?: string;
-  receiverCpf?: string;
 };
 
 const statusConfig = {
@@ -261,11 +258,8 @@ function EventTicketCard({
   const transferLocked = isTransferLocked(ticket);
   const transferReason = getTransferLockReason(ticket);
   const pendingTransfer = ticket.pendingTransfer;
-  const pendingRecipient = pendingTransfer?.receiverName
-    ?? pendingTransfer?.receiverEmail
-    ?? (pendingTransfer?.receiverCpfLast4
-      ? `CPF final ${pendingTransfer.receiverCpfLast4}`
-      : "destinatário");
+  const pendingRecipient =
+    pendingTransfer?.receiverName ?? pendingTransfer?.receiverEmail ?? "destinatário";
   const bannerUrl = publicAssetUrl(ticket.event.bannerUrl);
   const detailsPanelId = `ticket-details-${ticket.id}`;
 
@@ -707,11 +701,7 @@ export default function MyTicketsPage() {
   }
 
   function recipientPayload(value: string) {
-    const clean = value.trim();
-    if (clean.includes("@")) {
-      return { receiverEmail: clean.toLowerCase() };
-    }
-    return { receiverCpf: clean.replace(/\D/g, "") };
+    return { receiverEmail: value.trim().toLowerCase() };
   }
 
   async function downloadPdf(ticketId: string) {
@@ -1066,7 +1056,7 @@ export default function MyTicketsPage() {
             <DialogHeader>
               <DialogTitle>Transferir ingresso</DialogTitle>
               <DialogDescription>
-                Informe o e-mail ou CPF do destinatario para iniciar uma
+                Informe o e-mail do destinatario para iniciar uma
                 transferencia pendente.
               </DialogDescription>
             </DialogHeader>
@@ -1082,10 +1072,11 @@ export default function MyTicketsPage() {
             )}
 
             <div className="space-y-2">
-              <Label htmlFor="recipient">E-mail ou CPF</Label>
+              <Label htmlFor="recipient">E-mail do destinatario</Label>
               <div className="flex gap-2">
                 <Input
                   id="recipient"
+                  type="email"
                   value={recipient}
                   onChange={(event) => {
                     setRecipient(event.target.value);
@@ -1093,7 +1084,7 @@ export default function MyTicketsPage() {
                     resolveRecipient.reset();
                     createTransfer.reset();
                   }}
-                  placeholder="destino@email.com ou 00000000000"
+                  placeholder="destino@email.com"
                 />
                 <Button
                   type="button"
