@@ -63,6 +63,22 @@ describe("buildGoogleMapsLink", () => {
 });
 
 describe("buildUberLink", () => {
+  const originalClientId = process.env.NEXT_PUBLIC_UBER_CLIENT_ID;
+
+  it("inclui client_id quando NEXT_PUBLIC_UBER_CLIENT_ID esta configurado", () => {
+    process.env.NEXT_PUBLIC_UBER_CLIENT_ID = "abc123";
+    const link = buildUberLink(baseEvent);
+    assert.match(link, /[?&]client_id=abc123/);
+    process.env.NEXT_PUBLIC_UBER_CLIENT_ID = originalClientId;
+  });
+
+  it("nao quebra quando NEXT_PUBLIC_UBER_CLIENT_ID nao esta configurado", () => {
+    delete process.env.NEXT_PUBLIC_UBER_CLIENT_ID;
+    const link = buildUberLink(baseEvent);
+    assert.doesNotMatch(link, /client_id/);
+    process.env.NEXT_PUBLIC_UBER_CLIENT_ID = originalClientId;
+  });
+
   it("inclui pickup=my_location e o endereco de destino, com colchetes literais na chave", () => {
     const link = buildUberLink(baseEvent, "Festa Junina");
     assert.match(link, /^https:\/\/m\.uber\.com\/ul\/\?/);

@@ -87,9 +87,19 @@ export function buildGoogleMapsLink(event: EventLocationInput): string {
  * Deep link oficial do Uber (m.uber.com/ul). Documentado em
  * https://developer.uber.com/docs/riders/ride-requests/tutorials/deep-links/introduction
  * Abre o app com o destino ja preenchido e a origem como localizacao atual.
+ *
+ * client_id: a documentacao oficial da Uber lista esse parametro como
+ * obrigatorio em TODOS os exemplos de deep link (inclusive os que so
+ * preenchem pickup/dropoff, sem nenhuma chamada de API). Sem ele o link
+ * pode abrir o app "vazio", sem o destino preenchido -- e o motivo mais
+ * provavel do botao nao estar registrando o endereco corretamente.
+ * Como conseguir: crie um app de graca em https://developer.uber.com
+ * (dashboard > "Create App"), copie o Client ID gerado e coloque em
+ * NEXT_PUBLIC_UBER_CLIENT_ID no .env do app web.
  */
 export function buildUberLink(event: EventLocationInput, nickname?: string): string {
   const { coords, address } = getEventLocation(event);
+  const clientId = process.env.NEXT_PUBLIC_UBER_CLIENT_ID;
 
   // IMPORTANTE: os nomes dos parametros com colchetes (dropoff[formatted_address])
   // precisam ficar literais na query string. Se usarmos URLSearchParams aqui, ele
@@ -97,6 +107,9 @@ export function buildUberLink(event: EventLocationInput, nickname?: string): str
   // e o app do Uber nao reconhece a chave codificada -- o destino chega em branco.
   // Por isso montamos a query manualmente: chave literal, valor com encodeURIComponent.
   const parts = ["action=setPickup", "pickup=my_location"];
+  if (clientId) {
+    parts.unshift(`client_id=${encodeURIComponent(clientId)}`);
+  }
   if (coords) {
     parts.push(`dropoff[latitude]=${encodeURIComponent(String(coords.lat))}`);
     parts.push(`dropoff[longitude]=${encodeURIComponent(String(coords.lng))}`);
@@ -127,14 +140,3 @@ export function buildWazeLink(event: EventLocationInput): string {
   }
   return `https://waze.com/ul?${params.toString()}`;
 }
-
-/**
- * O 99 (99app / DiDi) nao publica um esquema de link universal que aceite
- * um endereco de destino (ao contrario de Uber e Waze). O que da para fazer,
- * de forma confiavel, e abrir o app pelo esquema customizado dele e, se nao
- * estiver instalado, cair para a loja certa pelo user agent.
- */
-export const NINETYNINE_APP_SCHEME = "taxis99://";
-export const NINETYNINE_ANDROID_STORE = "https://play.google.com/store/apps/details?id=com.taxis99";
-export const NINETYNINE_IOS_STORE = "https://apps.apple.com/br/app/99-corridas-food-pay/id553663691";
-export const NINETYNINE_WEB_FALLBACK = "https://99app.com/passageiro/";
