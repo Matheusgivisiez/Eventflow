@@ -46,10 +46,18 @@ async function proxy(request: NextRequest, context: RouteContext) {
   headers.set("x-forwarded-host", request.headers.get("host") ?? request.nextUrl.host);
   headers.set("x-forwarded-proto", request.nextUrl.protocol.replace(":", ""));
 
-  const forwardedFor = request.headers.get("x-forwarded-for");
-  const realIp = request.headers.get("x-real-ip") ?? forwardedFor?.split(",")[0]?.trim();
-  if (forwardedFor) headers.set("x-forwarded-for", forwardedFor);
-  if (realIp) headers.set("x-real-ip", realIp);
+  // O cliente controla o que manda em x-forwarded-for / x-real-ip. Repassar
+  // esses valores deixava o backend contar rate limit por um "IP" escolhido
+  // pelo atacante. Aqui eles sao descartados e reescritos com o unico endereco
+  // que a plataforma garante: o peer que a Vercel enxergou.
+  headers.delete("x-forwarded-for");
+  headers.delete("x-real-ip");
+
+  const clientIp = resolveClientIp(request);
+  if (clientIp) {
+    headers.set("x-forwarded-for", clientIp);
+    headers.set("x-real-ip", clientIp);
+  }
 
   let upstream: Response;
   try {
@@ -82,6 +90,26 @@ async function proxy(request: NextRequest, context: RouteContext) {
     statusText: upstream.statusText,
     headers: responseHeaders
   });
+}
+
+/**
+ * `x-vercel-forwarded-for` e escrito pela plataforma e nao pode ser forjado
+ * pelo cliente. Sem ele (dev local, outro host), cai para o ULTIMO endereco da
+ * cadeia x-forwarded-for: o proxy anexa o IP que realmente viu ao final, entao
+ * o final e confiavel enquanto o inicio e o que o cliente digitou.
+ */
+function resolveClientIp(request: NextRequest): string | undefined {
+  const vercelForwardedFor = request.headers.get("x-vercel-forwarded-for");
+  if (vercelForwardedFor?.trim()) {
+    return vercelForwardedFor.split(",").pop()?.trim() || undefined;
+  }
+
+  const forwardedFor = request.headers.get("x-forwarded-for");
+  if (forwardedFor?.trim()) {
+    return forwardedFor.split(",").pop()?.trim() || undefined;
+  }
+
+  return request.headers.get("x-real-ip")?.trim() || undefined;
 }
 
 function normalizeApiUrl(value: string | undefined) {

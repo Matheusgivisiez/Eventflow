@@ -10,6 +10,11 @@ export type AbacateCheckoutStatus = {
   id: string;
   externalId?: string;
   status: "PENDING" | "PAID" | "EXPIRED" | "CANCELLED" | "REFUNDED";
+  // Nomes variam entre respostas da API; todos em centavos quando presentes.
+  amount?: number;
+  amountCents?: number;
+  paidAmount?: number;
+  paidAmountCents?: number;
 };
 
 export type AbacatePixTransferInput = {
@@ -201,6 +206,10 @@ export class AbacatePayGateway implements PaymentProvider {
     return this.getCheckout(ref).then((checkout): PaymentVerification => ({
       id: checkout.id,
       status: checkout.status === "CANCELLED" || checkout.status === "EXPIRED" ? "CANCELED" : checkout.status,
+      // Sem estes valores a conferencia de valor do PaymentsService nao tem o
+      // que comparar e um pagamento parcial passaria batido.
+      amountCents: firstNumber(checkout.amountCents, checkout.amount),
+      paidAmountCents: firstNumber(checkout.paidAmountCents, checkout.paidAmount),
       providerRef: checkout.id
     }));
   }
@@ -223,4 +232,8 @@ export class AbacatePayGateway implements PaymentProvider {
       status: transfer.status
     };
   }
+}
+
+function firstNumber(...values: Array<number | undefined>): number | undefined {
+  return values.find((value) => typeof value === "number" && Number.isFinite(value));
 }

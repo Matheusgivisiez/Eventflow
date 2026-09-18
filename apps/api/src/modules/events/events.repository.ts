@@ -69,7 +69,7 @@ export class EventsRepository implements IEventsRepository {
         status: EventStatus.PUBLISHED,
         AND: [this.publicAvailabilityWhere()]
       },
-      include: { ticketTypes: { where: { isActive: true }, orderBy: { priceCents: "asc" } }, artists: { select: { position: true, artist: { select: { id: true, stageName: true, imageUrl: true, instagramUrl: true, spotifyUrl: true, bio: true, genre: true } } }, orderBy: { position: "asc" } } }
+      include: { ticketTypes: { where: { isActive: true }, orderBy: [{ startsAt: "asc" }, { createdAt: "asc" }] }, artists: { select: { position: true, artist: { select: { id: true, stageName: true, imageUrl: true, instagramUrl: true, spotifyUrl: true, bio: true, genre: true } } }, orderBy: { position: "asc" } } }
     });
   }
 
@@ -91,7 +91,7 @@ export class EventsRepository implements IEventsRepository {
       this.prisma.event.findMany({
         where,
         include: {
-          ticketTypes: { where: { isActive: true }, orderBy: { priceCents: "asc" } },
+          ticketTypes: { where: { isActive: true }, orderBy: [{ startsAt: "asc" }, { createdAt: "asc" }] },
           tenant: { select: { name: true, logoUrl: true } }
         },
         orderBy: { startsAt: "asc" },

@@ -149,9 +149,21 @@ export class PaymentsService {
       checkoutId: payment.checkoutId,
       transactionId: payment.transactionId
     });
-    if (checkout.status === "PAID" && checkout.amountCents !== undefined && checkout.amountCents !== payment.amountCents) {
-      this.logger.error(`Valor divergente no pagamento ${payment.id}: esperado=${payment.amountCents} recebido=${checkout.amountCents}`);
-      return payment;
+    if (checkout.status === "PAID") {
+      // Dois valores precisam bater: o que o provedor diz que foi cobrado e o
+      // que foi efetivamente pago. Conferir so o primeiro deixa passar
+      // pagamento parcial, que e como um PIX vira ingresso mais barato.
+      const chargedCents = checkout.amountCents;
+      const paidCents = checkout.paidAmountCents;
+
+      if (chargedCents !== undefined && chargedCents !== payment.amountCents) {
+        this.logger.error(`Valor divergente no pagamento ${payment.id}: esperado=${payment.amountCents} cobrado=${chargedCents}`);
+        return payment;
+      }
+      if (paidCents !== undefined && paidCents < payment.amountCents) {
+        this.logger.error(`Pagamento parcial em ${payment.id}: esperado=${payment.amountCents} pago=${paidCents}`);
+        return payment;
+      }
     }
     const status = checkout.status === "PAID"
       ? PaymentStatus.PAID

@@ -5,13 +5,26 @@ import { Response } from "express";
 import { CurrentUser } from "../../common/decorators/current-user.decorator";
 import { OptionalJwtAuthGuard } from "../../common/guards/optional-jwt-auth.guard";
 import { RequestUser } from "../../common/types/request-user";
+import { CouponsService } from "../coupons/coupons.service";
 import { CheckoutService } from "./checkout.service";
 import { CreateCheckoutDto } from "./dto/create-checkout.dto";
+import { PreviewCouponDto } from "./dto/preview-coupon.dto";
 
 @ApiTags("Checkout")
 @Controller("checkout")
 export class CheckoutController {
-  constructor(private readonly checkout: CheckoutService) {}
+  constructor(
+    private readonly checkout: CheckoutService,
+    private readonly coupons: CouponsService
+  ) {}
+
+  @Post(":slug/coupon")
+  // Limite baixo: evita que alguem fique chutando codigos de cupom.
+  @Throttle({ default: { limit: 20, ttl: 60000 } })
+  @ApiOperation({ summary: "Validar cupom no checkout", description: "Confere se o cupom vale para o evento e retorna o desconto. Nao consome uso." })
+  previewCoupon(@Param("slug") slug: string, @Body() dto: PreviewCouponDto) {
+    return this.coupons.previewForEvent(slug, dto.code);
+  }
 
   @Post(":slug")
   @Throttle({ default: { limit: 300, ttl: 60000 }, checkout: { limit: 300, ttl: 60000 } })

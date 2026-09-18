@@ -16,7 +16,9 @@ export class TransfersController {
   constructor(private readonly transfers: TransfersService) {}
 
   @Post("recipient")
-  @Throttle({ sensitive: { limit: 20, ttl: 60000 } })
+  // Consulta de identidade: limite curto por conta (o tracker do throttler ja
+  // usa o usuario autenticado), para nao virar ferramenta de varredura.
+  @Throttle({ sensitive: { limit: 10, ttl: 60000 } })
   resolveRecipient(@CurrentUser() user: RequestUser, @Body() dto: ResolveTransferRecipientDto) {
     return this.transfers.resolveRecipient(user, dto);
   }

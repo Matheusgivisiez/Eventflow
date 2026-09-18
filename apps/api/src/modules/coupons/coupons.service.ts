@@ -1,4 +1,5 @@
 import { BadRequestException, Injectable, NotFoundException } from "@nestjs/common";
+import { EventStatus } from "@prisma/client";
 import { PrismaService } from "../../prisma/prisma.service";
 import { CreateCouponDto } from "./dto/create-coupon.dto";
 import { UpdateCouponDto } from "./dto/update-coupon.dto";
@@ -9,7 +10,11 @@ export class CouponsService {
 
   async create(tenantId: string | null, dto: CreateCouponDto) {
     this.validateDiscount(dto.discountPercent, dto.discountFixedCents, true);
-    const exists = await this.prisma.coupon.findUnique({ where: { code: dto.code } });
+    const code = CouponsService.normalizeCode(dto.code);
+    if (!code) {
+      throw new BadRequestException("Informe o codigo do cupom.");
+    }
+    const exists = await this.prisma.coupon.findUnique({ where: { code } });
     if (exists) {
       throw new BadRequestException("Cupom com este codigo ja existe.");
     }
@@ -20,7 +25,7 @@ export class CouponsService {
     return this.prisma.coupon.create({
       data: {
         ...dto,
-        code: dto.code.toUpperCase(),
+        code,
         tenantId,
         validFrom: new Date(dto.validFrom),
         validUntil: new Date(dto.validUntil)
@@ -49,7 +54,7 @@ export class CouponsService {
       where: { id },
       data: {
         ...dto,
-        code: dto.code?.toUpperCase(),
+        code: dto.code === undefined ? undefined : CouponsService.normalizeCode(dto.code),
         validFrom: dto.validFrom ? new Date(dto.validFrom) : undefined,
         validUntil: dto.validUntil ? new Date(dto.validUntil) : undefined
       }
@@ -65,8 +70,34 @@ export class CouponsService {
     return { success: true };
   }
 
-  async validateAndApply(code: string, tenantId: string) {
-    const coupon = await this.prisma.coupon.findUnique({ where: { code } });
+  /** Codigos sao salvos em maiusculas e sem espacos; o comprador pode digitar de qualquer jeito. */
+  static normalizeCode(code: string) {
+    return code.trim().toUpperCase();
+  }
+
+  /**
+   * Validacao publica usada pelo checkout antes de pagar: diz se o cupom vale para o evento
+   * e qual o desconto, sem reservar uso. O uso so e contado ao criar o pedido.
+   */
+  async previewForEvent(slug: string, rawCode: string) {
+    const event = await this.prisma.event.findFirst({
+      where: { slug, status: EventStatus.PUBLISHED },
+      select: { tenantId: true }
+    });
+    if (!event) {
+      throw new NotFoundException("Evento nao encontrado.");
+    }
+    const coupon = await this.validateAndApply(rawCode, event.tenantId);
+    return {
+      code: coupon.code,
+      discountPercent: coupon.discountPercent,
+      discountFixedCents: coupon.discountFixedCents
+    };
+  }
+
+  async validateAndApply(rawCode: string, tenantId: string) {
+    const code = CouponsService.normalizeCode(rawCode);
+    const coupon = code ? await this.prisma.coupon.findUnique({ where: { code } }) : null;
     if (!coupon || !coupon.isActive) {
       throw new NotFoundException("Cupom invalido ou inativo.");
     }

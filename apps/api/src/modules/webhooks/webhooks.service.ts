@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, Optional } from "@nestjs/common";
+import { Injectable, Logger, NotFoundException, Optional, ServiceUnavailableException } from "@nestjs/common";
 import { PaymentStatus } from "@prisma/client";
 import { AuditService } from "../audit/audit.service";
 import { PaymentsService } from "../payments/payments.service";
@@ -7,6 +7,8 @@ import { BusinessMetricsService } from "../observability/business-metrics.servic
 
 @Injectable()
 export class WebhooksService {
+  private readonly logger = new Logger(WebhooksService.name);
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly payments: PaymentsService,
@@ -45,23 +47,57 @@ export class WebhooksService {
       throw new NotFoundException("Pagamento do webhook nao encontrado.");
     }
 
-    let status = this.mapStatus(provider, payload);
-    if (provider === "infinite_pay") {
-      const transactionId = this.extractTransactionId(provider, payload);
-      const checkoutId = this.extractCheckoutId(provider, payload);
-      await this.payments.recordProviderReferences(payment.id, payment.event.tenantId, {
-        providerRef: transactionId ?? checkoutId,
-        checkoutId,
-        transactionId
-      });
-      const verified = await this.payments.reconcileProviderStatus(payment.id, payment.event.tenantId);
-      if (verified) status = verified.status;
-    }
+    const status = this.mapStatus(provider, payload);
+
     if (status === payment.status) {
       await this.markPaymentLogProcessed(log?.id, payment.id, payment.orderId, status);
       await this.audit.log({ action: `webhook.${provider}`, entity: "payment", entityId: payment.id, metadata: { status, providerEventId, event: eventName, unchanged: true } });
       this.metrics?.increment("eventflow_webhooks_processed_total", { provider, status });
       return { received: true, provider, status, payment };
+    }
+
+    // Um webhook diz que pagou; ele nao prova quanto foi pago. Antes desta
+    // verificacao, "status: paid" no corpo da requisicao bastava para liberar o
+    // ingresso inteiro — inclusive com valor parcial. Agora o PAID so vale
+    // depois de conferir status e valor direto no provedor.
+    if (status === PaymentStatus.PAID) {
+      const transactionId = this.extractTransactionId(provider, payload);
+      const checkoutId = this.extractCheckoutId(provider, payload);
+      if (providerRef || transactionId || checkoutId) {
+        await this.payments.recordProviderReferences(payment.id, payment.event.tenantId, {
+          providerRef: transactionId ?? checkoutId ?? providerRef,
+          checkoutId,
+          transactionId
+        });
+      }
+
+      let verified: { status: PaymentStatus } | null | undefined;
+      try {
+        verified = await this.payments.reconcileProviderStatus(payment.id, payment.event.tenantId);
+      } catch (error) {
+        this.logger.error(
+          `Falha ao verificar o pagamento ${payment.id} em ${provider}: ${(error as Error)?.message}`
+        );
+      }
+
+      if (verified?.status !== PaymentStatus.PAID) {
+        // O log NAO e marcado como processado de proposito: respondendo 503, o
+        // provedor reenvia o webhook e a venda e confirmada na tentativa
+        // seguinte, em vez de ficar paga sem verificacao ou simplesmente perdida.
+        this.metrics?.increment("eventflow_webhooks_unverified_total", { provider });
+        throw new ServiceUnavailableException("Pagamento ainda nao confirmado pelo provedor.");
+      }
+
+      await this.markPaymentLogProcessed(log?.id, payment.id, payment.orderId, PaymentStatus.PAID);
+      await this.audit.log({
+        action: `webhook.${provider}`,
+        entity: "payment",
+        entityId: payment.id,
+        metadata: { status: PaymentStatus.PAID, providerEventId, event: eventName, verified: true }
+      });
+      this.metrics?.increment("eventflow_webhooks_processed_total", { provider, status: PaymentStatus.PAID });
+
+      return { received: true, provider, status: PaymentStatus.PAID, payment: verified };
     }
 
     const updated = await this.payments.updateStatus(payment.id, payment.event.tenantId, { status, providerRef });

@@ -260,8 +260,9 @@ export class CreateCheckoutUseCase {
     let couponDiscount = { discountPercent: 0, discountFixedCents: 0 };
     let deferredWrite: (() => Promise<void>) | undefined;
 
-    if (dto.couponCode) {
-      const coupon = await tx.coupon.findUnique({ where: { code: dto.couponCode } });
+    const couponCode = dto.couponCode ? CouponsService.normalizeCode(dto.couponCode) : "";
+    if (couponCode) {
+      const coupon = await tx.coupon.findUnique({ where: { code: couponCode } });
       if (!coupon || !coupon.isActive) throw new NotFoundException("Cupom invalido ou inativo.");
       if (coupon.tenantId && coupon.tenantId !== event.tenantId) throw new NotFoundException("Cupom invalido para este evento.");
 

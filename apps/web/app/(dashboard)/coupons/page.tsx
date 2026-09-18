@@ -256,7 +256,7 @@ function CouponFormComponent({
           {form.formState.errors.code && <p className="text-xs text-destructive">{form.formState.errors.code.message}</p>}
         </div>
         <div className="space-y-2">
-          <Label>Limite de usos (0 = ilimitado)</Label>
+          <Label>Limite de usos — cada compra conta 1 uso (0 = ilimitado)</Label>
           <Input type="number" min={0} {...form.register("maxUses")} />
         </div>
       </div>

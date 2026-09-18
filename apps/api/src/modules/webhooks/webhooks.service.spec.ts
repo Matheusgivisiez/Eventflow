@@ -1,4 +1,4 @@
-import { NotFoundException } from "@nestjs/common";
+import { NotFoundException, ServiceUnavailableException } from "@nestjs/common";
 import { PaymentStatus } from "@prisma/client";
 import { WebhooksService } from "./webhooks.service";
 
@@ -37,7 +37,9 @@ function createService() {
     }
   };
   const payments = {
-    updateStatus: jest.fn()
+    updateStatus: jest.fn(),
+    recordProviderReferences: jest.fn(),
+    reconcileProviderStatus: jest.fn()
   };
   const audit = {
     log: jest.fn()
@@ -55,7 +57,7 @@ describe("WebhooksService paid payment handling", () => {
     const { service, prisma, payments, audit } = createService();
     prisma.paymentLog.upsert.mockResolvedValue({ id: "log-1", processedAt: null });
     prisma.payment.findFirst.mockResolvedValue(createPayment());
-    payments.updateStatus.mockResolvedValue({ id: "payment-1", status: PaymentStatus.PAID });
+    payments.reconcileProviderStatus.mockResolvedValue({ id: "payment-1", status: PaymentStatus.PAID });
     prisma.paymentLog.update.mockResolvedValue({});
 
     const result = await service.handle("abacate_pay", {
@@ -76,10 +78,9 @@ describe("WebhooksService paid payment handling", () => {
       status: PaymentStatus.PAID,
       payment: { id: "payment-1", status: PaymentStatus.PAID }
     });
-    expect(payments.updateStatus).toHaveBeenCalledWith("payment-1", "tenant-1", {
-      status: PaymentStatus.PAID,
-      providerRef: "checkout-1"
-    });
+    // O valor e o status vem do provedor, nunca do corpo do webhook.
+    expect(payments.reconcileProviderStatus).toHaveBeenCalledWith("payment-1", "tenant-1");
+    expect(payments.updateStatus).not.toHaveBeenCalled();
     expect(prisma.paymentLog.update).toHaveBeenCalledWith({
       where: { id: "log-1" },
       data: {
@@ -102,7 +103,7 @@ describe("WebhooksService paid payment handling", () => {
     prisma.paymentLog.upsert.mockResolvedValue({ id: "log-1", processedAt: null });
     prisma.payment.findFirst.mockResolvedValue(createPayment());
     prisma.paymentLog.update.mockResolvedValue({});
-    payments.updateStatus.mockResolvedValue({ id: "payment-1", status: PaymentStatus.PAID });
+    payments.reconcileProviderStatus.mockResolvedValue({ id: "payment-1", status: PaymentStatus.PAID });
 
     await service.handle("abacate_pay", {
       id: "webhook-1",
@@ -113,11 +114,9 @@ describe("WebhooksService paid payment handling", () => {
     // The webhook must not own the message: reconciliation and simulated
     // confirmations reach PaymentsService.updateStatus by other routes and
     // have to produce exactly the same notification.
-    expect(payments.updateStatus).toHaveBeenCalledWith(
-      "payment-1",
-      expect.anything(),
-      expect.objectContaining({ status: PaymentStatus.PAID })
-    );
+    // A confirmacao continua nascendo dentro do PaymentsService — agora pela
+    // reconciliacao, que so marca PAID depois de conferir valor no provedor.
+    expect(payments.reconcileProviderStatus).toHaveBeenCalledWith("payment-1", expect.anything());
     expect(Object.keys(service as unknown as Record<string, unknown>)).not.toContain("notifications");
   });
 
@@ -155,6 +154,39 @@ describe("WebhooksService paid payment handling", () => {
     expect(audit.log).toHaveBeenCalledWith(expect.objectContaining({
       metadata: expect.objectContaining({ unchanged: true })
     }));
+  });
+
+  it("recusa o webhook e mantem o log pendente quando o provedor nao confirma o pagamento", async () => {
+    const { service, prisma, payments, audit } = createService();
+    prisma.paymentLog.upsert.mockResolvedValue({ id: "log-1", processedAt: null });
+    prisma.payment.findFirst.mockResolvedValue(createPayment());
+    // Provedor ainda diz PENDING (ou valor divergente, que cai no mesmo lugar).
+    payments.reconcileProviderStatus.mockResolvedValue({ id: "payment-1", status: PaymentStatus.PENDING });
+
+    await expect(service.handle("abacate_pay", {
+      id: "webhook-3",
+      event: "checkout.completed",
+      data: { checkout: { id: "checkout-1", externalId: "order-1", status: "PAID" } }
+    })).rejects.toThrow(ServiceUnavailableException);
+
+    // Sem processedAt, o provedor reenvia o webhook em vez de perder a venda.
+    expect(prisma.paymentLog.update).not.toHaveBeenCalled();
+    expect(audit.log).not.toHaveBeenCalled();
+  });
+
+  it("recusa o webhook quando a consulta ao provedor falha", async () => {
+    const { service, prisma, payments } = createService();
+    prisma.paymentLog.upsert.mockResolvedValue({ id: "log-1", processedAt: null });
+    prisma.payment.findFirst.mockResolvedValue(createPayment());
+    payments.reconcileProviderStatus.mockRejectedValue(new Error("provider offline"));
+
+    await expect(service.handle("abacate_pay", {
+      id: "webhook-4",
+      event: "checkout.completed",
+      data: { checkout: { id: "checkout-1", status: "PAID" } }
+    })).rejects.toThrow(ServiceUnavailableException);
+
+    expect(prisma.paymentLog.update).not.toHaveBeenCalled();
   });
 
   it("fails without leaking payment data when webhook cannot be matched to a payment", async () => {

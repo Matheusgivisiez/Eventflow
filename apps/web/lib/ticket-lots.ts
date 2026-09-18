@@ -18,7 +18,9 @@ export function getVisibleTicketLots(ticketTypes: TicketType[], now = new Date()
   let cumulativeSold = 0;
   let previousLotsClosed = true;
 
-  for (const { ticket, originalIndex } of orderedLots) {
+  // Numero do lote = posicao cronologica (startsAt), nunca a posicao no array da API,
+  // que pode vir ordenado por preco (empate de preco => ordem aleatoria).
+  for (const [position, { ticket }] of orderedLots.entries()) {
     cumulativeQuantity += ticket.quantity;
     cumulativeSold += ticket.sold;
 
@@ -30,12 +32,12 @@ export function getVisibleTicketLots(ticketTypes: TicketType[], now = new Date()
     const canOpen = (hasStarted || previousLotsClosed) && !hasEnded && !soldOut;
 
     if (canOpen) {
-      visibleLots.push({ ticket, status: "current", available, lotNumber: originalIndex + 1 });
+      visibleLots.push({ ticket, status: "current", available, lotNumber: position + 1 });
       break;
     }
 
     if (hasStarted || hasEnded || soldOut) {
-      visibleLots.push({ ticket, status: "past", available: 0, lotNumber: originalIndex + 1 });
+      visibleLots.push({ ticket, status: "past", available: 0, lotNumber: position + 1 });
     }
 
     previousLotsClosed = hasEnded || soldOut;

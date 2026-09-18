@@ -10,6 +10,8 @@ import {
   ExternalLink,
   Loader2,
   ShieldCheck,
+  Tag,
+  X,
 } from "lucide-react";
 import Link from "next/link";
 import { useForm } from "react-hook-form";
@@ -129,6 +131,31 @@ function CheckoutForm() {
     });
   }, [currentTicketIds, event]);
 
+  // Cupom: validado na API antes de pagar; o uso so e contado quando o pedido e criado.
+  const [couponInput, setCouponInput] = useState("");
+  const [appliedCoupon, setAppliedCoupon] = useState<AppliedCoupon | null>(null);
+  const couponMutation = useMutation({
+    mutationFn: (code: string) =>
+      api<AppliedCoupon>(`/checkout/${slug}/coupon`, {
+        method: "POST",
+        auth: false,
+        body: JSON.stringify({ code }),
+      }),
+    onSuccess: (coupon) => {
+      setAppliedCoupon(coupon);
+      setCouponInput("");
+    },
+  });
+  const applyCoupon = () => {
+    const code = couponInput.trim();
+    if (!code || couponMutation.isPending) return;
+    couponMutation.mutate(code);
+  };
+  const removeCoupon = () => {
+    setAppliedCoupon(null);
+    couponMutation.reset();
+  };
+
   const form = useForm<z.infer<typeof buyerSchema>>({
     resolver: zodResolver(buyerSchema),
     defaultValues: { paymentMethod: "PIX" },
@@ -141,6 +168,7 @@ function CheckoutForm() {
         body: JSON.stringify({
           ...data,
           promoterCode,
+          couponCode: appliedCoupon?.code,
           buyerDocument: onlyDigits(data.buyerDocument),
           buyerPhone: normalizeBrazilPhone(data.buyerPhone),
           items: Object.entries(purchasableQuantities)
@@ -174,7 +202,18 @@ function CheckoutForm() {
       ) ?? 0
     );
   }, [event, purchasableQuantities]);
-  const fee = Math.round(subtotal * 0.08);
+  // Mesma regra da API: desconto sobre o subtotal, taxa de 8% sobre o valor ja com desconto.
+  const discount = appliedCoupon
+    ? Math.min(
+        subtotal,
+        Math.round(subtotal * (appliedCoupon.discountPercent / 100)) +
+          appliedCoupon.discountFixedCents,
+      )
+    : 0;
+  const discountedSubtotal = subtotal - discount;
+  const feeAbsorbed = Boolean(event?.feeAbsorbedByOrganizer);
+  const fee = feeAbsorbed ? 0 : Math.round(discountedSubtotal * 0.08);
+  const total = discountedSubtotal + fee;
 
   if (isLoading) return <Skeleton className="m-6 h-[620px]" />;
 
@@ -357,9 +396,74 @@ function CheckoutForm() {
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="coupon-code">Cupom de desconto</Label>
+              {appliedCoupon ? (
+                <div className="flex items-center justify-between gap-2 rounded-md border border-green-600/30 bg-green-600/10 px-3 py-2 text-sm">
+                  <span className="flex min-w-0 items-center gap-2 font-medium text-green-700 dark:text-green-400">
+                    <Tag className="h-4 w-4 shrink-0" />
+                    <span className="truncate">
+                      {appliedCoupon.code} aplicado ({describeCoupon(appliedCoupon)})
+                    </span>
+                  </span>
+                  <Button
+                    type="button"
+                    size="icon"
+                    variant="ghost"
+                    className="h-7 w-7 shrink-0"
+                    aria-label="Remover cupom"
+                    disabled={mutation.isPending}
+                    onClick={removeCoupon}
+                  >
+                    <X className="h-4 w-4" />
+                  </Button>
+                </div>
+              ) : (
+                <div className="flex gap-2">
+                  <Input
+                    id="coupon-code"
+                    value={couponInput}
+                    onChange={(e) => {
+                      setCouponInput(e.target.value.toUpperCase());
+                      if (couponMutation.isError) couponMutation.reset();
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        e.preventDefault();
+                        applyCoupon();
+                      }
+                    }}
+                    placeholder="Digite o código"
+                    maxLength={40}
+                    autoComplete="off"
+                    className="uppercase"
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    disabled={!couponInput.trim() || couponMutation.isPending}
+                    onClick={applyCoupon}
+                  >
+                    {couponMutation.isPending ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      "Aplicar"
+                    )}
+                  </Button>
+                </div>
+              )}
+              {couponMutation.error && (
+                <p className="text-sm text-destructive">
+                  {couponMutation.error.message}
+                </p>
+              )}
+            </div>
             <Summary label="Subtotal" value={money(subtotal)} />
-            <Summary label="Taxas" value={money(fee)} />
-            <Summary label="Total" value={money(subtotal + fee)} strong />
+            {discount > 0 && (
+              <Summary label="Desconto" value={`- ${money(discount)}`} />
+            )}
+            {!feeAbsorbed && <Summary label="Taxas" value={money(fee)} />}
+            <Summary label="Total" value={money(total)} strong />
             {mutation.error && (
               <div className="space-y-2 rounded-md border border-destructive/30 bg-destructive/10 p-3">
                 <p className="text-sm text-destructive">
@@ -392,6 +496,19 @@ function CheckoutForm() {
       </div>
     </main>
   );
+}
+
+type AppliedCoupon = {
+  code: string;
+  discountPercent: number;
+  discountFixedCents: number;
+};
+
+function describeCoupon(coupon: AppliedCoupon) {
+  const parts: string[] = [];
+  if (coupon.discountPercent > 0) parts.push(`${coupon.discountPercent}% off`);
+  if (coupon.discountFixedCents > 0) parts.push(`${money(coupon.discountFixedCents)} off`);
+  return parts.join(" + ");
 }
 
 function Field({

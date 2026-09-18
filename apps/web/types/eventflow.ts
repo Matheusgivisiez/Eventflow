@@ -59,6 +59,7 @@ export type EventFlowEvent = {
   tenant?: { name: string; logoUrl?: string };
   allowTicketTransfer?: boolean;
   ticketTransferLockTime?: string;
+  feeAbsorbedByOrganizer?: boolean;
   allowTicketRefund?: boolean;
   ticketRefundLockHours?: number | null;
   qrCodeReleaseMinutesBeforeStart?: number;
