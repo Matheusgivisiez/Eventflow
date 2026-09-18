@@ -248,8 +248,8 @@ function ticketCard(
   const leftBlock = `
     <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
       <tr>
-        <td valign="middle"><img src="${escapeAttr(ctx.logoDarkUrl)}" width="84" alt="${BRAND}" style="display:block;border:0" /></td>
-        <td valign="middle" align="right">
+        <td valign="middle" width="84"><img src="${escapeAttr(ctx.logoDarkUrl)}" width="84" alt="${BRAND}" style="display:block;border:0" /></td>
+        <td valign="middle" align="right" style="padding-left:12px">
           <span style="display:inline-block;background-color:rgba(45,212,191,0.18);color:#8ff2d6;font-family:Arial,Helvetica,sans-serif;font-size:11px;font-weight:700;padding:6px 11px;border-radius:999px;white-space:nowrap">&#10003; Confirmado</span>
         </td>
       </tr>
@@ -369,9 +369,9 @@ function renderHtml(
               <td style="background-color:${HERO_SOLID};background-image:url(${escapeAttr(asset(input.assetsBaseUrl, "hero-bg.png"))});background-size:cover;background-position:center right;background-repeat:no-repeat;padding:32px 32px 28px 32px">
                 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
                   <tr>
-                    <td valign="middle"><img src="${escapeAttr(input.logoDarkUrl)}" width="110" alt="${BRAND}" style="display:block;border:0" /></td>
-                    <td valign="middle" align="right">
-                      <span style="display:inline-block;background-color:rgba(45,212,191,0.18);color:#8ff2d6;font-family:Arial,Helvetica,sans-serif;font-size:12px;font-weight:700;padding:7px 14px;border-radius:999px">&#10003; Pagamento confirmado</span>
+                    <td valign="middle" width="110"><img src="${escapeAttr(input.logoDarkUrl)}" width="110" alt="${BRAND}" style="display:block;border:0" /></td>
+                    <td valign="middle" align="right" style="padding-left:16px">
+                      <span style="display:inline-block;background-color:rgba(45,212,191,0.18);color:#8ff2d6;font-family:Arial,Helvetica,sans-serif;font-size:12px;font-weight:700;padding:7px 14px;border-radius:999px;white-space:nowrap">&#10003; Pagamento confirmado</span>
                     </td>
                   </tr>
                 </table>
