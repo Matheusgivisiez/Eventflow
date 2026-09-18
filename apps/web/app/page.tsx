@@ -6,7 +6,7 @@ import { useQuery } from "@tanstack/react-query";
 import {
   ArrowRight, CalendarPlus, ChevronRight, Compass, MapPin,
   Music, GraduationCap, Dumbbell, Theater, Users, Briefcase,
-  Search, ShieldCheck, Zap, TrendingDown
+  Search, ShieldCheck, Zap, TrendingDown, Instagram
 } from "lucide-react";
 import { AppTopBar } from "@/components/app-top-bar";
 import { Badge } from "@/components/ui/badge";
@@ -332,9 +332,11 @@ export default function CatalogPage() {
                 href="https://instagram.com/eventflow_ofc"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="hover:text-primary transition-colors"
+                aria-label="Event Flow no Instagram"
+                className="flex items-center gap-1.5 hover:text-primary transition-colors"
               >
-                Instagram
+                <Instagram className="h-4 w-4" />
+                @eventflow_ofc
               </a>
               <a href="mailto:suporte@eventflowtickets.com.br" className="hover:text-primary transition-colors">
                 suporte@eventflowtickets.com.br
