@@ -17,7 +17,6 @@ import {
   MapPin,
   RefreshCcw,
   Ticket,
-  WalletCards,
   CheckCircle2,
   XCircle,
   Clock,
@@ -33,6 +32,7 @@ import {
   Sparkles,
   CircleDot,
   Zap,
+  Smartphone,
 } from "lucide-react";
 import { api } from "@/lib/api";
 import { getApiUrl } from "@/lib/api-url";
@@ -393,9 +393,11 @@ function EventTicketCard({
           aria-expanded={expanded}
           aria-label={`${expanded ? "Recolher" : "Abrir"} ingresso de ${ticket.event.title}`}
           onClick={onToggleDetails}
-          className={`relative isolate grid min-h-[184px] w-full grid-cols-[112px_minmax(0,1fr)_96px] rounded-[26px] text-left text-[#f7f5ff] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-violet-400 sm:min-h-[292px] sm:grid-cols-[240px_minmax(0,1fr)_200px] ${
-            shape ? "" : "border border-violet-400/40 bg-[#17142a]"
-          }`}
+          className={`relative isolate z-10 grid min-h-[184px] grid-cols-[112px_minmax(0,1fr)_96px] rounded-[26px] text-left text-[#f7f5ff] transition-[margin,width] duration-300 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-violet-400 sm:min-h-[292px] sm:grid-cols-[240px_minmax(0,1fr)_200px] ${
+            expanded
+              ? "mx-2.5 w-[calc(100%-20px)] sm:mx-9 sm:w-[calc(100%-72px)]"
+              : "w-full"
+          } ${shape ? "" : "border border-violet-400/40 bg-[#17142a]"}`}
         >
           {shape && (
             <svg
@@ -560,115 +562,148 @@ function EventTicketCard({
         </button>
 
         {expanded && (
-          <div id={detailsPanelId} className="mt-3 animate-slide-up overflow-hidden rounded-[24px] border border-violet-400/25 shadow-[0_20px_50px_rgba(0,0,0,0.35)] sm:rounded-[28px]">
-            <div className="bg-[#121024]/90 backdrop-blur-xl">
-              {canOpenQr && (
-                <div className="px-4 py-6 sm:px-8 sm:py-8">
-                  <div className="mx-auto flex max-w-sm flex-col items-center text-center">
-                    <div className="rounded-3xl bg-white p-4 shadow-2xl sm:p-5">
-                      <Image
-                        src={ticket.qrCodeDataUrl!}
-                        alt={`QR Code do ingresso para ${ticket.event.title}`}
-                        width={208}
-                        height={208}
-                        unoptimized
-                        className="h-44 w-44 rounded-xl sm:h-52 sm:w-52"
-                      />
+          <div
+            id={detailsPanelId}
+            className="relative -mt-8 animate-slide-up overflow-hidden rounded-[26px] border border-violet-400/25 bg-[#13101d] shadow-[0_24px_60px_rgba(0,0,0,0.45)] sm:-mt-11 sm:rounded-[30px]"
+          >
+            <div aria-hidden="true" className="pointer-events-none absolute inset-0">
+              {bannerUrl && (
+                <Image
+                  src={bannerUrl}
+                  alt=""
+                  fill
+                  sizes="(min-width: 1024px) 1024px, 100vw"
+                  className="scale-110 object-cover opacity-25 blur-md saturate-150"
+                />
+              )}
+              <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_50%_45%,rgba(124,58,237,0.22),transparent_60%)]" />
+              <div className="absolute inset-0 bg-gradient-to-b from-[#13101d] via-[#13101d]/55 to-[#13101d]" />
+            </div>
+
+            <div className="relative px-4 pb-5 pt-12 sm:px-9 sm:pb-7 sm:pt-[76px]">
+              <div className="lg:grid lg:grid-cols-[1fr_auto_1fr] lg:items-center lg:gap-6">
+                <div className="hidden text-[11px] font-medium uppercase leading-[1.8] tracking-[0.3em] text-white/75 lg:block">
+                  A música
+                  <br />
+                  nos conecta
+                  <span className="mt-3 block h-[3px] w-7 rounded-full bg-violet-500" />
+                </div>
+
+                <div className="mx-auto flex max-w-sm flex-col items-center text-center">
+                  {canOpenQr && (
+                    <>
+                      <div className="rounded-[22px] bg-white p-3.5 shadow-[0_20px_50px_rgba(0,0,0,0.5)] sm:p-4">
+                        <Image
+                          src={ticket.qrCodeDataUrl!}
+                          alt={`QR Code do ingresso para ${ticket.event.title}`}
+                          width={224}
+                          height={224}
+                          unoptimized
+                          className="h-48 w-48 sm:h-56 sm:w-56"
+                        />
+                      </div>
+                      <p className="mt-4 pl-[0.4em] text-lg font-semibold tracking-[0.4em] text-white sm:text-xl">
+                        {ticket.uuid?.slice(0, 8).toUpperCase() ?? "--------"}
+                      </p>
+                      <p className="mt-2 max-w-xs text-xs leading-relaxed text-white/60 sm:text-sm">
+                        Apresente este código na entrada. Evite compartilhar a tela
+                        com outras pessoas.
+                      </p>
+                    </>
+                  )}
+
+                  {ticket.status === "AVAILABLE" && !canOpenQr && (
+                    <div className="flex h-48 w-48 flex-col items-center justify-center rounded-[22px] border border-white/10 bg-white/[0.04] px-4 sm:h-56 sm:w-56">
+                      <Lock className="h-10 w-10 text-violet-300" strokeWidth={1.75} />
+                      <p className="mt-3 text-sm font-semibold text-white">QR Code bloqueado</p>
+                      <p className="mt-1 text-xs leading-relaxed text-white/55">
+                        {qrHoursRemaining !== null
+                          ? `Libera em ${qrHoursRemaining}h, perto do horário do evento.`
+                          : "Libera perto do horário do evento."}
+                      </p>
                     </div>
-                    <p className="mt-4 font-mono text-sm font-semibold tracking-[0.35em] text-violet-200">
-                      {ticket.uuid?.slice(0, 8).toUpperCase() ?? "--------"}
-                    </p>
-                    <p className="mt-3 text-xs leading-relaxed text-white/50">
-                      Apresente este código na entrada. Evite compartilhar a tela
-                      com outras pessoas.
-                    </p>
-                  </div>
-                </div>
-              )}
+                  )}
 
-              {ticket.status === "USED" && (
-                <div className="px-4 py-6 sm:px-8 sm:py-8">
-                  <div className="mx-auto flex max-w-sm flex-col items-center rounded-2xl border border-violet-500/30 bg-violet-500/10 p-6 text-center">
-                    <Clock className="mb-2 h-10 w-10 text-violet-400" />
-                    <h4 className="text-base font-bold text-violet-200">Ingresso utilizado</h4>
-                    <p className="mt-1 text-xs text-white/60">
-                      Check-in confirmado na portaria. Este ingresso já foi validado para entrada no evento.
-                    </p>
-                    {ticket.uuid && (
-                      <span className="mt-3 rounded-full bg-violet-500/20 px-3 py-1 font-mono text-xs text-violet-300/80">
-                        #{ticket.uuid.slice(0, 8).toUpperCase()}
-                      </span>
-                    )}
-                  </div>
-                </div>
-              )}
+                  {ticket.status === "USED" && (
+                    <div className="flex w-full flex-col items-center rounded-[22px] border border-violet-500/30 bg-violet-500/10 p-6">
+                      <Clock className="mb-2 h-10 w-10 text-violet-400" />
+                      <h4 className="text-base font-bold text-violet-200">Ingresso utilizado</h4>
+                      <p className="mt-1 text-xs text-white/60">
+                        Check-in confirmado na portaria. Este ingresso já foi validado para entrada no evento.
+                      </p>
+                      {ticket.uuid && (
+                        <span className="mt-3 rounded-full bg-violet-500/20 px-3 py-1 font-mono text-xs text-violet-300/80">
+                          #{ticket.uuid.slice(0, 8).toUpperCase()}
+                        </span>
+                      )}
+                    </div>
+                  )}
 
-              {ticket.status === "CANCELED" && (
-                <div className="px-4 py-6 sm:px-8 sm:py-8">
-                  <div className="mx-auto flex max-w-sm flex-col items-center rounded-2xl border border-rose-500/30 bg-rose-500/10 p-6 text-center">
-                    <XCircle className="mb-2 h-10 w-10 text-rose-400" />
-                    <h4 className="text-base font-bold text-rose-200">Ingresso cancelado</h4>
-                    <p className="mt-1 text-xs text-white/60">
-                      Este ingresso foi cancelado ou reembolsado e não pode mais ser utilizado.
-                    </p>
-                  </div>
+                  {ticket.status === "CANCELED" && (
+                    <div className="flex w-full flex-col items-center rounded-[22px] border border-rose-500/30 bg-rose-500/10 p-6">
+                      <XCircle className="mb-2 h-10 w-10 text-rose-400" />
+                      <h4 className="text-base font-bold text-rose-200">Ingresso cancelado</h4>
+                      <p className="mt-1 text-xs text-white/60">
+                        Este ingresso foi cancelado ou reembolsado e não pode mais ser utilizado.
+                      </p>
+                    </div>
+                  )}
                 </div>
-              )}
 
-              <div className="border-t border-dashed border-violet-300/15 p-4 sm:p-6">
-                <div className="grid grid-cols-2 gap-2.5 sm:gap-3">
+                <div className="hidden justify-self-end text-[11px] font-medium uppercase leading-[1.8] tracking-[0.3em] text-white/75 lg:block">
+                  Event Flow
+                  <br />
+                  sempre com você
+                  <span className="mt-3 block h-[3px] w-7 rounded-full bg-violet-500" />
+                </div>
+              </div>
+
+              <div className="mt-6 border-t border-dashed border-white/15 pt-5 sm:mt-7 sm:pt-6">
+                <div className="flex flex-wrap gap-2.5 sm:flex-nowrap sm:gap-3">
                   <Button
-                    size="sm"
                     variant="outline"
-                    className="min-h-11 gap-1.5 rounded-xl border border-transparent bg-gradient-to-r from-[#7033ff] to-[#9333ea] text-xs font-semibold text-white shadow-[0_10px_25px_rgba(124,58,237,0.35)] hover:text-white hover:brightness-110"
+                    className="h-12 flex-1 basis-full gap-2.5 rounded-xl border border-violet-400/40 bg-gradient-to-r from-[#8b5cf6] to-[#6d28d9] text-sm font-semibold text-white shadow-[0_10px_30px_rgba(124,58,237,0.35)] hover:text-white hover:brightness-110 sm:h-14 sm:basis-0 sm:text-base"
                     disabled={ticket.status === "CANCELED" || qrLocked}
                     onClick={onDownload}
-                    title={
-                      qrLocked
-                        ? "QR Code bloqueado — aguarde a liberação"
-                        : undefined
-                    }
+                    title={qrLocked ? "QR Code bloqueado — aguarde a liberação" : undefined}
                   >
-                    <Download className="h-3.5 w-3.5" />
+                    <Download className="h-5 w-5" strokeWidth={1.75} />
                     Baixar ingresso
                   </Button>
 
                   {ticket.status === "AVAILABLE" && pendingTransfer ? (
                     <Button
-                      size="sm"
                       variant="outline"
-                      className="min-h-11 gap-1.5 rounded-xl border-amber-300/25 bg-amber-300/10 text-xs text-amber-100 hover:bg-amber-300/20 hover:text-amber-50"
+                      className="h-12 flex-1 gap-2.5 rounded-xl border-amber-300/25 bg-amber-300/10 text-sm text-amber-100 hover:bg-amber-300/20 hover:text-amber-50 sm:h-14 sm:text-base"
                       disabled={transferCancelPending}
                       onClick={onCancelTransfer}
                     >
                       {transferCancelPending ? (
-                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                        <Loader2 className="h-5 w-5 animate-spin" />
                       ) : (
-                        <XCircle className="h-3.5 w-3.5" />
+                        <XCircle className="h-5 w-5" strokeWidth={1.75} />
                       )}
                       Cancelar transferência
                     </Button>
                   ) : ticket.status === "AVAILABLE" ? (
                     <Button
-                      size="sm"
                       variant="outline"
-                      className="min-h-11 gap-1.5 rounded-xl border-white/15 bg-white/5 text-xs text-white backdrop-blur hover:bg-white/10 hover:text-white"
+                      className="h-12 flex-1 gap-2.5 rounded-xl border-white/15 bg-white/[0.04] text-sm font-semibold text-white backdrop-blur hover:bg-white/10 hover:text-white sm:h-14 sm:text-base"
                       disabled={transferLocked}
                       onClick={onTransfer}
                       title={transferReason ?? undefined}
                     >
                       {transferLocked ? (
-                        <Lock className="h-3.5 w-3.5" />
+                        <Lock className="h-5 w-5" strokeWidth={1.75} />
                       ) : (
-                        <Send className="h-3.5 w-3.5" />
+                        <Send className="h-5 w-5" strokeWidth={1.75} />
                       )}
                       Transferir
                     </Button>
                   ) : (
                     <Button
-                      size="sm"
                       variant="outline"
-                      className="min-h-11 rounded-xl border-white/10 bg-white/[0.03] text-xs text-white/35"
+                      className="h-12 flex-1 rounded-xl border-white/10 bg-white/[0.03] text-sm text-white/35 sm:h-14"
                       disabled
                     >
                       Transferência indisponível
@@ -677,48 +712,51 @@ function EventTicketCard({
 
                   {walletEnabled && ticket.status === "AVAILABLE" && (
                     <Button
-                      size="sm"
                       variant="outline"
-                      className="col-span-2 min-h-11 gap-2 rounded-xl border-white/15 bg-white/5 text-xs font-semibold text-white backdrop-blur hover:bg-white/10 hover:text-white"
+                      aria-label="Adicionar ao Google Wallet"
+                      className="h-12 w-14 shrink-0 rounded-xl border-white/15 bg-white/[0.04] p-0 text-white backdrop-blur hover:bg-white/10 hover:text-white sm:h-14 sm:w-[76px]"
                       disabled={qrLocked || walletPending}
                       onClick={onWallet}
                       title={
                         qrLocked
                           ? "Disponível quando o QR Code for liberado"
-                          : undefined
+                          : "Adicionar ao Google Wallet"
                       }
                     >
                       {walletPending ? (
-                        <Loader2 className="h-4 w-4 animate-spin" />
+                        <Loader2 className="h-5 w-5 animate-spin" />
                       ) : (
-                        <WalletCards className="h-4 w-4" />
+                        <Smartphone className="h-5 w-5" strokeWidth={1.75} />
                       )}
-                      Adicionar ao Google Wallet
                     </Button>
                   )}
                 </div>
 
                 {ticket.status === "AVAILABLE" && ticket.refundAvailable && (
-                  <button
-                    type="button"
-                    className="mt-3.5 flex min-h-11 w-full flex-col items-center justify-center border-t border-dashed border-white/10 pt-3.5 text-xs text-white/40 transition-colors hover:text-rose-200 disabled:opacity-50"
-                    disabled={refundPending || Boolean(pendingTransfer)}
-                    onClick={onRefund}
-                    title={pendingTransfer ? "Cancele a transferência pendente antes de solicitar reembolso" : undefined}
-                  >
-                    <span className="flex items-center gap-1.5">
-                      <RefreshCcw className="h-3.5 w-3.5" />
-                      Solicitar reembolso
-                    </span>
-                    {ticket.refundDeadline && (
-                      <span className="text-[11px] text-white/30">
-                        Disponível até {dateTime(ticket.refundDeadline)}
+                  <div className="mt-4 flex items-center gap-4 sm:mt-5">
+                    <span className="h-px flex-1 bg-white/10" />
+                    <button
+                      type="button"
+                      className="flex min-h-11 flex-col items-center justify-center text-sm text-white/55 transition-colors hover:text-rose-200 disabled:opacity-50"
+                      disabled={refundPending || Boolean(pendingTransfer)}
+                      onClick={onRefund}
+                      title={pendingTransfer ? "Cancele a transferência pendente antes de solicitar reembolso" : undefined}
+                    >
+                      <span className="flex items-center gap-2">
+                        <RefreshCcw className="h-4 w-4" strokeWidth={1.75} />
+                        Solicitar reembolso
                       </span>
-                    )}
-                  </button>
+                      {ticket.refundDeadline && (
+                        <span className="text-[11px] text-white/35">
+                          Disponível até {dateTime(ticket.refundDeadline)}
+                        </span>
+                      )}
+                    </button>
+                    <span className="h-px flex-1 bg-white/10" />
+                  </div>
                 )}
                 {ticket.status === "AVAILABLE" && !ticket.refundAvailable && ticket.refundBlockedReason && (
-                  <p className="mt-3.5 flex min-h-11 items-center justify-center border-t border-dashed border-white/10 pt-3.5 text-center text-[11px] text-white/30">
+                  <p className="mt-4 flex min-h-11 items-center justify-center text-center text-xs text-white/35 sm:mt-5">
                     {ticket.refundBlockedReason}
                   </p>
                 )}
