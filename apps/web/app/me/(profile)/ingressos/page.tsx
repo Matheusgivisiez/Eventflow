@@ -473,7 +473,7 @@ function EventTicketCard({
           )}
 
           {/* capa */}
-          <span className="relative col-start-1 row-start-1 m-3 min-h-[124px] overflow-hidden rounded-[12px] border border-white/10 bg-[#211c38] shadow-[0_12px_30px_rgba(0,0,0,0.45)] sm:row-span-2 sm:m-4 sm:min-h-0 sm:rounded-[16px]">
+          <span className="relative m-3 min-h-[124px] overflow-hidden rounded-[12px] border border-white/10 bg-[#211c38] shadow-[0_12px_30px_rgba(0,0,0,0.45)] [grid-area:1/1/2/2] sm:m-4 sm:[grid-area:1/1/3/2] sm:min-h-0 sm:rounded-[16px]">
             {bannerUrl ? (
               <Image
                 src={bannerUrl}
@@ -490,7 +490,7 @@ function EventTicketCard({
           </span>
 
           {/* dados do evento */}
-          <span className="col-span-2 col-start-2 row-start-1 flex min-w-0 flex-col py-3.5 pr-4 sm:col-span-1 sm:pb-2 sm:pl-2 sm:pr-6 sm:pt-4">
+          <span className="flex min-w-0 flex-col py-3.5 pr-4 [grid-area:1/2/2/4] sm:pb-2 sm:[grid-area:1/2/2/3] sm:pl-2 sm:pr-6 sm:pt-4">
             <span className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1.5">
               <span className="inline-flex items-center gap-1.5 text-[10px] font-medium uppercase tracking-[0.12em] text-white/75 sm:gap-2 sm:text-[12px] sm:tracking-[0.14em]">
                 <Calendar className="h-3.5 w-3.5 text-white/70 sm:h-4 sm:w-4" strokeWidth={1.75} />
@@ -540,7 +540,7 @@ function EventTicketCard({
           {/* titular + badges (no celular fica abaixo do picotado) */}
           <span
             ref={holderRef}
-            className="col-span-2 col-start-1 row-start-2 flex min-w-0 flex-col justify-center py-3.5 pl-4 pr-2 sm:col-span-1 sm:col-start-2 sm:block sm:py-0 sm:pb-4 sm:pl-2 sm:pr-6"
+            className="flex min-w-0 flex-col justify-center py-3.5 pl-4 pr-2 [grid-area:2/1/3/3] sm:block sm:[grid-area:2/2/3/3] sm:py-0 sm:pb-4 sm:pl-2 sm:pr-6"
           >
             <span className="block sm:flex sm:items-end sm:justify-between sm:gap-4 sm:border-t sm:border-white/10 sm:pt-3">
               <span className="block min-w-0">
@@ -577,7 +577,7 @@ function EventTicketCard({
           {/* canhoto do QR */}
           <span
             ref={stubRef}
-            className="relative col-start-3 row-start-2 flex flex-col items-center justify-center gap-1.5 py-3.5 pl-2 pr-4 text-center sm:row-span-2 sm:row-start-1 sm:justify-between sm:gap-0 sm:px-4 sm:py-4"
+            className="relative flex flex-col items-center justify-center gap-1.5 py-3.5 pl-2 pr-4 text-center [grid-area:2/3/3/4] sm:justify-between sm:[grid-area:1/3/3/4] sm:gap-0 sm:px-4 sm:py-4"
           >
             <span className="hidden text-[11px] font-medium uppercase tracking-[0.22em] text-white/80 sm:block">
               QR entrada
