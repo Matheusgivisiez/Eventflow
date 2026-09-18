@@ -1,4 +1,4 @@
-import { IsBoolean, IsDateString, IsInt, IsNotEmpty, IsOptional, IsString, Max, Min } from "class-validator";
+import { IsArray, IsBoolean, IsDateString, IsInt, IsNotEmpty, IsOptional, IsString, Max, Min } from "class-validator";
 
 export class CreateCouponDto {
   @IsString()
@@ -29,4 +29,13 @@ export class CreateCouponDto {
   @IsOptional()
   @IsBoolean()
   isActive?: boolean;
+
+  /**
+   * IDs dos eventos aos quais este cupom fica restrito. Omitido ou vazio =
+   * vale para todos os eventos do organizador (comportamento anterior).
+   */
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  eventIds?: string[];
 }

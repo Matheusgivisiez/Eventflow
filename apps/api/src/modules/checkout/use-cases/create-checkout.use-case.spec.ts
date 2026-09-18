@@ -1,4 +1,4 @@
-import { BadRequestException } from "@nestjs/common";
+import { BadRequestException, NotFoundException } from "@nestjs/common";
 import {
   EventFormat,
   EventStatus,
@@ -233,6 +233,35 @@ describe("CreateCheckoutUseCase stock reservation (legacy write order, CHECKOUT_
 
     await expect(service.execute("eventflow-conf", { ...createDto(), couponCode: "FIRST" } as any)).rejects.toThrow("Cupom esgotado");
     expect(orders).toHaveLength(0);
+  });
+
+  it("rejects a coupon restricted to a different event", async () => {
+    const { service, tx, orders } = createService();
+    tx.coupon.findUnique.mockResolvedValue({
+      id: "coupon-1", tenantId: "tenant-1", isActive: true, maxUses: 1, usedCount: 0,
+      validFrom: new Date(Date.now() - 60_000), validUntil: new Date(Date.now() + 60_000),
+      discountPercent: 10, discountFixedCents: 0,
+      events: [{ eventId: "other-event" }]
+    });
+
+    await expect(
+      service.execute("eventflow-conf", { ...createDto(), couponCode: "FIRST" } as any)
+    ).rejects.toBeInstanceOf(NotFoundException);
+    expect(orders).toHaveLength(0);
+  });
+
+  it("accepts a coupon restricted to this event", async () => {
+    const { service, tx } = createService();
+    tx.coupon.findUnique.mockResolvedValue({
+      id: "coupon-1", tenantId: "tenant-1", isActive: true, maxUses: 1, usedCount: 0,
+      validFrom: new Date(Date.now() - 60_000), validUntil: new Date(Date.now() + 60_000),
+      discountPercent: 10, discountFixedCents: 0,
+      events: [{ eventId: "event-1" }]
+    });
+
+    await expect(
+      service.execute("eventflow-conf", { ...createDto(), couponCode: "FIRST" } as any)
+    ).resolves.toBeDefined();
   });
 });
 

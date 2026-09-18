@@ -14,9 +14,14 @@ const baseCoupon = {
   validUntil: new Date(Date.now() + 60_000)
 };
 
-function makeService(coupon: Partial<typeof baseCoupon> | null = baseCoupon, event: { tenantId: string } | null = { tenantId: "t1" }) {
+function makeService(
+  coupon: (Partial<typeof baseCoupon> & { events?: { eventId: string }[] }) | null = baseCoupon,
+  event: { id: string; tenantId: string } | null = { id: "e1", tenantId: "t1" }
+) {
   const prisma = {
-    coupon: { findUnique: jest.fn().mockResolvedValue(coupon ? { ...baseCoupon, ...coupon } : null) },
+    coupon: {
+      findUnique: jest.fn().mockResolvedValue(coupon ? { events: [], ...baseCoupon, ...coupon } : null)
+    },
     event: { findFirst: jest.fn().mockResolvedValue(event) }
   };
   return { service: new CouponsService(prisma as never), prisma };
@@ -30,7 +35,7 @@ describe("CouponsService", () => {
   it("aceita cupom digitado em minusculas no preview", async () => {
     const { service, prisma } = makeService();
     await expect(service.previewForEvent("festa", " promo10")).resolves.toEqual({ code: "PROMO10", discountPercent: 10, discountFixedCents: 0 });
-    expect(prisma.coupon.findUnique).toHaveBeenCalledWith({ where: { code: "PROMO10" } });
+    expect(prisma.coupon.findUnique).toHaveBeenCalledWith({ where: { code: "PROMO10" }, include: { events: true } });
   });
 
   it("recusa cupom de outro organizador", async () => {
@@ -51,5 +56,24 @@ describe("CouponsService", () => {
   it("recusa evento inexistente", async () => {
     const { service } = makeService(baseCoupon, null);
     await expect(service.previewForEvent("nada", "PROMO10")).rejects.toBeInstanceOf(NotFoundException);
+  });
+
+  it("aceita cupom restrito ao evento em questao", async () => {
+    const { service } = makeService({ events: [{ eventId: "e1" }] });
+    await expect(service.previewForEvent("festa", "PROMO10")).resolves.toMatchObject({ code: "PROMO10" });
+  });
+
+  it("recusa cupom restrito a outro evento", async () => {
+    const { service } = makeService({ events: [{ eventId: "outro-evento" }] });
+    await expect(service.previewForEvent("festa", "PROMO10")).rejects.toBeInstanceOf(NotFoundException);
+  });
+
+  it("appliesToEvent: sem eventos vinculados vale pra qualquer evento do tenant", () => {
+    expect(CouponsService.appliesToEvent({ events: [] }, "qualquer")).toBe(true);
+  });
+
+  it("appliesToEvent: com eventos vinculados so vale pra eles", () => {
+    expect(CouponsService.appliesToEvent({ events: [{ eventId: "e1" }] }, "e2")).toBe(false);
+    expect(CouponsService.appliesToEvent({ events: [{ eventId: "e1" }] }, "e1")).toBe(true);
   });
 });

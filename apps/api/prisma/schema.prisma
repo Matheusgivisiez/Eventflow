@@ -355,6 +355,7 @@ model Event {
   tickets                Ticket[]
   promoterLinks          PromoterLink[]
   artists                EventArtist[]
+  couponScopes           CouponEvent[]
 
   @@index([tenantId, status])
   @@index([tenantId, startsAt])
@@ -665,9 +666,25 @@ model Coupon {
   updatedAt       DateTime @updatedAt
   tenant          Tenant?  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   orders          Order[]
+  events          CouponEvent[]
 
   @@index([code, isActive])
   @@index([tenantId, isActive])
+}
+
+// Restringe um cupom a eventos especificos do organizador. Sem nenhuma linha
+// aqui, o cupom continua valendo para todos os eventos do tenant (ou, se
+// tenantId do cupom for nulo, para qualquer evento) - comportamento anterior
+// preservado por padrao.
+model CouponEvent {
+  couponId  String
+  eventId   String
+  createdAt DateTime @default(now())
+  coupon    Coupon   @relation(fields: [couponId], references: [id], onDelete: Cascade)
+  event     Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
+
+  @@id([couponId, eventId])
+  @@index([eventId])
 }
 
 // ─── Subscription ───────────────────────────────────────────────

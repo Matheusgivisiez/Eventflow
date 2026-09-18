@@ -16,7 +16,7 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { api } from "@/lib/api";
 import { dateTime, money } from "@/lib/utils";
-import type { CouponType } from "@/types/eventflow";
+import type { CouponType, EventFlowEvent, Paginated } from "@/types/eventflow";
 
 const couponSchema = z.object({
   code: z.string().min(3, "O código deve ter pelo menos 3 caracteres.").toUpperCase(),
@@ -25,7 +25,9 @@ const couponSchema = z.object({
   validFrom: z.string().min(1, "Informe a data de início."),
   validUntil: z.string().min(1, "Informe a data de término."),
   maxUses: z.coerce.number().int().min(0),
-  isActive: z.boolean().optional()
+  isActive: z.boolean().optional(),
+  // Vazio = cupom vale para todos os eventos do organizador.
+  eventIds: z.array(z.string()).optional()
 }).refine((data) => (data.discountPercent ?? 0) > 0 || (data.discountFixedBrl ?? 0) > 0, {
   message: "Informe pelo menos um tipo de desconto (percentual ou fixo).",
   path: ["discountPercent"]
@@ -46,6 +48,12 @@ export default function CouponsPage() {
     queryKey: ["coupons"],
     queryFn: () => api<CouponType[]>("/coupons")
   });
+
+  const { data: eventsPage } = useQuery({
+    queryKey: ["events-for-coupons"],
+    queryFn: () => api<Paginated<EventFlowEvent>>("/events?perPage=100")
+  });
+  const events = eventsPage?.data ?? [];
 
   const invalidate = useCallback(() => qc.invalidateQueries({ queryKey: ["coupons"] }), [qc]);
 
@@ -127,6 +135,7 @@ export default function CouponsPage() {
           </CardHeader>
           <CardContent>
             <CouponFormComponent
+              events={events}
               onSubmit={(d) => createMutation.mutate(d)}
               isPending={createMutation.isPending}
               error={createMutation.error?.message}
@@ -164,6 +173,7 @@ export default function CouponsPage() {
               </CardHeader>
               <CardContent>
                 <CouponFormComponent
+                  events={events}
                   defaultValues={{
                     code: coupon.code,
                     discountPercent: coupon.discountPercent ?? 0,
@@ -171,7 +181,8 @@ export default function CouponsPage() {
                     validFrom: coupon.validFrom.slice(0, 16),
                     validUntil: coupon.validUntil.slice(0, 16),
                     maxUses: coupon.maxUses,
-                    isActive: coupon.isActive
+                    isActive: coupon.isActive,
+                    eventIds: coupon.events?.map((e) => e.eventId) ?? []
                   }}
                   onSubmit={(d) => updateMutation.mutate({ id: coupon.id, data: d })}
                   isPending={updateMutation.isPending}
@@ -197,6 +208,11 @@ export default function CouponsPage() {
                     ) : (
                       dateTime(coupon.validUntil)
                     )}
+                  </p>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    {coupon.events && coupon.events.length > 0
+                      ? `Válido só para: ${coupon.events.map((e) => e.event.title).join(", ")}`
+                      : "Válido para todos os seus eventos"}
                   </p>
                 </div>
                 <div className="flex gap-1">
@@ -234,18 +250,28 @@ export default function CouponsPage() {
 }
 
 function CouponFormComponent({
-  defaultValues, onSubmit, isPending, error, submitLabel
+  defaultValues, onSubmit, isPending, error, submitLabel, events
 }: {
   defaultValues?: Partial<CouponForm>;
   onSubmit: (data: CouponForm) => void;
   isPending: boolean;
   error?: string;
   submitLabel: string;
+  events: EventFlowEvent[];
 }) {
   const form = useForm<CouponForm>({
     resolver: zodResolver(couponSchema),
-    defaultValues: { maxUses: 0, isActive: true, discountPercent: 0, discountFixedBrl: 0, ...defaultValues }
+    defaultValues: { maxUses: 0, isActive: true, discountPercent: 0, discountFixedBrl: 0, eventIds: [], ...defaultValues }
   });
+  const selectedEventIds = form.watch("eventIds") ?? [];
+  const toggleEvent = (eventId: string, checked: boolean) => {
+    const current = form.getValues("eventIds") ?? [];
+    form.setValue(
+      "eventIds",
+      checked ? [...current, eventId] : current.filter((id) => id !== eventId),
+      { shouldDirty: true }
+    );
+  };
 
   return (
     <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
@@ -284,6 +310,27 @@ function CouponFormComponent({
           <Input type="datetime-local" {...form.register("validUntil")} />
           {form.formState.errors.validUntil && <p className="text-xs text-destructive">{form.formState.errors.validUntil.message}</p>}
         </div>
+      </div>
+
+      <div className="space-y-2">
+        <Label>Eventos em que o cupom vale — nenhum marcado = vale em todos os seus eventos</Label>
+        {events.length === 0 ? (
+          <p className="text-xs text-muted-foreground">Nenhum evento cadastrado ainda.</p>
+        ) : (
+          <div className="max-h-40 overflow-y-auto rounded-lg border p-2 space-y-1">
+            {events.map((event) => (
+              <label key={event.id} className="flex items-center gap-2 text-sm py-1 cursor-pointer">
+                <input
+                  type="checkbox"
+                  className="h-4 w-4 rounded border accent-primary"
+                  checked={selectedEventIds.includes(event.id)}
+                  onChange={(e) => toggleEvent(event.id, e.target.checked)}
+                />
+                {event.title}
+              </label>
+            ))}
+          </div>
+        )}
       </div>
 
       <div className="flex items-center gap-2 pt-2">

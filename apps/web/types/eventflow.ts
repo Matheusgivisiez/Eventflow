@@ -84,4 +84,6 @@ export type CouponType = {
   usedCount: number;
   isActive: boolean;
   createdAt: string;
+  // Eventos aos quais o cupom fica restrito. Vazio/ausente = vale para todos os eventos do organizador.
+  events?: { eventId: string; event: { id: string; title: string } }[];
 };

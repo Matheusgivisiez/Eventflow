@@ -274,9 +274,10 @@ export class CreateCheckoutUseCase {
 
     const couponCode = dto.couponCode ? CouponsService.normalizeCode(dto.couponCode) : "";
     if (couponCode) {
-      const coupon = await tx.coupon.findUnique({ where: { code: couponCode } });
+      const coupon = await tx.coupon.findUnique({ where: { code: couponCode }, include: { events: true } });
       if (!coupon || !coupon.isActive) throw new NotFoundException("Cupom invalido ou inativo.");
       if (coupon.tenantId && coupon.tenantId !== event.tenantId) throw new NotFoundException("Cupom invalido para este evento.");
+      if (!CouponsService.appliesToEvent(coupon, event.id)) throw new NotFoundException("Cupom invalido para este evento.");
 
       const now = new Date();
       if (now < coupon.validFrom || now > coupon.validUntil) throw new BadRequestException("Cupom fora da data de validade.");
