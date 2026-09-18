@@ -97,6 +97,7 @@ export class AuthService {
           state: dto.state.toUpperCase(),
           website: dto.website?.trim() || null,
           instagram: dto.instagram?.trim().replace(/^@/, "") || null,
+          logoUrl: dto.logoUrl?.trim() || null,
         }
       });
       return tx.user.create({
@@ -139,6 +140,7 @@ export class AuthService {
           state: dto.state.toUpperCase(),
           website: dto.website?.trim() || null,
           instagram: dto.instagram?.trim().replace(/^@/, "") || null,
+          logoUrl: dto.logoUrl?.trim() || null,
         }
       });
       return tx.user.update({

@@ -3,14 +3,15 @@
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useMutation } from "@tanstack/react-query";
-import { CalendarClock, Loader2, MapPin, Radio, Save, ShieldCheck, Ticket } from "lucide-react";
+import { useMutation, useQuery } from "@tanstack/react-query";
+import { Building2, CalendarClock, Loader2, MapPin, Radio, Save, ShieldCheck, Ticket } from "lucide-react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { ImageUpload } from "@/components/image-upload";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { api } from "@/lib/api";
 import { SchedulePicker } from "@/components/events/new-event/schedule-picker";
 import { StepNavigation } from "@/components/events/new-event/step-navigation";
@@ -178,8 +179,33 @@ export default function NewEventPage() {
     return () => controller.abort();
   }, [format, form, zipCode]);
 
+  const [organizerName, setOrganizerName] = useState("");
+  const [organizerLogoUrl, setOrganizerLogoUrl] = useState("");
+  const [organizerDirty, setOrganizerDirty] = useState(false);
+
+  const { data: profile } = useQuery<{ tenant?: { name: string; logoUrl?: string | null } }>({
+    queryKey: ["profile"],
+    queryFn: () => api("/auth/me")
+  });
+
+  useEffect(() => {
+    if (profile?.tenant && !organizerDirty) {
+      if (profile.tenant.name) setOrganizerName(profile.tenant.name);
+      if (profile.tenant.logoUrl) setOrganizerLogoUrl(profile.tenant.logoUrl);
+    }
+  }, [profile, organizerDirty]);
+
   const mutation = useMutation({
-    mutationFn: (data: FormData) => {
+    mutationFn: async (data: FormData) => {
+      if (organizerDirty && (organizerName.trim() || organizerLogoUrl.trim())) {
+        await api("/profile", {
+          method: "PATCH",
+          body: JSON.stringify({
+            companyName: organizerName.trim() || undefined,
+            logoUrl: organizerLogoUrl.trim() || undefined
+          })
+        }).catch(() => undefined);
+      }
       const startsAt = scheduleValueToDate(data.startsAt);
       const transferLockTime = data.allowTicketTransfer
         ? new Date(startsAt.getTime() - data.transferLockHours * 60 * 60 * 1000).toISOString()
@@ -350,6 +376,41 @@ export default function NewEventPage() {
                     onChange={(field, value) => form.setValue(field, field === "zipCode" ? formatCep(value) : value, { shouldValidate: true })}
                   />
                 )}
+
+                {/* Organizador do Evento */}
+                <div className="rounded-xl border border-border/60 bg-muted/20 p-4 space-y-3">
+                  <div className="flex items-center gap-2">
+                    <Building2 className="h-4 w-4 text-primary" />
+                    <h3 className="text-sm font-semibold">Organizador do Evento</h3>
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    Nome e logotipo exibidos no rodapé do evento (&ldquo;Organizado por&rdquo;).
+                  </p>
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    <div className="space-y-1.5">
+                      <Label className="text-xs font-medium">Nome da empresa ou produtora</Label>
+                      <Input
+                        value={organizerName}
+                        onChange={(e) => {
+                          setOrganizerName(e.target.value);
+                          setOrganizerDirty(true);
+                        }}
+                        placeholder="Ex: Minha Produtora"
+                      />
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label className="text-xs font-medium">Logotipo do organizador</Label>
+                      <ImageUpload
+                        aspect={1}
+                        value={organizerLogoUrl}
+                        onChange={(url) => {
+                          setOrganizerLogoUrl(url ?? "");
+                          setOrganizerDirty(true);
+                        }}
+                      />
+                    </div>
+                  </div>
+                </div>
               </>
             )}
 

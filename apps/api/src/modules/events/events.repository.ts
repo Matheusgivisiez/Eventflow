@@ -58,7 +58,11 @@ export class EventsRepository implements IEventsRepository {
   findByIdForTenant(id: string, tenantId: string) {
     return this.prisma.event.findFirst({
       where: { id, tenantId },
-      include: { ticketTypes: true, artists: { include: { artist: { select: { id: true, stageName: true, imageUrl: true, instagramUrl: true, spotifyUrl: true, bio: true, genre: true } } }, orderBy: { position: "asc" } } }
+      include: {
+        ticketTypes: true,
+        artists: { include: { artist: { select: { id: true, stageName: true, imageUrl: true, instagramUrl: true, spotifyUrl: true, bio: true, genre: true } } }, orderBy: { position: "asc" } },
+        tenant: { select: { name: true, logoUrl: true } }
+      }
     });
   }
 
@@ -69,7 +73,11 @@ export class EventsRepository implements IEventsRepository {
         status: EventStatus.PUBLISHED,
         AND: [this.publicAvailabilityWhere()]
       },
-      include: { ticketTypes: { where: { isActive: true }, orderBy: [{ startsAt: "asc" }, { createdAt: "asc" }] }, artists: { select: { position: true, artist: { select: { id: true, stageName: true, imageUrl: true, instagramUrl: true, spotifyUrl: true, bio: true, genre: true } } }, orderBy: { position: "asc" } } }
+      include: {
+        ticketTypes: { where: { isActive: true }, orderBy: [{ startsAt: "asc" }, { createdAt: "asc" }] },
+        artists: { select: { position: true, artist: { select: { id: true, stageName: true, imageUrl: true, instagramUrl: true, spotifyUrl: true, bio: true, genre: true } } }, orderBy: { position: "asc" } },
+        tenant: { select: { name: true, logoUrl: true } }
+      }
     });
   }
 

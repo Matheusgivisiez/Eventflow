@@ -14,6 +14,11 @@ import { ProfileService } from "./profile.service";
 export class ProfileController {
   constructor(private readonly profile: ProfileService) {}
 
+  @Get()
+  get(@CurrentUser() user: RequestUser) {
+    return this.profile.getProfile(user.id);
+  }
+
   @Patch()
   update(@CurrentUser() user: RequestUser, @Body() dto: UpdateProfileDto) {
     return this.profile.update(user.id, user.tenantId!, dto);

@@ -23,6 +23,7 @@ import { z } from "zod";
 import { api } from "@/lib/api";
 import { formatBrazilPhone, normalizeBrazilPhone } from "@/lib/br-format";
 import { useAuthStore } from "@/stores/auth-store";
+import { ImageUpload } from "@/components/image-upload";
 
 const UF_LIST = [
   "AC","AL","AP","AM","BA","CE","DF","ES","GO","MA","MT","MS","MG",
@@ -44,6 +45,7 @@ const schema = z.object({
   state: z.string().min(2, "Selecione o estado."),
   website: z.string().url("URL inválida.").optional().or(z.literal("")),
   instagram: z.string().optional(),
+  logoUrl: z.string().optional(),
 }).refine((data) => data.password === data.confirmPassword, {
   message: "As senhas não conferem.",
   path: ["confirmPassword"],
@@ -79,7 +81,8 @@ export default function RegisterOrganizerPage() {
       city: "",
       state: "",
       website: "",
-      instagram: ""
+      instagram: "",
+      logoUrl: ""
     }
   });
 
@@ -93,6 +96,7 @@ export default function RegisterOrganizerPage() {
           phone: normalizeBrazilPhone(payload.phone),
           cnpj: payload.cnpj.replace(/\D/g, ""),
           state: payload.state.toUpperCase(),
+          logoUrl: payload.logoUrl?.trim() || undefined,
         }),
         auth: false
       });
@@ -366,6 +370,18 @@ export default function RegisterOrganizerPage() {
               {form.formState.errors.instagram && (
                 <p className="text-[10px] text-rose-400">{form.formState.errors.instagram.message}</p>
               )}
+            </div>
+
+            {/* Logotipo da Empresa */}
+            <div className="space-y-1">
+              <label className="block text-[11px] font-medium text-[#D4CAE8]">
+                Logotipo da empresa <span className="text-[#8E82A8] font-normal">(opcional)</span>
+              </label>
+              <ImageUpload
+                aspect={1}
+                value={form.watch("logoUrl")}
+                onChange={(url) => form.setValue("logoUrl", url ?? "")}
+              />
             </div>
           </div>
         </div>

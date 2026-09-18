@@ -42,10 +42,29 @@ export class ProfileService {
         select: { id: true, name: true, email: true, emailVerifiedAt: true, phone: true, role: true, tenantId: true }
       });
 
-      const tenant = await tx.tenant.update({
-        where: { id: tenantId },
-        data: { name: dto.companyName, logoUrl: dto.logoUrl }
-      });
+      let tenant: any = null;
+      if (tenantId) {
+        tenant = await tx.tenant.update({
+          where: { id: tenantId },
+          data: {
+            ...(dto.companyName?.trim() ? { name: dto.companyName.trim() } : {}),
+            ...(dto.logoUrl !== undefined ? { logoUrl: dto.logoUrl ? dto.logoUrl.trim() : null } : {})
+          }
+        });
+      } else if (dto.companyName?.trim()) {
+        tenant = await tx.tenant.create({
+          data: {
+            name: dto.companyName.trim(),
+            logoUrl: dto.logoUrl?.trim() || null
+          }
+        });
+        if (tenant) {
+          await tx.user.update({
+            where: { id: userId },
+            data: { tenantId: tenant.id }
+          });
+        }
+      }
 
       return { ...user, emailVerified: Boolean(user.emailVerifiedAt), tenant };
     });
@@ -105,5 +124,43 @@ export class ProfileService {
       },
       orderBy: { createdAt: "desc" }
     });
+  }
+
+  async getProfile(userId: string) {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        phone: true,
+        role: true,
+        avatarUrl: true,
+        emailVerifiedAt: true,
+        tenantId: true,
+        tenant: {
+          select: {
+            id: true,
+            name: true,
+            legalName: true,
+            document: true,
+            logoUrl: true,
+            city: true,
+            state: true,
+            website: true,
+            instagram: true
+          }
+        }
+      }
+    });
+    if (!user) {
+      throw new BadRequestException("Usuario nao encontrado.");
+    }
+    return {
+      ...user,
+      emailVerified: Boolean(user.emailVerifiedAt),
+      companyName: user.tenant?.name ?? "",
+      logoUrl: user.tenant?.logoUrl ?? ""
+    };
   }
 }

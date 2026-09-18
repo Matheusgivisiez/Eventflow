@@ -83,4 +83,18 @@ describe("EventsRepository public visibility", () => {
       }
     }));
   });
+
+  it("includes tenant name and logoUrl in findPublicBySlug", async () => {
+    const { repository, prisma } = createRepository();
+    prisma.event.findFirst.mockResolvedValue(null);
+
+    await repository.findPublicBySlug("festival-com-logo");
+
+    expect(prisma.event.findFirst).toHaveBeenCalledWith(expect.objectContaining({
+      where: expect.objectContaining({ slug: "festival-com-logo" }),
+      include: expect.objectContaining({
+        tenant: { select: { name: true, logoUrl: true } }
+      })
+    }));
+  });
 });

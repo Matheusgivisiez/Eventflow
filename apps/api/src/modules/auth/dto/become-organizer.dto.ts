@@ -29,4 +29,8 @@ export class BecomeOrganizerDto {
   @IsOptional()
   @IsString()
   instagram?: string;
+
+  @IsOptional()
+  @IsString()
+  logoUrl?: string;
 }

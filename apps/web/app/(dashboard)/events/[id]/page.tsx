@@ -3,14 +3,14 @@
 import { useParams, useRouter } from "next/navigation";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ArrowLeft, Loader2, Save, Ticket, Trash2, Megaphone, Shield, Lock, QrCode, DoorOpen, RefreshCcw } from "lucide-react";
+import { ArrowLeft, Building2, Loader2, Save, Ticket, Trash2, Megaphone, Shield, Lock, QrCode, DoorOpen, RefreshCcw } from "lucide-react";
 import Link from "next/link";
 import { useEffect, memo, useState } from "react";
 import { useForm, Controller } from "react-hook-form";
 import { z } from "zod";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -540,6 +540,45 @@ export default function EditEventPage() {
                     <Label className="text-xs text-muted-foreground">Fechamento (opcional)</Label>
                     <Input type="datetime-local" {...form.register("checkInClosesAt")} />
                   </div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between pb-2">
+              <div className="space-y-0.5">
+                <CardTitle className="text-base flex items-center gap-2">
+                  <Building2 className="h-4 w-4 text-primary" />
+                  Organizador
+                </CardTitle>
+                <CardDescription className="text-xs">
+                  Produtora responsável
+                </CardDescription>
+              </div>
+              <Link href="/profile" className="text-xs text-primary hover:underline">
+                Editar perfil
+              </Link>
+            </CardHeader>
+            <CardContent>
+              <div className="flex items-center gap-3 rounded-lg border bg-muted/20 p-3">
+                <div className="relative flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-border/50 bg-card">
+                  {event.tenant?.logoUrl ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={event.tenant.logoUrl}
+                      alt={event.tenant.name}
+                      className="h-full w-full object-cover"
+                    />
+                  ) : (
+                    <Building2 className="h-6 w-6 text-primary" />
+                  )}
+                </div>
+                <div className="min-w-0">
+                  <p className="text-xs text-muted-foreground">Exibido no evento:</p>
+                  <p className="truncate font-semibold text-foreground text-sm">
+                    {event.tenant?.name || "Organizador do Evento"}
+                  </p>
                 </div>
               </div>
             </CardContent>

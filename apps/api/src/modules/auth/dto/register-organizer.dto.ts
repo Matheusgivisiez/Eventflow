@@ -48,4 +48,8 @@ export class RegisterOrganizerDto {
   @IsOptional()
   @IsString()
   instagram?: string;
+
+  @IsOptional()
+  @IsString()
+  logoUrl?: string;
 }

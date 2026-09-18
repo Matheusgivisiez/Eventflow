@@ -112,7 +112,8 @@ export default async function PublicEventPage({ params }: { params: Promise<{ sl
     } : undefined,
     organizer: {
       "@type": "Organization",
-      name: organizerName
+      name: organizerName,
+      ...(event.tenant?.logoUrl ? { logo: event.tenant.logoUrl } : {})
     }
   };
 
@@ -152,6 +153,7 @@ export default async function PublicEventPage({ params }: { params: Promise<{ sl
           organizerSection={
             <OrganizerInfo
               name={organizerName}
+              logoUrl={event.tenant?.logoUrl}
               description="Produtora responsavel por organizar eventos, ingressos e experiencias memoraveis."
             />
           }

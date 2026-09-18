@@ -12,6 +12,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { api } from "@/lib/api";
 import { useAuthStore } from "@/stores/auth-store";
+import { ImageUpload } from "@/components/image-upload";
 
 const UF_LIST = [
   "AC","AL","AP","AM","BA","CE","DF","ES","GO","MA","MT","MS","MG",
@@ -28,6 +29,7 @@ const schema = z.object({
   state: z.string().min(2, "Selecione o estado."),
   website: z.string().url("URL inválida.").optional().or(z.literal("")),
   instagram: z.string().optional(),
+  logoUrl: z.string().optional(),
 });
 
 type FormData = z.infer<typeof schema>;
@@ -54,6 +56,7 @@ export default function BecomeOrganizerPage() {
           ...data,
           cnpj: data.cnpj.replace(/\D/g, ""),
           state: data.state.toUpperCase(),
+          logoUrl: data.logoUrl?.trim() || undefined,
         })
       }),
     onSuccess: (session) => {
@@ -130,6 +133,15 @@ export default function BecomeOrganizerPage() {
               <Field label="Instagram (opcional)" error={form.formState.errors.instagram?.message} icon={<Instagram className="h-4 w-4" />}>
                 <Input placeholder="@suaempresa" className="pl-10 rounded-xl" {...form.register("instagram")} />
               </Field>
+
+              <div className="space-y-2">
+                <Label className="text-sm font-semibold">Logotipo da Empresa (opcional)</Label>
+                <ImageUpload
+                  aspect={1}
+                  value={form.watch("logoUrl")}
+                  onChange={(url) => form.setValue("logoUrl", url ?? "")}
+                />
+              </div>
             </div>
 
             {mutation.error && (
