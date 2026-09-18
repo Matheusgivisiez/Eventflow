@@ -280,9 +280,9 @@ function useTicketShape() {
         w,
         h,
         divider: stub.offsetLeft,
-        radius: compact ? 20 : 26,
-        notch: compact ? 8 : 12,
-        sideNotch: compact ? 9 : 14,
+        radius: compact ? 18 : 22,
+        notch: compact ? 8 : 10,
+        sideNotch: compact ? 9 : 12,
       });
     };
 
@@ -393,9 +393,9 @@ function EventTicketCard({
           aria-expanded={expanded}
           aria-label={`${expanded ? "Recolher" : "Abrir"} ingresso de ${ticket.event.title}`}
           onClick={onToggleDetails}
-          className={`relative isolate z-10 grid min-h-[184px] grid-cols-[112px_minmax(0,1fr)_96px] rounded-[26px] text-left text-[#f7f5ff] transition-[margin,width] duration-300 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-violet-400 sm:min-h-[292px] sm:grid-cols-[240px_minmax(0,1fr)_200px] ${
+          className={`relative isolate z-10 grid min-h-[164px] grid-cols-[96px_minmax(0,1fr)_88px] rounded-[26px] text-left text-[#f7f5ff] transition-[margin,width] duration-300 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-violet-400 sm:min-h-[216px] sm:grid-cols-[172px_minmax(0,1fr)_160px] ${
             expanded
-              ? "mx-2.5 w-[calc(100%-20px)] sm:mx-9 sm:w-[calc(100%-72px)]"
+              ? "mx-2.5 w-[calc(100%-20px)] sm:mx-6 sm:w-[calc(100%-48px)]"
               : "w-full"
           } ${shape ? "" : "border border-violet-400/40 bg-[#17142a]"}`}
         >
@@ -436,13 +436,13 @@ function EventTicketCard({
             </svg>
           )}
 
-          <span className="relative m-3 overflow-hidden rounded-[14px] border border-white/10 bg-[#211c38] shadow-[0_12px_30px_rgba(0,0,0,0.45)] sm:m-5 sm:rounded-[18px]">
+          <span className="relative m-2.5 overflow-hidden rounded-[12px] border border-white/10 bg-[#211c38] shadow-[0_12px_30px_rgba(0,0,0,0.45)] sm:m-4 sm:rounded-[16px]">
             {bannerUrl ? (
               <Image
                 src={bannerUrl}
                 alt={`Capa do evento ${ticket.event.title}`}
                 fill
-                sizes="(min-width: 640px) 200px, 88px"
+                sizes="(min-width: 640px) 140px, 76px"
                 className="object-cover transition-transform duration-500 group-hover:scale-[1.03]"
               />
             ) : (
@@ -452,10 +452,10 @@ function EventTicketCard({
             )}
           </span>
 
-          <span className="flex min-w-0 flex-col py-3.5 pl-1 pr-3 sm:py-6 sm:pl-3 sm:pr-8">
+          <span className="flex min-w-0 flex-col py-3 pl-1 pr-3 sm:py-4 sm:pl-2 sm:pr-6">
             <span className="flex flex-wrap items-center justify-between gap-2">
-              <span className="inline-flex items-center gap-1.5 text-[9px] font-medium uppercase tracking-[0.14em] text-white/75 sm:gap-2.5 sm:text-[13px]">
-                <Calendar className="h-3.5 w-3.5 text-white/70 sm:h-[18px] sm:w-[18px]" strokeWidth={1.75} />
+              <span className="inline-flex items-center gap-1.5 text-[9px] font-medium uppercase tracking-[0.14em] text-white/75 sm:gap-2 sm:text-[12px]">
+                <Calendar className="h-3.5 w-3.5 text-white/70 sm:h-4 sm:w-4" strokeWidth={1.75} />
                 <span>{schedule.weekday}</span>
                 <span className="text-white/35">·</span>
                 <span>{schedule.dayAndMonth}</span>
@@ -463,18 +463,18 @@ function EventTicketCard({
                 <span>{schedule.time}</span>
               </span>
               <span
-                className={`inline-flex shrink-0 items-center gap-1.5 rounded-full border px-2.5 py-1 text-[8px] font-semibold uppercase tracking-[0.16em] sm:gap-2 sm:px-4 sm:py-1.5 sm:text-[11px] ${
+                className={`inline-flex shrink-0 items-center gap-1.5 rounded-full border px-2.5 py-1 text-[8px] font-semibold uppercase tracking-[0.16em] sm:gap-1.5 sm:px-3 sm:py-1 sm:text-[10px] ${
                   ticket.status === "AVAILABLE"
                     ? "border-violet-400/25 bg-violet-500/[0.08] text-violet-300"
                     : cfg.color
                 }`}
               >
-                <TopBadgeIcon className="h-3 w-3 fill-current sm:h-4 sm:w-4" />
+                <TopBadgeIcon className="h-3 w-3 fill-current sm:h-3.5 sm:w-3.5" />
                 {topBadgeLabel}
               </span>
             </span>
 
-            <h3 className="mt-2.5 line-clamp-2 text-[15px] font-medium leading-[1.2] tracking-[-0.01em] text-white sm:mt-4 sm:text-[26px]">
+            <h3 className="mt-2.5 line-clamp-2 text-[15px] font-medium leading-[1.2] tracking-[-0.01em] text-white sm:mt-2.5 sm:text-[21px]">
               {titleMain}
               {titleTag && (
                 <>
@@ -486,8 +486,8 @@ function EventTicketCard({
               )}
             </h3>
 
-            <span className="mt-2 flex min-w-0 items-start gap-2 text-[10px] leading-snug text-white/60 sm:mt-3.5 sm:gap-3 sm:text-[15px]">
-              <MapPin className="mt-px h-3.5 w-3.5 shrink-0 text-violet-300 sm:h-5 sm:w-5" strokeWidth={1.75} />
+            <span className="mt-2 flex min-w-0 items-start gap-2 text-[10px] leading-snug text-white/60 sm:mt-2 sm:gap-2 sm:text-[13px]">
+              <MapPin className="mt-px h-3.5 w-3.5 shrink-0 text-violet-300 sm:h-4 sm:w-4" strokeWidth={1.75} />
               <span className="line-clamp-2">{eventLocation(ticket)}</span>
             </span>
 
@@ -498,32 +498,32 @@ function EventTicketCard({
               </span>
             )}
 
-            <span className="mt-auto block pt-3 sm:pt-5">
-              <span className="block border-t border-white/10 pt-3 sm:flex sm:items-end sm:justify-between sm:gap-4 sm:pt-4">
+            <span className="mt-auto block pt-3 sm:pt-3">
+              <span className="block border-t border-white/10 pt-3 sm:flex sm:items-end sm:justify-between sm:gap-4 sm:pt-3">
                 <span className="block min-w-0">
-                  <span className="block text-[8px] font-medium uppercase tracking-[0.2em] text-white/45 sm:text-[11px]">
+                  <span className="block text-[8px] font-medium uppercase tracking-[0.2em] text-white/45 sm:text-[10px]">
                     Titular
                   </span>
-                  <span className="mt-1 block truncate text-[12px] font-semibold text-white sm:text-[17px]">
+                  <span className="mt-1 block truncate text-[12px] font-semibold text-white sm:text-[15px]">
                     {ticket.attendeeName}
                   </span>
                 </span>
-                <span className="mt-2 flex flex-wrap items-center gap-1.5 sm:mt-0 sm:justify-end sm:gap-3">
-                  <span className="inline-flex max-w-full items-center gap-1.5 truncate rounded-full border border-violet-400/35 bg-violet-500/10 px-2.5 py-1 text-[9px] font-medium text-white/90 sm:gap-2 sm:px-4 sm:py-2 sm:text-[13px]">
-                    <Ticket className="h-3 w-3 shrink-0 text-violet-300 sm:h-4 sm:w-4" strokeWidth={1.75} />
+                <span className="mt-2 flex flex-wrap items-center gap-1.5 sm:mt-0 sm:shrink-0 sm:flex-nowrap sm:justify-end sm:gap-2">
+                  <span className="inline-flex max-w-full items-center gap-1.5 truncate rounded-full border border-violet-400/35 bg-violet-500/10 px-2.5 py-1 text-[9px] font-medium text-white/90 sm:gap-1.5 sm:px-3 sm:py-1.5 sm:text-[12px]">
+                    <Ticket className="h-3 w-3 shrink-0 text-violet-300 sm:h-3.5 sm:w-3.5" strokeWidth={1.75} />
                     {ticket.ticketType.name}
                   </span>
                   <span
-                    className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[9px] font-semibold sm:gap-2 sm:px-4 sm:py-2 sm:text-[13px] ${
+                    className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[9px] font-semibold sm:gap-1.5 sm:px-3 sm:py-1.5 sm:text-[12px] ${
                       ticket.status === "AVAILABLE"
                         ? "border-emerald-400/50 bg-emerald-400/10 text-emerald-300"
                         : cfg.color
                     }`}
                   >
                     {ticket.status === "AVAILABLE" ? (
-                      <CircleDot className="h-3 w-3 sm:h-4 sm:w-4" strokeWidth={2} />
+                      <CircleDot className="h-3 w-3 sm:h-3.5 sm:w-3.5" strokeWidth={2} />
                     ) : (
-                      <StatusIcon className="h-3 w-3 sm:h-4 sm:w-4" />
+                      <StatusIcon className="h-3 w-3 sm:h-3.5 sm:w-3.5" />
                     )}
                     {cfg.label}
                   </span>
@@ -534,26 +534,26 @@ function EventTicketCard({
 
           <span
             ref={stubRef}
-            className="relative flex flex-col items-center justify-between px-2 py-4 text-center sm:px-6 sm:py-7"
+            className="relative flex flex-col items-center justify-between px-2 py-3 text-center sm:px-4 sm:py-4"
           >
-            <span className="text-[8px] font-medium uppercase tracking-[0.2em] text-white/80 sm:text-[13px] sm:tracking-[0.24em]">
+            <span className="text-[8px] font-medium uppercase tracking-[0.2em] text-white/80 sm:text-[11px] sm:tracking-[0.22em]">
               QR entrada
             </span>
-            <span className="flex h-12 w-12 items-center justify-center rounded-xl border border-white/10 bg-white/[0.04] shadow-[inset_0_1px_0_rgba(255,255,255,0.06)] sm:h-[116px] sm:w-[116px] sm:rounded-[22px]">
+            <span className="flex h-12 w-12 items-center justify-center rounded-xl border border-white/10 bg-white/[0.04] shadow-[inset_0_1px_0_rgba(255,255,255,0.06)] sm:h-[80px] sm:w-[80px] sm:rounded-[18px]">
               {qrLocked ? (
-                <Lock className="h-5 w-5 text-white/80 sm:h-10 sm:w-10" strokeWidth={1.75} />
+                <Lock className="h-5 w-5 text-white/80 sm:h-7 sm:w-7" strokeWidth={1.75} />
               ) : (
-                <QrGlyph className="h-6 w-6 text-white sm:h-[58px] sm:w-[58px]" />
+                <QrGlyph className="h-6 w-6 text-white sm:h-[40px] sm:w-[40px]" />
               )}
             </span>
-            <span className="max-w-[84px] text-[7px] font-normal uppercase leading-relaxed tracking-[0.18em] text-white/55 sm:max-w-[140px] sm:text-[11px] sm:tracking-[0.22em]">
+            <span className="max-w-[84px] text-[7px] font-normal uppercase leading-relaxed tracking-[0.18em] text-white/55 sm:max-w-[120px] sm:text-[9px] sm:tracking-[0.2em]">
               {stubLabel}
             </span>
-            <span className="flex w-full flex-col items-center gap-2 sm:gap-3">
+            <span className="flex w-full flex-col items-center gap-2 sm:gap-2.5">
               <span className="h-px w-4/5 bg-white/10" />
               <span className="inline-flex items-center gap-1.5 sm:gap-2">
-                <Zap className="h-3 w-3 fill-violet-500 text-violet-500 sm:h-5 sm:w-5" />
-                <span className="text-[7px] font-medium uppercase tracking-[0.24em] text-white/60 sm:text-[11px] sm:tracking-[0.3em]">
+                <Zap className="h-3 w-3 fill-violet-500 text-violet-500 sm:h-4 sm:w-4" />
+                <span className="text-[7px] font-medium uppercase tracking-[0.24em] text-white/60 sm:text-[9px] sm:tracking-[0.26em]">
                   Event Flow
                 </span>
               </span>
@@ -580,7 +580,7 @@ function EventTicketCard({
               <div className="absolute inset-0 bg-gradient-to-b from-[#13101d] via-[#13101d]/55 to-[#13101d]" />
             </div>
 
-            <div className="relative px-4 pb-5 pt-12 sm:px-9 sm:pb-7 sm:pt-[76px]">
+            <div className="relative px-4 pb-4 pt-12 sm:px-7 sm:pb-5 sm:pt-[62px]">
               <div className="lg:grid lg:grid-cols-[1fr_auto_1fr] lg:items-center lg:gap-6">
                 <div className="hidden text-[11px] font-medium uppercase leading-[1.8] tracking-[0.3em] text-white/75 lg:block">
                   A música
@@ -596,13 +596,13 @@ function EventTicketCard({
                         <Image
                           src={ticket.qrCodeDataUrl!}
                           alt={`QR Code do ingresso para ${ticket.event.title}`}
-                          width={224}
-                          height={224}
+                          width={176}
+                          height={176}
                           unoptimized
-                          className="h-48 w-48 sm:h-56 sm:w-56"
+                          className="h-40 w-40 sm:h-44 sm:w-44"
                         />
                       </div>
-                      <p className="mt-4 pl-[0.4em] text-lg font-semibold tracking-[0.4em] text-white sm:text-xl">
+                      <p className="mt-3.5 pl-[0.4em] text-base font-semibold tracking-[0.4em] text-white sm:text-lg">
                         {ticket.uuid?.slice(0, 8).toUpperCase() ?? "--------"}
                       </p>
                       <p className="mt-2 max-w-xs text-xs leading-relaxed text-white/60 sm:text-sm">
@@ -613,7 +613,7 @@ function EventTicketCard({
                   )}
 
                   {ticket.status === "AVAILABLE" && !canOpenQr && (
-                    <div className="flex h-48 w-48 flex-col items-center justify-center rounded-[22px] border border-white/10 bg-white/[0.04] px-4 sm:h-56 sm:w-56">
+                    <div className="flex h-40 w-40 flex-col items-center justify-center rounded-[22px] border border-white/10 bg-white/[0.04] px-4 sm:h-44 sm:w-44">
                       <Lock className="h-10 w-10 text-violet-300" strokeWidth={1.75} />
                       <p className="mt-3 text-sm font-semibold text-white">QR Code bloqueado</p>
                       <p className="mt-1 text-xs leading-relaxed text-white/55">
@@ -658,11 +658,11 @@ function EventTicketCard({
                 </div>
               </div>
 
-              <div className="mt-6 border-t border-dashed border-white/15 pt-5 sm:mt-7 sm:pt-6">
+              <div className="mt-5 border-t border-dashed border-white/15 pt-4 sm:mt-5 sm:pt-5">
                 <div className="flex flex-wrap gap-2.5 sm:flex-nowrap sm:gap-3">
                   <Button
                     variant="outline"
-                    className="h-12 flex-1 basis-full gap-2.5 rounded-xl border border-violet-400/40 bg-gradient-to-r from-[#8b5cf6] to-[#6d28d9] text-sm font-semibold text-white shadow-[0_10px_30px_rgba(124,58,237,0.35)] hover:text-white hover:brightness-110 sm:h-14 sm:basis-0 sm:text-base"
+                    className="h-12 flex-1 basis-full gap-2.5 rounded-xl border border-violet-400/40 bg-gradient-to-r from-[#8b5cf6] to-[#6d28d9] text-sm font-semibold text-white shadow-[0_10px_30px_rgba(124,58,237,0.35)] hover:text-white hover:brightness-110 sm:h-12 sm:basis-0 sm:text-[15px]"
                     disabled={ticket.status === "CANCELED" || qrLocked}
                     onClick={onDownload}
                     title={qrLocked ? "QR Code bloqueado — aguarde a liberação" : undefined}
@@ -674,7 +674,7 @@ function EventTicketCard({
                   {ticket.status === "AVAILABLE" && pendingTransfer ? (
                     <Button
                       variant="outline"
-                      className="h-12 flex-1 gap-2.5 rounded-xl border-amber-300/25 bg-amber-300/10 text-sm text-amber-100 hover:bg-amber-300/20 hover:text-amber-50 sm:h-14 sm:text-base"
+                      className="h-12 flex-1 gap-2.5 rounded-xl border-amber-300/25 bg-amber-300/10 text-sm text-amber-100 hover:bg-amber-300/20 hover:text-amber-50 sm:h-12 sm:text-[15px]"
                       disabled={transferCancelPending}
                       onClick={onCancelTransfer}
                     >
@@ -688,7 +688,7 @@ function EventTicketCard({
                   ) : ticket.status === "AVAILABLE" ? (
                     <Button
                       variant="outline"
-                      className="h-12 flex-1 gap-2.5 rounded-xl border-white/15 bg-white/[0.04] text-sm font-semibold text-white backdrop-blur hover:bg-white/10 hover:text-white sm:h-14 sm:text-base"
+                      className="h-12 flex-1 gap-2.5 rounded-xl border-white/15 bg-white/[0.04] text-sm font-semibold text-white backdrop-blur hover:bg-white/10 hover:text-white sm:h-12 sm:text-[15px]"
                       disabled={transferLocked}
                       onClick={onTransfer}
                       title={transferReason ?? undefined}
@@ -703,7 +703,7 @@ function EventTicketCard({
                   ) : (
                     <Button
                       variant="outline"
-                      className="h-12 flex-1 rounded-xl border-white/10 bg-white/[0.03] text-sm text-white/35 sm:h-14"
+                      className="h-12 flex-1 rounded-xl border-white/10 bg-white/[0.03] text-sm text-white/35 sm:h-12"
                       disabled
                     >
                       Transferência indisponível
@@ -714,7 +714,7 @@ function EventTicketCard({
                     <Button
                       variant="outline"
                       aria-label="Adicionar ao Google Wallet"
-                      className="h-12 w-14 shrink-0 rounded-xl border-white/15 bg-white/[0.04] p-0 text-white backdrop-blur hover:bg-white/10 hover:text-white sm:h-14 sm:w-[76px]"
+                      className="h-12 w-14 shrink-0 rounded-xl border-white/15 bg-white/[0.04] p-0 text-white backdrop-blur hover:bg-white/10 hover:text-white sm:h-12 sm:w-16"
                       disabled={qrLocked || walletPending}
                       onClick={onWallet}
                       title={
