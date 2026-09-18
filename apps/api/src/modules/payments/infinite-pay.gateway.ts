@@ -27,7 +27,7 @@ export class InfinitePayGateway implements PaymentProvider {
   constructor(private readonly config: ConfigService) {}
 
   private get handle() {
-    return this.config.get<string>("INFINITEPAY_HANDLE") ?? "";
+    return (this.config.get<string>("INFINITEPAY_HANDLE") ?? "").trim().replace(/^\$+/, "");
   }
 
   private get baseUrl() {
@@ -66,6 +66,7 @@ export class InfinitePayGateway implements PaymentProvider {
     const secret = this.config.get<string>("INFINITEPAY_WEBHOOK_SECRET");
     // Nest exposes controllers below the global /api prefix in production.
     const webhookUrl = configuredWebhook ?? `${apiUrl}/api/webhooks/infinitepay${secret ? `?secret=${encodeURIComponent(secret)}` : ""}`;
+    const buyerPhone = this.formatBrazilianPhone(input.buyerPhone);
     const response = await this.request<InfinitePayLink>("/links", {
       handle: this.handle,
       items: [{ quantity: 1, price: input.amountCents, description: input.description }],
@@ -75,7 +76,7 @@ export class InfinitePayGateway implements PaymentProvider {
       customer: {
         name: input.buyerName,
         email: input.buyerEmail,
-        ...(input.buyerPhone ? { phone_number: input.buyerPhone } : {})
+        ...(buyerPhone ? { phone_number: buyerPhone } : {})
       }
     });
     const checkoutUrl = response.url ?? response.checkout_url;
@@ -112,5 +113,13 @@ export class InfinitePayGateway implements PaymentProvider {
       checkoutId: slug,
       transactionId: transactionNsu
     };
+  }
+
+  private formatBrazilianPhone(phone?: string) {
+    const digits = phone?.replace(/\D/g, "");
+    if (!digits) return undefined;
+    if (digits.startsWith("55") && (digits.length === 12 || digits.length === 13)) return `+${digits}`;
+    if (digits.length === 10 || digits.length === 11) return `+55${digits}`;
+    return undefined;
   }
 }

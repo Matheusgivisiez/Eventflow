@@ -3,9 +3,10 @@ import { InfinitePayGateway } from "./infinite-pay.gateway";
 describe("InfinitePayGateway", () => {
   const input = {
     orderId: "order-1",
-    amountCents: 10800,
+    amountCents: 108,
     buyerEmail: "buyer@example.com",
     buyerName: "Buyer",
+    buyerPhone: "33999503015",
     description: "Event Flow Conf",
     returnUrl: "https://app.example/checkout/success?orderId=order-1",
     completionUrl: "https://app.example/checkout/success?orderId=order-1"
@@ -13,7 +14,7 @@ describe("InfinitePayGateway", () => {
 
   const config = {
     get: jest.fn((key: string) => ({
-      INFINITEPAY_HANDLE: "eventflow",
+      INFINITEPAY_HANDLE: "$eventflow",
       API_URL: "https://api.example",
       INFINITEPAY_WEBHOOK_SECRET: "webhook-secret"
     } as Record<string, string>)[key])
@@ -37,6 +38,19 @@ describe("InfinitePayGateway", () => {
     expect(fetch).toHaveBeenCalledWith("https://api.checkout.infinitepay.io/links", expect.objectContaining({
       method: "POST",
       body: expect.stringContaining('"order_nsu":"order-1"')
+    }));
+    const [, request] = (fetch as jest.Mock).mock.calls[0];
+    expect(JSON.parse(request.body)).toEqual(expect.objectContaining({
+      handle: "eventflow",
+      items: [{ quantity: 1, price: 108, description: "Event Flow Conf" }],
+      order_nsu: "order-1",
+      redirect_url: "https://app.example/checkout/success?orderId=order-1",
+      webhook_url: "https://api.example/api/webhooks/infinitepay?secret=webhook-secret",
+      customer: {
+        name: "Buyer",
+        email: "buyer@example.com",
+        phone_number: "+5533999503015"
+      }
     }));
   });
 
