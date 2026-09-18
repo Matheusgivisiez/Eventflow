@@ -8,6 +8,8 @@ import { PaymentStatus, TicketStatus } from "@prisma/client";
 import * as QRCode from "qrcode";
 import sharp = require("sharp");
 import type { Sharp } from "sharp";
+import { readFileSync } from "fs";
+import { join } from "path";
 import { AuditService } from "../audit/audit.service";
 import { PaymentsService } from "../payments/payments.service";
 import { PrismaService } from "../../prisma/prisma.service";
@@ -23,6 +25,23 @@ import {
 } from "../../common/utils/refund-policy.utils";
 
 const TICKET_FONT_FAMILY = "DejaVu Sans, Arial, Helvetica, sans-serif";
+
+const TICKET_PDF_ASSETS_DIR = join(__dirname, "..", "..", "assets", "ticket-pdf");
+const TICKET_PDF_ASSET_FILES = {
+  cardBackground: "ticket-card-bg.png",
+  notchLeft: "ticket-notch-left.png",
+  notchRight: "ticket-notch-right.png",
+  iconCalendar: "icon-white-calendar.png",
+  iconClock: "icon-white-clock.png",
+  iconTicket: "icon-white-ticket.png",
+  iconTicketDark: "icon-dark-ticket.png",
+  logo: "eventflow-logo-purple-white.png",
+  logoDark: "eventflow-logo-purple-black.png",
+} as const;
+
+type TicketPdfAssets = Record<keyof typeof TICKET_PDF_ASSET_FILES, string>;
+
+let ticketPdfAssetsCache: TicketPdfAssets | null = null;
 
 @Injectable()
 export class BuyerService {
@@ -390,10 +409,22 @@ export class BuyerService {
   }) {
     const width = 1240;
     const height = 1754;
-    const svg = this.ticketSvg(ticket, width, height);
+    const svg = this.ticketSvg(ticket, width, height, this.ticketPdfAssets());
     const sharpFactory = sharp as unknown as (input: Buffer) => Sharp;
     const jpeg = await sharpFactory(Buffer.from(svg)).jpeg({ quality: 94 }).toBuffer();
     return this.imagePdf(jpeg, 595, 842);
+  }
+
+  private ticketPdfAssets(): TicketPdfAssets {
+    if (ticketPdfAssetsCache) return ticketPdfAssetsCache;
+    const entries = (Object.entries(TICKET_PDF_ASSET_FILES) as [keyof typeof TICKET_PDF_ASSET_FILES, string][]).map(
+      ([key, file]) => {
+        const bytes = readFileSync(join(TICKET_PDF_ASSETS_DIR, file));
+        return [key, `data:image/png;base64,${bytes.toString("base64")}`] as const;
+      },
+    );
+    ticketPdfAssetsCache = Object.fromEntries(entries) as TicketPdfAssets;
+    return ticketPdfAssetsCache;
   }
 
   private ticketSvg(ticket: {
@@ -406,89 +437,130 @@ export class BuyerService {
     status: TicketStatus;
     shortCode: string;
     qrCodeDataUrl: string;
-  }, width: number, height: number) {
-    const eventLines = this.svgLines(ticket.eventTitle, 28, 2);
-    const venueLines = this.svgLines(ticket.venue, 48, 2);
-    const date = this.formatTicketDate(ticket.startsAt);
-    const status = ticket.status === TicketStatus.AVAILABLE ? "VALIDO" : ticket.status;
+  }, width: number, height: number, assets: TicketPdfAssets) {
+    const eventLines = this.svgLines(ticket.eventTitle, 20, 2);
+    const venueLines = this.svgLines(ticket.venue, 40, 2);
+    const isValid = ticket.status === TicketStatus.AVAILABLE;
+    const statusLabel = isValid ? "\u2713 V\u00e1lido" : ticket.status === TicketStatus.USED ? "Utilizado" : "Cancelado";
+    const statusColor = isValid
+      ? { bg: "rgba(45,212,191,0.18)", fg: "#8ff2d6" }
+      : { bg: "rgba(244,114,182,0.18)", fg: "#f9a8d4" };
     const qr = this.escapeAttribute(ticket.qrCodeDataUrl);
+
+    const cardX = 96;
+    const cardY = 150;
+    const cardWidth = 1048;
+    const cardHeight = 820;
+    const cardRadius = 44;
+    const leftX = cardX + 56;
+    const topY = cardY + 70;
+    const leftWidth = 620;
+    const rightWidth = 292;
+    const rightX = cardX + cardWidth - 56 - rightWidth;
+
+    const notchWidth = 44;
+    const notchHeight = Math.round((notchWidth * 112) / 40);
+    const notchY = cardY + cardHeight / 2 - notchHeight / 2;
+
+    const titleLine2 = eventLines[1]
+      ? `<text x="0" y="214" font-family="${TICKET_FONT_FAMILY}" font-size="44" font-weight="900" fill="#ffffff">${this.escapeXml(eventLines[1])}</text>`
+      : "";
 
     return `
 <svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}">
   <defs>
-    <linearGradient id="page" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0" stop-color="#fff7fb"/>
-      <stop offset="0.52" stop-color="#f4efff"/>
-      <stop offset="1" stop-color="#effbf7"/>
-    </linearGradient>
-    <linearGradient id="ticket" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0" stop-color="#2c1236"/>
-      <stop offset="0.48" stop-color="#1d1734"/>
-      <stop offset="1" stop-color="#0e4b48"/>
-    </linearGradient>
-    <linearGradient id="accent" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0" stop-color="#6b37ff"/>
-      <stop offset="1" stop-color="#e84791"/>
-    </linearGradient>
-    <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
-      <feDropShadow dx="0" dy="24" stdDeviation="28" flood-color="#171321" flood-opacity="0.22"/>
+    <clipPath id="cardClip">
+      <rect x="${cardX}" y="${cardY}" width="${cardWidth}" height="${cardHeight}" rx="${cardRadius}"/>
+    </clipPath>
+    <filter id="cardShadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="22" stdDeviation="30" flood-color="#1a0f33" flood-opacity="0.22"/>
     </filter>
   </defs>
-  <rect width="1240" height="1754" fill="url(#page)"/>
-  <g transform="translate(104 96)">
-    <path d="M0 28 C0 12 12 0 28 0 H92 C108 0 120 12 120 28 V92 C120 108 108 120 92 120 H28 C12 120 0 108 0 92 Z" fill="#171321"/>
-    <path d="M33 33 H82 C88 33 91 33 95 32 C91 45 83 51 70 51 H29 C28 43 29 37 33 33 Z" fill="#743cff"/>
-    <path d="M29 59 H82 C78 72 70 78 57 78 H29 Z" fill="#9140ff"/>
-    <path d="M29 86 H73 C69 99 61 105 48 105 H29 Z" fill="#e84791"/>
-    <text x="142" y="48" font-family="${TICKET_FONT_FAMILY}" font-size="34" font-weight="800" fill="#171321">event</text>
-    <text x="142" y="88" font-family="${TICKET_FONT_FAMILY}" font-size="34" font-weight="800" fill="#171321">flow</text>
-  </g>
-  <g filter="url(#shadow)">
-    <rect x="96" y="262" width="1048" height="1268" rx="44" fill="url(#ticket)"/>
-    <circle cx="138" cy="896" r="32" fill="url(#page)"/>
-    <circle cx="1102" cy="896" r="32" fill="url(#page)"/>
-  </g>
-  <g transform="translate(148 330)">
-    <text x="0" y="0" font-family="${TICKET_FONT_FAMILY}" font-size="22" font-weight="800" fill="#ffffff" opacity="0.72" letter-spacing="7">EVENTFLOW PASS</text>
-    <rect x="742" y="-36" width="154" height="54" rx="27" fill="#ffffff" opacity="0.1" stroke="#ffffff" stroke-opacity="0.26"/>
-    <text x="819" y="-2" text-anchor="middle" font-family="${TICKET_FONT_FAMILY}" font-size="20" font-weight="800" fill="#cbfff1">${this.escapeXml(status)}</text>
 
-    ${eventLines.map((line, index) => `<text x="0" y="${126 + index * 82}" font-family="${TICKET_FONT_FAMILY}" font-size="68" font-weight="900" fill="#ffffff">${this.escapeXml(line)}</text>`).join("")}
+  <rect width="${width}" height="${height}" fill="#ffffff"/>
 
-    <g transform="translate(0 360)">
-      ${this.infoBox(0, 0, "DATA", date)}
-      ${this.infoBox(304, 0, "LOTE", ticket.ticketTypeName)}
-      ${this.infoBox(608, 0, "CODIGO", ticket.shortCode)}
+  <g filter="url(#cardShadow)">
+    <rect x="${cardX}" y="${cardY}" width="${cardWidth}" height="${cardHeight}" rx="${cardRadius}" fill="#1a0f33"/>
+  </g>
+  <g clip-path="url(#cardClip)">
+    <image href="${assets.cardBackground}" x="${cardX}" y="${cardY}" width="${cardWidth}" height="${cardHeight}" preserveAspectRatio="xMidYMid slice"/>
+    <image href="${assets.notchLeft}" x="${cardX}" y="${notchY}" width="${notchWidth}" height="${notchHeight}"/>
+    <image href="${assets.notchRight}" x="${cardX + cardWidth - notchWidth}" y="${notchY}" width="${notchWidth}" height="${notchHeight}"/>
+  </g>
+
+  <g transform="translate(${leftX} ${topY})">
+    <image href="${assets.logo}" width="164" height="65.4"/>
+    <rect x="${leftWidth - 190}" y="6" width="190" height="52" rx="26" fill="${statusColor.bg}"/>
+    <text x="${leftWidth - 95}" y="39" text-anchor="middle" font-family="${TICKET_FONT_FAMILY}" font-size="21" font-weight="800" fill="${statusColor.fg}">${this.escapeXml(statusLabel)}</text>
+
+    <text x="0" y="118" font-family="${TICKET_FONT_FAMILY}" font-size="18" font-weight="800" letter-spacing="3" fill="#b8a9e0">${this.escapeXml(this.truncate(ticket.eventTitle, 34).toUpperCase())}</text>
+    <text x="0" y="162" font-family="${TICKET_FONT_FAMILY}" font-size="44" font-weight="900" fill="#ffffff">${this.escapeXml(eventLines[0] ?? "")}</text>
+    ${titleLine2}
+
+    <g transform="translate(0 300)">
+      ${this.metaPill(assets.iconCalendar, "DATA", this.formatShortDayMonth(ticket.startsAt), 0)}
+      ${this.metaPill(assets.iconClock, "HORA", this.formatHourMinute(ticket.startsAt), 212)}
+      ${this.metaPill(assets.iconTicket, "SETOR", ticket.ticketTypeName, 424)}
     </g>
 
-    <line x1="0" y1="562" x2="896" y2="562" stroke="#ffffff" stroke-opacity="0.24" stroke-width="2" stroke-dasharray="10 10"/>
+    <line x1="0" y1="450" x2="${leftWidth}" y2="450" stroke="#ffffff" stroke-opacity="0.24" stroke-width="2" stroke-dasharray="10 10"/>
 
-    <text x="0" y="650" font-family="${TICKET_FONT_FAMILY}" font-size="22" font-weight="800" fill="#ffffff" opacity="0.62" letter-spacing="5">PARTICIPANTE</text>
-    <text x="0" y="706" font-family="${TICKET_FONT_FAMILY}" font-size="44" font-weight="900" fill="#ffffff">${this.escapeXml(ticket.attendeeName)}</text>
-    <text x="0" y="746" font-family="${TICKET_FONT_FAMILY}" font-size="24" fill="#ffffff" opacity="0.68">${this.escapeXml(ticket.attendeeEmail)}</text>
+    <text x="0" y="482" font-family="${TICKET_FONT_FAMILY}" font-size="18" font-weight="800" fill="#ffffff" fill-opacity="0.62" letter-spacing="3">PARTICIPANTE</text>
+    <text x="0" y="524" font-family="${TICKET_FONT_FAMILY}" font-size="32" font-weight="900" fill="#ffffff">${this.escapeXml(ticket.attendeeName)}</text>
+    <text x="0" y="554" font-family="${TICKET_FONT_FAMILY}" font-size="18" fill="#ffffff" fill-opacity="0.68">${this.escapeXml(this.truncate(ticket.attendeeEmail, 42))}</text>
 
-    <text x="0" y="838" font-family="${TICKET_FONT_FAMILY}" font-size="22" font-weight="800" fill="#ffffff" opacity="0.62" letter-spacing="5">LOCAL</text>
-    ${venueLines.map((line, index) => `<text x="0" y="${894 + index * 34}" font-family="${TICKET_FONT_FAMILY}" font-size="28" fill="#ffffff" opacity="0.9">${this.escapeXml(line)}</text>`).join("")}
+    <text x="0" y="602" font-family="${TICKET_FONT_FAMILY}" font-size="18" font-weight="800" fill="#ffffff" fill-opacity="0.62" letter-spacing="3">LOCAL</text>
+    ${venueLines.map((line, i) => `<text x="0" y="${636 + i * 30}" font-family="${TICKET_FONT_FAMILY}" font-size="22" fill="#ffffff" fill-opacity="0.9">${this.escapeXml(line)}</text>`).join("")}
+  </g>
 
-    <g transform="translate(582 620)">
-      <rect x="0" y="0" width="314" height="314" rx="30" fill="#ffffff"/>
-      <image href="${qr}" x="26" y="26" width="262" height="262"/>
-      <text x="157" y="368" text-anchor="middle" font-family="${TICKET_FONT_FAMILY}" font-size="24" font-weight="900" fill="#ffffff" letter-spacing="3">${this.escapeXml(ticket.shortCode)}</text>
+  <g transform="translate(${rightX} ${topY})">
+    <rect width="${rightWidth}" height="372" rx="20" fill="#ffffff"/>
+    <image href="${assets.iconTicketDark}" x="24" y="20" width="20" height="20"/>
+    <text x="52" y="36" font-family="${TICKET_FONT_FAMILY}" font-size="15" font-weight="800" letter-spacing="1" fill="#171321">SEU INGRESSO</text>
+    <image href="${qr}" x="26" y="56" width="240" height="240"/>
+    <text x="${rightWidth / 2}" y="330" text-anchor="middle" font-family="${TICKET_FONT_FAMILY}" font-size="20" font-weight="900" letter-spacing="2" fill="#171321">${this.escapeXml(ticket.shortCode)}</text>
+
+    <text x="${rightWidth / 2}" y="404" text-anchor="middle" font-family="${TICKET_FONT_FAMILY}" font-size="16" fill="#5c5470">Apresente este QR code</text>
+    <text x="${rightWidth / 2}" y="426" text-anchor="middle" font-family="${TICKET_FONT_FAMILY}" font-size="16" fill="#5c5470">na entrada.</text>
+    <text x="${rightWidth / 2}" y="462" text-anchor="middle" font-family="${TICKET_FONT_FAMILY}" font-size="13" fill="#8477a3">Ingresso pessoal, validado uma unica vez.</text>
+  </g>
+
+  <g transform="translate(${cardX} ${cardY + cardHeight + 90})">
+    <text x="0" y="0" font-family="${TICKET_FONT_FAMILY}" font-size="26" font-weight="800" fill="#171321">Como usar este ingresso</text>
+    <g transform="translate(0 50)">
+      ${[
+        "Chegue com antecedencia para evitar filas na entrada.",
+        "Apresente o QR Code acima (impresso ou na tela do celular).",
+        "Ingresso pessoal e intransferivel: leve um documento com foto.",
+      ]
+        .map(
+          (line, i) => `
+      <g transform="translate(0 ${i * 56})">
+        <circle cx="14" cy="14" r="14" fill="#f2eef9"/>
+        <text x="14" y="19" text-anchor="middle" font-family="${TICKET_FONT_FAMILY}" font-size="16" font-weight="800" fill="#5b3ff0">${i + 1}</text>
+        <text x="42" y="19" font-family="${TICKET_FONT_FAMILY}" font-size="20" fill="#3f3856">${this.escapeXml(line)}</text>
+      </g>`,
+        )
+        .join("")}
     </g>
+  </g>
 
-    <rect x="0" y="1050" width="896" height="92" rx="22" fill="#fff8e8"/>
-    <text x="32" y="1086" font-family="${TICKET_FONT_FAMILY}" font-size="22" font-weight="800" fill="#3b2d00">Apresente este QR code na entrada.</text>
-    <text x="32" y="1120" font-family="${TICKET_FONT_FAMILY}" font-size="18" fill="#685b35">Este ingresso e pessoal e sera validado uma unica vez.</text>
+  <g transform="translate(${width / 2} ${height - 90})" text-anchor="middle">
+    <image href="${assets.logoDark}" x="-70" y="-56" width="140" height="55.9"/>
+    <text x="0" y="20" text-anchor="middle" font-family="${TICKET_FONT_FAMILY}" font-size="15" letter-spacing="2" fill="#a79bc4">INGRESSOS QUE APROXIMAM</text>
   </g>
 </svg>`.trim();
   }
 
-  private infoBox(x: number, y: number, label: string, value: string) {
+  private metaPill(iconHref: string, label: string, value: string, x: number) {
+    const width = 190;
+    const height = 108;
     return `
-      <g transform="translate(${x} ${y})">
-        <rect width="272" height="118" rx="20" fill="#ffffff" opacity="0.09" stroke="#ffffff" stroke-opacity="0.16"/>
-        <text x="24" y="42" font-family="${TICKET_FONT_FAMILY}" font-size="18" font-weight="800" fill="#ffffff" opacity="0.62">${this.escapeXml(label)}</text>
-        <text x="24" y="82" font-family="${TICKET_FONT_FAMILY}" font-size="24" font-weight="900" fill="#ffffff">${this.escapeXml(this.truncate(value, 18))}</text>
+      <g transform="translate(${x} 0)">
+        <rect width="${width}" height="${height}" rx="18" fill="#ffffff" fill-opacity="0.08" stroke="#ffffff" stroke-opacity="0.16"/>
+        <image href="${iconHref}" x="20" y="18" width="24" height="24"/>
+        <text x="54" y="36" font-family="${TICKET_FONT_FAMILY}" font-size="15" font-weight="800" letter-spacing="1" fill="#ffffff" fill-opacity="0.62">${this.escapeXml(label)}</text>
+        <text x="20" y="80" font-family="${TICKET_FONT_FAMILY}" font-size="23" font-weight="900" fill="#ffffff">${this.escapeXml(this.truncate(value, 15))}</text>
       </g>`;
   }
 
@@ -530,14 +602,30 @@ export class BuyerService {
     return Buffer.concat(chunks);
   }
 
-  private formatTicketDate(date: Date) {
-    return new Intl.DateTimeFormat("pt-BR", {
+  private formatShortDayMonth(date: Date) {
+    const day = new Intl.DateTimeFormat("pt-BR", {
       day: "2-digit",
+      timeZone: "America/Sao_Paulo",
+    }).format(date);
+    const month = new Intl.DateTimeFormat("pt-BR", {
       month: "short",
+      timeZone: "America/Sao_Paulo",
+    })
+      .format(date)
+      .replace(".", "");
+    return `${day} ${month.charAt(0).toUpperCase()}${month.slice(1)}`;
+  }
+
+  private formatHourMinute(date: Date) {
+    const parts = new Intl.DateTimeFormat("pt-BR", {
       hour: "2-digit",
       minute: "2-digit",
+      hour12: false,
       timeZone: "America/Sao_Paulo",
-    }).format(date).replace(".", "");
+    }).formatToParts(date);
+    const hour = parts.find((part) => part.type === "hour")?.value ?? "00";
+    const minute = parts.find((part) => part.type === "minute")?.value ?? "00";
+    return `${hour}h${minute}`;
   }
 
   private ticketVenue(event: { format?: string | null; address?: string | null; city?: string | null; state?: string | null }) {
