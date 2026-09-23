@@ -299,7 +299,7 @@ function LoginScreen({
             autoCapitalize="none"
             autoCorrect={false}
             keyboardType="url"
-            placeholder="https://api.eventflowtickets.com.br/api"
+            placeholder="https://eventflow-api-283790508777.us-east1.run.app/api"
             style={styles.input}
             placeholderTextColor={MID_TEXT}
           />
@@ -406,7 +406,7 @@ function CheckInTab({
             autoCapitalize="none"
             autoCorrect={false}
             keyboardType="url"
-            placeholder="https://api.eventflowtickets.com.br/api"
+            placeholder="https://eventflow-api-283790508777.us-east1.run.app/api"
             style={styles.input}
             placeholderTextColor={MID_TEXT}
           />

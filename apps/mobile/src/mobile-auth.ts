@@ -1,4 +1,4 @@
-export const DEFAULT_API_URL = "https://api.eventflowtickets.com.br/api";
+export const DEFAULT_API_URL = "https://eventflow-api-283790508777.us-east1.run.app/api";
 
 export type MobileUser = {
   id: string;

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 
-const DEFAULT_API_URL = "https://api.eventflowtickets.com.br/api";
+const DEFAULT_API_URL = "https://eventflow-api-283790508777.us-east1.run.app/api";
 const API_URL = normalizeApiUrl(process.env.NEXT_PUBLIC_API_URL);
 const HOP_BY_HOP_HEADERS = new Set([
   "connection",

@@ -18,7 +18,7 @@
       }
     },
     "extra": {
-      "apiUrl": "https://api.eventflowtickets.com.br/api"
+      "apiUrl": "https://eventflow-api-283790508777.us-east1.run.app/api"
     }
   }
 }

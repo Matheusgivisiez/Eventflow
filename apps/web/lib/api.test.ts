@@ -47,7 +47,7 @@ describe("api refresh handling", () => {
     assert.deepEqual(result, { ok: true });
     assert.equal(calls.length, 3);
     assert.equal(calls[0].authorization, "Bearer old-token");
-    assert.equal(calls[1].url, "https://api.eventflowtickets.com.br/api/auth/refresh");
+    assert.equal(calls[1].url, "https://eventflow-api-283790508777.us-east1.run.app/api/auth/refresh");
     assert.equal(calls[2].authorization, "Bearer new-token");
     assert.equal(useAuthStore.getState().accessToken, "new-token");
   });
