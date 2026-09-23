@@ -1,5 +1,5 @@
 import { BadRequestException, Injectable, Logger, NotFoundException, Optional } from "@nestjs/common";
-import { PaymentStatus, TicketStatus } from "@prisma/client";
+import { PaymentStatus, Prisma, TicketStatus } from "@prisma/client";
 import { createHash, createHmac, randomUUID } from "crypto";
 import { ConfigService } from "@nestjs/config";
 import * as QRCode from "qrcode";
@@ -12,6 +12,8 @@ import { BusinessMetricsService } from "../observability/business-metrics.servic
 import { NotificationsService } from "../notifications/notifications.service";
 import { GoogleWalletService } from "../wallet/google-wallet.service";
 import { getQrCodeReleaseTime, isQrCodeLocked } from "../../common/utils/qr-code.utils";
+
+class LatePaymentWithoutStockError extends Error {}
 
 const VALID_TRANSITIONS: Record<PaymentStatus, PaymentStatus[]> = {
   [PaymentStatus.PENDING]: [PaymentStatus.PAID, PaymentStatus.CANCELED],
@@ -177,6 +179,17 @@ export class PaymentsService {
       return payment;
     }
 
+    // Pagamento tardio: o pedido venceu (reserva de 30 min) e foi cancelado,
+    // mas o link do provedor continuou aberto e o comprador pagou depois.
+    // O dinheiro ja entrou, entao o pedido volta a valer se ainda houver
+    // ingresso no lote; senao fica registrado para tratamento manual.
+    if (status === PaymentStatus.PAID && payment.status === PaymentStatus.CANCELED && !payment.paidAt) {
+      const revived = await this.reviveExpiredOrder(payment.id, tenantId);
+      if (!revived) {
+        return (await this.prisma.payment.findUnique({ where: { id: payment.id } })) ?? payment;
+      }
+    }
+
     return this.updateStatus(payment.id, tenantId, {
       status,
       providerRef: checkout.providerRef ?? checkout.id
@@ -198,6 +211,80 @@ export class PaymentsService {
         transactionId: references.transactionId ?? payment.transactionId
       }
     });
+  }
+
+  /**
+   * Reativa um pedido cancelado por falta de pagamento quando o provedor
+   * confirma que ele foi pago depois do prazo. Reserva o estoque de novo de
+   * forma atomica; se o lote nao tiver mais vaga, nada muda e o caso vai para
+   * o log como PAGO SEM ESTOQUE (tratar manualmente: emitir ou estornar).
+   * Retorna true quando o pedido voltou a PENDING e pode seguir para PAID.
+   */
+  private async reviveExpiredOrder(paymentId: string, tenantId: string): Promise<boolean> {
+    try {
+      const outcome = await this.prisma.$transaction(async (tx) => {
+        const payment = await tx.payment.findFirst({
+          where: { id: paymentId, event: { tenantId } },
+          include: { order: { include: { items: { include: { ticketType: true } } } } }
+        });
+        if (!payment?.order) return "missing" as const;
+        if (
+          payment.status !== PaymentStatus.CANCELED ||
+          payment.paidAt ||
+          payment.order.status !== PaymentStatus.CANCELED ||
+          payment.order.stockReservedAt
+        ) {
+          return "not-expired" as const;
+        }
+
+        const claim = await tx.order.updateMany({
+          where: { id: payment.orderId, status: PaymentStatus.CANCELED, stockReservedAt: null },
+          data: { status: PaymentStatus.PENDING, stockReservedAt: new Date() }
+        });
+        if (claim.count !== 1) return "not-expired" as const;
+
+        for (const item of payment.order.items) {
+          const reserved = await tx.ticketType.updateMany({
+            where: { id: item.ticketTypeId, sold: { lte: item.ticketType.quantity - item.quantity } },
+            data: { sold: { increment: item.quantity } }
+          });
+          if (reserved.count !== 1) {
+            throw new LatePaymentWithoutStockError(item.ticketType.name);
+          }
+        }
+
+        if (payment.order.couponId) {
+          await tx.coupon.updateMany({
+            where: { id: payment.order.couponId },
+            data: { usedCount: { increment: 1 } }
+          });
+        }
+
+        await tx.payment.update({
+          where: { id: paymentId },
+          data: { status: PaymentStatus.PENDING, canceledAt: null }
+        });
+        return "revived" as const;
+      }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
+
+      if (outcome === "revived") {
+        this.logger.warn(`Pagamento tardio ${paymentId}: pedido vencido reativado e sera emitido.`);
+        this.metrics?.increment("eventflow_late_payments_total", { result: "revived" });
+        return true;
+      }
+      this.logger.warn(`Pagamento tardio ${paymentId} ignorado: pedido nao estava vencido (${outcome}).`);
+      return false;
+    } catch (error) {
+      if (error instanceof LatePaymentWithoutStockError) {
+        this.logger.error(
+          `PAGO SEM ESTOQUE: pagamento ${paymentId} confirmado depois do prazo, mas o lote "${error.message}" esgotou. ` +
+          "Emitir o ingresso manualmente ou estornar o comprador."
+        );
+        this.metrics?.increment("eventflow_late_payments_total", { result: "no_stock" });
+        return false;
+      }
+      throw error;
+    }
   }
 
   private getProviderForNewPayment(): PaymentProvider {

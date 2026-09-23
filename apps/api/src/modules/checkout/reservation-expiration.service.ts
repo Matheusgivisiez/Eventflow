@@ -23,7 +23,7 @@ export class ReservationExpirationService implements OnModuleInit, OnModuleDestr
   }
 
   async expireStaleReservations(now = new Date()) {
-    const ttlMinutes = this.config.get<number>("ORDER_RESERVATION_TTL_MINUTES") ?? 30;
+    const ttlMinutes = this.config.get<number>("ORDER_RESERVATION_TTL_MINUTES") ?? 60;
     const cutoff = new Date(now.getTime() - ttlMinutes * 60_000);
     const candidates = await this.prisma.order.findMany({
       where: { status: PaymentStatus.PENDING, stockReservedAt: { lte: cutoff } },
