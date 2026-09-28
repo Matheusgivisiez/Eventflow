@@ -58,7 +58,10 @@ async function bootstrap() {
     .setVersion("0.1.0")
     .addBearerAuth()
     .build();
-  SwaggerModule.setup("docs", app, SwaggerModule.createDocument(app, swagger));
+  // Em producao o /docs mapeava todas as rotas da API para qualquer visitante.
+  if (process.env.NODE_ENV !== "production") {
+    SwaggerModule.setup("docs", app, SwaggerModule.createDocument(app, swagger));
+  }
 
   await app.listen(config.get<number>("PORT") ?? 3001);
 }

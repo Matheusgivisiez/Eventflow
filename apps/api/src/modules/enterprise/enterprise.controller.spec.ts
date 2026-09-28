@@ -34,7 +34,7 @@ function contextFor(methodName: keyof EnterpriseController, user: { id: string; 
 
 describe("EnterpriseController security", () => {
   it("keeps public enterprise discovery routes unauthenticated", () => {
-    for (const methodName of ["publicApiDocs", "track", "marketplace", "marketplaceCategories", "resolveDomain"] as const) {
+    for (const methodName of ["publicApiDocs", "marketplace", "marketplaceCategories", "resolveDomain"] as const) {
       expect(guardsFor(methodName)).toEqual([]);
       expect(rolesFor(methodName)).toEqual([]);
       expect(permissionsFor(methodName)).toEqual([]);
@@ -83,8 +83,8 @@ describe("EnterpriseController security", () => {
     }
   );
 
-  it("allows authenticated customers only on marketplace review and favorite routes", () => {
-    for (const methodName of ["reviewEvent", "favoriteEvent"] as const) {
+  it("allows authenticated customers only on marketplace review, favorite and analytics track routes", () => {
+    for (const methodName of ["reviewEvent", "favoriteEvent", "track"] as const) {
       expect(guardsFor(methodName)).toEqual(expect.arrayContaining([JwtAuthGuard, RolesGuard]));
       expect(guardsFor(methodName)).not.toContain(TeamPermissionGuard);
       expect(rolesFor(methodName)).toEqual(expect.arrayContaining(Object.values(UserRole)));

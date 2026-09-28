@@ -40,7 +40,10 @@ export class EnterpriseController {
     return this.enterprise.publicApiDocs();
   }
 
+  // Antes era aberto: qualquer um na internet gravava linhas no banco (dava
+  // para lotar o Neon). Nenhum cliente chama essa rota hoje.
   @Post("analytics/track")
+  @EnterpriseRoles(...authenticatedRoles)
   track(@Body() body: Record<string, unknown>) {
     return this.enterprise.trackAnalytics(body);
   }
