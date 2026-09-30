@@ -381,14 +381,11 @@ function CheckoutForm() {
                   })}
                 />
               </Field>
-              <Field label="Pagamento">
-                <select
-                  className="h-10 w-full rounded-md border bg-background px-3 text-sm"
-                  {...form.register("paymentMethod")}
-                >
-                  <option value="PIX">PIX</option>
-                </select>
-              </Field>
+              <input type="hidden" {...form.register("paymentMethod")} />
+              <p className="text-sm text-muted-foreground">
+                Na próxima etapa você escolhe como pagar (PIX ou cartão de
+                crédito) no ambiente seguro da InfinitePay.
+              </p>
             </CardContent>
           </Card>
         </form>
