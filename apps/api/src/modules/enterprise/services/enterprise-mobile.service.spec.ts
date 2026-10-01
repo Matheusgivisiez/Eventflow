@@ -38,7 +38,7 @@ describe("EnterpriseMobileService offline check-in", () => {
   it("records a refusal when the shared validator rejects an unsigned or unpaid ticket", async () => {
     const { service, prisma, validateTicket } = createService();
     prisma.event.findFirst.mockResolvedValue({ id: "event-1" });
-    validateTicket.execute.mockRejectedValue(new BadRequestException("QR Code assinado obrigatorio para sincronizacao offline."));
+    validateTicket.execute.mockRejectedValue(new BadRequestException("QR Code assinado obrigatório para sincronização offline."));
     prisma.offlineCheckinBatch.create.mockImplementation(({ data }) => data);
 
     const result = await service.syncOfflineCheckins(user, {

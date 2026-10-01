@@ -92,7 +92,7 @@ type MyTicket = {
 
 type RecipientLookup = {
   exists: boolean;
-  /** Nome e e-mail vem mascarados pela API: servem para conferir, nao para copiar. */
+  /** Nome e e-mail vem mascarados pela API: servem para conferir, não para copiar. */
   user?: {
     name: string;
     email: string;
@@ -901,7 +901,7 @@ export default function MyTicketsPage() {
 
   const createTransfer = useMutation({
     mutationFn: () => {
-      if (!transferTicket) throw new Error("Ingresso nao selecionado.");
+      if (!transferTicket) throw new Error("Ingresso não selecionado.");
       return api("/transfers", {
         method: "POST",
         body: JSON.stringify({
@@ -1314,8 +1314,8 @@ export default function MyTicketsPage() {
             <DialogHeader>
               <DialogTitle>Transferir ingresso</DialogTitle>
               <DialogDescription>
-                Informe o e-mail do destinatario para iniciar uma
-                transferencia pendente.
+                Informe o e-mail do destinatário para iniciar uma
+                transferência pendente.
               </DialogDescription>
             </DialogHeader>
 
@@ -1330,7 +1330,7 @@ export default function MyTicketsPage() {
             )}
 
             <div className="space-y-2">
-              <Label htmlFor="recipient">E-mail do destinatario</Label>
+              <Label htmlFor="recipient">E-mail do destinatário</Label>
               <div className="flex gap-2">
                 <Input
                   id="recipient"
@@ -1350,7 +1350,7 @@ export default function MyTicketsPage() {
                   size="icon"
                   disabled={!recipient.trim() || resolveRecipient.isPending}
                   onClick={() => resolveRecipient.mutate(recipient)}
-                  title="Buscar destinatario"
+                  title="Buscar destinatário"
                 >
                   {resolveRecipient.isPending ? (
                     <Loader2 className="h-4 w-4 animate-spin" />
@@ -1384,10 +1384,10 @@ export default function MyTicketsPage() {
                     </div>
                     <div>
                       <p className="font-semibold">
-                        Destinatario ainda nao cadastrado
+                        Destinatário ainda não cadastrado
                       </p>
                       <p className="text-sm text-muted-foreground">
-                        Ele recebera um convite e podera aceitar depois de criar
+                        Ele receberá um convite e poderá aceitar depois de criar
                         a conta.
                       </p>
                     </div>
@@ -1410,7 +1410,7 @@ export default function MyTicketsPage() {
 
             {createTransfer.isSuccess && (
               <p className="rounded-lg border border-brand-purple/20 bg-brand-purple/10 p-3 text-sm text-brand-purple">
-                Transferencia criada com sucesso.
+                Transferência criada com sucesso.
               </p>
             )}
 
@@ -1447,7 +1447,7 @@ export default function MyTicketsPage() {
               ) : (
                 <Send className="mr-2 h-4 w-4" />
               )}
-              Confirmar transferencia
+              Confirmar transferência
             </Button>
           </DialogContent>
         </Dialog>

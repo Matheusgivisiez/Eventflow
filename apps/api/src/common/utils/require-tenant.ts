@@ -11,7 +11,7 @@ import { RequestUser } from "../types/request-user";
  */
 export function requireTenant(user: RequestUser): string {
   if (!user.tenantId) {
-    throw new ForbiddenException("Esta conta nao pertence a uma organizacao.");
+    throw new ForbiddenException("Esta conta não pertence a uma organização.");
   }
   return user.tenantId;
 }

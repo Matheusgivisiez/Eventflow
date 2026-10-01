@@ -13,7 +13,7 @@ import { createSign } from "crypto";
  *  1. Autentica com a service account (JWT RS256 -> access token OAuth).
  *  2. Garante a classe do evento e o objeto do ingresso via REST (insert ou patch).
  *  3. Devolve um link "Salvar no Google Wallet" com um JWT curto que só
- *     referencia o objeto já criado.
+ *     referência o objeto já criado.
  *
  * O id do objeto usa o uuid do ingresso. Como a transferência gera um uuid
  * novo, o passe antigo nunca é reaproveitado: ele é marcado INACTIVE.

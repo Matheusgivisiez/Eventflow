@@ -27,7 +27,7 @@ const schema = z.object({
   title: z.string().min(3, "Informe o nome do evento."),
   description: z.string().min(20, "Descreva melhor o evento."),
   category: z.string().min(2, "Informe a categoria."),
-  startsAt: z.string().min(1, "Informe data e horario."),
+  startsAt: z.string().min(1, "Informe data e horário."),
   endsAt: z.string().optional(),
   bannerUrl: z.string().optional(),
   city: z.string().optional(),

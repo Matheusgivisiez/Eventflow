@@ -14,7 +14,7 @@ export class CreateEventFirstTicketDto {
   @Min(1)
   quantity!: number;
 
-  @ApiProperty({ description: "Preco em centavos do primeiro lote" })
+  @ApiProperty({ description: "Preço em centavos do primeiro lote" })
   @IsInt()
   @Min(0)
   priceCents!: number;

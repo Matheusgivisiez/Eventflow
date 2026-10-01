@@ -28,11 +28,11 @@ function makeService(
 }
 
 describe("CouponsService", () => {
-  it("normaliza o codigo digitado (espacos e minusculas)", () => {
+  it("normaliza o código digitado (espaços e minúsculas)", () => {
     expect(CouponsService.normalizeCode("  promo10 ")).toBe("PROMO10");
   });
 
-  it("aceita cupom digitado em minusculas no preview", async () => {
+  it("aceita cupom digitado em minúsculas no preview", async () => {
     const { service, prisma } = makeService();
     await expect(service.previewForEvent("festa", " promo10")).resolves.toEqual({ code: "PROMO10", discountPercent: 10, discountFixedCents: 0 });
     expect(prisma.coupon.findUnique).toHaveBeenCalledWith({ where: { code: "PROMO10" }, include: { events: true } });
@@ -58,7 +58,7 @@ describe("CouponsService", () => {
     await expect(service.previewForEvent("nada", "PROMO10")).rejects.toBeInstanceOf(NotFoundException);
   });
 
-  it("aceita cupom restrito ao evento em questao", async () => {
+  it("aceita cupom restrito ao evento em questão", async () => {
     const { service } = makeService({ events: [{ eventId: "e1" }] });
     await expect(service.previewForEvent("festa", "PROMO10")).resolves.toMatchObject({ code: "PROMO10" });
   });

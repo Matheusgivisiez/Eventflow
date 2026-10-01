@@ -12,14 +12,14 @@ export class CouponsService {
     this.validateDiscount(dto.discountPercent, dto.discountFixedCents, true);
     const code = CouponsService.normalizeCode(dto.code);
     if (!code) {
-      throw new BadRequestException("Informe o codigo do cupom.");
+      throw new BadRequestException("Informe o código do cupom.");
     }
     const exists = await this.prisma.coupon.findUnique({ where: { code } });
     if (exists) {
-      throw new BadRequestException("Cupom com este codigo ja existe.");
+      throw new BadRequestException("Cupom com este código já existe.");
     }
     if (new Date(dto.validUntil) <= new Date(dto.validFrom)) {
-      throw new BadRequestException("Data de validade deve ser posterior ao inicio.");
+      throw new BadRequestException("Data de validade deve ser posterior ao início.");
     }
     const eventIds = await this.resolveEventIds(tenantId, dto.eventIds);
     const { eventIds: _eventIds, ...couponFields } = dto;
@@ -40,7 +40,7 @@ export class CouponsService {
   /**
    * Confere que os eventos escolhidos pertencem ao organizador antes de
    * restringir o cupom a eles. Um admin criando cupom global (tenantId nulo)
-   * nao tem essa restricao.
+   * não tem essa restrição.
    */
   private async resolveEventIds(tenantId: string | null, eventIds?: string[]) {
     const ids = Array.from(new Set((eventIds ?? []).filter(Boolean)));
@@ -52,7 +52,7 @@ export class CouponsService {
       select: { id: true }
     });
     if (owned.length !== ids.length) {
-      throw new BadRequestException("Um ou mais eventos selecionados nao pertencem a sua conta.");
+      throw new BadRequestException("Um ou mais eventos selecionados não pertencem a sua conta.");
     }
     return ids;
   }
@@ -69,12 +69,12 @@ export class CouponsService {
     this.validateDiscount(dto.discountPercent, dto.discountFixedCents, false);
     const coupon = await this.prisma.coupon.findFirst({ where: { id, tenantId } });
     if (!coupon) {
-      throw new NotFoundException("Cupom nao encontrado.");
+      throw new NotFoundException("Cupom não encontrado.");
     }
     if (dto.validFrom && dto.validUntil && new Date(dto.validUntil) <= new Date(dto.validFrom)) {
-      throw new BadRequestException("Data de validade deve ser posterior ao inicio.");
+      throw new BadRequestException("Data de validade deve ser posterior ao início.");
     }
-    // undefined = nao mexe na restricao de eventos; [] = volta a valer pra todos.
+    // undefined = não mexe na restrição de eventos; [] = volta a valer pra todos.
     const eventIds = dto.eventIds === undefined ? undefined : await this.resolveEventIds(tenantId, dto.eventIds);
     const { eventIds: _eventIds, ...couponFields } = dto;
 
@@ -97,20 +97,20 @@ export class CouponsService {
   async remove(id: string, tenantId: string | null) {
     const coupon = await this.prisma.coupon.findFirst({ where: { id, tenantId } });
     if (!coupon) {
-      throw new NotFoundException("Cupom nao encontrado.");
+      throw new NotFoundException("Cupom não encontrado.");
     }
     await this.prisma.coupon.delete({ where: { id } });
     return { success: true };
   }
 
-  /** Codigos sao salvos em maiusculas e sem espacos; o comprador pode digitar de qualquer jeito. */
+  /** Códigos são salvos em maiúsculas e sem espacos; o comprador pode digitar de qualquer jeito. */
   static normalizeCode(code: string) {
     return code.trim().toUpperCase();
   }
 
   /**
-   * Validacao publica usada pelo checkout antes de pagar: diz se o cupom vale para o evento
-   * e qual o desconto, sem reservar uso. O uso so e contado ao criar o pedido.
+   * Validação pública usada pelo checkout antes de pagar: diz se o cupom vale para o evento
+   * e qual o desconto, sem reservar uso. O uso só é contado ao criar o pedido.
    */
   async previewForEvent(slug: string, rawCode: string) {
     const event = await this.prisma.event.findFirst({
@@ -118,7 +118,7 @@ export class CouponsService {
       select: { id: true, tenantId: true }
     });
     if (!event) {
-      throw new NotFoundException("Evento nao encontrado.");
+      throw new NotFoundException("Evento não encontrado.");
     }
     const coupon = await this.validateAndApply(rawCode, event.tenantId, event.id);
     return {
@@ -134,13 +134,13 @@ export class CouponsService {
       ? await this.prisma.coupon.findUnique({ where: { code }, include: { events: true } })
       : null;
     if (!coupon || !coupon.isActive) {
-      throw new NotFoundException("Cupom invalido ou inativo.");
+      throw new NotFoundException("Cupom inválido ou inativo.");
     }
     if (coupon.tenantId && coupon.tenantId !== tenantId) {
-      throw new NotFoundException("Cupom invalido para este evento.");
+      throw new NotFoundException("Cupom inválido para este evento.");
     }
     if (!CouponsService.appliesToEvent(coupon, eventId)) {
-      throw new NotFoundException("Cupom invalido para este evento.");
+      throw new NotFoundException("Cupom inválido para este evento.");
     }
 
     const now = new Date();
@@ -156,9 +156,9 @@ export class CouponsService {
 
   /**
    * Sem nenhum evento vinculado, o cupom vale para todos os eventos do
-   * tenant (comportamento anterior). Com eventos vinculados, so vale para
-   * eles. Usado tanto aqui quanto no checkout (fora de uma transacao) e
-   * repetido, propositalmente simples, dentro da transacao de checkout.
+   * tenant (comportamento anterior). Com eventos vinculados, só vale para
+   * eles. Usado tanto aqui quanto no checkout (fora de uma transação) e
+   * repetido, propositalmente simples, dentro da transação de checkout.
    */
   static appliesToEvent(coupon: { events?: { eventId: string }[] }, eventId: string) {
     const restrictedTo = coupon.events ?? [];

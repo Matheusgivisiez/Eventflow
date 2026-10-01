@@ -40,9 +40,9 @@ export class TransfersService {
   /**
    * Confirma para quem o ingresso vai — sem virar uma consulta de dados
    * pessoais. Antes esta rota devolvia nome, id e e-mail completos de qualquer
-   * conta: com um CPF em maos, qualquer usuario logado descobria o nome e o
-   * e-mail do titular. Agora so volta o que serve para reconhecer a pessoa,
-   * mascarado, e o e-mail cru jamais e revelado a partir de um CPF.
+   * conta: com um CPF em mãos, qualquer usuário logado descobria o nome e o
+   * e-mail do titular. Agora só volta o que serve para reconhecer a pessoa,
+   * mascarado, e o e-mail cru jamais é revelado a partir de um CPF.
    */
   async resolveRecipient(sender: RequestUser, dto: ResolveTransferRecipientDto) {
     const recipient = await this.lookupRecipient(dto);
@@ -74,7 +74,7 @@ export class TransfersService {
       where: { ticketId: ticket.id, status: TransferStatus.PENDING }
     });
     if (pending) {
-      throw new BadRequestException("Ja existe uma transferencia pendente para este ingresso.");
+      throw new BadRequestException("Já existe uma transferência pendente para este ingresso.");
     }
 
     let transfer;
@@ -101,7 +101,7 @@ export class TransfersService {
       });
     } catch (error) {
       if (this.isPrismaError(error, "P2002")) {
-        throw new BadRequestException("Ja existe uma transferencia pendente para este ingresso.");
+        throw new BadRequestException("Já existe uma transferência pendente para este ingresso.");
       }
       throw error;
     }
@@ -195,7 +195,7 @@ export class TransfersService {
 
   async all(user: RequestUser, query: { page?: string; perPage?: string; status?: TransferStatus }) {
     if (user.role !== UserRole.ADMIN) {
-      throw new ForbiddenException("Apenas administradores podem visualizar todas as transferencias.");
+      throw new ForbiddenException("Apenas administradores podem visualizar todas as transferências.");
     }
 
     await this.expirePendingTransfers();
@@ -219,17 +219,17 @@ export class TransfersService {
         include: { ticket: { include: { event: true } }, sender: true }
       });
       if (!transfer) {
-        throw new NotFoundException("Transferencia nao encontrada.");
+        throw new NotFoundException("Transferência não encontrada.");
       }
       if (transfer.status !== TransferStatus.PENDING) {
-        throw new BadRequestException("Esta transferencia nao esta pendente.");
+        throw new BadRequestException("Esta transferência não está pendente.");
       }
 
       this.ensureTicketCanBeTransferred(transfer.ticket);
 
       const recipient = await tx.user.findUnique({ where: { id: user.id } });
       if (!recipient) {
-        throw new NotFoundException("Usuario destinatario nao encontrado.");
+        throw new NotFoundException("Usuário destinatário não encontrado.");
       }
 
       const qr = await this.generateTicketQr(transfer.ticket.orderId);
@@ -292,8 +292,8 @@ export class TransfersService {
       })
     });
 
-    // O destinatario precisa do ingresso de verdade por e-mail, igual a
-    // confirmacao de compra — antes so o remetente era avisado aqui.
+    // O destinatário precisa do ingresso de verdade por e-mail, igual a
+    // confirmação de compra — antes so o remetente era avisado aqui.
     const acceptedEvent = result.transfer.ticket.event;
     const acceptedEventVenue =
       acceptedEvent.format === "ONLINE"
@@ -384,13 +384,13 @@ export class TransfersService {
     await this.expirePendingTransfers();
     const transfer = await this.prisma.transfer.findUnique({ where: { id: transferId } });
     if (!transfer) {
-      throw new NotFoundException("Transferencia nao encontrada.");
+      throw new NotFoundException("Transferência não encontrada.");
     }
     if (transfer.senderId !== user.id && user.role !== UserRole.ADMIN) {
-      throw new ForbiddenException("Voce nao pode cancelar esta transferencia.");
+      throw new ForbiddenException("Você não pode cancelar esta transferência.");
     }
     if (transfer.status !== TransferStatus.PENDING) {
-      throw new BadRequestException("Somente transferencias pendentes podem ser canceladas.");
+      throw new BadRequestException("Somente transferências pendentes podem ser canceladas.");
     }
 
     let updated;
@@ -425,7 +425,7 @@ export class TransfersService {
   private async lookupRecipient(dto: ResolveTransferRecipientDto): Promise<RecipientLookup> {
     const receiverEmail = dto.receiverEmail?.trim().toLowerCase();
     if (!receiverEmail) {
-      throw new BadRequestException("Informe o e-mail do destinatario.");
+      throw new BadRequestException("Informe o e-mail do destinatário.");
     }
 
     const user = await this.prisma.user.findUnique({
@@ -458,7 +458,7 @@ export class TransfersService {
       include: { event: true, ticketType: true, order: true }
     });
     if (!ticket) {
-      throw new NotFoundException("Ingresso nao encontrado.");
+      throw new NotFoundException("Ingresso não encontrado.");
     }
     return ticket;
   }
@@ -471,27 +471,27 @@ export class TransfersService {
       throw new BadRequestException("As transferências de ingressos para este evento já foram encerradas.");
     }
     if (ticket.status === TicketStatus.USED || ticket.usedAt) {
-      throw new BadRequestException("Nao e permitido transferir ingresso ja utilizado.");
+      throw new BadRequestException("Não é permitido transferir ingresso já utilizado.");
     }
     if (ticket.status === TicketStatus.CANCELED) {
-      throw new BadRequestException("Nao e permitido transferir ingresso cancelado.");
+      throw new BadRequestException("Não é permitido transferir ingresso cancelado.");
     }
     if (ticket.status !== TicketStatus.AVAILABLE) {
-      throw new BadRequestException("Somente ingressos disponiveis podem ser transferidos.");
+      throw new BadRequestException("Somente ingressos disponíveis podem ser transferidos.");
     }
     const eventEndsAt = ticket.event.endsAt ?? ticket.event.startsAt;
     if (eventEndsAt < new Date()) {
-      throw new BadRequestException("Nao e permitido transferir ingresso expirado.");
+      throw new BadRequestException("Não é permitido transferir ingresso expirado.");
     }
   }
 
   private async ensureTransferTargetsUser(user: RequestUser, transferId: string) {
     const transfer = await this.prisma.transfer.findUnique({ where: { id: transferId } });
     if (!transfer) {
-      throw new NotFoundException("Transferencia nao encontrada.");
+      throw new NotFoundException("Transferência não encontrada.");
     }
     if (transfer.status !== TransferStatus.PENDING) {
-      throw new BadRequestException("Esta transferencia nao esta pendente.");
+      throw new BadRequestException("Esta transferência não está pendente.");
     }
     const claimEmail = resolveClaimEmail(user);
     if (transfer.receiverId === user.id) {
@@ -500,12 +500,12 @@ export class TransfersService {
     if (claimEmail && transfer.receiverEmail === claimEmail) {
       return transfer;
     }
-    throw new ForbiddenException("Esta transferencia nao pertence ao usuario autenticado.");
+    throw new ForbiddenException("Esta transferência não pertence ao usuário autenticado.");
   }
 
   private ensureNotSelf(sender: RequestUser, recipient: RecipientLookup) {
     if (recipient.receiverId === sender.id || recipient.receiverEmail === sender.email.toLowerCase()) {
-      throw new BadRequestException("Nao e permitido transferir um ingresso para si mesmo.");
+      throw new BadRequestException("Não é permitido transferir um ingresso para si mesmo.");
     }
   }
 

@@ -35,8 +35,8 @@ export async function generateMetadata(
 
   if (!event) {
     return {
-      title: "Evento nao encontrado | Event Flow",
-      description: "O evento procurado nao existe ou nao esta mais disponivel."
+      title: "Evento não encontrado | Event Flow",
+      description: "O evento procurado não existe ou não está mais disponível."
     };
   }
 
@@ -154,7 +154,7 @@ export default async function PublicEventPage({ params }: { params: Promise<{ sl
             <OrganizerInfo
               name={organizerName}
               logoUrl={event.tenant?.logoUrl}
-              description="Produtora responsavel por organizar eventos, ingressos e experiencias memoraveis."
+              description="Produtora responsável por organizar eventos, ingressos e experiências memoráveis."
             />
           }
         />

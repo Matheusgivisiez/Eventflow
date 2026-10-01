@@ -76,7 +76,7 @@ describe("AuthService forgotPassword", () => {
 
     const result = await service.forgotPassword({ email: "missing@example.com" });
 
-    expect(result).toEqual({ message: "Se o e-mail existir, enviaremos instrucoes de recuperacao." });
+    expect(result).toEqual({ message: "Se o e-mail existir, enviaremos instruções de recuperação." });
     expect(prisma.passwordResetToken.create).not.toHaveBeenCalled();
     expect(mail.send).not.toHaveBeenCalled();
   });
@@ -89,7 +89,7 @@ describe("AuthService forgotPassword", () => {
 
     const result = await service.forgotPassword({ email: "USER@example.com" });
 
-    expect(result).toEqual({ message: "Se o e-mail existir, enviaremos instrucoes de recuperacao." });
+    expect(result).toEqual({ message: "Se o e-mail existir, enviaremos instruções de recuperação." });
     expect(result).not.toHaveProperty("token");
     expect(prisma.user.findUnique).toHaveBeenCalledWith({ where: { email: "user@example.com" } });
     expect(prisma.passwordResetToken.create).toHaveBeenCalledWith({
@@ -102,7 +102,7 @@ describe("AuthService forgotPassword", () => {
     expect(prisma.passwordResetToken.create.mock.calls[0][0].data.tokenHash).not.toContain("user@example.com");
     expect(mail.send).toHaveBeenCalledWith(expect.objectContaining({
       to: "user@example.com",
-      subject: "Recuperacao de senha Event Flow",
+      subject: "Recuperação de senha Event Flow",
       text: expect.stringContaining("https://app.example/reset-password?token="),
       html: expect.stringContaining("https://app.example/reset-password?token=")
     }));
@@ -152,7 +152,7 @@ describe("AuthService e-mail verification", () => {
     const result = await service.resendEmailVerification("missing@example.com");
 
     expect(result).toEqual({
-      message: "Se a conta existir e ainda nao estiver confirmada, enviaremos um novo link."
+      message: "Se a conta existir e ainda não estiver confirmada, enviaremos um novo link."
     });
     expect(mail.send).not.toHaveBeenCalled();
   });

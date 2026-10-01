@@ -6,7 +6,7 @@ import { JwtAuthGuard } from "../../common/guards/jwt-auth.guard";
 import { RequestUser } from "../../common/types/request-user";
 import { ReportsService } from "./reports.service";
 
-@ApiTags("Relatorios")
+@ApiTags("Relatórios")
 @ApiBearerAuth()
 @UseGuards(JwtAuthGuard)
 @Controller("reports")

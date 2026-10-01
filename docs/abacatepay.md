@@ -1,6 +1,6 @@
-# AbacatePay - Integracao Event Flow
+# AbacatePay - Integração Event Flow
 
-> Documentacao completa da integracao com o gateway de pagamentos **AbacatePay** no Event Flow.
+> Documentação completa da integração com o gateway de pagamentos **AbacatePay** no Event Flow.
 > API Base: `https://api.abacatepay.com/v2` · Autenticação: `Bearer Token` · Moeda: `BRL (centavos)`
 
 ---
@@ -20,7 +20,7 @@
 
 ## Visão Geral
 
-O Event Flow utiliza o **AbacatePay** como gateway de pagamento principal (substituindo o Mercado Pago). A integracao cobre dois fluxos:
+O Event Flow utiliza o **AbacatePay** como gateway de pagamento principal (substituindo o Mercado Pago). A integração cobre dois fluxos:
 
 | Fluxo | Endpoint AbacatePay | Descrição |
 |---|---|---|
@@ -186,7 +186,7 @@ https://api.eventflowtickets.com.br/api/webhooks/abacatepay?webhookSecret=SEU_SE
 
 Eventos que devem ser habilitados:
 
-| Evento | Acao no Event Flow |
+| Evento | Ação no Event Flow |
 |---|---|
 | `checkout.completed` | Pagamento → `PAID`, ingressos emitidos |
 | `checkout.refunded` | Pagamento → `REFUNDED`, ingressos cancelados |
@@ -195,9 +195,9 @@ Eventos que devem ser habilitados:
 
 ### Validação de Segurança
 
-O endpoint valida o `webhookSecret` na query string (tambem aceita `x-webhook-secret` por compatibilidade) e a assinatura HMAC-SHA256 no header `X-Webhook-Signature`, calculada sobre o corpo raw do webhook conforme a documentacao oficial da AbacatePay.
+O endpoint valida o `webhookSecret` na query string (também aceita `x-webhook-secret` por compatibilidade) e a assinatura HMAC-SHA256 no header `X-Webhook-Signature`, calculada sobre o corpo raw do webhook conforme a documentação oficial da AbacatePay.
 
-Se o secret ou a assinatura estiver ausente/incorreto, a requisicao e rejeitada com `401 Unauthorized`. Cada evento tambem e gravado em `PaymentLog` por `provider + providerEventId`, impedindo processamento duplicado em retentativas.
+Se o secret ou a assinatura estiver ausente/incorreto, a requisição é rejeitada com `401 Unauthorized`. Cada evento também é gravado em `PaymentLog` por `provider + providerEventId`, impedindo processamento duplicado em retentativas.
 
 ### Payload de exemplo (checkout.completed)
 
@@ -261,9 +261,9 @@ apps/web/src/
 |---|---|---|
 | `ABACATE_API_KEY` | ✅ Sim | Chave de API do AbacatePay (`sk_live_...`). `ABACATEPAY_API_KEY` segue aceito por compatibilidade. |
 | `ABACATE_WEBHOOK_SECRET` | ✅ Sim | Secret usado na query `webhookSecret`. `ABACATEPAY_WEBHOOK_SECRET` segue aceito por compatibilidade. |
-| `ABACATE_BASE_URL` | ✅ Sim | URL base da API, padrao `https://api.abacatepay.com/v2`. |
+| `ABACATE_BASE_URL` | ✅ Sim | URL base da API, padrão `https://api.abacatepay.com/v2`. |
 | `ABACATE_ENVIRONMENT` | ✅ Sim | `sandbox` ou `production`. |
-| `ABACATE_PUBLIC_KEY` | Opcional | Chave publica HMAC da AbacatePay. Se ausente, usa a chave publica documentada pela AbacatePay. |
+| `ABACATE_PUBLIC_KEY` | Opcional | Chave pública HMAC da AbacatePay. Se ausente, usa a chave pública documentada pela AbacatePay. |
 | `APP_URL` | ✅ Sim | URL base do frontend (usado nas `returnUrl` e `completionUrl`) |
 
 ---

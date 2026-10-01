@@ -35,7 +35,7 @@ export class InfinitePayGateway implements PaymentProvider {
   }
 
   private async request<T>(path: string, body: Record<string, unknown>): Promise<T> {
-    if (!this.handle) throw new InternalServerErrorException("INFINITEPAY_HANDLE nao configurado.");
+    if (!this.handle) throw new InternalServerErrorException("INFINITEPAY_HANDLE não configurado.");
     try {
       const apiKey = this.config.get<string>("INFINITEPAY_API_KEY");
       const response = await fetch(`${this.baseUrl}${path}`, {
@@ -50,8 +50,8 @@ export class InfinitePayGateway implements PaymentProvider {
       const payload = await response.json().catch(() => null) as T | { message?: string } | null;
       if (!response.ok) {
         const message = payload && typeof payload === "object" && "message" in payload ? String(payload.message) : `HTTP ${response.status}`;
-        // Sem isso o unico rastro era "Invalid checkout link params", sem dizer
-        // qual campo a InfinitePay recusou. Loga a resposta crua (nao tem dado
+        // Sem isso o único rastro era "Invalid checkout link params", sem dizer
+        // qual campo a InfinitePay recusou. Loga a resposta crua (não tem dado
         // do comprador) e o formato do que foi enviado, sem os valores.
         this.logger.warn(
           `InfinitePay recusou ${path}: HTTP ${response.status} ${JSON.stringify(payload)?.slice(0, 500)} campos=${JSON.stringify(this.describeShape(body))}`
@@ -61,8 +61,8 @@ export class InfinitePayGateway implements PaymentProvider {
       return payload as T;
     } catch (error) {
       if (error instanceof InternalServerErrorException) throw error;
-      this.logger.warn(`InfinitePay indisponivel em ${path}.`);
-      throw new InternalServerErrorException("Falha temporaria na InfinitePay.");
+      this.logger.warn(`InfinitePay indisponível em ${path}.`);
+      throw new InternalServerErrorException("Falha temporária na InfinitePay.");
     }
   }
 
@@ -86,7 +86,7 @@ export class InfinitePayGateway implements PaymentProvider {
       }
     });
     const checkoutUrl = response.url ?? response.checkout_url;
-    if (!checkoutUrl) throw new InternalServerErrorException("InfinitePay nao retornou a URL do checkout.");
+    if (!checkoutUrl) throw new InternalServerErrorException("InfinitePay não retornou a URL do checkout.");
     const checkoutId = response.invoice_slug ?? response.slug;
     return {
       provider: this.id,

@@ -7,9 +7,9 @@ const lot = (id: string, startsAt: string, sold = 0) =>
   ({ id, name: id, isActive: true, quantity: 100, sold, priceCents: 100, startsAt, endsAt: "2099-01-01T00:00:00Z", limitPerBuy: 5 }) as unknown as TicketType;
 
 describe("getVisibleTicketLots", () => {
-  it("numera o lote pela ordem cronologica, nao pela ordem do array", () => {
+  it("numera o lote pela ordem cronológica, não pela ordem do array", () => {
     const now = new Date("2026-09-17T20:00:00Z");
-    // API devolve o 2º lote primeiro (empate de preco)
+    // API devolve o 2º lote primeiro (empate de preço)
     const lots = getVisibleTicketLots([lot("lote-2", "2026-09-17T12:00:00Z"), lot("lote-1", "2026-09-16T12:00:00Z")], now);
     assert.equal(lots[0].ticket.id, "lote-1");
     assert.equal(lots[0].lotNumber, 1);

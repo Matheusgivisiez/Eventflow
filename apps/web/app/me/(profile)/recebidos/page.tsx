@@ -41,7 +41,7 @@ export default function ReceivedTicketsPage() {
     <main className="max-w-4xl">
       <div className="mb-6">
         <h2 className="text-xl font-bold">Ingressos recebidos</h2>
-        <p className="text-sm text-muted-foreground">Aceite ou recuse transferencias pendentes enviadas para voce.</p>
+        <p className="text-sm text-muted-foreground">Aceite ou recuse transferências pendentes enviadas para você.</p>
       </div>
 
       {transfers.isLoading ? (
@@ -59,8 +59,8 @@ export default function ReceivedTicketsPage() {
           <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-primary/10">
             <Inbox className="h-8 w-8 text-primary" />
           </div>
-          <h3 className="text-lg font-bold">Nenhuma transferencia pendente</h3>
-          <p className="mt-2 max-w-sm text-sm text-muted-foreground">Quando alguem enviar um ingresso para voce, ele aparecera aqui.</p>
+          <h3 className="text-lg font-bold">Nenhuma transferência pendente</h3>
+          <p className="mt-2 max-w-sm text-sm text-muted-foreground">Quando alguém enviar um ingresso para você, ele aparecerá aqui.</p>
         </div>
       ) : (
         <div className="space-y-4">

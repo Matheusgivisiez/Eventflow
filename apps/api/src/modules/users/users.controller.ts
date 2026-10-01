@@ -10,7 +10,7 @@ import { requireTenant } from "../../common/utils/require-tenant";
 import { UpdateUserDto } from "./dto/update-user.dto";
 import { UsersService } from "./users.service";
 
-@ApiTags("Usuarios")
+@ApiTags("Usuários")
 @ApiBearerAuth()
 @UseGuards(JwtAuthGuard)
 @Controller("users")

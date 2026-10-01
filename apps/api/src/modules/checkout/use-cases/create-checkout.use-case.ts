@@ -40,14 +40,14 @@ export class CreateCheckoutUseCase {
     const normalizedBuyerPhone = this.onlyDigits(dto.buyerPhone ?? "");
 
     if (!this.isValidCpfOrCnpj(normalizedBuyerDocument)) {
-      throw new BadRequestException("Informe um CPF ou CNPJ valido.");
+      throw new BadRequestException("Informe um CPF ou CNPJ válido.");
     }
     if (!this.isValidBrazilianPhone(normalizedBuyerPhone)) {
       throw new BadRequestException("Informe um telefone com DDD.");
     }
     const normalizedBuyerName = (dto.buyerName ?? "").trim().replace(/\s+/g, " ");
     // A InfinitePay recusa o link inteiro ("Invalid checkout link params")
-    // quando o nome do cliente tem uma palavra so. Barrar aqui evita criar um
+    // quando o nome do cliente tem uma palavra só. Barrar aqui evita criar um
     // pedido que nunca vai conseguir gerar o PIX.
     if (!this.hasFullName(normalizedBuyerName)) {
       throw new BadRequestException("Informe nome e sobrenome.");
@@ -72,7 +72,7 @@ export class CreateCheckoutUseCase {
     timer?.lap("eventLookup");
 
     if (!event) {
-      throw new NotFoundException("Evento indisponivel.");
+      throw new NotFoundException("Evento indisponível.");
     }
 
     this.validateSalesPeriod(event);
@@ -195,10 +195,10 @@ export class CreateCheckoutUseCase {
   private validateSalesPeriod(event: CheckoutEvent) {
     const now = new Date();
     if (event.salesStartsAt && now < event.salesStartsAt) {
-      throw new BadRequestException("As vendas para este evento ainda nao comecaram.");
+      throw new BadRequestException("As vendas para este evento ainda não começaram.");
     }
     if (event.salesEndsAt && now > event.salesEndsAt) {
-      throw new BadRequestException("As vendas para este evento ja foram encerradas.");
+      throw new BadRequestException("As vendas para este evento já foram encerradas.");
     }
   }
 
@@ -275,9 +275,9 @@ export class CreateCheckoutUseCase {
     const couponCode = dto.couponCode ? CouponsService.normalizeCode(dto.couponCode) : "";
     if (couponCode) {
       const coupon = await tx.coupon.findUnique({ where: { code: couponCode }, include: { events: true } });
-      if (!coupon || !coupon.isActive) throw new NotFoundException("Cupom invalido ou inativo.");
-      if (coupon.tenantId && coupon.tenantId !== event.tenantId) throw new NotFoundException("Cupom invalido para este evento.");
-      if (!CouponsService.appliesToEvent(coupon, event.id)) throw new NotFoundException("Cupom invalido para este evento.");
+      if (!coupon || !coupon.isActive) throw new NotFoundException("Cupom inválido ou inativo.");
+      if (coupon.tenantId && coupon.tenantId !== event.tenantId) throw new NotFoundException("Cupom inválido para este evento.");
+      if (!CouponsService.appliesToEvent(coupon, event.id)) throw new NotFoundException("Cupom inválido para este evento.");
 
       const now = new Date();
       if (now < coupon.validFrom || now > coupon.validUntil) throw new BadRequestException("Cupom fora da data de validade.");
@@ -382,7 +382,7 @@ export class CreateCheckoutUseCase {
     return dto.items.map((item) => {
       const visibleLot = availableLots.find((lot) => lot.ticketType.id === item.ticketTypeId);
       if (!visibleLot || visibleLot.status !== "current" || !currentLot) {
-        throw new BadRequestException("Lote de ingresso indisponivel.");
+        throw new BadRequestException("Lote de ingresso indisponível.");
       }
       const { ticketType } = visibleLot;
       if (item.quantity > ticketType.limitPerBuy) {
@@ -392,7 +392,7 @@ export class CreateCheckoutUseCase {
         throw new BadRequestException(`O lote ${ticketType.name} atingiu o limite de vendas.`);
       }
       if (visibleLot.availableQuantity < item.quantity) {
-        throw new BadRequestException(`Nao ha ingressos suficientes para ${ticketType.name}.`);
+        throw new BadRequestException(`Não há ingressos suficientes para ${ticketType.name}.`);
       }
       if (item.seatIds?.length && item.seatIds.length !== item.quantity) {
         throw new BadRequestException(`Selecione ${item.quantity} assentos para ${ticketType.name}.`);
@@ -422,7 +422,7 @@ export class CreateCheckoutUseCase {
 
       if (updated.count !== 1) {
         this.metrics?.increment("eventflow_checkout_inventory_conflicts_total", { reason: "insufficient_stock" });
-        throw new BadRequestException(`Nao ha ingressos suficientes para ${item.ticketType.name}.`);
+        throw new BadRequestException(`Não há ingressos suficientes para ${item.ticketType.name}.`);
       }
     }
   }

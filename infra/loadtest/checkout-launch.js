@@ -1,25 +1,25 @@
 /**
  * Teste de carga do "rush" de abertura de lote.
  *
- * Cenario: N compradores tentando comprar, cada um UMA VEZ (no maximo uma
+ * Cenário: N compradores tentando comprar, cada um UMA VEZ (no máximo uma
  * retentativa em caso de 409/estoque), tudo na mesma onda - e assim que
  * uma pessoa real se comporta quando o lote abre, não fica retentando em
- * loop. Mede se o checkout aguenta o pico e se o numero de pedidos PAGOS
+ * loop. Mede se o checkout aguenta o pico e se o número de pedidos PAGOS
  * nunca ultrapassa o estoque do lote (oversell).
  *
  * IMPORTANTE sobre rate limit: a rota de checkout tem @Throttle de 300
  * requisicoes/minuto POR IP (apps/api/src/modules/checkout/checkout.controller.ts).
- * Rodando o k6 de uma unica maquina, todos os VUs saem do MESMO IP - se o
- * numero de compradores (PEAK_VUS) passar de ~280-300 dentro de 60s, voce
- * vai medir o rate limiter, nao o checkout. Isso é esperado e é uma
- * protecao real (nao desligar so pra o teste passar) - mas significa que
- * esse script, rodado de uma maquina so, não simula mais que ~280
+ * Rodando o k6 de uma única máquina, todos os VUs saem do MESMO IP - se o
+ * número de compradores (PEAK_VUS) passar de ~280-300 dentro de 60s, você
+ * vai medir o rate limiter, não o checkout. Isso é esperado e é uma
+ * proteção real (não desligar só pra o teste passar) - mas significa que
+ * esse script, rodado de uma máquina só, não simula mais que ~280
  * compradores por minuto de forma limpa. Se quiser testar acima disso,
- * precisa distribuir a origem (varias maquinas/IPs, ou um servico de
- * load-test distribuido tipo k6 Cloud/Grafana Cloud).
+ * precisa distribuir a origem (várias maquinas/IPs, ou um serviço de
+ * load-test distribuído tipo k6 Cloud/Grafana Cloud).
  *
  * NUNCA rode isso contra o evento real (Hallowparty). Rode contra um evento
- * descartavel criado so para o teste.
+ * descartável criado so para o teste.
  *
  * Uso:
  *   k6 run infra/loadtest/checkout-launch.js \
@@ -29,9 +29,9 @@
  *     -e LOT_QUANTITY=50 \
  *     -e BUYERS=150
  *
- * BUYERS = quantas pessoas tentam comprar nessa onda (nao um "VUs por
- * segundo", e o numero total de compradores simulados, cada um com no
- * maximo 2 tentativas). Mantenha BUYERS abaixo de ~280 para nao confundir
+ * BUYERS = quantas pessoas tentam comprar nessa onda (não um "VUs por
+ * segundo", e o número total de compradores simulados, cada um com no
+ * máximo 2 tentativas). Mantenha BUYERS abaixo de ~280 para não confundir
  * rate limit com capacidade real. Comece em 3x o tamanho do lote.
  */
 
@@ -53,7 +53,7 @@ if (!EVENT_SLUG) {
 if (BUYERS > 280) {
   console.warn(
     `AVISO: BUYERS=${BUYERS} está perto ou acima do limite de 300/min por IP. ` +
-    `Rodando de uma unica maquina, isso vai medir o rate limiter, nao o checkout.`
+    `Rodando de uma única máquina, isso vai medir o rate limiter, não o checkout.`
   );
 }
 
@@ -68,13 +68,13 @@ export const options = {
     lote_rush: {
       executor: "per-vu-iterations",
       vus: BUYERS,
-      iterations: 1, // cada comprador tenta uma vez (retry, se precisar, é dentro do proprio VU)
+      iterations: 1, // cada comprador tenta uma vez (retry, se precisar, é dentro do próprio VU)
       maxDuration: "60s"
     }
   },
   thresholds: {
     checkout_latency_ms: ["p(95)<5000"],
-    checkout_rate_limited_429: ["count<5"] // se isso disparar, o teste mediu rate limit, nao capacidade
+    checkout_rate_limited_429: ["count<5"] // se isso disparar, o teste mediu rate limit, não capacidade
   }
 };
 
@@ -84,10 +84,10 @@ function randomDigits(n) {
   return s;
 }
 
-// CPF exige digitos verificadores reais (mod 11) - o backend valida isso
-// no use-case, nao so o formato. Gera um CPF valido de verdade, senao todo
+// CPF exige dígitos verificadores reais (mod 11) - o backend valida isso
+// no use-case, não só o formato. Gera um CPF válido de verdade, senão todo
 // mundo cai em 400 antes de chegar perto do lock de estoque (foi o que
-// aconteceu na segunda rodada: 148/150 em "CPF invalido").
+// aconteceu na segunda rodada: 148/150 em "CPF inválido").
 function randomValidCpf() {
   const calcDigit = (digits, weights) => {
     const total = digits.reduce((sum, d, i) => sum + d * weights[i], 0);
@@ -102,7 +102,7 @@ function randomValidCpf() {
     const cpf = [...base, d1, d2].join("");
     if (!/^(\d)\1+$/.test(cpf)) return cpf;
   }
-  throw new Error("Nao consegui gerar CPF valido (bug no gerador, nao no teste).");
+  throw new Error("Não consegui gerar CPF válido (bug no gerador, não no teste).");
 }
 
 function fakeBuyer(vuId, iter) {
@@ -119,14 +119,14 @@ function fakeBuyer(vuId, iter) {
 export function setup() {
   const res = http.get(`${BASE_URL}/events/public/${EVENT_SLUG}`);
   if (res.status !== 200) {
-    throw new Error(`Nao consegui carregar o evento de teste (status ${res.status}). Confirme EVENT_SLUG.`);
+    throw new Error(`Não consegui carregar o evento de teste (status ${res.status}). Confirme EVENT_SLUG.`);
   }
   const body = res.json();
   const ticketTypes = body.ticketTypes || body.data?.ticketTypes || [];
   const match = ticketTypes.find((t) => t.name === TICKET_TYPE_NAME);
   if (!match) {
     throw new Error(
-      `Lote "${TICKET_TYPE_NAME}" nao encontrado no evento ${EVENT_SLUG}. Lotes disponiveis: ${ticketTypes.map((t) => t.name).join(", ")}`
+      `Lote "${TICKET_TYPE_NAME}" não encontrado no evento ${EVENT_SLUG}. Lotes disponíveis: ${ticketTypes.map((t) => t.name).join(", ")}`
     );
   }
   return { ticketTypeId: match.id };
@@ -173,7 +173,7 @@ export default function (data) {
   }
 
   check(res, {
-    "nao é erro 5xx": (r) => r.status < 500
+    "não é erro 5xx": (r) => r.status < 500
   });
 }
 
@@ -181,5 +181,5 @@ export function teardown() {
   console.log(`Fim do teste. Estoque do lote era ${LOT_QUANTITY}. Confira no banco: `);
   console.log(`  SELECT count(*) FROM "Order" o JOIN "OrderItem" oi ON oi."orderId" = o.id`);
   console.log(`  WHERE oi."ticketTypeId" = '<id-do-lote>' AND o.status IN ('PAID','PENDING');`);
-  console.log(`Esse numero NUNCA pode passar de ${LOT_QUANTITY}. Se passar, é oversell e é bug critico.`);
+  console.log(`Esse número NUNCA pode passar de ${LOT_QUANTITY}. Se passar, é oversell e é bug crítico.`);
 }

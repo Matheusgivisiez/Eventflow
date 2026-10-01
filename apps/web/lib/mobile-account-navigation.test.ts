@@ -3,7 +3,7 @@ import { describe, it } from "node:test";
 import { getMobileAccountNavItems } from "./mobile-account-navigation";
 
 describe("getMobileAccountNavItems", () => {
-  it("oferece ativacao de produtor para cliente autenticado", () => {
+  it("oferece ativação de produtor para cliente autenticado", () => {
     const items = getMobileAccountNavItems("CUSTOMER", "/me/organizador");
 
     assert.deepEqual(items.map((item) => item.label), ["Explorar", "Perfil", "Ser produtor"]);
@@ -17,7 +17,7 @@ describe("getMobileAccountNavItems", () => {
     });
   });
 
-  it("exibe o painel para produtor e o mantém ativo em toda a area operacional", () => {
+  it("exibe o painel para produtor e o mantém ativo em toda a área operacional", () => {
     const dashboardItems = getMobileAccountNavItems("ORGANIZER", "/dashboard");
     const eventItems = getMobileAccountNavItems("ORGANIZER", "/events/new");
 
@@ -26,7 +26,7 @@ describe("getMobileAccountNavItems", () => {
     assert.equal(eventItems.find((item) => item.id === "panel")?.isActive, true);
   });
 
-  it("marca Perfil nas telas do cliente, exceto na ativacao de produtor", () => {
+  it("marca Perfil nas telas do cliente, exceto na ativação de produtor", () => {
     const ticketsItems = getMobileAccountNavItems("ORGANIZER", "/me/ingressos");
     const activationItems = getMobileAccountNavItems("CUSTOMER", "/me/organizador");
 

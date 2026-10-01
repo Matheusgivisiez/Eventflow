@@ -93,7 +93,7 @@ describe("AuthController refresh cookie security", () => {
   it("clears refresh cookie and revokes the cookie token on logout", async () => {
     const { controller, auth } = createController();
     const response = createResponse();
-    auth.logout.mockResolvedValue({ message: "Sessao encerrada com sucesso." });
+    auth.logout.mockResolvedValue({ message: "Sessão encerrada com sucesso." });
 
     await controller.logout(createRequest("eventflow_refresh=refresh-token") as any, response as any);
 

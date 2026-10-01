@@ -114,8 +114,8 @@ describe("WebhooksService paid payment handling", () => {
     // The webhook must not own the message: reconciliation and simulated
     // confirmations reach PaymentsService.updateStatus by other routes and
     // have to produce exactly the same notification.
-    // A confirmacao continua nascendo dentro do PaymentsService — agora pela
-    // reconciliacao, que so marca PAID depois de conferir valor no provedor.
+    // A confirmação continua nascendo dentro do PaymentsService — agora pela
+    // reconciliação, que só marca PAID depois de conferir valor no provedor.
     expect(payments.reconcileProviderStatus).toHaveBeenCalledWith("payment-1", expect.anything());
     expect(Object.keys(service as unknown as Record<string, unknown>)).not.toContain("notifications");
   });
@@ -156,7 +156,7 @@ describe("WebhooksService paid payment handling", () => {
     }));
   });
 
-  it("recusa o webhook e mantem o log pendente quando o provedor nao confirma o pagamento", async () => {
+  it("recusa o webhook e mantém o log pendente quando o provedor não confirma o pagamento", async () => {
     const { service, prisma, payments, audit } = createService();
     prisma.paymentLog.upsert.mockResolvedValue({ id: "log-1", processedAt: null });
     prisma.payment.findFirst.mockResolvedValue(createPayment());
@@ -174,7 +174,7 @@ describe("WebhooksService paid payment handling", () => {
     expect(audit.log).not.toHaveBeenCalled();
   });
 
-  it("responde 400 para a InfinitePay repetir o webhook quando payment_check ainda nao confirma", async () => {
+  it("responde 400 para a InfinitePay repetir o webhook quando payment_check ainda não confirma", async () => {
     const { service, prisma, payments } = createService();
     prisma.paymentLog.upsert.mockResolvedValue({ id: "log-1", processedAt: null });
     prisma.payment.findFirst.mockResolvedValue(createPayment({ provider: "infinite_pay" }));

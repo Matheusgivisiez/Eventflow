@@ -187,7 +187,7 @@ export default function DashboardPage() {
         <KpiCard label="Pedidos pendentes" value={String(data?.pendingOrders ?? 0)} icon={Clock}
           iconClass="bg-amber-100 text-amber-600 dark:bg-amber-900/30 dark:text-amber-400"
           sub="Aguardando pagamento" />
-        <KpiCard label="Taxa de conversao" value={`${data?.conversionRate ?? 0}%`} icon={CalendarCheck}
+        <KpiCard label="Taxa de conversão" value={`${data?.conversionRate ?? 0}%`} icon={CalendarCheck}
           iconClass="bg-purple-100 text-purple-600 dark:bg-purple-900/30 dark:text-purple-400"
           sub={`${data?.visitorsEstimate ?? 0} visitantes estimados`} />
       </div>
@@ -308,7 +308,7 @@ export default function DashboardPage() {
         </Link>
       </div>
 
-      {/* Top Events completo (grafico + tabela) — a partir do sm; no mobile vira o card compacto acima */}
+      {/* Top Events completo (gráfico + tabela) — a partir do sm; no mobile vira o card compacto acima */}
       {(data?.topEvents ?? []).length > 0 && (
         <div className="hidden rounded-2xl glass-premium shadow-sm sm:block overflow-hidden animate-slide-up">
           <div className="flex items-center justify-between px-4 py-4 sm:px-6 sm:py-5 border-b border-border/50">

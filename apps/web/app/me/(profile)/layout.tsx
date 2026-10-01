@@ -13,7 +13,7 @@ export default function ProfileLayout({ children }: { children: React.ReactNode 
   const tabs = [
     { href: "/me/ingressos", icon: Ticket, label: "Meus Ingressos" },
     { href: "/me/recebidos", icon: Inbox, label: "Recebidos" },
-    { href: "/me/historico", icon: History, label: "Historico" },
+    { href: "/me/historico", icon: History, label: "Histórico" },
     { href: "/me/conta", icon: UserCog, label: "Minha Conta" },
   ];
 

@@ -161,7 +161,7 @@ export class ReportsService {
     const rowXml = [headers, ...rows.map((row) => headers.map((header) => row[header]))]
       .map((row) => `<Row>${row.map((cell) => `<Cell><Data ss:Type="String">${this.xml(String(cell ?? ""))}</Data></Cell>`).join("")}</Row>`)
       .join("");
-    return `<?xml version="1.0"?><Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet" xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet"><Worksheet ss:Name="Relatorio"><Table>${rowXml}</Table></Worksheet></Workbook>`;
+    return `<?xml version="1.0"?><Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet" xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet"><Worksheet ss:Name="Relatório"><Table>${rowXml}</Table></Worksheet></Workbook>`;
   }
 
   private toPdf(rows: Record<string, unknown>[]) {

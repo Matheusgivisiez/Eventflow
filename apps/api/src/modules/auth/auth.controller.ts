@@ -16,7 +16,7 @@ import { ResendVerificationDto } from "./dto/resend-verification.dto";
 import { ResetPasswordDto } from "./dto/reset-password.dto";
 import { VerifyEmailDto } from "./dto/verify-email.dto";
 
-@ApiTags("Autenticacao")
+@ApiTags("Autenticação")
 @Controller("auth")
 export class AuthController {
   constructor(private readonly auth: AuthService) {}
@@ -48,7 +48,7 @@ export class AuthController {
   ) {
     const refreshToken = dto.refreshToken ?? this.readCookie(request, "eventflow_refresh");
     if (!refreshToken) {
-      throw new UnauthorizedException("Refresh token invalido.");
+      throw new UnauthorizedException("Refresh token inválido.");
     }
     return this.withRefreshCookie(response, await this.auth.refresh({ refreshToken }));
   }

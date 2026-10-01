@@ -15,7 +15,7 @@ export class RedlockService implements OnModuleDestroy {
       maxRetriesPerRequest: 3,
       retryStrategy: (times) => Math.min(times * 50, 2000)
     });
-    this.redis.connect().catch(() => this.logger.warn("Redis indisponivel para Redlock."));
+    this.redis.connect().catch(() => this.logger.warn("Redis indisponível para Redlock."));
   }
 
   async acquire(resource: string, ttlMs: number): Promise<string | null> {
@@ -60,7 +60,7 @@ export class RedlockService implements OnModuleDestroy {
   async withLock<T>(resource: string, ttlMs: number, fn: () => Promise<T>): Promise<T> {
     const token = await this.acquire(resource, ttlMs);
     if (!token) {
-      this.logger.warn(`Redlock indisponivel para ${resource}; executando sem lock distribuido.`);
+      this.logger.warn(`Redlock indisponível para ${resource}; executando sem lock distribuído.`);
       return fn();
     }
     try {
@@ -84,7 +84,7 @@ export class RedlockService implements OnModuleDestroy {
     } catch (error) {
       this.redisAvailable = false;
       const message = error instanceof Error ? error.message : String(error);
-      this.logger.warn(`Redis falhou em Redlock ${operation}; locks distribuidos desativados. ${message}`);
+      this.logger.warn(`Redis falhou em Redlock ${operation}; locks distribuídos desativados. ${message}`);
       return null;
     }
   }

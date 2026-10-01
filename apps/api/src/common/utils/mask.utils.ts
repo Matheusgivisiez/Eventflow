@@ -1,8 +1,8 @@
 /**
- * Mascaras para confirmacao de identidade.
+ * Máscaras para confirmação de identidade.
  *
- * Quando alguem precisa apenas CONFERIR que achou a pessoa certa (transferir um
- * ingresso, por exemplo), a resposta nao pode entregar o dado pessoal completo
+ * Quando alguém precisa apenas CONFERIR que achou a pessoa certa (transferir um
+ * ingresso, por exemplo), a resposta não pode entregar o dado pessoal completo
  * de terceiros: isso transforma o endpoint em consulta de CPF -> nome + e-mail.
  * O suficiente para reconhecer, nunca o suficiente para colecionar.
  */
@@ -33,8 +33,8 @@ export function maskName(name: string): string {
 }
 
 /**
- * Provedores conhecidos ficam visiveis (ajudam a pessoa a reconhecer a conta);
- * um dominio proprio e mascarado porque costuma identificar empregador.
+ * Provedores conhecidos ficam visíveis (ajudam a pessoa a reconhecer a conta);
+ * um domínio próprio é mascarado porque costuma identificar empregador.
  */
 const PUBLIC_MAIL_DOMAINS = new Set([
   "gmail.com",

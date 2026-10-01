@@ -34,7 +34,7 @@ function SocialLink({ href, label, children }: { href: string; label: string; ch
 }
 
 function InstagramIcon() { return <svg aria-hidden="true" viewBox="0 0 24 24" className="h-5 w-5 fill-none stroke-current" strokeWidth="2"><rect x="3" y="3" width="18" height="18" rx="5" /><circle cx="12" cy="12" r="4" /><circle cx="17.5" cy="6.5" r=".8" className="fill-current stroke-none" /></svg>; }
-// Logo oficial do Spotify (icone circular preto/branco), nao um desenho generico.
+// Logo oficial do Spotify (ícone circular preto/branco), não um desenho genérico.
 function SpotifyIcon() {
   return (
     <svg aria-hidden="true" role="img" viewBox="0 0 24 24" className="h-5 w-5 fill-current">

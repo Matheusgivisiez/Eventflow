@@ -43,7 +43,7 @@ export class EnterpriseMobileService extends EnterpriseDomainService {
     if (!scans.length) throw new BadRequestException("Envie ao menos um scan offline.");
 
     const event = await this.prisma.event.findFirst({ where: { id: eventId, tenantId } });
-    if (!event) throw new NotFoundException("Evento nao encontrado.");
+    if (!event) throw new NotFoundException("Evento não encontrado.");
 
     const entries: AnyRecord[] = [];
     let acceptedScans = 0;
@@ -54,7 +54,7 @@ export class EnterpriseMobileService extends EnterpriseDomainService {
       const ticketUuid = this.requiredString(scan.ticketUuid ?? scan.uuid ?? scan.code, "ticketUuid");
       const rawPayload = this.requiredString(scan.rawPayload ?? scan.code, "rawPayload");
       let status: CheckInStatus = CheckInStatus.REFUSED;
-      let reason: string | undefined = "Ingresso nao encontrado.";
+      let reason: string | undefined = "Ingresso não encontrado.";
 
       try {
         const result = await this.validateTicket.execute(eventId, tenantId, user.id, rawPayload, { requireSignedPayload: true });

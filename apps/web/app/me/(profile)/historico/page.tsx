@@ -44,7 +44,7 @@ export default function TransferHistoryPage() {
   return (
     <main className="max-w-4xl">
       <div className="mb-6">
-        <h2 className="text-xl font-bold">Historico de transferencias</h2>
+        <h2 className="text-xl font-bold">Histórico de transferências</h2>
         <p className="text-sm text-muted-foreground">Acompanhe ingressos enviados e recebidos.</p>
       </div>
 
@@ -62,8 +62,8 @@ export default function TransferHistoryPage() {
           <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-primary/10">
             <History className="h-8 w-8 text-primary" />
           </div>
-          <h3 className="text-lg font-bold">Nenhuma transferencia registrada</h3>
-          <p className="mt-2 max-w-sm text-sm text-muted-foreground">Seu historico ficara disponivel depois da primeira transferencia.</p>
+          <h3 className="text-lg font-bold">Nenhuma transferência registrada</h3>
+          <p className="mt-2 max-w-sm text-sm text-muted-foreground">Seu histórico ficará disponível depois da primeira transferência.</p>
         </div>
       ) : (
         <div className="space-y-4">
@@ -72,7 +72,7 @@ export default function TransferHistoryPage() {
             const StatusIcon = cfg.icon;
             const sentByMe = transfer.sender.id === user?.id;
             const counterparty = sentByMe
-              ? transfer.receiver?.name ?? transfer.receiverEmail ?? "Destinatario convidado"
+              ? transfer.receiver?.name ?? transfer.receiverEmail ?? "Destinatário convidado"
               : transfer.sender.name;
 
             return (

@@ -13,7 +13,7 @@ describe("new event schedule helpers", () => {
     assert.equal(joinScheduleValue({ date: "", time: "" }), "");
   });
 
-  it("converte horario brasileiro do formulário para ISO UTC sem mudar a hora escolhida", () => {
+  it("converte horário brasileiro do formulário para ISO UTC sem mudar a hora escolhida", () => {
     assert.equal(scheduleValueToIso("2026-10-24T15:00"), "2026-10-24T18:00:00.000Z");
     assert.equal(isoToScheduleValue("2026-10-24T18:00:00.000Z"), "2026-10-24T15:00");
   });

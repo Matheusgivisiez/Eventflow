@@ -6,7 +6,7 @@ import { JwtAuthGuard } from "../../common/guards/jwt-auth.guard";
 import { RolesGuard } from "../../common/guards/roles.guard";
 import { AdminService } from "./admin.service";
 
-@ApiTags("Administracao")
+@ApiTags("Administração")
 @ApiBearerAuth()
 @Roles(UserRole.ADMIN)
 @UseGuards(JwtAuthGuard, RolesGuard)

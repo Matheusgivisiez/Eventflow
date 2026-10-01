@@ -17,7 +17,7 @@ export class CacheService implements OnModuleDestroy {
     const url = config.get<string>("REDIS_URL");
     if (url) {
       this.redis = new Redis(url, { enableReadyCheck: false, lazyConnect: true, maxRetriesPerRequest: 1 });
-      this.redis.connect().catch(() => this.logger.warn("Redis indisponivel. Usando cache em memoria."));
+      this.redis.connect().catch(() => this.logger.warn("Redis indisponível. Usando cache em memória."));
     }
   }
 
@@ -128,7 +128,7 @@ export class CacheService implements OnModuleDestroy {
     } catch (error) {
       this.redisAvailable = false;
       const message = error instanceof Error ? error.message : String(error);
-      this.logger.warn(`Redis falhou em ${operation}; usando cache em memoria. ${message}`);
+      this.logger.warn(`Redis falhou em ${operation}; usando cache em memória. ${message}`);
       return null;
     }
   }

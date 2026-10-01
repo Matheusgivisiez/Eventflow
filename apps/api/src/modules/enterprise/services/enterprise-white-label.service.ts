@@ -43,7 +43,7 @@ export class EnterpriseWhiteLabelService extends EnterpriseDomainService {
   }
 
   resolveWhiteLabelDomain(domain?: string) {
-    if (!domain) throw new BadRequestException("Informe o dominio.");
+    if (!domain) throw new BadRequestException("Informe o domínio.");
     return this.db().whiteLabelSetting.findUnique({ where: { customDomain: domain } });
   }
 }

@@ -65,13 +65,13 @@ const modules = [
   { key: "mobileOffline", label: "Mobile offline", icon: MonitorSmartphone },
   { key: "affiliates", label: "Afiliados", icon: MousePointerClick },
   { key: "crm", label: "CRM", icon: Users },
-  { key: "marketingAutomation", label: "Automacao", icon: Megaphone },
+  { key: "marketingAutomation", label: "Automação", icon: Megaphone },
   { key: "analytics", label: "Analytics", icon: ChartNoAxesCombined },
-  { key: "publicApi", label: "API publica", icon: Code2 },
+  { key: "publicApi", label: "API pública", icon: Code2 },
   { key: "seatMaps", label: "Assentos", icon: Sofa },
   { key: "marketplace", label: "Marketplace", icon: Building2 },
   { key: "ai", label: "IA", icon: Bot },
-  { key: "security", label: "Seguranca", icon: ShieldCheck },
+  { key: "security", label: "Segurança", icon: ShieldCheck },
   { key: "infrastructure", label: "Infraestrutura", icon: Cloud }
 ];
 
@@ -113,7 +113,7 @@ export default function EnterprisePage() {
       <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <h1 className="text-2xl font-semibold tracking-normal">Enterprise</h1>
-          <p className="text-sm text-muted-foreground">Operacao multi-tenant para milhares de organizadores simultaneos.</p>
+          <p className="text-sm text-muted-foreground">Operação multi-tenant para milhares de organizadores simultâneos.</p>
         </div>
         <Badge className="w-fit gap-1" variant="secondary">
           <Network className="h-3.5 w-3.5" />
@@ -173,7 +173,7 @@ export default function EnterprisePage() {
           <TabsTrigger value="analytics">Analytics</TabsTrigger>
           <TabsTrigger value="api">API</TabsTrigger>
           <TabsTrigger value="seats">Assentos</TabsTrigger>
-          <TabsTrigger value="security">Seguranca</TabsTrigger>
+          <TabsTrigger value="security">Segurança</TabsTrigger>
           <TabsTrigger value="infra">Infra</TabsTrigger>
         </TabsList>
 
@@ -181,7 +181,7 @@ export default function EnterprisePage() {
           <Card>
             <CardHeader>
               <CardTitle>Receita Enterprise</CardTitle>
-              <CardDescription>MRR, conversao, campanhas e origem das vendas.</CardDescription>
+              <CardDescription>MRR, conversão, campanhas e origem das vendas.</CardDescription>
             </CardHeader>
             <CardContent className="h-80">
               <ResponsiveContainer width="100%" height="100%">
@@ -204,8 +204,8 @@ export default function EnterprisePage() {
           </Card>
           <Card>
             <CardHeader>
-              <CardTitle>Operacao</CardTitle>
-              <CardDescription>Contadores consolidados dos novos modulos.</CardDescription>
+              <CardTitle>Operação</CardTitle>
+              <CardDescription>Contadores consolidados dos novos módulos.</CardDescription>
             </CardHeader>
             <CardContent className="space-y-3">
               {Object.entries(overview.data?.counters ?? {}).map(([key, value]) => (
@@ -222,7 +222,7 @@ export default function EnterprisePage() {
           <Card>
             <CardHeader>
               <CardTitle>White label</CardTitle>
-              <CardDescription>Dominio proprio, logo, tema e emails personalizados.</CardDescription>
+              <CardDescription>Domínio próprio, logo, tema e emails personalizados.</CardDescription>
             </CardHeader>
             <CardContent>
               <form
@@ -233,10 +233,10 @@ export default function EnterprisePage() {
                   whiteLabelMutation.mutate(Object.fromEntries(form.entries()) as Record<string, string>);
                 }}
               >
-                <Field name="customDomain" label="Dominio" placeholder="ingressos.suaempresa.com" />
+                <Field name="customDomain" label="Domínio" placeholder="ingressos.suaempresa.com" />
                 <Field name="logoUrl" label="Logo" placeholder="https://..." />
-                <Field name="primaryColor" label="Cor primaria" placeholder="#111827" />
-                <Field name="secondaryColor" label="Cor secundaria" placeholder="#2563eb" />
+                <Field name="primaryColor" label="Cor primária" placeholder="#111827" />
+                <Field name="secondaryColor" label="Cor secundária" placeholder="#2563eb" />
                 <Field name="senderName" label="Remetente" placeholder="Sua produtora" />
                 <Field name="senderEmail" label="Email" placeholder="ingressos@suaempresa.com" />
                 <div className="md:col-span-2">
@@ -251,16 +251,16 @@ export default function EnterprisePage() {
         </TabsContent>
 
         <TabsContent value="mobile" className="grid gap-4 lg:grid-cols-3">
-          <Feature title="React Native" description="App Android/iOS em apps/mobile com Expo, SQLite e fila de sincronizacao." icon={MonitorSmartphone} />
+          <Feature title="React Native" description="App Android/iOS em apps/mobile com Expo, SQLite e fila de sincronização." icon={MonitorSmartphone} />
           <Feature title="Check-in offline" description="Scans ficam locais em SQLite e sobem em lote para /enterprise/mobile/checkin-sync." icon={ScanLine} />
-          <Feature title="Sincronizacao" description="Conflitos, duplicidades e recusas sao auditados no batch de check-in." icon={Route} />
+          <Feature title="Sincronização" description="Conflitos, duplicidades e recusas são auditados no batch de check-in." icon={Route} />
         </TabsContent>
 
         <TabsContent value="analytics" className="grid gap-4 lg:grid-cols-[1fr_360px]">
           <Card>
             <CardHeader>
               <CardTitle>Funil e dispositivos</CardTitle>
-              <CardDescription>Mapa de calor, conversao, origem, campanhas, GA e Meta Pixel.</CardDescription>
+              <CardDescription>Mapa de calor, conversão, origem, campanhas, GA e Meta Pixel.</CardDescription>
             </CardHeader>
             <CardContent className="h-72">
               <ResponsiveContainer width="100%" height="100%">
@@ -278,11 +278,11 @@ export default function EnterprisePage() {
         </TabsContent>
 
         <TabsContent value="api" className="grid gap-4 lg:grid-cols-2">
-          <Feature title="OAuth e API Keys" description="Clientes OAuth, chaves por escopo, secrets com hash e revogacao." icon={KeyRound} />
+          <Feature title="OAuth e API Keys" description="Clientes OAuth, chaves por escopo, secrets com hash e revogação." icon={KeyRound} />
           <Card>
             <CardHeader>
-              <CardTitle>Documentacao</CardTitle>
-              <CardDescription>Contrato publico exposto pela API Enterprise.</CardDescription>
+              <CardTitle>Documentação</CardTitle>
+              <CardDescription>Contrato público exposto pela API Enterprise.</CardDescription>
             </CardHeader>
             <CardContent>
               <pre className="max-h-72 overflow-auto rounded-md bg-muted p-3 text-xs">{JSON.stringify(apiDocs.data ?? {}, null, 2)}</pre>
@@ -291,22 +291,22 @@ export default function EnterprisePage() {
         </TabsContent>
 
         <TabsContent value="seats" className="grid gap-4 lg:grid-cols-3">
-          <Feature title="Assentos numerados" description="Mapas versionados com secoes, coordenadas e status por assento." icon={Sofa} />
-          <Feature title="Bloqueio temporario" description="Holds com TTL por sessao para evitar overbooking." icon={Route} />
+          <Feature title="Assentos numerados" description="Mapas versionados com seções, coordenadas e status por assento." icon={Sofa} />
+          <Feature title="Bloqueio temporário" description="Holds com TTL por sessão para evitar overbooking." icon={Route} />
           <Feature title="Reserva e compra" description="Checkout aceita seatIds e marca assentos vendidos no pagamento." icon={BadgeCheck} />
         </TabsContent>
 
         <TabsContent value="security" className="grid gap-4 lg:grid-cols-4">
-          <Feature title="2FA" description="Segredo por usuario, recovery codes e flag de conta protegida." icon={Fingerprint} />
-          <Feature title="LGPD" description="Consentimentos, auditoria, exportacao e exclusao operacional." icon={ShieldCheck} />
-          <Feature title="Anti fraude" description="Sinais por pedido, score, motivos e revisao." icon={Radar} />
-          <Feature title="Backups" description="Jobs automaticos com storage, checksum e status." icon={Cloud} />
+          <Feature title="2FA" description="Segredo por usuário, recovery codes e flag de conta protegida." icon={Fingerprint} />
+          <Feature title="LGPD" description="Consentimentos, auditoria, exportação e exclusão operacional." icon={ShieldCheck} />
+          <Feature title="Anti fraude" description="Sinais por pedido, score, motivos e revisão." icon={Radar} />
+          <Feature title="Backups" description="Jobs automáticos com storage, checksum e status." icon={Cloud} />
         </TabsContent>
 
         <TabsContent value="infra">
           <Card>
             <CardHeader>
-              <CardTitle>Infraestrutura escalavel</CardTitle>
+              <CardTitle>Infraestrutura escalável</CardTitle>
               <CardDescription>Docker, CI/CD, AWS, Kubernetes, Redis Cluster, RabbitMQ, Prometheus e Grafana.</CardDescription>
             </CardHeader>
             <CardContent className="grid gap-3 md:grid-cols-2">
@@ -346,7 +346,7 @@ function Feature({ title, description, icon: Icon }: { title: string; descriptio
       <CardContent>
         <div className="flex items-center gap-2 text-sm text-muted-foreground">
           <Mail className="h-4 w-4" />
-          Disponivel via API Enterprise
+          Disponível via API Enterprise
         </div>
       </CardContent>
     </Card>

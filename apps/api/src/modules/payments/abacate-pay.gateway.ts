@@ -87,7 +87,7 @@ export class AbacatePayGateway implements PaymentProvider {
     }
 
     this.logger.error(`AbacatePay API unavailable [${path}]`, lastError as Error);
-    throw new InternalServerErrorException("Falha temporaria no gateway de pagamento.");
+    throw new InternalServerErrorException("Falha temporária no gateway de pagamento.");
   }
 
   private formatGatewayError(error: unknown, status: number) {
@@ -206,8 +206,8 @@ export class AbacatePayGateway implements PaymentProvider {
     return this.getCheckout(ref).then((checkout): PaymentVerification => ({
       id: checkout.id,
       status: checkout.status === "CANCELLED" || checkout.status === "EXPIRED" ? "CANCELED" : checkout.status,
-      // Sem estes valores a conferencia de valor do PaymentsService nao tem o
-      // que comparar e um pagamento parcial passaria batido.
+      // Sem estes valores a conferência de valor do PaymentsService não tem o
+      // que comparar, e um pagamento parcial passaria batido.
       amountCents: firstNumber(checkout.amountCents, checkout.amount),
       paidAmountCents: firstNumber(checkout.paidAmountCents, checkout.paidAmount),
       providerRef: checkout.id

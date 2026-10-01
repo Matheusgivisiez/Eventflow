@@ -32,7 +32,7 @@ describe("AbacatePayGateway simulation", () => {
     fetchSpy.mockRestore();
   });
 
-  it("mantem o checkout local pendente ate a confirmacao simulada ou webhook", async () => {
+  it("mantém o checkout local pendente ate a confirmação simulada ou webhook", async () => {
     const config = { get: jest.fn(() => true) };
     const gateway = new AbacatePayGateway(config as any);
 

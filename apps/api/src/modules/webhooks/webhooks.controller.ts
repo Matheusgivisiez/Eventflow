@@ -101,7 +101,7 @@ export class WebhooksController {
     @Headers("x-signature") xSignature?: string
   ) {
     if (!this.mpSecret || !validateMercadoPagoSignature(body, xSignature, this.mpSecret)) {
-      throw new UnauthorizedException("Assinatura do webhook invalida ou secret nao configurado.");
+      throw new UnauthorizedException("Assinatura do webhook inválida ou secret não configurado.");
     }
     return this.webhooks.handle("mercado_pago", body);
   }
@@ -114,7 +114,7 @@ export class WebhooksController {
   ) {
     const rawBody = headers?.["x-raw-body"] ?? JSON.stringify(body);
     if (!this.stripeSecret || !validateStripeSignature(rawBody, stripeSignature, this.stripeSecret)) {
-      throw new UnauthorizedException("Assinatura do webhook invalida ou secret nao configurado.");
+      throw new UnauthorizedException("Assinatura do webhook inválida ou secret não configurado.");
     }
     return this.webhooks.handle("stripe", body);
   }
@@ -125,7 +125,7 @@ export class WebhooksController {
     @Headers("x-signature") xSignature?: string
   ) {
     if (!this.asaasSecret || !validateAsaasSignature(body, xSignature, this.asaasSecret)) {
-      throw new UnauthorizedException("Assinatura do webhook invalida ou secret nao configurado.");
+      throw new UnauthorizedException("Assinatura do webhook inválida ou secret não configurado.");
     }
     return this.webhooks.handle("asaas", body);
   }
@@ -140,11 +140,11 @@ export class WebhooksController {
     const rawBody = req.rawBody?.toString("utf8") ?? JSON.stringify(body);
 
     if (!validateWebhookSecret(this.abacatePaySecret, xSecret)) {
-      throw new UnauthorizedException("Secret do webhook inalterado ou invalido.");
+      throw new UnauthorizedException("Secret do webhook inalterado ou inválido.");
     }
 
     if (this.abacatePayPublicKey && !validateAbacatePaySignature(rawBody, xSignature, this.abacatePayPublicKey)) {
-      throw new UnauthorizedException("Assinatura HMAC do webhook invalida.");
+      throw new UnauthorizedException("Assinatura HMAC do webhook inválida.");
     }
 
     return this.webhooks.handle("abacate_pay", body);
@@ -169,7 +169,7 @@ export class WebhooksController {
   ) {
     const providedSecret = headerSecret ?? querySecret;
     if (!validateWebhookSecret(this.infinitePaySecret, providedSecret)) {
-      throw new UnauthorizedException("Secret do webhook InfinitePay invalido ou nao configurado.");
+      throw new UnauthorizedException("Secret do webhook InfinitePay inválido ou não configurado.");
     }
     return this.webhooks.handle("infinite_pay", body);
   }

@@ -12,6 +12,6 @@ export class LgpdService {
 
   async scheduleAnonymization(userId: string, delayMs = 0) {
     await this.lgpdQueue.add("anonymize", { userId }, { delay: delayMs });
-    this.logger.log(`Anonimizacao agendada para usuario ${userId}`);
+    this.logger.log(`Anonimização agendada para usuário ${userId}`);
   }
 }

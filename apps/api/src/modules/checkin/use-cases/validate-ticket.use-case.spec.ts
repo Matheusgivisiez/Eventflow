@@ -252,7 +252,7 @@ describe("ValidateTicketUseCase", () => {
         ticketId: "ticket-1",
         userId: "checkin-user-1",
         status: CheckInStatus.REFUSED,
-        reason: "Ingresso cancelado ou indisponivel."
+        reason: "Ingresso cancelado ou indisponível."
       }
     });
   });

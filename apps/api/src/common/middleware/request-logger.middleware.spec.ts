@@ -2,7 +2,7 @@ import { Logger } from "@nestjs/common";
 import { RequestLoggerMiddleware } from "./request-logger.middleware";
 
 describe("RequestLoggerMiddleware", () => {
-  it("registra apenas o caminho, sem parametros sensiveis da URL", () => {
+  it("registra apenas o caminho, sem parâmetros sensíveis da URL", () => {
     const log = jest.spyOn(Logger.prototype, "log").mockImplementation();
     let onFinish: (() => void) | undefined;
     const response = {

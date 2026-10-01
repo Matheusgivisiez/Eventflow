@@ -49,7 +49,7 @@ export class UploadStorageService {
     }
 
     if (nodeEnv === "production") {
-      throw new ServiceUnavailableException("Storage externo nao configurado.");
+      throw new ServiceUnavailableException("Storage externo não configurado.");
     }
 
     await fs.mkdir(LOCAL_UPLOADS_DIR, { recursive: true });
@@ -68,11 +68,11 @@ export class UploadStorageService {
 
     const ext = extname(file.originalname).toLowerCase();
     if (!ALLOWED_EXTENSIONS.has(ext) || !ALLOWED_MIME_TYPES.has(file.mimetype)) {
-      throw new BadRequestException("Formato invalido. Use: jpg, png, gif, webp.");
+      throw new BadRequestException("Formato inválido. Use: jpg, png, gif, webp.");
     }
 
     if (!this.hasValidMagicNumber(file.buffer)) {
-      throw new BadRequestException("Arquivo corrompido ou tipo invalido. Assinatura do arquivo nao confere.");
+      throw new BadRequestException("Arquivo corrompido ou tipo inválido. Assinatura do arquivo não confere.");
     }
   }
 

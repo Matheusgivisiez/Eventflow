@@ -34,18 +34,18 @@ export class ReportsProcessor extends WorkerHost implements OnModuleInit {
   }
 
   async process(job: Job<ReportJobData, ReportJobResult, string>): Promise<ReportJobResult> {
-    this.logger.log(`Iniciando geração do relatorio (Job ID: ${job.id})...`);
+    this.logger.log(`Iniciando geração do relatório (Job ID: ${job.id})...`);
     
     try {
       const { tenantId, query } = job.data;
       
       const file = await this.reportsService.export(tenantId, query);
       
-      this.logger.log(`Relatorio gerado com sucesso! Arquivo: ${file.fileName} (${file.buffer.length} bytes)`);
+      this.logger.log(`Relatório gerado com sucesso! Arquivo: ${file.fileName} (${file.buffer.length} bytes)`);
       return { success: true, fileName: file.fileName };
     } catch (error) {
       const message = error instanceof Error ? error.message : "Erro desconhecido";
-      this.logger.error(`Erro ao processar relatorio: ${message}`);
+      this.logger.error(`Erro ao processar relatório: ${message}`);
       throw error;
     }
   }

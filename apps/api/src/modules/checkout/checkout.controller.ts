@@ -19,9 +19,9 @@ export class CheckoutController {
   ) {}
 
   @Post(":slug/coupon")
-  // Limite baixo: evita que alguem fique chutando codigos de cupom.
+  // Limite baixo: evita que alguém fique chutando códigos de cupom.
   @Throttle({ default: { limit: 20, ttl: 60000 } })
-  @ApiOperation({ summary: "Validar cupom no checkout", description: "Confere se o cupom vale para o evento e retorna o desconto. Nao consome uso." })
+  @ApiOperation({ summary: "Validar cupom no checkout", description: "Confere se o cupom vale para o evento e retorna o desconto. Não consome uso." })
   previewCoupon(@Param("slug") slug: string, @Body() dto: PreviewCouponDto) {
     return this.coupons.previewForEvent(slug, dto.code);
   }
@@ -53,7 +53,7 @@ export class CheckoutController {
 
   @Get("order/:orderId/tickets/:ticketId/pdf")
   @Throttle({ default: { limit: 60, ttl: 60000 } })
-  @ApiOperation({ summary: "Baixar o PDF de um ingresso sem login", description: "Rota publica, autorizada pelo token de acesso do pedido (o mesmo usado no link do e-mail de confirmacao)." })
+  @ApiOperation({ summary: "Baixar o PDF de um ingresso sem login", description: "Rota pública, autorizada pelo token de acesso do pedido (o mesmo usado no link do e-mail de confirmação)." })
   async ticketPdf(
     @Param("orderId") orderId: string,
     @Param("ticketId") ticketId: string,

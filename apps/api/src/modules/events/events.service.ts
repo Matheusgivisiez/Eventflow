@@ -105,7 +105,7 @@ export class EventsService {
   async findOne(id: string, tenantId: string) {
     const event = await this.events.findByIdForTenant(id, tenantId);
     if (!event) {
-      throw new NotFoundException("Evento nao encontrado.");
+      throw new NotFoundException("Evento não encontrado.");
     }
     return event;
   }
@@ -113,7 +113,7 @@ export class EventsService {
   async publicBySlug(slug: string) {
     const event = await this.events.findPublicBySlug(slug);
     if (!event) {
-      throw new NotFoundException("Evento indisponivel.");
+      throw new NotFoundException("Evento indisponível.");
     }
     return event;
   }
@@ -189,26 +189,26 @@ export class EventsService {
   private validateCreation(dto: CreateEventDto) {
     const startsAt = new Date(dto.startsAt);
     if (Number.isNaN(startsAt.getTime())) {
-      throw new BadRequestException("Informe uma data de inicio valida.");
+      throw new BadRequestException("Informe uma data de início válida.");
     }
     if (startsAt <= new Date()) {
-      throw new BadRequestException("A data de inicio deve ser futura.");
+      throw new BadRequestException("A data de início deve ser futura.");
     }
     if (dto.endsAt && new Date(dto.endsAt) <= startsAt) {
-      throw new BadRequestException("A data de fim deve ser posterior ao inicio.");
+      throw new BadRequestException("A data de fim deve ser posterior ao início.");
     }
     this.validateCheckInWindow(dto.checkInOpensAt, dto.checkInClosesAt);
     if (dto.format === EventFormat.IN_PERSON) {
       const required = [dto.zipCode, dto.city, dto.state, dto.address];
       if (required.some((value) => !value?.trim())) {
-        throw new BadRequestException("Eventos presenciais precisam de CEP, cidade, estado e endereco.");
+        throw new BadRequestException("Eventos presenciais precisam de CEP, cidade, estado e endereço.");
       }
       if (!/^\d{5}-?\d{3}$/.test(dto.zipCode!.trim())) {
-        throw new BadRequestException("Informe um CEP valido com 8 digitos.");
+        throw new BadRequestException("Informe um CEP válido com 8 dígitos.");
       }
     }
     if (dto.format === EventFormat.ONLINE && !dto.onlineUrl?.trim()) {
-      throw new BadRequestException("Eventos online precisam do link de transmissao.");
+      throw new BadRequestException("Eventos online precisam do link de transmissão.");
     }
     if (dto.status === EventStatus.PUBLISHED && !dto.firstTicket && !dto.additionalTicketTypes?.length) {
       throw new BadRequestException("Publique o evento somente com ao menos um lote de ingressos.");
@@ -251,21 +251,21 @@ export class EventsService {
 
     if (format === EventFormat.IN_PERSON) {
       if ([zipCode, city, state, address].some((value) => !value?.trim())) {
-        throw new BadRequestException("Eventos presenciais precisam de CEP, cidade, estado e endereco.");
+        throw new BadRequestException("Eventos presenciais precisam de CEP, cidade, estado e endereço.");
       }
       if (!/^\d{5}-?\d{3}$/.test(zipCode!.trim())) {
-        throw new BadRequestException("Informe um CEP valido com 8 digitos.");
+        throw new BadRequestException("Informe um CEP válido com 8 dígitos.");
       }
     }
     if (format === EventFormat.ONLINE && !onlineUrl?.trim()) {
-      throw new BadRequestException("Eventos online precisam do link de transmissao.");
+      throw new BadRequestException("Eventos online precisam do link de transmissão.");
     }
 
     const startsAt = dto.startsAt ? new Date(dto.startsAt) : current.startsAt;
     const endsAt = dto.endsAt ? new Date(dto.endsAt) : current.endsAt;
-    if (Number.isNaN(startsAt.getTime())) throw new BadRequestException("Informe uma data de inicio valida.");
-    if (dto.startsAt && startsAt <= new Date()) throw new BadRequestException("A data de inicio deve ser futura.");
-    if (endsAt && endsAt <= startsAt) throw new BadRequestException("A data de fim deve ser posterior ao inicio.");
+    if (Number.isNaN(startsAt.getTime())) throw new BadRequestException("Informe uma data de início válida.");
+    if (dto.startsAt && startsAt <= new Date()) throw new BadRequestException("A data de início deve ser futura.");
+    if (endsAt && endsAt <= startsAt) throw new BadRequestException("A data de fim deve ser posterior ao início.");
     this.validateCheckInWindow(dto.checkInOpensAt, dto.checkInClosesAt);
   }
 

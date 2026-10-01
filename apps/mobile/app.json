@@ -14,7 +14,7 @@
       "bundleIdentifier": "app.eventflow.checkin",
       "supportsTablet": true,
       "infoPlist": {
-        "NSCameraUsageDescription": "Usamos a camera para ler QR Codes de ingressos no check-in."
+        "NSCameraUsageDescription": "Usamos a câmera para ler QR Codes de ingressos no check-in."
       }
     },
     "extra": {

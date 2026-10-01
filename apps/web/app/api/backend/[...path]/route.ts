@@ -48,7 +48,7 @@ async function proxy(request: NextRequest, context: RouteContext) {
 
   // O cliente controla o que manda em x-forwarded-for / x-real-ip. Repassar
   // esses valores deixava o backend contar rate limit por um "IP" escolhido
-  // pelo atacante. Aqui eles sao descartados e reescritos com o unico endereco
+  // pelo atacante. Aqui eles são descartados e reescritos com o único endereço
   // que a plataforma garante: o peer que a Vercel enxergou.
   headers.delete("x-forwarded-for");
   headers.delete("x-real-ip");
@@ -74,7 +74,7 @@ async function proxy(request: NextRequest, context: RouteContext) {
       path: upstreamUrl.pathname,
       error: error instanceof Error ? error.message : String(error)
     });
-    return NextResponse.json({ message: "Nao foi possivel conectar ao backend." }, { status: 502 });
+    return NextResponse.json({ message: "Não foi possível conectar ao backend." }, { status: 502 });
   }
 
   const responseHeaders = new Headers(upstream.headers);
@@ -93,10 +93,10 @@ async function proxy(request: NextRequest, context: RouteContext) {
 }
 
 /**
- * `x-vercel-forwarded-for` e escrito pela plataforma e nao pode ser forjado
- * pelo cliente. Sem ele (dev local, outro host), cai para o ULTIMO endereco da
- * cadeia x-forwarded-for: o proxy anexa o IP que realmente viu ao final, entao
- * o final e confiavel enquanto o inicio e o que o cliente digitou.
+ * `x-vercel-forwarded-for` é escrito pela plataforma e não pode ser forjado
+ * pelo cliente. Sem ele (dev local, outro host), cai para o ÚLTIMO endereço da
+ * cadeia x-forwarded-for: o proxy anexa o IP que realmente viu ao final, então
+ * o final é confiável enquanto o início é o que o cliente digitou.
  */
 function resolveClientIp(request: NextRequest): string | undefined {
   const vercelForwardedFor = request.headers.get("x-vercel-forwarded-for");

@@ -74,39 +74,39 @@ export class EnterpriseOverviewService extends EnterpriseDomainService {
 
     const readiness = {
       whiteLabel: this.status(Boolean(whiteLabel?.customDomain && whiteLabel?.senderEmail), Boolean(whiteLabel), {
-        production: "Dominio e remetente configurados.",
-        partial: "Configuracao de marca iniciada.",
-        empty: "Sem configuracao white-label para este tenant."
+        production: "Domínio e remetente configurados.",
+        partial: "Configuração de marca iniciada.",
+        empty: "Sem configuração white-label para este tenant."
       }),
       mobileOffline: this.status(mobileDevices > 0 && offlineBatches > 0, mobileDevices > 0, {
         production: "Dispositivos e batches offline ja sincronizaram.",
-        partial: "Dispositivos moveis registrados, sem batch offline sincronizado.",
+        partial: "Dispositivos móveis registrados, sem batch offline sincronizado.",
         empty: "Nenhum dispositivo mobile registrado."
       }),
       affiliates: this.status(Boolean(affiliateProgram?.isActive && affiliateLinks > 0), Boolean(affiliateProgram || affiliateLinks > 0), {
         production: "Programa ativo com links de afiliado.",
         partial: "Programa ou links criados parcialmente.",
-        empty: "Afiliados sem configuracao para este tenant."
+        empty: "Afiliados sem configuração para este tenant."
       }),
       crm: this.status(customers > 0 && crmSegments > 0, customers > 0 || crmSegments > 0, {
         production: "Clientes e segmentos cadastrados.",
-        partial: "Base CRM iniciada sem segmentacao completa.",
+        partial: "Base CRM iniciada sem segmentação completa.",
         empty: "CRM sem clientes ou segmentos."
       }),
       marketingAutomation: this.status(campaigns > 0 && automations > 0, campaigns > 0 || automations > 0 || marketingMessages > 0, {
-        production: "Campanhas e automacoes configuradas.",
-        partial: "Marketing iniciado sem automacao completa.",
+        production: "Campanhas e automações configuradas.",
+        partial: "Marketing iniciado sem automação completa.",
         empty: "Marketing automation sem campanhas."
       }),
       analytics: this.status(integrations > 0 && analyticsEvents > 0, integrations > 0 || analyticsEvents > 0, {
-        production: "Integracao ativa com eventos coletados.",
+        production: "Integração ativa com eventos coletados.",
         partial: "Analytics iniciado sem integracao/eventos completos.",
         empty: "Analytics sem dados reais para este tenant."
       }),
       publicApi: this.status(apiClients > 0 && apiKeys > 0, apiClients > 0 || apiKeys > 0, {
         production: "Cliente OAuth e API key ativos.",
-        partial: "API publica parcialmente configurada.",
-        empty: "API publica sem credenciais emitidas."
+        partial: "API pública parcialmente configurada.",
+        empty: "API pública sem credenciais emitidas."
       }),
       seatMaps: this.status(seatMaps > 0, inactiveSeatMaps > 0, {
         production: "Mapa de assentos ativo em uso.",
@@ -119,19 +119,19 @@ export class EnterpriseOverviewService extends EnterpriseDomainService {
         empty: "Marketplace sem perfil do organizador."
       }),
       ai: this.status(forecasts > 0 && insights > 0, forecasts > 0 || insights > 0 || fraudSignals > 0, {
-        production: "Previsoes e insights gerados.",
-        partial: "IA com sinais ou previsoes parciais.",
-        empty: "IA sem historico suficiente para este tenant.",
+        production: "Previsões e insights gerados.",
+        partial: "IA com sinais ou previsões parciais.",
+        empty: "IA sem histórico suficiente para este tenant.",
         emptyStatus: "prototype"
       }),
       security: this.status(policies > 0 && backups > 0 && encryptionKeys > 0, policies > 0 || backups > 0 || encryptionKeys > 0, {
-        production: "Politicas, backups e chaves registrados.",
-        partial: "Seguranca operacional parcialmente configurada.",
-        empty: "Seguranca enterprise sem politicas/backups reais."
+        production: "Políticas, backups e chaves registrados.",
+        partial: "Segurança operacional parcialmente configurada.",
+        empty: "Segurança enterprise sem politicas/backups reais."
       }),
       infrastructure: this.status(false, events > 0, {
         production: "Checks reais de infraestrutura ativos.",
-        partial: "Tenant em operacao, mas sem health checks enterprise.",
+        partial: "Tenant em operação, mas sem health checks enterprise.",
         empty: "Blueprint documentado, sem telemetria real conectada.",
         emptyStatus: "prototype"
       })

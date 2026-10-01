@@ -1,308 +1,308 @@
-# Event Flow - Checklist de Correcao e Evolucao
+# Event Flow - Checklist de Correção e Evolução
 
 Atualizado em: 2026-08-15
 
-Este arquivo e o quadro de acompanhamento do projeto. Use os status abaixo para acompanhar a evolucao:
+Este arquivo e o quadro de acompanhamento do projeto. Use os status abaixo para acompanhar a evolução:
 
 - `[ ]` Pendente
 - `[~]` Em andamento
-- `[x]` Concluido
+- `[x]` Concluído
 - `[!]` Bloqueado
 
-## Regra Obrigatoria de Qualidade
+## Regra Obrigatória de Qualidade
 
 Nenhum item pode ser marcado como `[x]` sem:
 
-- Testes automatizados cobrindo a correcao feita.
-- Teste negativo quando o item envolver seguranca, permissao ou vazamento de dados.
-- Verificacao de que rotas/servicos relacionados continuam funcionando.
+- Testes automatizados cobrindo a correção feita.
+- Teste negativo quando o item envolver segurança, permissão ou vazamento de dados.
+- Verificação de que rotas/serviços relacionados continuam funcionando.
 - `git diff --check` sem erros.
-- Build do pacote afetado quando houver mudanca de tipo, rota, schema ou frontend.
+- Build do pacote afetado quando houver mudança de tipo, rota, schema ou frontend.
 
-Se algum teste nao puder ser executado, o item deve ficar `[~]` ou `[!]` com o motivo registrado no log.
+Se algum teste não puder ser executado, o item deve ficar `[~]` ou `[!]` com o motivo registrado no log.
 
 ## Ordem de Prioridade
 
 ### P0 - Corrigir Antes de Produzir ou Vender de Verdade
 
 - [x] **Evitar oversell no checkout**
-  - Problema: o estoque e validado ao criar o pedido, mas `sold` so aumenta quando o pagamento vira `PAID`. Compras simultaneas podem vender mais ingressos do que a quantidade disponivel.
-  - Evidencia: `apps/api/src/modules/checkout/use-cases/create-checkout.use-case.ts`, `apps/api/src/modules/payments/payments.service.ts`.
-  - Como corrigir: reservar estoque de forma atomica no checkout ou incrementar estoque com `UPDATE ... WHERE quantity - sold >= qty` dentro da transacao.
-  - Criterio de aceite: dois checkouts concorrentes para o ultimo ingresso nao podem ambos concluir reserva/pedido valido.
-  - Resultado: criado `Order.stockReservedAt`, reserva atomica no checkout e liberacao de estoque quando pagamento/pedido e cancelado.
+  - Problema: o estoque é validado ao criar o pedido, mas `sold` só aumenta quando o pagamento vira `PAID`. Compras simultâneas podem vender mais ingressos do que a quantidade disponível.
+  - Evidência: `apps/api/src/modules/checkout/use-cases/create-checkout.use-case.ts`, `apps/api/src/modules/payments/payments.service.ts`.
+  - Como corrigir: reservar estoque de forma atômica no checkout ou incrementar estoque com `UPDATE ... WHERE quantity - sold >= qty` dentro da transação.
+  - Critério de aceite: dois checkouts concorrentes para o último ingresso não podem ambos concluir reserva/pedido válido.
+  - Resultado: criado `Order.stockReservedAt`, reserva atômica no checkout e liberação de estoque quando pagamento/pedido é cancelado.
 
-- [x] **Proteger consulta publica de pedido**
+- [x] **Proteger consulta pública de pedido**
   - Problema: `GET /checkout/order/:orderId` retorna nome, e-mail, tickets e QR Code apenas com o ID do pedido.
-  - Evidencia: `apps/api/src/modules/checkout/checkout.service.ts`.
-  - Como corrigir: criar `orderAccessToken` aleatorio, exigir token na consulta, ou validar e-mail/documento junto com o pedido.
-  - Criterio de aceite: nao e possivel consultar QR Code ou dados pessoais somente com `orderId`.
-  - Resultado: criado `Order.orderAccessToken`, retorno do provedor inclui `accessToken` na URL de sucesso, e `GET /checkout/order/:orderId` exige token valido.
+  - Evidência: `apps/api/src/modules/checkout/checkout.service.ts`.
+  - Como corrigir: criar `orderAccessToken` aleatório, exigir token na consulta, ou validar e-mail/documento junto com o pedido.
+  - Critério de aceite: não é possível consultar QR Code ou dados pessoais somente com `orderId`.
+  - Resultado: criado `Order.orderAccessToken`, retorno do provedor inclui `accessToken` na URL de sucesso, e `GET /checkout/order/:orderId` exige token válido.
 
-- [x] **Restringir alteracao manual de status de pagamento**
+- [x] **Restringir alteração manual de status de pagamento**
   - Problema: rota autenticada permite alterar status de pagamento; isso pode permitir marcar pedido como pago fora do fluxo de webhook.
-  - Evidencia: `apps/api/src/modules/payments/payments.controller.ts`.
-  - Como corrigir: limitar a `ADMIN` interno ou permissao financeira explicita; idealmente pagamento confirmado apenas por webhook verificado.
-  - Criterio de aceite: organizador comum/equipe sem permissao nao consegue marcar pagamento como `PAID`.
-  - Resultado: rota manual `PATCH /payments/:id/status` agora exige role `ADMIN`; rota de criar preferencia de pagamento valida tenant para chamadas autenticadas.
+  - Evidência: `apps/api/src/modules/payments/payments.controller.ts`.
+  - Como corrigir: limitar a `ADMIN` interno ou permissão financeira explicita; idealmente pagamento confirmado apenas por webhook verificado.
+  - Critério de aceite: organizador comum/equipe sem permissão não consegue marcar pagamento como `PAID`.
+  - Resultado: rota manual `PATCH /payments/:id/status` agora exige role `ADMIN`; rota de criar preferência de pagamento valida tenant para chamadas autenticadas.
 
 - [x] **Mover refresh token para cookie HttpOnly**
   - Problema: access token e refresh token ficam persistidos no storage do navegador.
-  - Evidencia: `apps/web/stores/auth-store.ts`.
-  - Como corrigir: refresh token em cookie `HttpOnly`, `Secure`, `SameSite`; access token em memoria ou renovacao via endpoint.
-  - Criterio de aceite: `localStorage` nao contem refresh token.
-  - Resultado: refresh token agora e entregue somente em cookie `eventflow_refresh` HttpOnly; respostas de login/registro/refresh nao retornam `refreshToken`; web usa `credentials: "include"` e nao persiste refresh token.
+  - Evidência: `apps/web/stores/auth-store.ts`.
+  - Como corrigir: refresh token em cookie `HttpOnly`, `Secure`, `SameSite`; access token em memória ou renovação via endpoint.
+  - Critério de aceite: `localStorage` não contém refresh token.
+  - Resultado: refresh token agora e entregue somente em cookie `eventflow_refresh` HttpOnly; respostas de login/registro/refresh não retornam `refreshToken`; web usa `credentials: "include"` e não persiste refresh token.
 
-- [x] **Remover secrets default fracos em producao**
+- [x] **Remover secrets default fracos em produção**
   - Problema: `env.schema.ts` aceita secrets default `change-me-*`.
-  - Evidencia: `apps/api/src/config/env.schema.ts`, `.env.example`.
+  - Evidência: `apps/api/src/config/env.schema.ts`, `.env.example`.
   - Como corrigir: exigir secrets fortes quando `NODE_ENV=production`; manter defaults apenas para desenvolvimento local.
-  - Criterio de aceite: API falha ao subir em producao sem secrets reais.
-  - Resultado: `envSchema` rejeita producao sem JWT/QR secrets fortes; defaults agora sao explicitamente `dev-only`; fallbacks fracos de QR foram removidos dos servicos.
+  - Critério de aceite: API falha ao subir em produção sem secrets reais.
+  - Resultado: `envSchema` rejeita produção sem JWT/QR secrets fortes; defaults agora são explicitamente `dev-only`; fallbacks fracos de QR foram removidos dos serviços.
 
-### P1 - Fluxos Criticos e Confiabilidade
+### P1 - Fluxos Críticos e Confiabilidade
 
 - [x] **Adicionar testes de checkout concorrente**
-  - Problema: nao ha teste cobrindo corrida de estoque.
-  - Como corrigir: teste de integracao simulando duas compras simultaneas no mesmo lote.
-  - Criterio de aceite: teste falha no comportamento atual e passa apos correcao de reserva/estoque.
-  - Resultado: adicionado teste do `CreateCheckoutUseCase` simulando duas leituras concorrentes para o ultimo ingresso; apenas uma reserva atomica cria pedido.
+  - Problema: não há teste cobrindo corrida de estoque.
+  - Como corrigir: teste de integração simulando duas compras simultâneas no mesmo lote.
+  - Critério de aceite: teste falha no comportamento atual e passa após correção de reserva/estoque.
+  - Resultado: adicionado teste do `CreateCheckoutUseCase` simulando duas leituras concorrentes para o último ingresso; apenas uma reserva atômica cria pedido.
 
 - [x] **Adicionar testes de webhook pago**
-  - Problema: fluxo de pagamento aprovado precisa garantir idempotencia, emissao de tickets e ledger.
-  - Como corrigir: testar webhook duplicado, transicao `PENDING -> PAID`, criacao de tickets e entrada financeira.
-  - Criterio de aceite: webhook duplicado nao cria tickets nem ledger duplicados.
-  - Resultado: adicionados testes para webhook pago, duplicado, pagamento ja pago, pagamento nao encontrado, emissao idempotente de tickets e ledger financeiro unico.
+  - Problema: fluxo de pagamento aprovado precisa garantir idempotência, emissão de tickets e ledger.
+  - Como corrigir: testar webhook duplicado, transição `PENDING -> PAID`, criação de tickets e entrada financeira.
+  - Critério de aceite: webhook duplicado não cria tickets nem ledger duplicados.
+  - Resultado: adicionados testes para webhook pago, duplicado, pagamento já pago, pagamento não encontrado, emissão idempotente de tickets e ledger financeiro único.
 
 - [x] **Adicionar testes de check-in duplicado e QR adulterado**
-  - Problema: check-in e QR Code sao fluxo sensivel de entrada no evento.
-  - Como corrigir: testar ingresso valido, usado, cancelado e assinatura invalida.
-  - Criterio de aceite: QR adulterado e recusado; ingresso usado gera status duplicado.
-  - Resultado: adicionados testes para QR valido, QR adulterado, ingresso duplicado, ingresso cancelado, ticket fora do tenant/evento e ausencia de `QR_CODE_SECRET`.
+  - Problema: check-in e QR Code são fluxo sensível de entrada no evento.
+  - Como corrigir: testar ingresso válido, usado, cancelado e assinatura inválida.
+  - Critério de aceite: QR adulterado é recusado; ingresso usado gera status duplicado.
+  - Resultado: adicionados testes para QR válido, QR adulterado, ingresso duplicado, ingresso cancelado, ticket fora do tenant/evento e ausência de `QR_CODE_SECRET`.
 
-- [x] **Corrigir recuperacao de senha para envio real**
-  - Problema: `forgotPassword` cria token, mas ainda ha TODO para envio por email/SMS.
-  - Evidencia: `apps/api/src/modules/auth/auth.service.ts`.
+- [x] **Corrigir recuperação de senha para envio real**
+  - Problema: `forgotPassword` cria token, mas ainda há TODO para envio por email/SMS.
+  - Evidência: `apps/api/src/modules/auth/auth.service.ts`.
   - Como corrigir: integrar provedor de email, template e fluxo de reset sem vazar token em logs/resposta.
-  - Criterio de aceite: usuario recebe link seguro de reset e token nao aparece na resposta da API.
-  - Resultado: `forgotPassword` agora envia link por SMTP via `MailService`, nao retorna token, producao exige configuracao SMTP e web tem pagina `/reset-password`.
+  - Critério de aceite: usuário recebe link seguro de reset e token não aparece na resposta da API.
+  - Resultado: `forgotPassword` agora envia link por SMTP via `MailService`, não retorna token, produção exige configuração SMTP e web tem página `/reset-password`.
 
-- [x] **Aplicar permissoes nas rotas enterprise**
-  - Problema: varias rotas enterprise usam apenas `JwtAuthGuard`, sem role/permissao especifica.
-  - Evidencia: `apps/api/src/modules/enterprise/enterprise.controller.ts`.
-  - Como corrigir: aplicar `RolesGuard`, `TeamPermissionGuard` e decorators por area.
-  - Criterio de aceite: equipe sem permissao nao acessa CRM, financeiro, white-label, API keys ou seguranca.
-  - Resultado: rotas enterprise privadas agora exigem role enterprise e permissao por area; rotas de marketplace para cliente autenticado mantem acesso especifico.
+- [x] **Aplicar permissões nas rotas enterprise**
+  - Problema: várias rotas enterprise usam apenas `JwtAuthGuard`, sem role/permissão especifica.
+  - Evidência: `apps/api/src/modules/enterprise/enterprise.controller.ts`.
+  - Como corrigir: aplicar `RolesGuard`, `TeamPermissionGuard` e decorators por área.
+  - Critério de aceite: equipe sem permissão não acessa CRM, financeiro, white-label, API keys ou segurança.
+  - Resultado: rotas enterprise privadas agora exigem role enterprise e permissão por area; rotas de marketplace para cliente autenticado mantém acesso específico.
 
-### P2 - Produto, Manutencao e Clareza
+### P2 - Produto, Manutenção e Clareza
 
-- [x] **Separar `EnterpriseService` por dominio**
-  - Problema: arquivo concentra muitas responsabilidades em um servico grande.
-  - Evidencia: `apps/api/src/modules/enterprise/enterprise.service.ts`.
-  - Como corrigir: dividir em servicos menores: white-label, CRM, marketing, analytics, seat maps, marketplace, AI, security.
-  - Criterio de aceite: cada servico tem responsabilidade unica e testes proprios.
-  - Resultado: `EnterpriseService` virou fachada de 187 linhas e a logica foi separada em 13 servicos por dominio com teste de delegacao.
+- [x] **Separar `EnterpriseService` por domínio**
+  - Problema: arquivo concentra muitas responsabilidades em um serviço grande.
+  - Evidência: `apps/api/src/modules/enterprise/enterprise.service.ts`.
+  - Como corrigir: dividir em serviços menores: white-label, CRM, marketing, analytics, seat maps, marketplace, AI, security.
+  - Critério de aceite: cada serviço tem responsabilidade única e testes próprios.
+  - Resultado: `EnterpriseService` virou fachada de 187 linhas e a lógica foi separada em 13 serviços por domínio com teste de delegação.
 
 - [x] **Trocar readiness fake por status real**
-  - Problema: `overview` retorna todos os modulos como prontos, mesmo quando sao parciais/prototipos.
-  - Evidencia: `apps/api/src/modules/enterprise/services/enterprise-overview.service.ts`.
+  - Problema: `overview` retorna todos os módulos como prontos, mesmo quando são parciais/protótipos.
+  - Evidência: `apps/api/src/modules/enterprise/services/enterprise-overview.service.ts`.
   - Como corrigir: usar status `not_started`, `prototype`, `partial`, `production_ready` com checks objetivos.
-  - Criterio de aceite: dashboard enterprise reflete maturidade real dos modulos.
-  - Resultado: `overview.readiness` agora usa status graduado com evidencia objetiva por modulo; web exibe o status e a evidencia.
+  - Critério de aceite: dashboard enterprise reflete maturidade real dos módulos.
+  - Resultado: `overview.readiness` agora usa status graduado com evidência objetiva por módulo; web exibe o status e a evidência.
 
 - [x] **Padronizar marca Event Flow**
   - Problema: README/docs usavam Event Flow, enquanto partes do web/mobile usavam outra marca.
-  - Evidencia: `README.md`, `apps/mobile/App.tsx`, `apps/mobile/src/offline-checkin.ts`.
-  - Como corrigir: escolher nome oficial e ajustar textos, storage keys, app name e documentacao.
-  - Criterio de aceite: uma unica marca aparece em web, API, mobile, docs e seed.
-  - Resultado: Event Flow foi definido como marca oficial; textos visiveis, metadata, docs, downloads e storage keys foram alinhados.
+  - Evidência: `README.md`, `apps/mobile/App.tsx`, `apps/mobile/src/offline-checkin.ts`.
+  - Como corrigir: escolher nome oficial e ajustar textos, storage keys, app name e documentação.
+  - Critério de aceite: uma única marca aparece em web, API, mobile, docs e seed.
+  - Resultado: Event Flow foi definido como marca oficial; textos visíveis, metadata, docs, downloads e storage keys foram alinhados.
 
-- [x] **Revisar documentacao para separar pronto, parcial e planejado**
-  - Problema: README e docs prometem funcionalidades enterprise que ainda nao estao completas.
-  - Como corrigir: criar matriz de maturidade por modulo e ajustar promessas.
-  - Criterio de aceite: qualquer pessoa entende o que pode ser usado hoje e o que e roadmap.
-  - Resultado: criada matriz `docs/product-maturity.md`; README, indice tecnico e enterprise platform agora apontam pronto/parcial/prototipo.
+- [x] **Revisar documentação para separar pronto, parcial e planejado**
+  - Problema: README e docs prometem funcionalidades enterprise que ainda não estão completas.
+  - Como corrigir: criar matriz de maturidade por módulo e ajustar promessas.
+  - Critério de aceite: qualquer pessoa entende o que pode ser usado hoje e o que é roadmap.
+  - Resultado: criada matriz `docs/product-maturity.md`; README, índice técnico e enterprise platform agora apontam pronto/parcial/protótipo.
 
-- [x] **Reduzir uso de `any` em areas criticas**
+- [x] **Reduzir uso de `any` em áreas críticas**
   - Problema: `any` reduz confiabilidade de contratos em checkout, reports, enterprise, web e mobile.
   - Como corrigir: criar tipos/DTOs para payloads, responses e entidades derivadas.
-  - Criterio de aceite: fluxos criticos sem `any` evitavel.
-  - Resultado: checkout, reports, mobile e helper web foram tipados; enterprise manteve apenas wrapper Prisma dinamico isolado por compatibilidade.
+  - Critério de aceite: fluxos críticos sem `any` evitável.
+  - Resultado: checkout, reports, mobile e helper web foram tipados; enterprise manteve apenas wrapper Prisma dinâmico isolado por compatibilidade.
 
-### P3 - Infraestrutura e Operacao
+### P3 - Infraestrutura e Operação
 
 - [x] **Configurar storage externo para uploads**
-  - Problema: upload local em disco nao escala bem e pode perder arquivos em deploy.
-  - Evidencia: `apps/api/src/modules/upload/upload.controller.ts`.
-  - Como corrigir: S3/CloudFront ou storage equivalente, mantendo validacao de tipo e tamanho.
-  - Criterio de aceite: upload retorna URL persistente externa e funciona em ambiente stateless.
-  - Resultado: upload usa `memoryStorage`, valida tipo/assinatura antes de persistir e envia assets para S3 quando configurado; producao exige S3/public URL.
+  - Problema: upload local em disco não escala bem e pode perder arquivos em deploy.
+  - Evidência: `apps/api/src/modules/upload/upload.controller.ts`.
+  - Como corrigir: S3/CloudFront ou storage equivalente, mantendo validação de tipo e tamanho.
+  - Critério de aceite: upload retorna URL persistente externa e funciona em ambiente stateless.
+  - Resultado: upload usa `memoryStorage`, valida tipo/assinatura antes de persistir e envia assets para S3 quando configurado; produção exige S3/public URL.
 
 - [x] **Fortalecer observabilidade**
-  - Problema: Prometheus/Grafana existem na infra, mas faltam metricas de negocio e alertas praticos.
-  - Como corrigir: metricas para checkout, webhook, pagamento, check-in, fila e erros.
-  - Criterio de aceite: dashboard mostra saude dos fluxos criticos e alertas acionaveis.
-  - Resultado: `/metrics` agora usa `BusinessMetricsService`; checkout, pagamento, webhook e check-in registram contadores de negocio sem labels com PII/secrets; documentacao lista metricas implementadas e proximos sinais recomendados.
+  - Problema: Prometheus/Grafana existem na infra, mas faltam métricas de negócio e alertas práticos.
+  - Como corrigir: métricas para checkout, webhook, pagamento, check-in, fila e erros.
+  - Critério de aceite: dashboard mostra saúde dos fluxos críticos e alertas acionáveis.
+  - Resultado: `/metrics` agora usa `BusinessMetricsService`; checkout, pagamento, webhook e check-in registram contadores de negócio sem labels com PII/secrets; documentação lista métricas implementadas e próximos sinais recomendados.
 
 - [x] **Preparar mobile para ambiente real**
   - Problema: app mobile usa API fixa local e token manual.
-  - Evidencia: `apps/mobile/App.tsx`.
-  - Como corrigir: tela de login, ambiente configuravel e armazenamento seguro do token.
-  - Criterio de aceite: operador consegue logar e sincronizar em staging/producao sem colar token manualmente.
-  - Resultado: app mobile agora tem login por email/senha, API URL configuravel, token salvo em `expo-secure-store`, recuperacao de sessao, logout, persistencia de evento/device e registro de device com validacao da permissao `CHECK_IN`.
+  - Evidência: `apps/mobile/App.tsx`.
+  - Como corrigir: tela de login, ambiente configurável e armazenamento seguro do token.
+  - Critério de aceite: operador consegue logar e sincronizar em staging/produção sem colar token manualmente.
+  - Resultado: app mobile agora tem login por email/senha, API URL configurável, token salvo em `expo-secure-store`, recuperação de sessão, logout, persistência de evento/device e registro de device com validação da permissão `CHECK_IN`.
 
 ## Progresso
 
 - Total de itens: 18
-- Concluidos: 18
+- Concluídos: 18
 - Em andamento: 0
 - Bloqueados: 0
 
-## Registro de Execucao
+## Registro de Execução
 
 ### 2026-08-15
 
-- Criado checklist inicial apos analise completa do projeto.
-- Primeira recomendacao de execucao: comecar por **Evitar oversell no checkout**, porque afeta dinheiro, estoque e confianca do produto.
-- Concluido **Evitar oversell no checkout**:
+- Criado checklist inicial após análise completa do projeto.
+- Primeira recomendação de execução: começar por **Evitar oversell no checkout**, porque afeta dinheiro, estoque e confiança do produto.
+- Concluído **Evitar oversell no checkout**:
   - Adicionado campo `stockReservedAt` em `Order`.
-  - Adicionada migracao `20260815120000_order_stock_reservation`.
-  - Checkout agora reserva estoque com atualizacao condicional atomica.
-  - Pagamento aprovado nao incrementa estoque novamente quando o pedido ja tinha reserva.
+  - Adicionada migração `20260815120000_order_stock_reservation`.
+  - Checkout agora reserva estoque com atualização condicional atômica.
+  - Pagamento aprovado não incrementa estoque novamente quando o pedido já tinha reserva.
   - Cancelamento/reembolso libera estoque reservado.
   - Falha ao criar checkout no provedor externo cancela o pedido e libera a reserva.
-  - Verificacoes executadas:
+  - Verificações executadas:
     - `pnpm --filter @eventflow/api test`
     - `pnpm --filter @eventflow/api build`
     - `git diff --check`
-- Concluido **Proteger consulta publica de pedido**:
+- Concluído **Proteger consulta pública de pedido**:
   - Adicionado campo `orderAccessToken` em `Order`.
-  - Consulta publica do pedido agora exige `accessToken`.
+  - Consulta pública do pedido agora exige `accessToken`.
   - URL de retorno/sucesso do provedor inclui `orderId` e `accessToken`.
-  - Pagina `/checkout/success` so consulta pedido quando os dois parametros existem.
-  - Adicionados testes unitarios para token ausente, token invalido, token valido, retorno do token no checkout e URLs do provedor.
-  - Verificacoes executadas:
+  - Página `/checkout/success` so consulta pedido quando os dois parâmetros existem.
+  - Adicionados testes unitários para token ausente, token inválido, token válido, retorno do token no checkout e URLs do provedor.
+  - Verificações executadas:
     - `pnpm --filter @eventflow/api test -- checkout.service.spec.ts payments.service.spec.ts transfers.service.spec.ts`
     - `pnpm --filter @eventflow/api test`
     - `pnpm --filter @eventflow/api build`
     - `pnpm --filter @eventflow/web build`
     - `git diff --check`
-- Concluido **Restringir alteracao manual de status de pagamento**:
+- Concluído **Restringir alteração manual de status de pagamento**:
   - `PaymentsController` agora usa `JwtAuthGuard` e `RolesGuard`.
   - `PATCH /payments/:id/status` exige `ADMIN`.
   - `POST /payments/orders/:orderId/preference` exige `ADMIN` ou `ORGANIZER`.
-  - Criacao autenticada de preferencia de pagamento valida o tenant do pedido.
-  - Adicionados testes para roles do controller, bloqueio por tenant errado e criacao por tenant correto.
-  - Verificacoes executadas:
+  - Criação autenticada de preferência de pagamento valida o tenant do pedido.
+  - Adicionados testes para roles do controller, bloqueio por tenant errado e criação por tenant correto.
+  - Verificações executadas:
     - `pnpm --filter @eventflow/api test -- payments.controller.spec.ts payments.service.spec.ts checkout.service.spec.ts`
     - `pnpm --filter @eventflow/api test`
     - `pnpm --filter @eventflow/api build`
     - `git diff --check`
-- Concluido **Mover refresh token para cookie HttpOnly**:
+- Concluído **Mover refresh token para cookie HttpOnly**:
   - Auth API agora seta cookie `eventflow_refresh` HttpOnly em login, registro, registro de organizador, refresh e upgrade para organizador.
   - `POST /auth/refresh` aceita refresh pelo cookie HttpOnly.
   - `POST /auth/logout` limpa cookie e revoga refresh token no banco.
-  - Web nao espera nem persiste `refreshToken`; chamadas usam `credentials: "include"`.
-  - Adicionados testes para cookie HttpOnly, ausencia de `refreshToken` na resposta, refresh via cookie, logout com limpeza de cookie e revogacao por hash.
-  - Verificacoes executadas:
+  - Web não espera nem persiste `refreshToken`; chamadas usam `credentials: "include"`.
+  - Adicionados testes para cookie HttpOnly, ausência de `refreshToken` na resposta, refresh via cookie, logout com limpeza de cookie e revogação por hash.
+  - Verificações executadas:
     - `pnpm --filter @eventflow/api test -- auth.controller.spec.ts auth.service.spec.ts`
     - `pnpm --filter @eventflow/api test`
     - `pnpm --filter @eventflow/api build`
     - `pnpm --filter @eventflow/web build`
     - `rg -n "refreshToken" apps/web`
     - `git diff --check`
-- Concluido **Remover secrets default fracos em producao**:
+- Concluído **Remover secrets default fracos em produção**:
   - `envSchema` agora exige `JWT_ACCESS_SECRET`, `JWT_REFRESH_SECRET`, `JWT_RESET_SECRET` e `QR_CODE_SECRET` fortes em `NODE_ENV=production`.
   - Defaults de desenvolvimento foram renomeados para `dev-only-*`.
-  - `.env.example` foi atualizado para deixar claro que os valores sao apenas locais.
-  - Removidos fallbacks `change-me-*` de assinatura/validacao de QR Code nos servicos de pagamento, check-in e transferencia.
-  - Adicionados testes para defaults de desenvolvimento, producao sem secrets, producao com secrets fracos e producao com secrets fortes.
-  - Verificacoes executadas:
+  - `.env.example` foi atualizado para deixar claro que os valores são apenas locais.
+  - Removidos fallbacks `change-me-*` de assinatura/validação de QR Code nos serviços de pagamento, check-in e transferência.
+  - Adicionados testes para defaults de desenvolvimento, produção sem secrets, produção com secrets fracos e produção com secrets fortes.
+  - Verificações executadas:
     - `pnpm --filter @eventflow/api test -- env.schema.spec.ts payments.service.spec.ts transfers.service.spec.ts`
     - `pnpm --filter @eventflow/api test`
     - `pnpm --filter @eventflow/api build`
     - `rg -n "change-me" apps/api/src .env.example`
     - `git diff --check`
-- Concluido **Adicionar testes de checkout concorrente**:
+- Concluído **Adicionar testes de checkout concorrente**:
   - Adicionado `create-checkout.use-case.spec.ts`.
-  - Teste simula duas tentativas para o ultimo ingresso com leitura de estoque obsoleta e reserva atomica condicional.
-  - Verifica que apenas um pedido e criado, estoque reservado fica em 1, `stockReservedAt` e `orderAccessToken` sao preenchidos, e a segunda tentativa falha.
-  - Verificacoes executadas:
+  - Teste simula duas tentativas para o último ingresso com leitura de estoque obsoleta e reserva atômica condicional.
+  - Verifica que apenas um pedido é criado, estoque reservado fica em 1, `stockReservedAt` e `orderAccessToken` são preenchidos, e a segunda tentativa falha.
+  - Verificações executadas:
     - `pnpm --filter @eventflow/api test -- create-checkout.use-case.spec.ts checkout.service.spec.ts payments.service.spec.ts`
     - `pnpm --filter @eventflow/api test`
     - `pnpm --filter @eventflow/api build`
     - `git diff --check`
-- Concluido **Adicionar testes de webhook pago**:
-  - Adicionado `webhooks.service.spec.ts` cobrindo pagamento pago via AbacatePay, log processado, auditoria e notificacao do comprador.
-  - Adicionados testes de duplicidade para garantir que webhook ja processado nao chama pagamento nem notificacao.
-  - Ampliado `payments.service.spec.ts` para cobrir `PENDING -> PAID`, emissao de tickets, ledger unico, retry idempotente e ordem legada sem reserva de estoque.
-  - Verificacoes executadas:
+- Concluído **Adicionar testes de webhook pago**:
+  - Adicionado `webhooks.service.spec.ts` cobrindo pagamento pago via AbacatePay, log processado, auditoria e notificação do comprador.
+  - Adicionados testes de duplicidade para garantir que webhook já processado não chama pagamento nem notificação.
+  - Ampliado `payments.service.spec.ts` para cobrir `PENDING -> PAID`, emissão de tickets, ledger único, retry idempotente e ordem legada sem reserva de estoque.
+  - Verificações executadas:
     - `pnpm --filter @eventflow/api test -- webhooks.service.spec.ts payments.service.spec.ts`
     - `pnpm --filter @eventflow/api test`
     - `pnpm --filter @eventflow/api build`
     - `git diff --check`
-- Concluido **Adicionar testes de check-in duplicado e QR adulterado**:
+- Concluído **Adicionar testes de check-in duplicado e QR adulterado**:
   - Adicionado `validate-ticket.use-case.spec.ts`.
-  - Testes cobrem entrada liberada, QR adulterado recusado antes de consultar ticket, duplicidade com log, ticket cancelado com log, ticket nao encontrado no tenant/evento e falha fechada sem `QR_CODE_SECRET`.
-  - Verificacoes executadas:
+  - Testes cobrem entrada liberada, QR adulterado recusado antes de consultar ticket, duplicidade com log, ticket cancelado com log, ticket não encontrado no tenant/evento e falha fechada sem `QR_CODE_SECRET`.
+  - Verificações executadas:
     - `pnpm --filter @eventflow/api test -- validate-ticket.use-case.spec.ts payments.service.spec.ts transfers.service.spec.ts`
     - `pnpm --filter @eventflow/api test`
     - `pnpm --filter @eventflow/api build`
     - `git diff --check`
-- Concluido **Corrigir recuperacao de senha para envio real**:
-  - Adicionado `MailService` com envio SMTP por Nodemailer e fallback seguro de desenvolvimento quando SMTP nao esta configurado.
-  - `forgotPassword` agora cria token com hash, envia link de reset e mantem resposta generica sem expor token.
-  - `envSchema` exige `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS` e `SMTP_FROM` em producao.
-  - `.env.example` documenta as variaveis SMTP.
-  - Criada pagina web `/reset-password` para consumir o token recebido por email.
-  - Adicionados testes para envio SMTP, fallback sem SMTP, nao vazamento do token, usuario inexistente e validacao de SMTP em producao.
-  - Verificacoes executadas:
+- Concluído **Corrigir recuperação de senha para envio real**:
+  - Adicionado `MailService` com envio SMTP por Nodemailer e fallback seguro de desenvolvimento quando SMTP não está configurado.
+  - `forgotPassword` agora cria token com hash, envia link de reset e mantém resposta genérica sem expor token.
+  - `envSchema` exige `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS` e `SMTP_FROM` em produção.
+  - `.env.example` documenta as variáveis SMTP.
+  - Criada página web `/reset-password` para consumir o token recebido por email.
+  - Adicionados testes para envio SMTP, fallback sem SMTP, não vazamento do token, usuário inexistente e validação de SMTP em produção.
+  - Verificações executadas:
     - `pnpm --filter @eventflow/api test -- auth.service.spec.ts mail.service.spec.ts env.schema.spec.ts`
     - `pnpm --filter @eventflow/api test`
     - `pnpm --filter @eventflow/api build`
     - `pnpm --filter @eventflow/web build`
     - `git diff --check`
-- Concluido **Aplicar permissoes nas rotas enterprise**:
+- Concluído **Aplicar permissões nas rotas enterprise**:
   - Criados decorators locais para padronizar guards enterprise no controller.
-  - Rotas privadas enterprise agora exigem `JwtAuthGuard`, `RolesGuard`, `TeamPermissionGuard`, role `ADMIN`/`ORGANIZER`/`TEAM` e permissao especifica por area.
-  - White-label, CRM, marketing, afiliados, analytics, API publica, seat maps, seguranca, mobile check-in e infraestrutura receberam permissoes dedicadas.
-  - Reviews e favoritos do marketplace continuam disponiveis para usuarios autenticados, sem abrir as rotas administrativas enterprise.
-  - Adicionados testes de metadados e testes negativos reais dos guards para cliente comum e membro de equipe sem permissao.
-  - Verificacoes executadas:
+  - Rotas privadas enterprise agora exigem `JwtAuthGuard`, `RolesGuard`, `TeamPermissionGuard`, role `ADMIN`/`ORGANIZER`/`TEAM` e permissão especifica por area.
+  - White-label, CRM, marketing, afiliados, analytics, API pública, seat maps, segurança, mobile check-in e infraestrutura receberam permissões dedicadas.
+  - Reviews e favoritos do marketplace continuam disponíveis para usuários autenticados, sem abrir as rotas administrativas enterprise.
+  - Adicionados testes de metadados e testes negativos reais dos guards para cliente comum e membro de equipe sem permissão.
+  - Verificações executadas:
     - `pnpm --filter @eventflow/api test -- enterprise.controller.spec.ts`
     - `pnpm --filter @eventflow/api test`
     - `pnpm --filter @eventflow/api build`
     - `git diff --check`
-- Concluido **Separar `EnterpriseService` por dominio**:
-  - Criado `EnterpriseDomainService` com helpers compartilhados de tenant, strings, hash, slug e validacao de evento.
-  - Extraidos servicos por dominio: overview, white-label, mobile, afiliados, CRM, marketing, analytics, API publica, seat maps, marketplace, AI/executive, security e infrastructure.
-  - `EnterpriseService` agora e uma fachada fina que preserva o contrato usado pelo controller.
-  - `EnterpriseModule` registra todos os providers de dominio.
-  - Adicionado `enterprise.service.spec.ts` cobrindo a delegacao de todos os metodos publicos para o dominio correto.
-  - Verificacoes executadas:
+- Concluído **Separar `EnterpriseService` por domínio**:
+  - Criado `EnterpriseDomainService` com helpers compartilhados de tenant, strings, hash, slug e validação de evento.
+  - Extraídos serviços por domínio: overview, white-label, mobile, afiliados, CRM, marketing, analytics, API pública, seat maps, marketplace, AI/executive, security e infrastructure.
+  - `EnterpriseService` agora é uma fachada fina que preserva o contrato usado pelo controller.
+  - `EnterpriseModule` registra todos os providers de domínio.
+  - Adicionado `enterprise.service.spec.ts` cobrindo a delegação de todos os métodos públicos para o domínio correto.
+  - Verificações executadas:
     - `pnpm --filter @eventflow/api test -- enterprise.controller.spec.ts enterprise.service.spec.ts`
     - `pnpm --filter @eventflow/api test`
     - `pnpm --filter @eventflow/api build`
     - `git diff --check`
-- Concluido **Trocar readiness fake por status real**:
+- Concluído **Trocar readiness fake por status real**:
   - `EnterpriseOverviewService` deixou de retornar booleanos sempre verdadeiros.
   - Readiness agora usa `not_started`, `prototype`, `partial` e `production_ready`.
-  - Status e evidencias sao calculados com dados reais do tenant: white-label, mobile, afiliados, CRM, marketing, analytics, API publica, seat maps, marketplace, IA, seguranca e infraestrutura.
-  - Pagina web `/enterprise` foi atualizada para exibir status e evidencia por modulo.
+  - Status e evidências são calculados com dados reais do tenant: white-label, mobile, afiliados, CRM, marketing, analytics, API pública, seat maps, marketplace, IA, segurança e infraestrutura.
+  - Página web `/enterprise` foi atualizada para exibir status e evidência por módulo.
   - Adicionado `enterprise-overview.service.spec.ts` cobrindo tenant sem dados e tenant com setup completo.
-  - Verificacoes executadas:
+  - Verificações executadas:
     - `pnpm --filter @eventflow/api test -- enterprise-overview.service.spec.ts enterprise.service.spec.ts enterprise.controller.spec.ts`
     - `pnpm --filter @eventflow/api test`
     - `pnpm --filter @eventflow/api build`
     - `pnpm --filter @eventflow/web build`
     - `git diff --check`
-- Concluido **Padronizar marca Event Flow**:
+- Concluído **Padronizar marca Event Flow**:
   - Event Flow foi definido como marca oficial do produto.
-  - Web atualizado em metadata, rodapes, politica de cookies, logo acessivel, texto do logo e nomes de download.
-  - Mobile atualizado em textos visiveis, fallback de device ID e avatar.
+  - Web atualizado em metadata, rodapés, política de cookies, logo acessível, texto do logo e nomes de download.
+  - Mobile atualizado em textos visíveis, fallback de device ID e avatar.
   - API/docs/testes alinhados em textos financeiros, AbacatePay e dados de teste.
-  - Mantidos identificadores tecnicos `@eventflow/*`, cookies, metricas, containers e namespaces por compatibilidade.
-  - Verificacoes executadas:
+  - Mantidos identificadores técnicos `@eventflow/*`, cookies, métricas, containers e namespaces por compatibilidade.
+  - Verificações executadas:
     - `pnpm --filter @eventflow/api test -- transfers.service.spec.ts`
     - `pnpm --filter @eventflow/mobile typecheck`
     - `pnpm --filter @eventflow/api test`
@@ -310,24 +310,24 @@ Se algum teste nao puder ser executado, o item deve ficar `[~]` ou `[!]` com o m
     - `pnpm --filter @eventflow/web build`
     - busca por nomes antigos da marca em `apps`, `docs`, `README.md`, `package.json` e `test-abacatepay.mjs`
     - `git diff --check`
-- Concluido **Revisar documentacao para separar pronto, parcial e planejado**:
+- Concluído **Revisar documentação para separar pronto, parcial e planejado**:
   - Criada `docs/product-maturity.md` com legenda `production_ready`, `partial`, `prototype` e `not_started`.
   - README ganhou resumo de maturidade e link direto para a matriz.
-  - `docs/index.md` passou a tratar a matriz como fonte canonica de maturidade.
-  - `docs/enterprise-platform.md` foi reescrito como inventario com status e lacunas, nao como promessa de prontidao.
-  - Verificacoes executadas:
+  - `docs/index.md` passou a tratar a matriz como fonte canônica de maturidade.
+  - `docs/enterprise-platform.md` foi reescrito como inventário com status e lacunas, não como promessa de prontidão.
+  - Verificações executadas:
     - `rg -n "product-maturity|Product Maturity|Maturidade do produto|production_ready|partial|prototype|not_started" README.md docs/index.md docs/enterprise-platform.md docs/product-maturity.md docs/project-fix-checklist.md`
     - `pnpm --filter @eventflow/api test`
     - `pnpm --filter @eventflow/web build`
     - `git diff --check`
-- Concluido **Reduzir uso de `any` em areas criticas**:
+- Concluído **Reduzir uso de `any` em áreas críticas**:
   - `CreateCheckoutUseCase` agora usa `Prisma.TransactionClient` e `Prisma.EventGetPayload` nos helpers transacionais.
-  - `ReportsService` ganhou tipos para participantes e linhas de exportacao.
+  - `ReportsService` ganhou tipos para participantes e linhas de exportação.
   - `ReportsProcessor` ganhou tipos de job/result e tratamento de erro sem `any`.
   - `apps/web/lib/api.ts` ganhou `ApiError` tipado com `status`.
   - `apps/mobile/App.tsx` ganhou props tipadas para `CheckInTab` e `SyncTab`.
-  - `AnyRecord` enterprise passou a representar payloads como `Record<string, unknown>`; o acesso Prisma dinamico ficou isolado em `DynamicPrismaClient`.
-  - Verificacoes executadas:
+  - `AnyRecord` enterprise passou a representar payloads como `Record<string, unknown>`; o acesso Prisma dinâmico ficou isolado em `DynamicPrismaClient`.
+  - Verificações executadas:
     - `pnpm --filter @eventflow/mobile typecheck`
     - `pnpm --filter @eventflow/web build`
     - `pnpm --filter @eventflow/api test`
@@ -335,41 +335,41 @@ Se algum teste nao puder ser executado, o item deve ficar `[~]` ou `[!]` com o m
     - `pnpm --filter @eventflow/api build`
     - `rg -n "\\bany\\b|as any|Record<string, any>" apps/api/src/modules/checkout apps/api/src/modules/enterprise apps/api/src/modules/reports apps/web/lib apps/mobile/App.tsx -g '*.ts' -g '*.tsx'`
     - `git diff --check`
-- Concluido **Configurar storage externo para uploads**:
+- Concluído **Configurar storage externo para uploads**:
   - Adicionado `@aws-sdk/client-s3` na API.
-  - Criado `UploadStorageService` com upload S3, URL publica externa e fallback local apenas fora de producao.
-  - Upload agora usa `memoryStorage`, validando extensao, MIME type e magic number antes de persistir.
+  - Criado `UploadStorageService` com upload S3, URL pública externa e fallback local apenas fora de produção.
+  - Upload agora usa `memoryStorage`, validando extensão, MIME type e magic number antes de persistir.
   - `NODE_ENV=production` exige `AWS_S3_ASSETS_BUCKET` e `AWS_S3_ASSETS_PUBLIC_URL`.
   - `.env.example`, `docs/infrastructure-deploy.md` e `docs/product-maturity.md` foram atualizados.
-  - Adicionados testes para S3, producao sem storage externo, arquivo adulterado, extensao invalida e controller protegido por JWT.
-  - Verificacoes executadas:
+  - Adicionados testes para S3, produção sem storage externo, arquivo adulterado, extensão inválida e controller protegido por JWT.
+  - Verificações executadas:
     - `pnpm --filter @eventflow/api test -- upload-storage.service.spec.ts upload.controller.spec.ts env.schema.spec.ts`
     - `pnpm --filter @eventflow/api test`
     - `pnpm --filter @eventflow/api build`
     - `git diff --check`
-- Concluido **Fortalecer observabilidade**:
-  - Criado `BusinessMetricsService` global para renderizar metricas Prometheus dinamicas em `/metrics`.
-  - Checkout registra pedidos criados e conflitos de estoque sem labels sensiveis.
-  - Pagamentos registram transicoes de status e quantidade de tickets emitidos.
-  - Webhooks registram recebidos, processados, duplicados e nao encontrados por provedor/status.
-  - Check-in registra entradas liberadas, recusadas, duplicadas, nao encontradas e assinaturas invalidas.
-  - `docs/observability.md` agora lista metricas implementadas e reforca que labels nao devem conter PII, tokens ou identificadores de pagamento.
-  - Adicionado teste unitario garantindo formato Prometheus e ausencia de labels como `email` e `token`.
-  - Verificacoes executadas:
+- Concluído **Fortalecer observabilidade**:
+  - Criado `BusinessMetricsService` global para renderizar métricas Prometheus dinâmicas em `/metrics`.
+  - Checkout registra pedidos criados e conflitos de estoque sem labels sensíveis.
+  - Pagamentos registram transições de status e quantidade de tickets emitidos.
+  - Webhooks registram recebidos, processados, duplicados e não encontrados por provedor/status.
+  - Check-in registra entradas liberadas, recusadas, duplicadas, não encontradas e assinaturas inválidas.
+  - `docs/observability.md` agora lista métricas implementadas e reforça que labels não devem conter PII, tokens ou identificadores de pagamento.
+  - Adicionado teste unitário garantindo formato Prometheus e ausência de labels como `email` e `token`.
+  - Verificações executadas:
     - `pnpm --filter @eventflow/api test -- business-metrics.service.spec.ts create-checkout.use-case.spec.ts payments.service.spec.ts webhooks.service.spec.ts validate-ticket.use-case.spec.ts`
     - `pnpm --filter @eventflow/api test`
     - `pnpm --filter @eventflow/api build`
     - `git diff --check`
-- Concluido **Preparar mobile para ambiente real**:
+- Concluído **Preparar mobile para ambiente real**:
   - Adicionado `expo-secure-store` para persistir o access token fora de storage comum.
-  - Criado `src/mobile-auth.ts` com normalizacao da API URL, login, leitura de `/auth/me` e registro de device mobile.
-  - App mobile agora exibe tela de login por email/senha e nao pede token manual.
-  - API URL, evento e device sao configuraveis e persistidos para staging/producao.
-  - Ao logar, o app registra o aparelho em `/enterprise/mobile/devices`, validando permissao `CHECK_IN` antes de liberar operacao.
-  - Perfil ganhou informacoes de ambiente/device e logout que remove o token seguro.
+  - Criado `src/mobile-auth.ts` com normalização da API URL, login, leitura de `/auth/me` e registro de device mobile.
+  - App mobile agora exibe tela de login por email/senha e não pede token manual.
+  - API URL, evento e device são configuráveis e persistidos para staging/produção.
+  - Ao logar, o app registra o aparelho em `/enterprise/mobile/devices`, validando permissão `CHECK_IN` antes de liberar operação.
+  - Perfil ganhou informações de ambiente/device e logout que remove o token seguro.
   - Adicionado teste mobile com `node:test`/`tsx` para login, token sem vazamento em URL, falha fechada sem access token e registro de device.
-  - Corrigido desalinhamento de `jest-mock` para manter a suite da API executavel depois da atualizacao do lockfile.
-  - Verificacoes executadas:
+  - Corrigido desalinhamento de `jest-mock` para manter a suite da API executável depois da atualização do lockfile.
+  - Verificações executadas:
     - `pnpm --filter @eventflow/mobile test`
     - `pnpm --filter @eventflow/mobile typecheck`
     - `pnpm --filter @eventflow/api test -- auth.controller.spec.ts auth.service.spec.ts enterprise.controller.spec.ts enterprise.service.spec.ts`

@@ -25,7 +25,7 @@ const nav = [
   { href: "/participants", label: "Participantes", icon: UserCheck, roles: ["ORGANIZER", "ADMIN", "TEAM"] },
   { href: "/check-in", label: "Check-in", icon: DoorOpen, roles: ["ORGANIZER", "ADMIN", "TEAM", "CHECKIN"] },
   { href: "/finance", label: "Financeiro", icon: CreditCard, roles: ["ORGANIZER", "ADMIN", "TEAM"] },
-  { href: "/reports", label: "Relatorios", icon: FileBarChart2, roles: ["ORGANIZER", "ADMIN", "TEAM"] },
+  { href: "/reports", label: "Relatórios", icon: FileBarChart2, roles: ["ORGANIZER", "ADMIN", "TEAM"] },
   { href: "/enterprise", label: "Enterprise", icon: Building2, roles: ["ORGANIZER", "ADMIN", "TEAM"] },
   { href: "/promoters", label: "Promoters", icon: Megaphone, roles: ["ORGANIZER", "ADMIN", "TEAM"] },
   { href: "/team", label: "Equipe", icon: Users, roles: ["ORGANIZER", "ADMIN"] },

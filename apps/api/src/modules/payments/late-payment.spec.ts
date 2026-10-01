@@ -68,7 +68,7 @@ describe("PaymentsService - pagamento depois do prazo da reserva", () => {
     expect(result).toEqual({ status: PaymentStatus.PAID });
   });
 
-  it("nao emite ingresso quando o lote esgotou e deixa o caso registrado", async () => {
+  it("não emite ingresso quando o lote esgotou e deixa o caso registrado", async () => {
     const { service, prisma, updateStatus } = setup({ stockAvailable: false });
     const logError = jest.spyOn((service as any).logger, "error").mockImplementation(() => undefined);
 
@@ -80,7 +80,7 @@ describe("PaymentsService - pagamento depois do prazo da reserva", () => {
     expect(logError).toHaveBeenCalledWith(expect.stringContaining("PAGO SEM ESTOQUE"));
   });
 
-  it("nao reativa um pagamento que ja tinha sido pago e depois cancelado", async () => {
+  it("não reativa um pagamento que já tinha sido pago e depois cancelado", async () => {
     const { service, prisma } = setup({ paidAt: new Date() });
 
     await service.reconcileProviderStatus("payment-1", "tenant-1");

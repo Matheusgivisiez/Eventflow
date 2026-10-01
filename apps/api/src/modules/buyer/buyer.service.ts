@@ -205,7 +205,7 @@ export class BuyerService {
     const ticket = await this.findOwnedTicket(userId, email, ticketId);
     if (ticket.status !== TicketStatus.AVAILABLE) {
       throw new BadRequestException(
-        "Somente ingressos disponiveis podem solicitar reembolso.",
+        "Somente ingressos disponíveis podem solicitar reembolso.",
       );
     }
 
@@ -374,7 +374,7 @@ export class BuyerService {
       include: { event: true, ticketType: true, order: true },
     });
     if (!ticket) {
-      throw new NotFoundException("Ingresso nao encontrado.");
+      throw new NotFoundException("Ingresso não encontrado.");
     }
     return ticket;
   }
@@ -522,16 +522,16 @@ export class BuyerService {
 
     <text x="${rightWidth / 2}" y="404" text-anchor="middle" font-family="${TICKET_FONT_FAMILY}" font-size="16" fill="#5c5470">Apresente este QR code</text>
     <text x="${rightWidth / 2}" y="426" text-anchor="middle" font-family="${TICKET_FONT_FAMILY}" font-size="16" fill="#5c5470">na entrada.</text>
-    <text x="${rightWidth / 2}" y="462" text-anchor="middle" font-family="${TICKET_FONT_FAMILY}" font-size="13" fill="#8477a3">Ingresso pessoal, validado uma unica vez.</text>
+    <text x="${rightWidth / 2}" y="462" text-anchor="middle" font-family="${TICKET_FONT_FAMILY}" font-size="13" fill="#8477a3">Ingresso pessoal, validado uma única vez.</text>
   </g>
 
   <g transform="translate(${cardX} ${cardY + cardHeight + 90})">
     <text x="0" y="0" font-family="${TICKET_FONT_FAMILY}" font-size="26" font-weight="800" fill="#171321">Como usar este ingresso</text>
     <g transform="translate(0 50)">
       ${[
-        "Chegue com antecedencia para evitar filas na entrada.",
+        "Chegue com antecedência para evitar filas na entrada.",
         "Apresente o QR Code acima (impresso ou na tela do celular).",
-        "Ingresso pessoal e intransferivel: leve um documento com foto.",
+        "Ingresso pessoal e intransferível: leve um documento com foto.",
       ]
         .map(
           (line, i) => `

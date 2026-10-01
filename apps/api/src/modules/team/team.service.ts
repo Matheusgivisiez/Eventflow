@@ -14,7 +14,7 @@ export class TeamService {
     let user = await this.prisma.user.findUnique({ where: { email: dto.email.toLowerCase() } });
     
     if (user && user.tenantId && user.tenantId !== tenantId) {
-      throw new BadRequestException("Usuario ja pertence a outra organizacao.");
+      throw new BadRequestException("Usuário ja pertence a outra organização.");
     }
 
     if (!user) {
@@ -30,7 +30,7 @@ export class TeamService {
           role: UserRole.TEAM
         }
       });
-      // Em um ambiente real, enviariamos um email com a senha temporaria aqui.
+      // Em um ambiente real, enviaríamos um email com a senha temporária aqui.
     }
 
     const existingMember = await this.prisma.teamMember.findUnique({
@@ -38,7 +38,7 @@ export class TeamService {
     });
 
     if (existingMember) {
-      throw new BadRequestException("Usuario ja e membro desta equipe.");
+      throw new BadRequestException("Usuário ja e membro desta equipe.");
     }
 
     return this.prisma.teamMember.create({
@@ -62,7 +62,7 @@ export class TeamService {
   async updatePermissions(id: string, tenantId: string, dto: UpdatePermissionsDto) {
     const member = await this.prisma.teamMember.findFirst({ where: { id, tenantId } });
     if (!member) {
-      throw new NotFoundException("Membro nao encontrado.");
+      throw new NotFoundException("Membro não encontrado.");
     }
 
     return this.prisma.teamMember.update({
@@ -75,7 +75,7 @@ export class TeamService {
   async removeMember(id: string, tenantId: string) {
     const member = await this.prisma.teamMember.findFirst({ where: { id, tenantId } });
     if (!member) {
-      throw new NotFoundException("Membro nao encontrado.");
+      throw new NotFoundException("Membro não encontrado.");
     }
     
     await this.prisma.teamMember.delete({ where: { id } });

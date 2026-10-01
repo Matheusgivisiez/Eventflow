@@ -21,12 +21,12 @@ export function formatCpfOrCnpj(value: string) {
 }
 
 /**
- * Digitos nacionais (DDD + numero), sem o DDI.
+ * Dígitos nacionais (DDD + número), sem o DDI.
  *
- * Nao completa nem corrige o que foi digitado: o campo e reformatado a cada
- * tecla, entao qualquer digito inventado aqui volta para a tela. Foi isso que
- * quebrou o apagar: ao apagar um digito de um celular completo sobravam 10
- * digitos, a funcao recolocava um "9" e o numero nunca encurtava.
+ * Não completa nem corrige o que foi digitado: o campo é reformatado a cada
+ * tecla, então qualquer dígito inventado aqui volta para a tela. Foi isso que
+ * quebrou o apagar: ao apagar um dígito de um celular completo sobravam 10
+ * dígitos, a função recolocava um "9" e o número nunca encurtava.
  */
 export function normalizeBrazilPhone(value: string) {
   const hasCountryPrefix = value.trim().startsWith("+55");
@@ -49,8 +49,8 @@ export function formatBrazilPhone(value: string) {
 
 /**
  * Nome e sobrenome. A InfinitePay recusa o link de pagamento inteiro
- * ("Invalid checkout link params") quando o nome do cliente tem uma palavra so,
- * entao o checkout exige pelo menos duas palavras, cada uma com 2+ letras.
+ * ("Invalid checkout link params") quando o nome do cliente tem uma palavra só,
+ * então o checkout exige pelo menos duas palavras, cada uma com 2+ letras.
  */
 export function hasFullName(value: string) {
   const parts = value.trim().split(/\s+/).filter((part) => /\p{L}.*\p{L}/u.test(part));

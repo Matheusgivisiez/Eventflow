@@ -9,14 +9,14 @@ export class CustomThrottlerGuard extends ThrottlerGuard {
   /**
    * A chave do contador nunca pode ser algo que o cliente escolhe livremente.
    *
-   * 1. Rotas de credencial sao limitadas pelo ALVO (e-mail da conta, token de
-   *    reset). Trocar de IP, de proxy ou de token nao abre um balde novo, entao
-   *    forca bruta contra uma conta continua limitada.
-   * 2. Um usuario so e identificado por um token com ASSINATURA VALIDA. Ler o
-   *    `sub` de um JWT nao verificado permitia enviar um sub aleatorio por
-   *    requisicao e zerar o contador a cada tentativa.
-   * 3. O IP e o ultimo recurso: `x-forwarded-for` e escrito pelo cliente e
-   *    nenhuma rota sensivel depende so dele.
+   * 1. Rotas de credencial são limitadas pelo ALVO (e-mail da conta, token de
+   *    reset). Trocar de IP, de proxy ou de token não abre um balde novo, então
+   *    força bruta contra uma conta continua limitada.
+   * 2. Um usuário só é identificado por um token com ASSINATURA VÁLIDA. Ler o
+   *    `sub` de um JWT não verificado permitia enviar um sub aleatório por
+   *    requisição e zerar o contador a cada tentativa.
+   * 3. O IP é o último recurso: `x-forwarded-for` é escrito pelo cliente e
+   *    nenhuma rota sensível depende so dele.
    */
   protected async getTracker(req: Record<string, any>): Promise<string> {
     const path: string = req.path || req.url || "";
@@ -36,7 +36,7 @@ export class CustomThrottlerGuard extends ThrottlerGuard {
 
   /**
    * Limite por alvo nas rotas que manipulam credenciais. O valor bruto nunca
-   * entra na chave (ela vai para o Redis e para logs), so o hash.
+   * entra na chave (ela vai para o Redis e para logs), só o hash.
    */
   private credentialTracker(path: string, body: unknown): string | undefined {
     const payload = (body ?? {}) as Record<string, unknown>;
@@ -61,8 +61,8 @@ export class CustomThrottlerGuard extends ThrottlerGuard {
 
   /**
    * Devolve o `sub` apenas quando a assinatura HS256 do token confere com
-   * JWT_ACCESS_SECRET e o token nao expirou. Qualquer outra coisa e tratada
-   * como requisicao anonima.
+   * JWT_ACCESS_SECRET e o token não expirou. Qualquer outra coisa é tratada
+   * como requisição anônima.
    */
   private verifiedSubject(authorization: unknown): string | undefined {
     if (typeof authorization !== "string" || !authorization.startsWith("Bearer ")) {

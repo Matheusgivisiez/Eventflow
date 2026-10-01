@@ -37,7 +37,7 @@ export async function loginWithPassword(
   }
   const userPayload = asRecord(payload.user);
   if (!payload.accessToken || !userPayload) {
-    throw new Error("Resposta de login invalida.");
+    throw new Error("Resposta de login inválida.");
   }
 
   return {
@@ -59,7 +59,7 @@ export async function fetchCurrentUser(apiUrl: string, token: string, fetcher: F
 
   const payload = await readJson(response);
   if (!response.ok) {
-    throw new Error(errorMessage(payload, "Sessao expirada."));
+    throw new Error(errorMessage(payload, "Sessão expirada."));
   }
 
   return {
@@ -88,7 +88,7 @@ export async function registerMobileDevice(
 
   const payload = await readJson(response);
   if (!response.ok) {
-    throw new Error(errorMessage(payload, "Conta sem permissao para check-in mobile."));
+    throw new Error(errorMessage(payload, "Conta sem permissão para check-in mobile."));
   }
 
   return payload;

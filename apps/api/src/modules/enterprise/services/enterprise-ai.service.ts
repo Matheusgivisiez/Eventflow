@@ -32,7 +32,7 @@ export class EnterpriseAiService extends EnterpriseDomainService {
       salesForecast: Math.round(paidOrders + velocity * horizonDays),
       nextBatchTriggerInDays: Math.max(1, Math.round(7 - velocity)),
       suggestedPriceLiftBps: velocity > 15 ? 800 : velocity > 5 ? 400 : 0,
-      behaviorSummary: pendingOrders > paidOrders ? "Alta friccao no checkout; revisar pagamento e prova social." : "Conversao saudavel para o volume atual."
+      behaviorSummary: pendingOrders > paidOrders ? "Alta fricção no checkout; revisar pagamento e prova social." : "Conversão saudável para o volume atual."
     };
     return this.db().aiForecast.create({
       data: {

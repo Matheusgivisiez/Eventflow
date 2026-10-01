@@ -45,7 +45,7 @@ export class TeamPermissionGuard implements CanActivate {
     const hasPermission = requiredPermissions.every((perm) => member.permissions.includes(perm));
     
     if (!hasPermission) {
-      throw new ForbiddenException("Voce nao tem permissao para realizar esta acao na equipe.");
+      throw new ForbiddenException("Você não tem permissão para realizar esta ação na equipe.");
     }
 
     return true;

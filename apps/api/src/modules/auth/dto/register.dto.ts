@@ -26,6 +26,6 @@ export class RegisterDto {
   @IsString()
   @IsNotEmpty()
   @Transform(({ value }) => typeof value === "string" ? value.replace(/\D/g, "") : value)
-  @Matches(/^\d{11}$/, { message: "Informe um CPF valido com 11 digitos." })
+  @Matches(/^\d{11}$/, { message: "Informe um CPF válido com 11 dígitos." })
   cpf!: string;
 }

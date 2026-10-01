@@ -2,7 +2,7 @@ import { ArgumentsHost } from "@nestjs/common";
 import { HttpExceptionFilter } from "./http-exception.filter";
 
 describe("HttpExceptionFilter", () => {
-  it("nao expoe detalhes de uma excecao inesperada ao cliente", () => {
+  it("não expõe detalhes de uma exceção inesperada ao cliente", () => {
     const json = jest.fn();
     const status = jest.fn().mockReturnValue({ json });
     const host = {

@@ -7,11 +7,11 @@ describe("getOrganizerCtaHref", () => {
     assert.equal(getOrganizerCtaHref(), "/organizador/register");
   });
 
-  it("envia clientes autenticados para conversao da conta", () => {
+  it("envia clientes autenticados para conversão da conta", () => {
     assert.equal(getOrganizerCtaHref("CUSTOMER"), "/me/organizador");
   });
 
-  it("envia organizadores autenticados para criacao de evento", () => {
+  it("envia organizadores autenticados para criação de evento", () => {
     assert.equal(getOrganizerCtaHref("ORGANIZER"), "/events/new");
     assert.equal(getOrganizerCtaHref("ADMIN"), "/events/new");
   });

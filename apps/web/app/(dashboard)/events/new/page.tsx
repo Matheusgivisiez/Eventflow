@@ -29,7 +29,7 @@ const schema = z.object({
   description: z.string().min(20, "Descreva melhor o evento."),
   category: z.string().min(2, "Informe a categoria."),
   categoryOther: z.string().optional(),
-  startsAt: z.string().min(1, "Informe data e horario."),
+  startsAt: z.string().min(1, "Informe data e horário."),
   endsAt: z.string().optional(),
   bannerUrl: z.string().optional(),
   city: z.string().optional(),
@@ -45,24 +45,24 @@ const schema = z.object({
   seoTitle: z.string().optional(),
   seoDescription: z.string().optional(),
   firstTicketName: z.string().min(2, "Informe o nome do lote."),
-  firstTicketPrice: z.coerce.number().min(0, "Informe um preco valido."),
+  firstTicketPrice: z.coerce.number().min(0, "Informe um preço válido."),
   firstTicketQuantity: z.coerce.number().int().min(1, "Informe ao menos 1 ingresso."),
-  firstTicketLimitPerBuy: z.coerce.number().int().min(1, "Informe um limite valido."),
+  firstTicketLimitPerBuy: z.coerce.number().int().min(1, "Informe um limite válido."),
   firstTicketStartsAt: z.string().optional(),
   firstTicketEndsAt: z.string().optional(),
   firstTicketClosingRule: z.enum(["DATE", "SOLD", "BOTH"]).default("DATE"),
-  firstTicketSalesEndQuantity: z.coerce.number().int().min(1, "Informe uma quantidade valida.").optional(),
+  firstTicketSalesEndQuantity: z.coerce.number().int().min(1, "Informe uma quantidade válida.").optional(),
   firstTicketPriceMode: z.enum(["FIXED", "PERCENTAGE"]).default("FIXED"),
   firstTicketPriceAdjustmentPercent: z.coerce.number().min(0).optional(),
   additionalTicketLots: z.array(z.object({
     name: z.string().min(2, "Informe o nome do lote."),
-    price: z.coerce.number().min(0, "Informe um preco valido."),
+    price: z.coerce.number().min(0, "Informe um preço válido."),
     quantity: z.coerce.number().int().min(1, "Informe ao menos 1 ingresso."),
-    limitPerBuy: z.coerce.number().int().min(1, "Informe um limite valido."),
+    limitPerBuy: z.coerce.number().int().min(1, "Informe um limite válido."),
     startsAt: z.string().optional(),
     endsAt: z.string().optional(),
     closingRule: z.enum(["DATE", "SOLD", "BOTH"]).default("DATE"),
-    salesEndQuantity: z.coerce.number().int().min(1, "Informe uma quantidade valida.").optional(),
+    salesEndQuantity: z.coerce.number().int().min(1, "Informe uma quantidade válida.").optional(),
     priceMode: z.enum(["FIXED", "PERCENTAGE"]).default("FIXED"),
     priceAdjustmentPercent: z.coerce.number().min(0).optional()
   })).default([]),
@@ -77,23 +77,23 @@ const schema = z.object({
   const endsAt = data.endsAt ? scheduleValueToDate(data.endsAt) : undefined;
 
   if (startsAt && startsAt <= new Date()) {
-    ctx.addIssue({ code: "custom", path: ["startsAt"], message: "A data de inicio deve ser futura." });
+    ctx.addIssue({ code: "custom", path: ["startsAt"], message: "A data de início deve ser futura." });
   }
   if (startsAt && endsAt && endsAt <= startsAt) {
-    ctx.addIssue({ code: "custom", path: ["endsAt"], message: "O fim deve ser posterior ao inicio." });
+    ctx.addIssue({ code: "custom", path: ["endsAt"], message: "O fim deve ser posterior ao início." });
   }
   if (data.format === "IN_PERSON") {
     if (!data.zipCode || data.zipCode.replace(/\D/g, "").length !== 8) {
-      ctx.addIssue({ code: "custom", path: ["zipCode"], message: "Informe um CEP valido." });
+      ctx.addIssue({ code: "custom", path: ["zipCode"], message: "Informe um CEP válido." });
     }
     for (const field of ["city", "state", "address", "number"] as const) {
       if (!data[field]?.trim()) {
-        ctx.addIssue({ code: "custom", path: [field], message: "Campo obrigatorio para evento presencial." });
+        ctx.addIssue({ code: "custom", path: [field], message: "Campo obrigatório para evento presencial." });
       }
     }
   }
   if (data.format === "ONLINE" && !data.onlineUrl?.trim()) {
-    ctx.addIssue({ code: "custom", path: ["onlineUrl"], message: "Informe o link da transmissao." });
+    ctx.addIssue({ code: "custom", path: ["onlineUrl"], message: "Informe o link da transmissão." });
   }
   if (data.category === "__OTHER__" && !data.categoryOther?.trim()) {
     ctx.addIssue({ code: "custom", path: ["categoryOther"], message: "Informe o tipo do evento." });
@@ -309,7 +309,7 @@ export default function NewEventPage() {
       <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
         <div>
           <h1 className="text-2xl font-semibold tracking-normal">Novo evento</h1>
-          <p className="text-sm text-muted-foreground">Crie a pagina, o primeiro lote e as regras de venda no mesmo fluxo.</p>
+          <p className="text-sm text-muted-foreground">Crie a página, o primeiro lote e as regras de venda no mesmo fluxo.</p>
           <p className="mt-1 text-xs font-medium text-primary sm:hidden" aria-live="polite">Etapa {step + 1} de {steps.length}</p>
         </div>
         <StepNavigation steps={steps} currentStep={step} onStepChange={handleStepChange} />
@@ -319,7 +319,7 @@ export default function NewEventPage() {
         <Card>
           <CardHeader>
             <CardTitle>{steps[step].title}</CardTitle>
-            <CardDescription>{step === 0 ? "Dados publicos e localizacao." : step === 1 ? "O evento ja nasce com estoque para venda." : "Taxas, transferencia e liberacao do QR Code."}</CardDescription>
+            <CardDescription>{step === 0 ? "Dados públicos e localização." : step === 1 ? "O evento já nasce com estoque para venda." : "Taxas, transferência e liberação do QR Code."}</CardDescription>
           </CardHeader>
           <CardContent className="grid gap-4">
             {step === 0 && (
@@ -327,7 +327,7 @@ export default function NewEventPage() {
                 <Field label="Nome" error={form.formState.errors.title?.message}>
                   <Input {...form.register("title")} />
                 </Field>
-                <Field label="Descricao" error={form.formState.errors.description?.message}>
+                <Field label="Descrição" error={form.formState.errors.description?.message}>
                   <textarea className="min-h-32 w-full rounded-md border bg-background px-3 py-2 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring" {...form.register("description")} />
                 </Field>
                 <div className="grid gap-4 sm:grid-cols-2">
@@ -417,7 +417,7 @@ export default function NewEventPage() {
             {step === 1 && (
               <>
                 <div className="rounded-lg border bg-muted/40 p-4 text-sm text-muted-foreground">
-                  O primeiro lote e obrigatorio para evitar evento publicado sem ingressos no checkout.
+                  O primeiro lote é obrigatório para evitar evento publicado sem ingressos no checkout.
                 </div>
                 <TicketLotEditor
                   values={{
@@ -449,7 +449,7 @@ export default function NewEventPage() {
 
             {step === 2 && (
               <>
-                <Field label="Quem paga a taxa de servico?">
+                <Field label="Quem paga a taxa de serviço?">
                   <select className="h-10 w-full rounded-md border bg-background px-3 text-sm" {...form.register("feePayer")}>
                     <option value="BUYER">Comprador</option>
                     <option value="ORGANIZER">Organizador absorve</option>
@@ -457,20 +457,20 @@ export default function NewEventPage() {
                 </Field>
                 <label className="flex min-h-14 items-center justify-between gap-4 rounded-lg border p-4 text-sm">
                   <span>
-                    <span className="block font-medium">Permitir transferencia de ingresso</span>
+                    <span className="block font-medium">Permitir transferência de ingresso</span>
                     <span className="text-muted-foreground">Bloqueie perto do evento para reduzir revenda e suporte.</span>
                   </span>
                   <input type="checkbox" className="h-5 w-5" {...form.register("allowTicketTransfer")} />
                 </label>
                 {allowTicketTransfer && (
-                  <Field label="Bloquear transferencia quantas horas antes?" error={form.formState.errors.transferLockHours?.message}>
+                  <Field label="Bloquear transferência quantas horas antes?" error={form.formState.errors.transferLockHours?.message}>
                     <Input type="number" min="0" {...form.register("transferLockHours", { valueAsNumber: true })} />
                   </Field>
                 )}
                 <label className="flex min-h-14 items-center justify-between gap-4 rounded-lg border p-4 text-sm">
                   <span>
                     <span className="block font-medium">Permitir reembolso pelo site</span>
-                    <span className="text-muted-foreground">O comprador pode cancelar o ingresso e pedir o dinheiro de volta. Voce pode mudar isso depois.</span>
+                    <span className="text-muted-foreground">O comprador pode cancelar o ingresso e pedir o dinheiro de volta. Você pode mudar isso depois.</span>
                   </span>
                   <input type="checkbox" className="h-5 w-5" {...form.register("allowTicketRefund")} />
                 </label>
@@ -500,11 +500,11 @@ export default function NewEventPage() {
         <div className="space-y-6">
           <Card>
             <CardHeader>
-              <CardTitle>Publicacao</CardTitle>
+              <CardTitle>Publicação</CardTitle>
               <CardDescription>Revise o essencial antes de salvar.</CardDescription>
             </CardHeader>
             <CardContent className="space-y-3 text-sm">
-              <Summary icon={<CalendarClock className="h-4 w-4" />} label="Inicio" value={form.watch("startsAt") || "Nao informado"} />
+              <Summary icon={<CalendarClock className="h-4 w-4" />} label="Início" value={form.watch("startsAt") || "Não informado"} />
               <Summary icon={format === "ONLINE" ? <Radio className="h-4 w-4" /> : <MapPin className="h-4 w-4" />} label="Formato" value={format === "ONLINE" ? "Online" : "Presencial"} />
               <Summary icon={<Ticket className="h-4 w-4" />} label="Lotes" value={`${1 + additionalLots.length} configurado${additionalLots.length === 0 ? "" : "s"}`} />
               <div className="space-y-1.5 rounded-md border bg-background p-3 text-xs">
@@ -539,8 +539,8 @@ export default function NewEventPage() {
               <CardTitle>SEO</CardTitle>
             </CardHeader>
             <CardContent className="grid gap-3">
-              <Input placeholder="Titulo SEO" {...form.register("seoTitle")} />
-              <Input placeholder="Descricao SEO" {...form.register("seoDescription")} />
+              <Input placeholder="Título SEO" {...form.register("seoTitle")} />
+              <Input placeholder="Descrição SEO" {...form.register("seoDescription")} />
             </CardContent>
           </Card>
         </div>

@@ -19,7 +19,7 @@ export class LgpdProcessor extends WorkerHost implements OnModuleInit {
 
   async process(job: Job<{ userId: string }>) {
     const { userId } = job.data;
-    this.logger.log(`Iniciando anonimizacao do usuario ${userId}`);
+    this.logger.log(`Iniciando anonimização do usuário ${userId}`);
 
     const anonymized = `anon-${Date.now()}-${Math.random().toString(36).slice(2)}`;
 
@@ -27,7 +27,7 @@ export class LgpdProcessor extends WorkerHost implements OnModuleInit {
       await tx.user.update({
         where: { id: userId },
         data: {
-          name: "Usuario Anonimo",
+          name: "Usuário Anônimo",
           email: `${anonymized}@anon.eventflow.app`,
           phone: null,
           avatarUrl: null,
@@ -38,7 +38,7 @@ export class LgpdProcessor extends WorkerHost implements OnModuleInit {
       await tx.order.updateMany({
         where: { userId },
         data: {
-          buyerName: "Usuario Anonimo",
+          buyerName: "Usuário Anônimo",
           buyerEmail: `${anonymized}@anon.eventflow.app`,
           buyerDocument: null,
           buyerPhone: null
@@ -46,6 +46,6 @@ export class LgpdProcessor extends WorkerHost implements OnModuleInit {
       });
     });
 
-    this.logger.log(`Anonimizacao concluida para usuario ${userId}`);
+    this.logger.log(`Anonimização concluída para usuário ${userId}`);
   }
 }

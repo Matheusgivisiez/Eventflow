@@ -138,11 +138,11 @@ export function renderPurchaseConfirmed(input: PurchaseConfirmedTemplateInput) {
     : `Pagamento aprovado. ${possessive} para ${input.eventTitle} já ${plural ? "estão disponíveis" : "está disponível"}.`;
 
   const text = [
-    `Ola, ${input.buyerName}.`,
+    `Olá, ${input.buyerName}.`,
     "",
     transfer
-      ? `${transfer.fromName} transferiu ${ticketLine} para ${input.eventTitle} para voce, e ja ${plural ? "estao disponiveis" : "esta disponivel"}.`
-      : `Seu pagamento foi aprovado e ${ticketLine} ja ${plural ? "estao disponiveis" : "esta disponivel"}.`,
+      ? `${transfer.fromName} transferiu ${ticketLine} para ${input.eventTitle} para você, e já ${plural ? "estão disponíveis" : "está disponível"}.`
+      : `Seu pagamento foi aprovado e ${ticketLine} já ${plural ? "estão disponíveis" : "está disponível"}.`,
     "",
     `Evento: ${input.eventTitle}`,
     `Local: ${input.eventVenue}`,
@@ -150,17 +150,17 @@ export function renderPurchaseConfirmed(input: PurchaseConfirmedTemplateInput) {
     ...(transfer ? [] : [`Pedido: ${code}`]),
     "",
     ...input.tickets.flatMap((ticket) => [
-      `- ${ticket.attendeeName} | ${ticket.ticketTypeName} | codigo ${ticket.shortCode}`,
+      `- ${ticket.attendeeName} | ${ticket.ticketTypeName} | código ${ticket.shortCode}`,
       `  Baixar PDF: ${ticket.pdfUrl}`
     ]),
     "",
     `Ver seus ingressos: ${input.orderUrl}`,
     "",
-    "O QR Code de cada ingresso so fica disponivel dentro do link acima (nao vai por e-mail, por seguranca).",
-    "Este link e pessoal: quem tiver o endereco consegue ver este pedido. Nao compartilhe.",
+    "O QR Code de cada ingresso só fica disponível dentro do link acima (não vai por e-mail, por segurança).",
+    "Este link é pessoal: quem tiver o endereço consegue ver este pedido. Não compartilhe.",
     ...(transfer
       ? []
-      : ["", `Quer todos os seus ingressos em um lugar so? Crie uma conta: ${input.createAccountUrl}`]),
+      : ["", `Quer todos os seus ingressos em um lugar só? Crie uma conta: ${input.createAccountUrl}`]),
     "",
     BRAND
   ].join("\n");

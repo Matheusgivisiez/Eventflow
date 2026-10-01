@@ -38,20 +38,20 @@ describe("CustomThrottlerGuard", () => {
       process.env.JWT_ACCESS_SECRET = ACCESS_SECRET;
     });
 
-    it("deve priorizar o ID do usuario autenticado se req.user existir", async () => {
+    it("deve priorizar o ID do usuário autenticado se req.user existir", async () => {
       const req = { user: { id: "user-123" } };
       const tracker = await (guard as any).getTracker(req);
       expect(tracker).toBe("user:user-123");
     });
 
-    it("deve aceitar o sub de um Bearer token com assinatura valida", async () => {
+    it("deve aceitar o sub de um Bearer token com assinatura válida", async () => {
       const token = signedJwt({ sub: "user-from-jwt-456", exp: Math.floor(Date.now() / 1000) + 900 });
       const req = { headers: { authorization: `Bearer ${token}` } };
       const tracker = await (guard as any).getTracker(req);
       expect(tracker).toBe("user:user-from-jwt-456");
     });
 
-    it("deve ignorar um Bearer token sem assinatura valida e cair no IP", async () => {
+    it("deve ignorar um Bearer token sem assinatura válida e cair no IP", async () => {
       const payload = Buffer.from(JSON.stringify({ sub: "sub-forjado" })).toString("base64url");
       const req = {
         headers: {
@@ -78,7 +78,7 @@ describe("CustomThrottlerGuard", () => {
       expect(tracker).toBe("ip:127.0.0.1");
     });
 
-    it("deve utilizar o primeiro IP do x-forwarded-for caso usuario nao esteja autenticado", async () => {
+    it("deve utilizar o primeiro IP do x-forwarded-for caso usuário não esteja autenticado", async () => {
       const req = { headers: { "x-forwarded-for": "203.0.113.195, 70.41.3.18" } };
       const tracker = await (guard as any).getTracker(req);
       expect(tracker).toBe("ip:203.0.113.195");
@@ -95,7 +95,7 @@ describe("CustomThrottlerGuard", () => {
       expect(first).not.toContain("buyer@example.com");
     });
 
-    it("deve limitar a recuperacao de senha pelo hash do e-mail, sem depender do IP", async () => {
+    it("deve limitar a recuperação de senha pelo hash do e-mail, sem depender do IP", async () => {
       const req = {
         path: "/api/auth/forgot-password",
         headers: { "x-forwarded-for": "203.0.113.195, 70.41.3.18" },
@@ -113,7 +113,7 @@ describe("CustomThrottlerGuard", () => {
       expect(tracker).not.toContain("token-secreto");
     });
 
-    it("deve utilizar o x-real-ip quando fornecido e nao houver x-forwarded-for", async () => {
+    it("deve utilizar o x-real-ip quando fornecido e não houver x-forwarded-for", async () => {
       const req = { headers: { "x-real-ip": "198.51.100.1" } };
       const tracker = await (guard as any).getTracker(req);
       expect(tracker).toBe("ip:198.51.100.1");
@@ -127,7 +127,7 @@ describe("CustomThrottlerGuard", () => {
   });
 
   describe("throwThrottlingException", () => {
-    it("deve adicionar o header Retry-After e lancar HttpException com status 429 e mensagem padronizada", async () => {
+    it("deve adicionar o header Retry-After e lançar HttpException com status 429 e mensagem padronizada", async () => {
       const setHeader = jest.fn();
       const mockContext = {
         switchToHttp: () => ({
@@ -148,7 +148,7 @@ describe("CustomThrottlerGuard", () => {
 
       try {
         await (guard as any).throwThrottlingException(mockContext, detail);
-        fail("Deveria ter lancado uma excecao");
+        fail("Deveria ter lançado uma exceção");
       } catch (err) {
         expect(err).toBeInstanceOf(HttpException);
         const httpErr = err as HttpException;
@@ -183,7 +183,7 @@ describe("CustomThrottlerGuard", () => {
       expect(mockOptions.storage.increment).not.toHaveBeenCalled();
     });
 
-    it("deve ignorar named throttler se a rota nao foi decorada para ele", async () => {
+    it("deve ignorar named throttler se a rota não foi decorada para ele", async () => {
       mockReflector.getAllAndOverride.mockReturnValue(undefined);
       const mockContext = {
         getHandler: () => ({}),

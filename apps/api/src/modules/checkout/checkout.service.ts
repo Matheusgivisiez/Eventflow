@@ -62,10 +62,10 @@ export class CheckoutService {
     });
 
     if (!order) {
-      throw new NotFoundException("Pedido nao encontrado.");
+      throw new NotFoundException("Pedido não encontrado.");
     }
     if (!order.orderAccessToken || !accessToken || order.orderAccessToken !== accessToken) {
-      throw new UnauthorizedException("Token de acesso do pedido invalido.");
+      throw new UnauthorizedException("Token de acesso do pedido inválido.");
     }
 
     if (order.payment && (providerReferences?.checkoutId || providerReferences?.transactionId)) {
@@ -81,7 +81,7 @@ export class CheckoutService {
     }
 
     if (!order) {
-      throw new NotFoundException("Pedido nao encontrado.");
+      throw new NotFoundException("Pedido não encontrado.");
     }
 
     if (order.status === PaymentStatus.PENDING && order.payment && await this.shouldReconcileOrder(order.id)) {
@@ -97,7 +97,7 @@ export class CheckoutService {
     }
 
     if (!order) {
-      throw new NotFoundException("Pedido nao encontrado.");
+      throw new NotFoundException("Pedido não encontrado.");
     }
 
     const locked = isQrCodeLocked(order.event);
@@ -200,10 +200,10 @@ export class CheckoutService {
       select: { orderAccessToken: true, userId: true }
     });
     if (!order) {
-      throw new NotFoundException("Pedido nao encontrado.");
+      throw new NotFoundException("Pedido não encontrado.");
     }
     if (!order.orderAccessToken || !accessToken || order.orderAccessToken !== accessToken) {
-      throw new UnauthorizedException("Token de acesso do pedido invalido.");
+      throw new UnauthorizedException("Token de acesso do pedido inválido.");
     }
 
     const ticket = await this.prisma.ticket.findFirst({
@@ -218,7 +218,7 @@ export class CheckoutService {
       }
     });
     if (!ticket) {
-      throw new NotFoundException("Ingresso nao encontrado.");
+      throw new NotFoundException("Ingresso não encontrado.");
     }
 
     if (this.isTicketTransferred(ticket, order)) {

@@ -37,7 +37,7 @@ test("login fails closed when API does not return an access token", async () => 
 
   await assert.rejects(
     () => loginWithPassword(DEFAULT_API_URL, { email: "op@example.com", password: "12345678" }, fetcher as typeof fetch),
-    /Resposta de login invalida/
+    /Resposta de login inválida/
   );
 });
 

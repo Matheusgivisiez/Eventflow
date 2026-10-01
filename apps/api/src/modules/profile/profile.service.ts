@@ -17,7 +17,7 @@ export class ProfileService {
       select: { id: true, email: true, name: true }
     });
     if (!current) {
-      throw new BadRequestException("Usuario nao encontrado.");
+      throw new BadRequestException("Usuário não encontrado.");
     }
 
     const emailChanged = EmailVerificationService.isEmailChange(current.email, dto.email);
@@ -26,7 +26,7 @@ export class ProfileService {
       if (dto.email) {
         const exists = await tx.user.findFirst({ where: { email: dto.email.toLowerCase(), NOT: { id: userId } } });
         if (exists) {
-          throw new BadRequestException("Este e-mail ja esta em uso.");
+          throw new BadRequestException("Este e-mail já está em uso.");
         }
       }
 
@@ -85,7 +85,7 @@ export class ProfileService {
   async changePassword(userId: string, dto: ChangePasswordDto) {
     const user = await this.prisma.user.findUnique({ where: { id: userId } });
     if (!user || !(await bcrypt.compare(dto.currentPassword, user.passwordHash))) {
-      throw new UnauthorizedException("Senha atual invalida.");
+      throw new UnauthorizedException("Senha atual inválida.");
     }
     await this.prisma.user.update({
       where: { id: userId },
@@ -154,7 +154,7 @@ export class ProfileService {
       }
     });
     if (!user) {
-      throw new BadRequestException("Usuario nao encontrado.");
+      throw new BadRequestException("Usuário não encontrado.");
     }
     return {
       ...user,

@@ -16,7 +16,7 @@ const baseEvent = {
 };
 
 describe("getFullAddress", () => {
-  it("monta o endereco completo com cidade, estado e cep", () => {
+  it("monta o endereço completo com cidade, estado e cep", () => {
     assert.equal(
       getFullAddress(baseEvent),
       "Rua das Flores, 123, Coronel Fabriciano - MG, CEP 35170-000"
@@ -29,7 +29,7 @@ describe("getFullAddress", () => {
 });
 
 describe("buildMapEmbedSrc", () => {
-  it("usa coordenadas quando o mapUrl do organizador ja tem @lat,lng", () => {
+  it("usa coordenadas quando o mapUrl do organizador já tem @lat,lng", () => {
     const event = { ...baseEvent, mapUrl: "https://www.google.com/maps/@-19.5197,-42.6267,17z" };
     assert.equal(
       buildMapEmbedSrc(event),
@@ -45,7 +45,7 @@ describe("buildMapEmbedSrc", () => {
     );
   });
 
-  it("cai para o endereco textual quando nao ha coordenadas", () => {
+  it("cai para o endereço textual quando não há coordenadas", () => {
     assert.equal(
       buildMapEmbedSrc(baseEvent),
       `https://www.google.com/maps?q=${encodeURIComponent(getFullAddress(baseEvent))}&output=embed`
@@ -54,7 +54,7 @@ describe("buildMapEmbedSrc", () => {
 });
 
 describe("buildGoogleMapsLink", () => {
-  it("gera link de busca com o endereco quando nao ha mapUrl", () => {
+  it("gera link de busca com o endereço quando não há mapUrl", () => {
     assert.equal(
       buildGoogleMapsLink(baseEvent),
       `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(getFullAddress(baseEvent))}`
@@ -65,26 +65,26 @@ describe("buildGoogleMapsLink", () => {
 describe("buildUberLink", () => {
   const originalClientId = process.env.NEXT_PUBLIC_UBER_CLIENT_ID;
 
-  it("inclui client_id quando NEXT_PUBLIC_UBER_CLIENT_ID esta configurado", () => {
+  it("inclui client_id quando NEXT_PUBLIC_UBER_CLIENT_ID está configurado", () => {
     process.env.NEXT_PUBLIC_UBER_CLIENT_ID = "abc123";
     const link = buildUberLink(baseEvent);
     assert.match(link, /[?&]client_id=abc123/);
     process.env.NEXT_PUBLIC_UBER_CLIENT_ID = originalClientId;
   });
 
-  it("nao quebra quando NEXT_PUBLIC_UBER_CLIENT_ID nao esta configurado", () => {
+  it("não quebra quando NEXT_PUBLIC_UBER_CLIENT_ID não está configurado", () => {
     delete process.env.NEXT_PUBLIC_UBER_CLIENT_ID;
     const link = buildUberLink(baseEvent);
     assert.doesNotMatch(link, /client_id/);
     process.env.NEXT_PUBLIC_UBER_CLIENT_ID = originalClientId;
   });
 
-  it("inclui pickup=my_location e o endereco de destino, com colchetes literais na chave", () => {
+  it("inclui pickup=my_location e o endereço de destino, com colchetes literais na chave", () => {
     const link = buildUberLink(baseEvent, "Festa Junina");
     assert.match(link, /^https:\/\/m\.uber\.com\/ul\/\?/);
     assert.match(link, /action=setPickup/);
     assert.match(link, /pickup=my_location/);
-    // As chaves dropoff[...] tem que ficar literais (nao %5B%5D) -- e assim que
+    // As chaves dropoff[...] tem que ficar literais (não %5B%5D) -- e assim que
     // o exemplo oficial da Uber documenta, e colchetes codificados fazem o
     // destino chegar em branco no app.
     assert.match(link, /dropoff\[formatted_address\]=/);
@@ -101,7 +101,7 @@ describe("buildUberLink", () => {
 });
 
 describe("buildWazeLink", () => {
-  it("inclui navigate=yes e o endereco", () => {
+  it("inclui navigate=yes e o endereço", () => {
     const link = buildWazeLink(baseEvent);
     assert.match(link, /^https:\/\/waze\.com\/ul\?/);
     assert.match(link, /navigate=yes/);

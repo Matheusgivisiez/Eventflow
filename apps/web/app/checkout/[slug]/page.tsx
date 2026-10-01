@@ -47,13 +47,13 @@ const buyerSchema = z.object({
     .string()
     .min(2, "Informe seu nome.")
     .refine(hasFullName, "Informe nome e sobrenome."),
-  buyerEmail: z.string().email("Informe um e-mail valido."),
+  buyerEmail: z.string().email("Informe um e-mail válido."),
   buyerDocument: z
     .string()
     .min(1, "Informe seu CPF ou CNPJ.")
     .refine(
       (value) => [11, 14].includes(onlyDigits(value).length),
-      "Informe um CPF ou CNPJ valido.",
+      "Informe um CPF ou CNPJ válido.",
     ),
   buyerPhone: z
     .string()
@@ -134,7 +134,7 @@ function CheckoutForm() {
     });
   }, [currentTicketIds, event]);
 
-  // Cupom: validado na API antes de pagar; o uso so e contado quando o pedido e criado.
+  // Cupom: validado na API antes de pagar; o uso só é contado quando o pedido é criado.
   const [couponInput, setCouponInput] = useState("");
   const [appliedCoupon, setAppliedCoupon] = useState<AppliedCoupon | null>(null);
   const couponMutation = useMutation({
@@ -206,7 +206,7 @@ function CheckoutForm() {
       ) ?? 0
     );
   }, [event, purchasableQuantities]);
-  // Mesma regra da API: desconto sobre o subtotal, taxa de 8% sobre o valor ja com desconto.
+  // Mesma regra da API: desconto sobre o subtotal, taxa de 8% sobre o valor já com desconto.
   const discount = appliedCoupon
     ? Math.min(
         subtotal,
@@ -229,7 +229,7 @@ function CheckoutForm() {
             <CheckCircle2 className="h-10 w-10 text-primary" />
             <CardTitle>Pedido criado</CardTitle>
             <CardDescription>
-              Seu pagamento esta pendente. A confirmacao emitira seus QR Codes
+              Seu pagamento está pendente. A confirmação emitirá seus QR Codes
               automaticamente.
             </CardDescription>
           </CardHeader>

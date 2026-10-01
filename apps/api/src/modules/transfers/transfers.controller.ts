@@ -8,7 +8,7 @@ import { RequestUser } from "../../common/types/request-user";
 import { CreateTransferDto, ResolveTransferRecipientDto } from "./dto/create-transfer.dto";
 import { TransfersService } from "./transfers.service";
 
-@ApiTags("Transferencias de ingressos")
+@ApiTags("Transferências de ingressos")
 @ApiBearerAuth()
 @UseGuards(JwtAuthGuard)
 @Controller("transfers")
@@ -16,8 +16,8 @@ export class TransfersController {
   constructor(private readonly transfers: TransfersService) {}
 
   @Post("recipient")
-  // Consulta de identidade: limite curto por conta (o tracker do throttler ja
-  // usa o usuario autenticado), para nao virar ferramenta de varredura.
+  // Consulta de identidade: limite curto por conta (o tracker do throttler já
+  // usa o usuário autenticado), para não virar ferramenta de varredura.
   @Throttle({ sensitive: { limit: 10, ttl: 60000 } })
   resolveRecipient(@CurrentUser() user: RequestUser, @Body() dto: ResolveTransferRecipientDto) {
     return this.transfers.resolveRecipient(user, dto);

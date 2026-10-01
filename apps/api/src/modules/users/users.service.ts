@@ -31,7 +31,7 @@ export class UsersService {
   async update(id: string, tenantId: string, dto: UpdateUserDto) {
     const user = await this.prisma.user.findFirst({ where: { id, tenantId } });
     if (!user) {
-      throw new NotFoundException("Usuario nao encontrado.");
+      throw new NotFoundException("Usuário não encontrado.");
     }
 
     return this.applyUpdate(user, {
@@ -43,7 +43,7 @@ export class UsersService {
   async updateMe(userId: string, dto: UpdateUserDto) {
     const user = await this.prisma.user.findUnique({ where: { id: userId } });
     if (!user) {
-      throw new NotFoundException("Usuario nao encontrado.");
+      throw new NotFoundException("Usuário não encontrado.");
     }
 
     return this.applyUpdate(user, {
@@ -65,7 +65,7 @@ export class UsersService {
         select: { id: true }
       });
       if (taken) {
-        throw new BadRequestException("Este e-mail ja esta em uso.");
+        throw new BadRequestException("Este e-mail já está em uso.");
       }
     }
 

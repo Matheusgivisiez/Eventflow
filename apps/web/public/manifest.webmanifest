@@ -1,7 +1,7 @@
 {
   "name": "Event Flow",
   "short_name": "Event Flow",
-  "description": "Compre ingressos para eventos com seguranca. Checkout rapido, QR Code digital e acesso facil aos seus ingressos.",
+  "description": "Compre ingressos para eventos com segurança. Checkout rápido, QR Code digital e acesso fácil aos seus ingressos.",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",

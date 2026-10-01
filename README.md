@@ -1,6 +1,6 @@
 # Event Flow
 
-Event Flow e uma plataforma SaaS multi-tenant para venda de ingressos online, eventos, checkout, pagamentos, QR Code, check-in, financeiro, CRM, marketplace e operacao enterprise para organizadores.
+Event Flow é uma plataforma SaaS multi-tenant para venda de ingressos online, eventos, checkout, pagamentos, QR Code, check-in, financeiro, CRM, marketplace e operação enterprise para organizadores.
 
 ## Stack
 
@@ -47,49 +47,49 @@ Credenciais seed:
 
 ## Maturidade do produto
 
-A matriz completa esta em [docs/product-maturity.md](./docs/product-maturity.md). Resumo atual:
+A matriz completa está em [docs/product-maturity.md](./docs/product-maturity.md). Resumo atual:
 
-- Pronto para validacao local/staging: autenticacao, eventos/lotes, checkout com reserva atomica, webhook de pagamento, QR/check-in e permissoes enterprise.
-- Parcial: financeiro, white-label, mobile offline, afiliados, CRM/marketing, analytics, API publica, seat maps, marketplace, seguranca operacional e observabilidade.
-- Planejado/prototipo: IA enterprise, SDK publico completo e infraestrutura multi-regiao.
+- Pronto para validação local/staging: autenticação, eventos/lotes, checkout com reserva atômica, webhook de pagamento, QR/check-in e permissões enterprise.
+- Parcial: financeiro, white-label, mobile offline, afiliados, CRM/marketing, analytics, API pública, seat maps, marketplace, segurança operacional e observabilidade.
+- Planejado/protótipo: IA enterprise, SDK público completo e infraestrutura multi-região.
 
-## Modulos principais
+## Módulos principais
 
-- Autenticacao com JWT, refresh token e recuperacao de senha.
-- Dashboard com KPIs, resumo financeiro e graficos.
-- Eventos com status, localizacao, imagens, SEO e pagina publica.
-- Lotes de ingressos com quantidade, preco, janela de venda e limites.
-- Checkout com dados pessoais, resumo, PIX/cartao e confirmacao.
+- Autenticação com JWT, refresh token e recuperação de senha.
+- Dashboard com KPIs, resumo financeiro e gráficos.
+- Eventos com status, localização, imagens, SEO e página pública.
+- Lotes de ingressos com quantidade, preço, janela de venda e limites.
+- Checkout com dados pessoais, resumo, PIX/cartão e confirmação.
 - Pagamentos com status e adapter preparado para Mercado Pago.
-- QR Code por ingresso com UUID, hash e validacao.
+- QR Code por ingresso com UUID, hash e validação.
 - Check-in em tempo real via API.
-- Financeiro com saldo, taxas, extrato e solicitacao de saque.
-- Perfil da empresa e administracao.
-- White label, dominio proprio, tema e emails personalizados.
-- Mobile Android/iOS com check-in offline e sincronizacao.
-- Afiliados, CRM, campanhas, automacao e marketing.
+- Financeiro com saldo, taxas, extrato e solicitação de saque.
+- Perfil da empresa e administração.
+- White label, domínio próprio, tema e emails personalizados.
+- Mobile Android/iOS com check-in offline e sincronização.
+- Afiliados, CRM, campanhas, automação e marketing.
 - Analytics, origem de vendas, dispositivos, campanhas, GA e Meta Pixel.
-- API publica, API keys, OAuth, SDK e documentacao.
-- Mapa de assentos, reservas, bloqueios temporarios e compra.
-- Marketplace com organizadores verificados, busca, favoritos e avaliacoes.
-- IA para previsao de vendas, lotes, preco, comportamento e fraude.
-- Seguranca enterprise com 2FA, LGPD, auditoria, backups e permissoes.
+- API pública, API keys, OAuth, SDK e documentação.
+- Mapa de assentos, reservas, bloqueios temporários e compra.
+- Marketplace com organizadores verificados, busca, favoritos e avaliações.
+- IA para previsão de vendas, lotes, preço, comportamento e fraude.
+- Segurança enterprise com 2FA, LGPD, auditoria, backups e permissões.
 - Infraestrutura para alta disponibilidade e escalabilidade horizontal.
 
-Os itens acima descrevem o escopo do produto. Para saber o que esta pronto, parcial ou planejado, consulte a matriz de maturidade.
+Os itens acima descrevem o escopo do produto. Para saber o que está pronto, parcial ou planejado, consulte a matriz de maturidade.
 
-## Documentacao tecnica
+## Documentação técnica
 
-A documentacao completa esta em [docs/index.md](./docs/index.md).
+A documentação completa está em [docs/index.md](./docs/index.md).
 
 - [Arquitetura](./docs/architecture.md)
 - [Banco de dados](./docs/database.md)
 - [API Reference](./docs/api-reference.md)
-- [Seguranca e LGPD](./docs/security-lgpd.md)
+- [Segurança e LGPD](./docs/security-lgpd.md)
 - [Infraestrutura e deploy](./docs/infrastructure-deploy.md)
 - [Observabilidade](./docs/observability.md)
 - [Testes e qualidade](./docs/testing-quality.md)
 - [Frontend e mobile](./docs/frontend-mobile.md)
 - [Runbooks operacionais](./docs/operations-runbooks.md)
-- [Governanca tecnica](./docs/technical-governance.md)
+- [Governança técnica](./docs/technical-governance.md)
 - [Maturidade do produto](./docs/product-maturity.md)

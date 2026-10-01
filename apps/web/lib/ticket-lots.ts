@@ -18,8 +18,8 @@ export function getVisibleTicketLots(ticketTypes: TicketType[], now = new Date()
   let cumulativeSold = 0;
   let previousLotsClosed = true;
 
-  // Numero do lote = posicao cronologica (startsAt), nunca a posicao no array da API,
-  // que pode vir ordenado por preco (empate de preco => ordem aleatoria).
+  // Número do lote = posição cronológica (startsAt), nunca a posição no array da API,
+  // que pode vir ordenado por preço (empate de preço => ordem aleatória).
   for (const [position, { ticket }] of orderedLots.entries()) {
     cumulativeQuantity += ticket.quantity;
     cumulativeSold += ticket.sold;

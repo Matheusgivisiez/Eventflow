@@ -33,7 +33,7 @@ export class CreateCheckoutDto {
   @ApiProperty({ description: "Documento (CPF/CNPJ) do comprador" })
   @IsString()
   @IsNotEmpty()
-  @Matches(/^\D*(\d\D*){11}$|^\D*(\d\D*){14}$/, { message: "Informe um CPF ou CNPJ valido." })
+  @Matches(/^\D*(\d\D*){11}$|^\D*(\d\D*){14}$/, { message: "Informe um CPF ou CNPJ válido." })
   buyerDocument!: string;
 
   @ApiProperty({ description: "Telefone do comprador" })

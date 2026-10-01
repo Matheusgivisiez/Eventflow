@@ -58,10 +58,10 @@ export class PaymentsService {
   async createProviderPreference(orderId: string, tenantId?: string | null) {
     const order = await this.prisma.order.findUnique({ where: { id: orderId }, include: { event: true, payment: true } });
     if (!order || !order.payment) {
-      throw new NotFoundException("Pedido nao encontrado.");
+      throw new NotFoundException("Pedido não encontrado.");
     }
     if (tenantId && order.event.tenantId !== tenantId) {
-      throw new NotFoundException("Pedido nao encontrado.");
+      throw new NotFoundException("Pedido não encontrado.");
     }
     const appUrl = (this.config.get<string>("APP_URL") ?? "http://localhost:3000").replace(/\/+$/, "");
     const successParams = new URLSearchParams({ orderId });
@@ -102,7 +102,7 @@ export class PaymentsService {
       include: { order: { include: { items: { include: { ticketType: true } }, tickets: true } }, event: true }
     });
     if (!payment) {
-      throw new NotFoundException("Pagamento nao encontrado.");
+      throw new NotFoundException("Pagamento não encontrado.");
     }
     if (payment.status === PaymentStatus.PAID && dto.status === PaymentStatus.PAID) {
       await this.ensurePaidFulfillment(payment.id, tenantId);
@@ -112,7 +112,7 @@ export class PaymentsService {
 
     const allowed = VALID_TRANSITIONS[payment.status] ?? [];
     if (!allowed.includes(dto.status)) {
-      throw new BadRequestException(`Transicao de ${payment.status} para ${dto.status} nao permitida.`);
+      throw new BadRequestException(`Transição de ${payment.status} para ${dto.status} não permitida.`);
     }
 
     if (dto.status === PaymentStatus.PAID) {
@@ -132,7 +132,7 @@ export class PaymentsService {
       include: { event: true }
     });
     if (!payment) {
-      throw new NotFoundException("Pagamento nao encontrado.");
+      throw new NotFoundException("Pagamento não encontrado.");
     }
     if (!payment.providerRef) {
       return payment;
@@ -181,8 +181,8 @@ export class PaymentsService {
 
     // Pagamento tardio: o pedido venceu (reserva de 30 min) e foi cancelado,
     // mas o link do provedor continuou aberto e o comprador pagou depois.
-    // O dinheiro ja entrou, entao o pedido volta a valer se ainda houver
-    // ingresso no lote; senao fica registrado para tratamento manual.
+    // O dinheiro já entrou, então o pedido volta a valer se ainda houver
+    // ingresso no lote; senão fica registrado para tratamento manual.
     if (status === PaymentStatus.PAID && payment.status === PaymentStatus.CANCELED && !payment.paidAt) {
       const revived = await this.reviveExpiredOrder(payment.id, tenantId);
       if (!revived) {
@@ -202,7 +202,7 @@ export class PaymentsService {
     references: { providerRef?: string; checkoutId?: string; transactionId?: string }
   ) {
     const payment = await this.prisma.payment.findFirst({ where: { id, event: { tenantId } } });
-    if (!payment) throw new NotFoundException("Pagamento nao encontrado.");
+    if (!payment) throw new NotFoundException("Pagamento não encontrado.");
     return this.prisma.payment.update({
       where: { id },
       data: {
@@ -216,7 +216,7 @@ export class PaymentsService {
   /**
    * Reativa um pedido cancelado por falta de pagamento quando o provedor
    * confirma que ele foi pago depois do prazo. Reserva o estoque de novo de
-   * forma atomica; se o lote nao tiver mais vaga, nada muda e o caso vai para
+   * forma atomica; se o lote não tiver mais vaga, nada muda e o caso vai para
    * o log como PAGO SEM ESTOQUE (tratar manualmente: emitir ou estornar).
    * Retorna true quando o pedido voltou a PENDING e pode seguir para PAID.
    */
@@ -268,11 +268,11 @@ export class PaymentsService {
       }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
 
       if (outcome === "revived") {
-        this.logger.warn(`Pagamento tardio ${paymentId}: pedido vencido reativado e sera emitido.`);
+        this.logger.warn(`Pagamento tardio ${paymentId}: pedido vencido reativado e será emitido.`);
         this.metrics?.increment("eventflow_late_payments_total", { result: "revived" });
         return true;
       }
-      this.logger.warn(`Pagamento tardio ${paymentId} ignorado: pedido nao estava vencido (${outcome}).`);
+      this.logger.warn(`Pagamento tardio ${paymentId} ignorado: pedido não estava vencido (${outcome}).`);
       return false;
     } catch (error) {
       if (error instanceof LatePaymentWithoutStockError) {
@@ -295,7 +295,7 @@ export class PaymentsService {
   private getProvider(provider: string): PaymentProvider {
     if (provider === "abacate_pay") return this.abacatePay;
     if (provider === "infinite_pay" && this.infinitePay) return this.infinitePay;
-    throw new Error(`Provedor de pagamento nao configurado: ${provider}`);
+    throw new Error(`Provedor de pagamento não configurado: ${provider}`);
   }
 
   private async markPaid(paymentId: string, tenantId: string, providerRef?: string) {
@@ -304,7 +304,7 @@ export class PaymentsService {
         where: { id: paymentId, event: { tenantId } },
         include: { order: { include: { items: { include: { ticketType: true } }, tickets: true } }, event: true }
       });
-      if (!payment) throw new NotFoundException("Pagamento nao encontrado.");
+      if (!payment) throw new NotFoundException("Pagamento não encontrado.");
 
       const wasAlreadyPaid = payment.status === PaymentStatus.PAID;
 
@@ -360,7 +360,7 @@ export class PaymentsService {
         where: { id: paymentId, event: { tenantId } },
         include: { order: { include: { items: true } }, event: true }
       });
-      if (!payment) throw new NotFoundException("Pagamento nao encontrado.");
+      if (!payment) throw new NotFoundException("Pagamento não encontrado.");
 
       const wasPaid = payment.status === PaymentStatus.PAID;
       const updated = await tx.payment.update({
@@ -515,7 +515,7 @@ export class PaymentsService {
           });
 
           if (updatedStock.count !== 1) {
-            console.warn(`[PaymentsService] Inconsistencia no lote ${item.ticketType.name} (id: ${item.ticketTypeId}) ao incrementar vendas.`);
+            console.warn(`[PaymentsService] Inconsistência no lote ${item.ticketType.name} (id: ${item.ticketTypeId}) ao incrementar vendas.`);
           }
         }
 

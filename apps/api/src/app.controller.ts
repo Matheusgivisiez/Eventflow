@@ -28,8 +28,8 @@ export class AppController {
   @SkipThrottle()
   @Header("Content-Type", "text/plain; version=0.0.4")
   metrics(@Headers("authorization") authorization?: string) {
-    // Em producao so responde com METRICS_TOKEN configurado e enviado como
-    // "Bearer <token>"; sem isso a rota finge nao existir (404).
+    // Em produção só responde com METRICS_TOKEN configurado e enviado como
+    // "Bearer <token>"; sem isso a rota finge não existir (404).
     if (process.env.NODE_ENV === "production") {
       const token = process.env.METRICS_TOKEN;
       const expected = token ? Buffer.from(`Bearer ${token}`) : null;

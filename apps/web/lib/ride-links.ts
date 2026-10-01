@@ -28,8 +28,8 @@ function parseLatLngFromMapUrl(mapUrl?: string): LatLng | null {
       }
     }
   } catch {
-    // mapUrl pode nao ser uma URL absoluta valida (ex: usuario colou so um trecho).
-    // Seguimos para os padroes de regex abaixo antes de desistir.
+    // mapUrl pode não ser uma URL absoluta válida (ex: usuário colou só um trecho).
+    // Seguimos para os padrões de regex abaixo antes de desistir.
   }
 
   const placeDataMatch = mapUrl.match(/!3d(-?\d+(?:\.\d+)?)!4d(-?\d+(?:\.\d+)?)/);
@@ -86,13 +86,13 @@ export function buildGoogleMapsLink(event: EventLocationInput): string {
 /**
  * Deep link oficial do Uber (m.uber.com/ul). Documentado em
  * https://developer.uber.com/docs/riders/ride-requests/tutorials/deep-links/introduction
- * Abre o app com o destino ja preenchido e a origem como localizacao atual.
+ * Abre o app com o destino já preenchido e a origem como localização atual.
  *
- * client_id: a documentacao oficial da Uber lista esse parametro como
- * obrigatorio em TODOS os exemplos de deep link (inclusive os que so
+ * client_id: a documentação oficial da Uber lista esse parâmetro como
+ * obrigatório em TODOS os exemplos de deep link (inclusive os que só
  * preenchem pickup/dropoff, sem nenhuma chamada de API). Sem ele o link
  * pode abrir o app "vazio", sem o destino preenchido -- e o motivo mais
- * provavel do botao nao estar registrando o endereco corretamente.
+ * provável do botão não estar registrando o endereço corretamente.
  * Como conseguir: crie um app de graca em https://developer.uber.com
  * (dashboard > "Create App"), copie o Client ID gerado e coloque em
  * NEXT_PUBLIC_UBER_CLIENT_ID no .env do app web.
@@ -101,10 +101,10 @@ export function buildUberLink(event: EventLocationInput, nickname?: string): str
   const { coords, address } = getEventLocation(event);
   const clientId = process.env.NEXT_PUBLIC_UBER_CLIENT_ID;
 
-  // IMPORTANTE: os nomes dos parametros com colchetes (dropoff[formatted_address])
+  // IMPORTANTE: os nomes dos parâmetros com colchetes (dropoff[formatted_address])
   // precisam ficar literais na query string. Se usarmos URLSearchParams aqui, ele
-  // tambem faz percent-encode das CHAVES (vira dropoff%5Bformatted_address%5D=...),
-  // e o app do Uber nao reconhece a chave codificada -- o destino chega em branco.
+  // também faz percent-encode das CHAVES (vira dropoff%5Bformatted_address%5D=...),
+  // e o app do Uber não reconhece a chave codificada -- o destino chega em branco.
   // Por isso montamos a query manualmente: chave literal, valor com encodeURIComponent.
   const parts = ["action=setPickup", "pickup=my_location"];
   if (clientId) {
@@ -126,7 +126,7 @@ export function buildUberLink(event: EventLocationInput, nickname?: string): str
 /**
  * Deep link oficial do Waze (waze.com/ul). Documentado em
  * https://developers.google.com/waze/deeplinks
- * navigate=yes inicia a navegacao imediatamente, sem precisar pesquisar.
+ * navigate=yes inicia a navegação imediatamente, sem precisar pesquisar.
  */
 export function buildWazeLink(event: EventLocationInput): string {
   const { coords, address } = getEventLocation(event);

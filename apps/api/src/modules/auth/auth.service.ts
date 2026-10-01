@@ -33,7 +33,7 @@ export class AuthService {
   async register(dto: RegisterDto) {
     const exists = await this.prisma.user.findUnique({ where: { email: dto.email.toLowerCase() } });
     if (exists) {
-      throw new ConflictException("Ja existe uma conta com este e-mail.");
+      throw new ConflictException("Já existe uma conta com este e-mail.");
     }
 
     const passwordHash = await bcrypt.hash(dto.password, 12);
@@ -77,13 +77,13 @@ export class AuthService {
   async registerOrganizer(dto: RegisterOrganizerDto) {
     const emailExists = await this.prisma.user.findUnique({ where: { email: dto.email.toLowerCase() } });
     if (emailExists) {
-      throw new ConflictException("Ja existe uma conta com este e-mail.");
+      throw new ConflictException("Já existe uma conta com este e-mail.");
     }
 
     const cnpjClean = dto.cnpj.replace(/\D/g, "");
     const cnpjExists = await this.prisma.tenant.findFirst({ where: { document: cnpjClean } });
     if (cnpjExists) {
-      throw new ConflictException("Ja existe uma empresa cadastrada com este CNPJ.");
+      throw new ConflictException("Já existe uma empresa cadastrada com este CNPJ.");
     }
 
     const passwordHash = await bcrypt.hash(dto.password, 12);
@@ -119,16 +119,16 @@ export class AuthService {
   async becomeOrganizer(userId: string, dto: BecomeOrganizerDto) {
     const user = await this.prisma.user.findUnique({ where: { id: userId } });
     if (!user) {
-      throw new NotFoundException("Usuario nao encontrado.");
+      throw new NotFoundException("Usuário não encontrado.");
     }
     if (user.role === UserRole.ORGANIZER || user.role === UserRole.ADMIN) {
-      throw new ConflictException("Voce ja e um organizador.");
+      throw new ConflictException("Você já é um organizador.");
     }
 
     const cnpjClean = dto.cnpj.replace(/\D/g, "");
     const cnpjExists = await this.prisma.tenant.findFirst({ where: { document: cnpjClean } });
     if (cnpjExists) {
-      throw new ConflictException("Ja existe uma empresa cadastrada com este CNPJ.");
+      throw new ConflictException("Já existe uma empresa cadastrada com este CNPJ.");
     }
 
     const updated = await this.prisma.$transaction(async (tx) => {
@@ -158,7 +158,7 @@ export class AuthService {
   async login(dto: LoginDto) {
     const user = await this.prisma.user.findUnique({ where: { email: dto.email.toLowerCase() } });
     if (!user || !(await bcrypt.compare(dto.password, user.passwordHash))) {
-      throw new UnauthorizedException("E-mail ou senha invalidos.");
+      throw new UnauthorizedException("E-mail ou senha inválidos.");
     }
 
     return this.issueSession(user);
@@ -176,7 +176,7 @@ export class AuthService {
     });
 
     if (!stored) {
-      throw new UnauthorizedException("Refresh token invalido.");
+      throw new UnauthorizedException("Refresh token inválido.");
     }
 
     await this.prisma.refreshToken.update({
@@ -198,13 +198,13 @@ export class AuthService {
       });
     }
 
-    return { message: "Sessao encerrada com sucesso." };
+    return { message: "Sessão encerrada com sucesso." };
   }
 
   async forgotPassword(dto: ForgotPasswordDto) {
     const user = await this.prisma.user.findUnique({ where: { email: dto.email.toLowerCase() } });
     if (!user) {
-      return { message: "Se o e-mail existir, enviaremos instrucoes de recuperacao." };
+      return { message: "Se o e-mail existir, enviaremos instruções de recuperação." };
     }
 
     const token = randomUUID();
@@ -218,13 +218,13 @@ export class AuthService {
 
     await this.mail.send({
       to: user.email,
-      subject: "Recuperacao de senha Event Flow",
+      subject: "Recuperação de senha Event Flow",
       text: `Use este link para redefinir sua senha: ${this.resetPasswordUrl(token)}`,
-      html: `<p>Recebemos uma solicitacao para redefinir sua senha.</p><p><a href="${this.resetPasswordUrl(token)}">Redefinir senha</a></p><p>Este link expira em 30 minutos.</p>`
+      html: `<p>Recebemos uma solicitação para redefinir sua senha.</p><p><a href="${this.resetPasswordUrl(token)}">Redefinir senha</a></p><p>Este link expira em 30 minutos.</p>`
     });
 
     return {
-      message: "Se o e-mail existir, enviaremos instrucoes de recuperacao."
+      message: "Se o e-mail existir, enviaremos instruções de recuperação."
     };
   }
 
@@ -238,7 +238,7 @@ export class AuthService {
     });
 
     if (!reset) {
-      throw new UnauthorizedException("Token expirado ou invalido.");
+      throw new UnauthorizedException("Token expirado ou inválido.");
     }
 
     await this.prisma.$transaction([
@@ -273,12 +273,12 @@ export class AuthService {
     });
 
     if (!record) {
-      throw new UnauthorizedException("Token expirado ou invalido.");
+      throw new UnauthorizedException("Token expirado ou inválido.");
     }
 
     // The address is only proven if it is still the account's address.
     if (record.email !== record.user.email.toLowerCase()) {
-      throw new UnauthorizedException("Token expirado ou invalido.");
+      throw new UnauthorizedException("Token expirado ou inválido.");
     }
 
     await this.prisma.$transaction([
@@ -301,7 +301,7 @@ export class AuthService {
 
   async resendEmailVerification(email: string) {
     // Neutral response: it must not reveal whether an account exists.
-    const neutral = { message: "Se a conta existir e ainda nao estiver confirmada, enviaremos um novo link." };
+    const neutral = { message: "Se a conta existir e ainda não estiver confirmada, enviaremos um novo link." };
     const user = await this.prisma.user.findUnique({ where: { email: email.toLowerCase() } });
     if (!user || user.emailVerifiedAt) {
       return neutral;
@@ -330,7 +330,7 @@ export class AuthService {
       select: { id: true, tenantId: true, name: true, email: true, emailVerifiedAt: true, phone: true, role: true, avatarUrl: true, tenant: true }
     });
     if (!user) {
-      throw new NotFoundException("Usuario nao encontrado.");
+      throw new NotFoundException("Usuário não encontrado.");
     }
     return { ...user, emailVerified: Boolean(user.emailVerifiedAt) };
   }

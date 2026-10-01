@@ -51,7 +51,7 @@ function booleanFromEnv(defaultValue: boolean) {
 
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
-        message: `Valor booleano invalido: "${value}". Use "true" ou "false".`
+        message: `Valor booleano inválido: "${value}". Use "true" ou "false".`
       });
       return z.NEVER;
     });

@@ -58,7 +58,7 @@ async function bootstrap() {
     .setVersion("0.1.0")
     .addBearerAuth()
     .build();
-  // Em producao o /docs mapeava todas as rotas da API para qualquer visitante.
+  // Em produção o /docs mapeava todas as rotas da API para qualquer visitante.
   if (process.env.NODE_ENV !== "production") {
     SwaggerModule.setup("docs", app, SwaggerModule.createDocument(app, swagger));
   }

@@ -221,12 +221,12 @@ export class NotificationsService {
         data: {
           status,
           deliveredAt: status === NotificationStatus.SENT ? new Date() : null,
-          lastError: status === NotificationStatus.SENT ? null : "SMTP nao configurado."
+          lastError: status === NotificationStatus.SENT ? null : "SMTP não configurado."
         }
       });
 
       if (status === NotificationStatus.SKIPPED) {
-        this.logger.warn(`[Notification] SMTP nao configurado, e-mail nao enviado (log ${logId}).`);
+        this.logger.warn(`[Notification] SMTP não configurado, e-mail não enviado (log ${logId}).`);
       }
 
       return { id: logId, status, duplicate: false };

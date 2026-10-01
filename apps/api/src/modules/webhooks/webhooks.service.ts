@@ -46,7 +46,7 @@ export class WebhooksService {
     });
     if (!payment) {
       this.metrics?.increment("eventflow_webhooks_unmatched_total", { provider });
-      throw new NotFoundException("Pagamento do webhook nao encontrado.");
+      throw new NotFoundException("Pagamento do webhook não encontrado.");
     }
 
     const status = this.mapStatus(provider, payload);
@@ -58,8 +58,8 @@ export class WebhooksService {
       return { received: true, provider, status, payment };
     }
 
-    // Um webhook diz que pagou; ele nao prova quanto foi pago. Antes desta
-    // verificacao, "status: paid" no corpo da requisicao bastava para liberar o
+    // Um webhook diz que pagou; ele não prova quanto foi pago. Antes desta
+    // verificação, "status: paid" no corpo da requisição bastava para liberar o
     // ingresso inteiro — inclusive com valor parcial. Agora o PAID so vale
     // depois de conferir status e valor direto no provedor.
     if (status === PaymentStatus.PAID) {
@@ -94,17 +94,17 @@ export class WebhooksService {
       }
 
       if (verified?.status !== PaymentStatus.PAID) {
-        // O log NAO e marcado como processado de proposito: o provedor pode
-        // reenviar a notificacao para nova consulta, em vez de liberar o
-        // ingresso sem verificacao ou perder o pagamento.
+        // O log NÃO é marcado como processado de propósito: o provedor pode
+        // reenviar a notificação para nova consulta, em vez de liberar o
+        // ingresso sem verificação ou perder o pagamento.
         this.metrics?.increment("eventflow_webhooks_unverified_total", { provider });
         // InfinitePay documents retries for HTTP 400 responses. Keep its
         // delivery pending when provider verification fails so it retries;
         // other providers use 503 for the same transient condition.
         if (provider === "infinite_pay") {
-          throw new BadRequestException("Pagamento ainda nao confirmado pelo provedor.");
+          throw new BadRequestException("Pagamento ainda não confirmado pelo provedor.");
         }
-        throw new ServiceUnavailableException("Pagamento ainda nao confirmado pelo provedor.");
+        throw new ServiceUnavailableException("Pagamento ainda não confirmado pelo provedor.");
       }
 
       await this.markPaymentLogProcessed(log?.id, payment.id, payment.orderId, PaymentStatus.PAID);

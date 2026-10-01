@@ -31,7 +31,7 @@ export class TicketsService {
   async update(id: string, tenantId: string, dto: UpdateTicketTypeDto) {
     const ticket = await this.prisma.ticketType.findFirst({ where: { id, event: { tenantId } } });
     if (!ticket) {
-      throw new NotFoundException("Lote de ingresso nao encontrado.");
+      throw new NotFoundException("Lote de ingresso não encontrado.");
     }
     if (dto.startsAt || dto.endsAt) {
       this.validateSalesWindow(
@@ -53,7 +53,7 @@ export class TicketsService {
   async remove(id: string, tenantId: string) {
     const ticket = await this.prisma.ticketType.findFirst({ where: { id, event: { tenantId } } });
     if (!ticket) {
-      throw new NotFoundException("Lote de ingresso nao encontrado.");
+      throw new NotFoundException("Lote de ingresso não encontrado.");
     }
     return this.prisma.ticketType.delete({ where: { id } });
   }
@@ -62,13 +62,13 @@ export class TicketsService {
     const startsAt = new Date(startsAtInput);
     const endsAt = new Date(endsAtInput);
     if (Number.isNaN(startsAt.getTime()) || Number.isNaN(endsAt.getTime())) {
-      throw new BadRequestException("Informe datas de venda validas.");
+      throw new BadRequestException("Informe datas de venda válidas.");
     }
     if (rejectPastStart && startsAt <= new Date()) {
       throw new BadRequestException("A data inicial de venda deve ser futura.");
     }
     if (endsAt <= startsAt) {
-      throw new BadRequestException("A data final de venda deve ser posterior ao inicio.");
+      throw new BadRequestException("A data final de venda deve ser posterior ao início.");
     }
   }
 }

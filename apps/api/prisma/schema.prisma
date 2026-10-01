@@ -672,10 +672,10 @@ model Coupon {
   @@index([tenantId, isActive])
 }
 
-// Restringe um cupom a eventos especificos do organizador. Sem nenhuma linha
+// Restringe um cupom a eventos específicos do organizador. Sem nenhuma linha
 // aqui, o cupom continua valendo para todos os eventos do tenant (ou, se
 // tenantId do cupom for nulo, para qualquer evento) - comportamento anterior
-// preservado por padrao.
+// preservado por padrão.
 model CouponEvent {
   couponId  String
   eventId   String

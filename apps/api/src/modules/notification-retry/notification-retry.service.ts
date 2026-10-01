@@ -41,7 +41,7 @@ export class NotificationRetryService implements OnModuleInit, OnModuleDestroy {
 
   onModuleInit() {
     if (this.config.get<boolean>("NOTIFICATION_RETRY_ENABLED") === false) {
-      this.logger.log("Retentativa de notificacoes desabilitada por configuracao.");
+      this.logger.log("Retentativa de notificações desabilitada por configuração.");
       return;
     }
 
@@ -96,7 +96,7 @@ export class NotificationRetryService implements OnModuleInit, OnModuleDestroy {
           retried += 1;
         } catch (error) {
           const message = error instanceof Error ? error.message : String(error);
-          this.logger.error(`Falha ao reprocessar a notificacao ${row.id}: ${message}`);
+          this.logger.error(`Falha ao reprocessar a notificação ${row.id}: ${message}`);
         }
       }
 

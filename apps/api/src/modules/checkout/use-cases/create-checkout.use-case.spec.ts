@@ -28,7 +28,7 @@ function createEvent(sold = 0) {
       {
         id: "ticket-type-1",
         eventId: "event-1",
-        name: "Ultimo ingresso",
+        name: "Último ingresso",
         description: null,
         quantity: 1,
         sold,
@@ -179,7 +179,7 @@ describe("CreateCheckoutUseCase stock reservation (legacy write order, CHECKOUT_
     await service.execute("eventflow-conf", createDto() as any);
     await expect(
       service.execute("eventflow-conf", createDto() as any),
-    ).rejects.toThrow("Nao ha ingressos suficientes");
+    ).rejects.toThrow("Não há ingressos suficientes");
 
     expect(tx.order.create).toHaveBeenCalledTimes(1);
     expect(orders).toHaveLength(1);
@@ -298,7 +298,7 @@ describe("CreateCheckoutUseCase default write order (hot-row writes last)", () =
     await service.execute("eventflow-conf", createDto() as any);
     await expect(
       service.execute("eventflow-conf", createDto() as any),
-    ).rejects.toThrow("Nao ha ingressos suficientes");
+    ).rejects.toThrow("Não há ingressos suficientes");
 
     expect(getSold()).toBe(1);
   });
@@ -333,7 +333,7 @@ describe("CreateCheckoutUseCase default write order (hot-row writes last)", () =
         ...createDto(),
         items: [{ ticketTypeId: "ticket-type-2", quantity: 1 }],
       } as any),
-    ).rejects.toThrow("Lote de ingresso indisponivel");
+    ).rejects.toThrow("Lote de ingresso indisponível");
   });
 
   it("opens the next lot with the unsold capacity from an expired previous lot", async () => {

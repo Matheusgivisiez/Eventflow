@@ -170,7 +170,7 @@ describe("TransfersService", () => {
 
     await expect(
       service.create(sender, { ticketId: "ticket-1", receiverEmail: receiver.email, confirmation: "CONFIRMAR" })
-    ).rejects.toThrow("Ja existe uma transferencia pendente");
+    ).rejects.toThrow("Já existe uma transferência pendente");
   });
 
   it("blocks transfers for used tickets", async () => {
@@ -330,7 +330,7 @@ describe("TransfersService resolveRecipient", () => {
     jest.clearAllMocks();
   });
 
-  it("nao devolve o e-mail nem o nome completo de quem foi encontrado pelo e-mail", async () => {
+  it("não devolve o e-mail nem o nome completo de quem foi encontrado pelo e-mail", async () => {
     const { service, prisma } = createService();
     prisma.user.findUnique.mockResolvedValue({
       id: "receiver-1",

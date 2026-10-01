@@ -1,35 +1,35 @@
-# Event Flow - Plano de Operacao
+# Event Flow - Plano de Operação
 
 Atualizado em: 2026-08-16
 
-Este documento define como operar o Event Flow em staging e producao depois do fechamento tecnico do hardening. Use junto com `docs/staging-readiness.md`, `docs/project-fix-checklist.md` e `docs/product-maturity.md`.
+Este documento define como operar o Event Flow em staging e produção depois do fechamento técnico do hardening. Use junto com `docs/staging-readiness.md`, `docs/project-fix-checklist.md` e `docs/product-maturity.md`.
 
 ## Objetivos
 
 - Subir staging de forma controlada.
-- Validar fluxos criticos antes de producao.
+- Validar fluxos críticos antes de produção.
 - Reduzir risco de perda financeira, vazamento de dados e indisponibilidade.
 - Padronizar deploy, rollback, monitoramento, incidentes e rotinas recorrentes.
-- Impedir que codigo sem teste/build passe para deploy.
+- Impedir que código sem teste/build passe para deploy.
 
-## Ordem Para Comecar
+## Ordem Para Começar
 
-Execute o projeto nesta ordem. Nao avance para producao sem concluir staging com evidencia registrada.
+Execute o projeto nesta ordem. Não avance para produção sem concluir staging com evidência registrada.
 
-1. Fechar documentacao operacional: `docs/operations-plan.md`, `docs/staging-readiness.md` e runbooks essenciais.
-2. Confirmar que o repositorio esta limpo e que a branch atual esta sincronizada com o remote.
-3. Rodar os gates locais obrigatorios de teste, build e whitespace.
-4. Revisar variaveis obrigatorias e gerar secrets fortes para staging.
+1. Fechar documentação operacional: `docs/operations-plan.md`, `docs/staging-readiness.md` e runbooks essenciais.
+2. Confirmar que o repositório está limpo e que a branch atual está sincronizada com o remote.
+3. Rodar os gates locais obrigatórios de teste, build e whitespace.
+4. Revisar variáveis obrigatórias e gerar secrets fortes para staging.
 5. Provisionar staging: PostgreSQL, Redis, RabbitMQ, S3/CDN, SMTP, AbacatePay sandbox e monitoramento.
 6. Aplicar migrations em staging e subir API.
 7. Subir web e configurar mobile apontando para a API de staging.
-8. Rodar smoke tests: `/health`, `/metrics`, login e pagina publica.
+8. Rodar smoke tests: `/health`, `/metrics`, login e página pública.
 9. Executar checklist manual completo de staging: auth, checkout, pagamento/webhook, QR/check-in, upload e mobile.
 10. Exercitar backup e restore em ambiente separado.
-11. Ativar alertas minimos e confirmar que disparam em cenarios controlados.
-12. Rodar teste de carga basico para pagina publica, checkout e check-in.
-13. Registrar evidencias, falhas e decisoes em documento de release.
-14. Preparar producao somente depois de staging aprovado ponta a ponta.
+11. Ativar alertas mínimos e confirmar que disparam em cenários controlados.
+12. Rodar teste de carga básico para página pública, checkout e check-in.
+13. Registrar evidências, falhas e decisões em documento de release.
+14. Preparar produção somente depois de staging aprovado ponta a ponta.
 
 ## Ambientes
 
@@ -39,40 +39,40 @@ Uso:
 
 - Desenvolvimento.
 - Testes automatizados.
-- Validacao rapida de fluxos sem servicos externos reais.
+- Validação rápida de fluxos sem serviços externos reais.
 
 Regras:
 
 - Pode usar secrets `dev-only-*`.
 - Pode usar upload local como fallback.
-- Nao deve usar credenciais reais de pagamento.
-- Nao deve conter dados reais de cliente.
+- Não deve usar credenciais reais de pagamento.
+- Não deve conter dados reais de cliente.
 
 ### Staging
 
 Uso:
 
-- Ensaiar operacao real.
+- Ensaiar operação real.
 - Testar pagamento sandbox.
 - Validar SMTP, S3/CDN, migrations, mobile e webhooks.
-- Fazer homologacao antes de producao.
+- Fazer homologação antes de produção.
 
 Regras:
 
 - `NODE_ENV=production`.
-- Secrets fortes obrigatorios.
-- Banco separado de producao.
+- Secrets fortes obrigatórios.
+- Banco separado de produção.
 - Gateway em sandbox.
-- Dados ficticios ou anonimizados.
+- Dados fictícios ou anonimizados.
 - Deploy so pode acontecer com testes e builds passando.
 
-### Producao
+### Produção
 
 Uso:
 
 - Venda real.
 - Check-in real.
-- Dados reais de usuarios, compradores e organizadores.
+- Dados reais de usuários, compradores e organizadores.
 
 Regras:
 
@@ -80,26 +80,26 @@ Regras:
 - Migrations devem ser revisadas antes de aplicar.
 - Rollback deve estar definido antes do deploy.
 - Backups e restore devem estar testados.
-- Logs nao podem conter secrets, tokens, documentos ou payloads sensiveis.
+- Logs não podem conter secrets, tokens, documentos ou payloads sensíveis.
 
-## Servicos Obrigatorios
+## Serviços Obrigatórios
 
-| Servico | Ambiente | Uso | Obrigatorio antes de producao |
+| Serviço | Ambiente | Uso | Obrigatório antes de produção |
 | --- | --- | --- | --- |
-| PostgreSQL | staging/producao | Banco principal | Sim |
-| Redis | staging/producao | Cache, rate limit, filas | Sim |
-| RabbitMQ | staging/producao | Jobs e processamento async | Sim |
-| S3 ou compativel | staging/producao | Uploads/assets | Sim |
-| CDN/public URL | staging/producao | Entrega publica de assets | Sim |
-| SMTP | staging/producao | Recuperacao de senha | Sim |
+| PostgreSQL | staging/produção | Banco principal | Sim |
+| Redis | staging/produção | Cache, rate limit, filas | Sim |
+| RabbitMQ | staging/produção | Jobs e processamento async | Sim |
+| S3 ou compatível | staging/produção | Uploads/assets | Sim |
+| CDN/public URL | staging/produção | Entrega pública de assets | Sim |
+| SMTP | staging/produção | Recuperação de senha | Sim |
 | AbacatePay sandbox | staging | Pagamento homologado | Sim para staging |
-| AbacatePay producao | producao | Pagamento real | Sim para producao |
-| Prometheus/Grafana | staging/producao | Metricas | Sim |
-| Loki ou equivalente | staging/producao | Logs centralizados | Recomendado |
+| AbacatePay produção | produção | Pagamento real | Sim para produção |
+| Prometheus/Grafana | staging/produção | Métricas | Sim |
+| Loki ou equivalente | staging/produção | Logs centralizados | Recomendado |
 
-## Variaveis Obrigatorias
+## Variáveis Obrigatórias
 
-Configurar em staging e producao:
+Configurar em staging e produção:
 
 - `NODE_ENV=production`
 - `DATABASE_URL`
@@ -126,13 +126,13 @@ Configurar em staging e producao:
 
 Regras para secrets:
 
-- Minimo de 32 caracteres para JWT/QR secrets.
-- Nunca usar `change-me-*` ou `dev-only-*` em staging/producao.
+- Mínimo de 32 caracteres para JWT/QR secrets.
+- Nunca usar `change-me-*` ou `dev-only-*` em staging/produção.
 - Nunca commitar `.env`.
 - Rotacionar secrets se forem expostos em terminal, log, print ou chat.
-- Para Cloudflare R2, configurar tambem `AWS_S3_ENDPOINT`, `AWS_REGION=auto` e `AWS_S3_FORCE_PATH_STYLE=true`.
+- Para Cloudflare R2, configurar também `AWS_S3_ENDPOINT`, `AWS_REGION=auto` e `AWS_S3_FORCE_PATH_STYLE=true`.
 
-## Gates Obrigatorios de Deploy
+## Gates Obrigatórios de Deploy
 
 Nenhum deploy pode seguir se algum item falhar:
 
@@ -145,43 +145,43 @@ pnpm --filter @eventflow/mobile test
 pnpm --filter @eventflow/mobile typecheck
 ```
 
-## Regra Obrigatoria de Testes Por Mudanca
+## Regra Obrigatória de Testes Por Mudança
 
-Toda mudanca de codigo, configuracao, schema, infraestrutura ou contrato de API deve vir acompanhada de testes proporcionais ao risco. A regra vale para local, staging e producao.
+Toda mudança de código, configuração, schema, infraestrutura ou contrato de API deve vir acompanhada de testes proporcionais ao risco. A regra vale para local, staging e produção.
 
-Obrigatorio para qualquer mudanca:
+Obrigatório para qualquer mudança:
 
-- Rodar o teste focado do modulo alterado.
+- Rodar o teste focado do módulo alterado.
 - Rodar build/typecheck do pacote alterado.
 - Rodar `git diff --check`.
-- Confirmar que nenhuma rota existente que dependa do modulo foi quebrada.
-- Confirmar que nenhum secret, token, chave de API, payload sensivel, documento pessoal ou QR completo foi adicionado a logs, respostas HTTP, fixtures, prints, snapshots ou docs.
+- Confirmar que nenhuma rota existente que dependa do módulo foi quebrada.
+- Confirmar que nenhum secret, token, chave de API, payload sensível, documento pessoal ou QR completo foi adicionado a logs, respostas HTTP, fixtures, prints, snapshots ou docs.
 - Registrar no documento de release quais testes foram executados e o resultado.
 
-Obrigatorio para mudancas em auth, permissao, checkout, pagamento, webhook, upload, ticket, QR, check-in, LGPD, logs ou variaveis de ambiente:
+Obrigatório para mudanças em auth, permissão, checkout, pagamento, webhook, upload, ticket, QR, check-in, LGPD, logs ou variáveis de ambiente:
 
 - Rodar a suite completa da API.
-- Adicionar ou atualizar teste negativo para acesso indevido, vazamento de informacao sensivel ou payload adulterado.
-- Validar que respostas HTTP nao retornam secrets, refresh tokens, reset tokens, API keys, dados de cartao, documentos pessoais desnecessarios ou QR payload completo.
-- Validar que logs nao imprimem secrets, tokens, credenciais, documentos pessoais ou payloads sensiveis.
-- Testar pelo menos um fluxo manual em staging antes de liberar producao.
+- Adicionar ou atualizar teste negativo para acesso indevido, vazamento de informação sensível ou payload adulterado.
+- Validar que respostas HTTP não retornam secrets, refresh tokens, reset tokens, API keys, dados de cartão, documentos pessoais desnecessários ou QR payload completo.
+- Validar que logs não imprimem secrets, tokens, credenciais, documentos pessoais ou payloads sensíveis.
+- Testar pelo menos um fluxo manual em staging antes de liberar produção.
 
-Obrigatorio para mudancas que tocam rotas publicas ou frontend:
+Obrigatório para mudanças que tocam rotas públicas ou frontend:
 
 - Rodar build da web.
-- Validar rota publica afetada.
-- Validar estado de erro e ausencia de dados sensiveis na tela.
+- Validar rota pública afetada.
+- Validar estado de erro e ausência de dados sensíveis na tela.
 - Confirmar que URLs com token de acesso continuam restritas ao fluxo previsto.
 
-Obrigatorio para mudancas em mobile:
+Obrigatório para mudanças em mobile:
 
 - Rodar testes do mobile.
 - Rodar typecheck do mobile.
-- Validar login, armazenamento seguro de token, check-in online e sincronizacao offline quando o modulo for afetado.
+- Validar login, armazenamento seguro de token, check-in online e sincronização offline quando o módulo for afetado.
 
-Uma mudanca nao pode ser marcada como concluida se os testes obrigatorios nao foram executados. Se algum teste nao puder rodar, o item deve ficar bloqueado ou em andamento com motivo registrado.
+Uma mudança não pode ser marcada como concluída se os testes obrigatórios não foram executados. Se algum teste não puder rodar, o item deve ficar bloqueado ou em andamento com motivo registrado.
 
-Para mudancas que tocam banco:
+Para mudanças que tocam banco:
 
 ```bash
 cd apps/api
@@ -189,37 +189,37 @@ npx prisma migrate deploy
 npx prisma generate
 ```
 
-Para mudancas de seguranca, pagamento, checkout, upload, webhook ou check-in:
+Para mudanças de segurança, pagamento, checkout, upload, webhook ou check-in:
 
 - Rodar suite completa da API.
-- Rodar teste focado do modulo afetado.
+- Rodar teste focado do módulo afetado.
 - Testar pelo menos um fluxo manual em staging.
 - Atualizar docs se o contrato mudar.
 
 ## Uso Recomendado de Modelos de IA
 
-Use modelos mais fortes nas operacoes com risco financeiro, seguranca, dados sensiveis, concorrencia ou infraestrutura. Use modelos mais simples em tarefas mecanicas, documentacao e validacoes repetitivas.
+Use modelos mais fortes nas operações com risco financeiro, segurança, dados sensíveis, concorrência ou infraestrutura. Use modelos mais simples em tarefas mecânicas, documentação e validações repetitivas.
 
-| Operacao | Complexidade | Modelo recomendado | Motivo |
+| Operação | Complexidade | Modelo recomendado | Motivo |
 | --- | --- | --- | --- |
-| Planejar staging/producao, rollback e incidentes | Alta | Modelo avancado | Exige raciocinio de risco, ordem operacional e mitigacao. |
-| Implementar auth, refresh token, permissoes e LGPD | Alta | Modelo avancado | Alto risco de vazamento, bypass de permissao e quebra de sessao. |
-| Implementar checkout, estoque concorrente, pagamento e webhook | Alta | Modelo avancado | Envolve dinheiro, idempotencia, corrida e consistencia de banco. |
-| Revisar migrations, backup e restore | Alta | Modelo avancado | Pode causar perda de dados ou incompatibilidade entre schema e app. |
-| Configurar observabilidade, metricas e alertas | Media/alta | Modelo avancado ou intermediario forte | Precisa transformar falhas reais em sinais acionaveis. |
-| Teste de carga e analise de gargalos | Media/alta | Modelo avancado | Exige leitura de resultados, concorrencia e impacto em checkout/check-in. |
-| Criar ou ajustar testes unitarios focados | Media | Modelo intermediario | Escopo geralmente local, desde que o contrato esteja claro. |
-| Ajustar frontend sem mudar contrato sensivel | Media | Modelo intermediario | Risco controlado, mas precisa build e validacao de rotas. |
-| Atualizar textos, docs, checklists e runbooks | Baixa/media | Modelo simples ou intermediario | Trabalho mais mecanico, com revisao humana. |
-| Rodar comandos de validacao e registrar resultados | Baixa | Modelo simples | Execucao repetitiva com saida objetiva. |
-| Revisar logs para ausencia de secrets | Media | Modelo intermediario | Precisa reconhecer padroes de vazamento e falsos positivos. |
-| Criar tarefas a partir de checklist aprovado | Baixa/media | Modelo simples ou intermediario | Bom para quebrar trabalho sem tomar decisoes criticas. |
+| Planejar staging/produção, rollback e incidentes | Alta | Modelo avançado | Exige raciocínio de risco, ordem operacional e mitigação. |
+| Implementar auth, refresh token, permissões e LGPD | Alta | Modelo avançado | Alto risco de vazamento, bypass de permissão e quebra de sessão. |
+| Implementar checkout, estoque concorrente, pagamento e webhook | Alta | Modelo avançado | Envolve dinheiro, idempotência, corrida e consistência de banco. |
+| Revisar migrations, backup e restore | Alta | Modelo avançado | Pode causar perda de dados ou incompatibilidade entre schema e app. |
+| Configurar observabilidade, métricas e alertas | Media/alta | Modelo avançado ou intermediário forte | Precisa transformar falhas reais em sinais acionáveis. |
+| Teste de carga e análise de gargalos | Media/alta | Modelo avançado | Exige leitura de resultados, concorrência e impacto em checkout/check-in. |
+| Criar ou ajustar testes unitários focados | Média | Modelo intermediário | Escopo geralmente local, desde que o contrato esteja claro. |
+| Ajustar frontend sem mudar contrato sensível | Média | Modelo intermediário | Risco controlado, mas precisa build e validação de rotas. |
+| Atualizar textos, docs, checklists e runbooks | Baixa/media | Modelo simples ou intermediário | Trabalho mais mecânico, com revisão humana. |
+| Rodar comandos de validação e registrar resultados | Baixa | Modelo simples | Execução repetitiva com saída objetiva. |
+| Revisar logs para ausência de secrets | Média | Modelo intermediário | Precisa reconhecer padrões de vazamento e falsos positivos. |
+| Criar tarefas a partir de checklist aprovado | Baixa/media | Modelo simples ou intermediário | Bom para quebrar trabalho sem tomar decisões críticas. |
 
 ## Processo de Deploy em Staging
 
 1. Confirmar working tree limpo.
-2. Confirmar ultimo commit no remote.
-3. Configurar variaveis de staging.
+2. Confirmar último commit no remote.
+3. Configurar variáveis de staging.
 4. Provisionar PostgreSQL, Redis, RabbitMQ, S3/CDN e SMTP.
 5. Aplicar migrations.
 6. Subir API.
@@ -236,10 +236,10 @@ Use modelos mais fortes nas operacoes com risco financeiro, seguranca, dados sen
 
 - Criar conta de organizador.
 - Fazer login web.
-- Confirmar que refresh token nao aparece no localStorage.
-- Executar refresh de sessao.
+- Confirmar que refresh token não aparece no localStorage.
+- Executar refresh de sessão.
 - Fazer logout.
-- Testar recuperacao de senha via SMTP.
+- Testar recuperação de senha via SMTP.
 
 ### Eventos e Checkout
 
@@ -247,19 +247,19 @@ Use modelos mais fortes nas operacoes com risco financeiro, seguranca, dados sen
 - Criar lote com quantidade baixa.
 - Fazer checkout.
 - Confirmar reserva de estoque.
-- Abrir pagina de sucesso com `orderId` e `accessToken`.
+- Abrir página de sucesso com `orderId` e `accessToken`.
 - Tentar abrir pedido sem `accessToken`; deve falhar.
-- Tentar dois checkouts simultaneos no ultimo ingresso; apenas um deve reservar.
+- Tentar dois checkouts simultâneos no último ingresso; apenas um deve reservar.
 
 ### Pagamento e Webhook
 
-- Criar preferencia de pagamento sandbox.
+- Criar preferência de pagamento sandbox.
 - Simular pagamento aprovado.
 - Confirmar status `PAID`.
-- Confirmar emissao de tickets.
-- Confirmar ledger unico.
-- Reenviar webhook duplicado; nao deve duplicar tickets nem ledger.
-- Verificar metricas de webhook em `/metrics`.
+- Confirmar emissão de tickets.
+- Confirmar ledger único.
+- Reenviar webhook duplicado; não deve duplicar tickets nem ledger.
+- Verificar métricas de webhook em `/metrics`.
 
 ### QR e Check-in
 
@@ -271,15 +271,15 @@ Use modelos mais fortes nas operacoes com risco financeiro, seguranca, dados sen
 
 ### Upload
 
-- Fazer upload autenticado de imagem valida.
-- Confirmar URL publica S3/CDN.
-- Tentar arquivo com extensao invalida.
-- Tentar arquivo com MIME/extensao falsa.
+- Fazer upload autenticado de imagem válida.
+- Confirmar URL pública S3/CDN.
+- Tentar arquivo com extensão inválida.
+- Tentar arquivo com MIME/extensão falsa.
 
 ### Mobile
 
 - Instalar app apontando para staging.
-- Logar com operador com permissao `CHECK_IN`.
+- Logar com operador com permissão `CHECK_IN`.
 - Confirmar registro de device.
 - Escanear QR online.
 - Colocar dispositivo offline.
@@ -287,9 +287,9 @@ Use modelos mais fortes nas operacoes com risco financeiro, seguranca, dados sen
 - Voltar online e sincronizar.
 - Confirmar lote de sync no backend.
 
-## Processo de Deploy em Producao
+## Processo de Deploy em Produção
 
-Pre-condicoes:
+Pre-condições:
 
 - Staging aprovado.
 - Backup recente criado.
@@ -297,49 +297,49 @@ Pre-condicoes:
 - Plano de rollback definido.
 - Gateway real configurado.
 - Webhook real configurado.
-- Alertas minimos ativos.
+- Alertas mínimos ativos.
 
 Passos:
 
 1. Anunciar janela de deploy.
-2. Congelar novas mudancas ate finalizar deploy.
+2. Congelar novas mudanças ate finalizar deploy.
 3. Criar backup do banco.
 4. Aplicar migrations.
 5. Deploy da API.
 6. Smoke test da API: `/health`, `/metrics`, login.
 7. Deploy da web.
-8. Smoke test da web: pagina publica, login, checkout ate preferencia.
+8. Smoke test da web: página pública, login, checkout ate preferência.
 9. Validar webhook com evento de teste controlado.
 10. Validar upload.
 11. Validar mobile com operador real de teste.
-12. Monitorar logs e metricas por pelo menos 30 minutos.
+12. Monitorar logs e métricas por pelo menos 30 minutos.
 13. Registrar resultado da release.
 
 ## Rollback
 
 Quando acionar:
 
-- API indisponivel.
+- API indisponível.
 - Checkout falhando.
 - Pagamento aprovado sem emitir ticket.
-- Vazamento de dado sensivel.
+- Vazamento de dado sensível.
 - Erro generalizado em login.
 - Migration incompatibiliza o app.
 
 Ordem:
 
 1. Pausar deploys.
-2. Identificar commit/release anterior estavel.
-3. Se nao houve migration destrutiva, voltar app para versao anterior.
+2. Identificar commit/release anterior estável.
+3. Se não houve migration destrutiva, voltar app para versão anterior.
 4. Se houve migration destrutiva, avaliar restore de backup antes de rollback.
-5. Desabilitar feature afetada quando possivel.
+5. Desabilitar feature afetada quando possível.
 6. Comunicar impacto.
 7. Registrar incidente e causa raiz.
 
 Regra:
 
-- Nunca executar rollback de banco sem backup e decisao explicita.
-- Nunca apagar dados manualmente para "destravar" producao sem registro.
+- Nunca executar rollback de banco sem backup e decisão explicita.
+- Nunca apagar dados manualmente para "destravar" produção sem registro.
 
 ## Monitoramento
 
@@ -352,16 +352,16 @@ Endpoint:
 Esperado:
 
 - Status `ok`.
-- Latencia baixa.
+- Latência baixa.
 - Sem erro 5xx.
 
-### Metricas
+### Métricas
 
 Endpoint:
 
 - `/metrics`
 
-Metricas criticas:
+Métricas críticas:
 
 - `eventflow_api_up`
 - `eventflow_checkout_created_total`
@@ -375,22 +375,22 @@ Metricas criticas:
 - `eventflow_checkin_validations_total`
 - `eventflow_checkin_signature_failures_total`
 
-### Alertas Minimos
+### Alertas Mínimos
 
-Criticos:
+Críticos:
 
 - API fora do ar por mais de 2 minutos.
 - Erro 5xx acima de 2 por cento por 5 minutos.
-- Webhook com falha ou nao encontrado acima do normal.
-- Checkout sem criacao de pedido durante campanha ativa.
-- Pagamento `PAID` sem emissao de ticket.
-- Banco indisponivel.
-- Redis indisponivel.
+- Webhook com falha ou não encontrado acima do normal.
+- Checkout sem criação de pedido durante campanha ativa.
+- Pagamento `PAID` sem emissão de ticket.
+- Banco indisponível.
+- Redis indisponível.
 - Fila travada ou crescendo continuamente.
 
 Avisos:
 
-- Latencia p95 acima do alvo.
+- Latência p95 acima do alvo.
 - Aumento de QR adulterado.
 - Aumento de check-in duplicado.
 - Aumento de conflito de estoque.
@@ -402,15 +402,15 @@ Avisos:
 Logs devem conter:
 
 - Request id.
-- Metodo.
+- Método.
 - Path.
 - Status.
-- Duracao.
+- Duração.
 - User id quando autenticado.
-- Tenant id quando disponivel.
-- Modulo/acao.
+- Tenant id quando disponível.
+- Módulo/ação.
 
-Logs nao podem conter:
+Logs não podem conter:
 
 - Senhas.
 - JWT.
@@ -419,56 +419,56 @@ Logs nao podem conter:
 - API keys.
 - Documentos pessoais.
 - QR payload completo.
-- Dados de cartao.
+- Dados de cartão.
 
 ## Incidentes
 
 ### Severidade
 
-| Nivel | Exemplo | Tempo alvo de resposta |
+| Nível | Exemplo | Tempo alvo de resposta |
 | --- | --- | --- |
-| SEV1 | Checkout/pagamento fora, vazamento de dados, app indisponivel | Imediato |
-| SEV2 | Check-in instavel, webhook parcial, uploads falhando | 30 min |
-| SEV3 | Bug em dashboard, relatorio atrasado, erro sem impacto financeiro | 1 dia util |
+| SEV1 | Checkout/pagamento fora, vazamento de dados, app indisponível | Imediato |
+| SEV2 | Check-in instável, webhook parcial, uploads falhando | 30 min |
+| SEV3 | Bug em dashboard, relatório atrasado, erro sem impacto financeiro | 1 dia útil |
 
 ### Processo
 
 1. Declarar incidente.
-2. Definir responsavel.
+2. Definir responsável.
 3. Identificar tenants/eventos afetados.
 4. Checar deploys recentes.
 5. Checar API, banco, Redis, filas, storage e gateway.
 6. Mitigar primeiro.
 7. Corrigir causa raiz depois.
 8. Criar postmortem em ate 48 horas.
-9. Adicionar teste ou alerta para evitar repeticao.
+9. Adicionar teste ou alerta para evitar repetição.
 
 ## Backups e Restore
 
-Rotina minima:
+Rotina mínima:
 
-- Backup automatico diario do PostgreSQL.
-- Retencao minima de 7 dias em staging e 30 dias em producao.
-- Backup antes de qualquer migration em producao.
+- Backup automático diário do PostgreSQL.
+- Retenção mínima de 7 dias em staging e 30 dias em produção.
+- Backup antes de qualquer migration em produção.
 - Teste de restore mensal.
 
 Teste de restore deve confirmar:
 
 - Banco sobe.
-- Migrations estao coerentes.
+- Migrations estão coerentes.
 - Login funciona.
 - Consulta de eventos funciona.
-- Pedido/ticket historico pode ser lido.
-- Check-in nao perde consistencia.
+- Pedido/ticket histórico pode ser lido.
+- Check-in não perde consistência.
 
-## Rotacao de Secrets
+## Rotação de Secrets
 
 Quando rotacionar:
 
-- Exposicao acidental.
-- Saida de colaborador com acesso.
-- Incidente de seguranca.
-- Rotina trimestral para secrets criticos.
+- Exposição acidental.
+- Saída de colaborador com acesso.
+- Incidente de segurança.
+- Rotina trimestral para secrets críticos.
 
 Ordem sugerida:
 
@@ -482,7 +482,7 @@ Ordem sugerida:
 ## Rotina Semanal
 
 - Conferir erros 5xx.
-- Conferir metricas de checkout e webhook.
+- Conferir métricas de checkout e webhook.
 - Conferir conflitos de estoque.
 - Conferir QR adulterado/duplicado.
 - Conferir falhas de upload.
@@ -493,45 +493,45 @@ Ordem sugerida:
 ## Rotina Mensal
 
 - Testar restore.
-- Revisar dependencias com vulnerabilidades.
-- Revisar usuarios administrativos.
+- Revisar dependências com vulnerabilidades.
+- Revisar usuários administrativos.
 - Revisar API keys e secrets.
 - Revisar custos de infra.
-- Rodar teste de carga basico.
+- Rodar teste de carga básico.
 - Atualizar matriz de maturidade.
 
-## Gates Para Liberar Producao
+## Gates Para Liberar Produção
 
-Antes da primeira producao real:
+Antes da primeira produção real:
 
 - Staging validado ponta a ponta.
 - Pagamento real testado com valor controlado.
 - Webhook real validado.
 - SMTP real validado.
 - S3/CDN validado.
-- Mobile validado em aparelho fisico.
+- Mobile validado em aparelho físico.
 - Backup criado.
 - Restore testado.
 - Alertas ativos.
-- Politica LGPD revisada.
-- Termos e politica de privacidade revisados.
+- Política LGPD revisada.
+- Termos e política de privacidade revisados.
 - Plano de suporte definido.
 
-## Pendencias Conhecidas
+## Pendências Conhecidas
 
-| Pendencia | Prioridade | Acao |
+| Pendência | Prioridade | Ação |
 | --- | --- | --- |
-| Assinatura criptografica real do webhook AbacatePay | Alta | Implementar assim que o provedor oferecer contrato claro. |
-| Teste de carga | Media | Criar cenarios k6/Artillery para pagina publica, checkout e check-in. |
-| Conciliacao financeira automatica | Media | Comparar ledger interno contra extratos do provedor. |
-| 2FA end-to-end | Media | Implementar provisioning TOTP/app authenticator e testes. |
-| Restore exercitado | Media | Criar rotina mensal e registrar evidencias. |
-| LGPD juridico/operacional | Media | Revisar consentimento, retencao e exclusao com apoio legal. |
-| Lock distribuido para seat holds em alto volume | Baixa | Avaliar Redis lock se seat maps tiverem carga alta. |
+| Assinatura criptográfica real do webhook AbacatePay | Alta | Implementar assim que o provedor oferecer contrato claro. |
+| Teste de carga | Média | Criar cenários k6/Artillery para página pública, checkout e check-in. |
+| Conciliação financeira automática | Média | Comparar ledger interno contra extratos do provedor. |
+| 2FA end-to-end | Média | Implementar provisioning TOTP/app authenticator e testes. |
+| Restore exercitado | Média | Criar rotina mensal e registrar evidências. |
+| LGPD jurídico/operacional | Média | Revisar consentimento, retenção e exclusão com apoio legal. |
+| Lock distribuído para seat holds em alto volume | Baixa | Avaliar Redis lock se seat maps tiverem carga alta. |
 
-## Comandos de Referencia
+## Comandos de Referência
 
-Validacao completa:
+Validação completa:
 
 ```bash
 git diff --check
@@ -559,10 +559,10 @@ curl -s https://api.eventflowtickets.com.br/metrics
 
 ## Dono do Processo
 
-Enquanto nao houver time formal de operacao:
+Enquanto não houver time formal de operação:
 
-- Dono tecnico: responsavel pelo deploy e rollback.
-- Dono de produto: aprova release e janela de operacao.
-- Dono de suporte: acompanha usuarios/eventos durante primeiras vendas.
+- Dono técnico: responsável pelo deploy e rollback.
+- Dono de produto: aprova release e janela de operação.
+- Dono de suporte: acompanha usuários/eventos durante primeiras vendas.
 
-Nenhuma release com impacto em pagamento, checkout, ticket, upload, auth ou check-in deve sair sem dono tecnico presente.
+Nenhuma release com impacto em pagamento, checkout, ticket, upload, auth ou check-in deve sair sem dono técnico presente.

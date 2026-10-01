@@ -6,7 +6,7 @@ import { JwtAuthGuard } from "../../common/guards/jwt-auth.guard";
 import { RolesGuard } from "../../common/guards/roles.guard";
 import { NotificationsService } from "./notifications.service";
 
-@ApiTags("Notificacoes")
+@ApiTags("Notificações")
 @ApiBearerAuth()
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Controller("notifications")

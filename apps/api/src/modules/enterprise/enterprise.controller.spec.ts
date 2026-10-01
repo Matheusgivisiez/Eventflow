@@ -115,7 +115,7 @@ describe("EnterpriseController security", () => {
       id: "team-1",
       role: UserRole.TEAM,
       tenantId: "tenant-1"
-    }))).rejects.toThrow("Voce nao tem permissao");
+    }))).rejects.toThrow("Você não tem permissão");
   });
 
   it("allows team members with the required enterprise permission", async () => {

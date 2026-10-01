@@ -85,8 +85,8 @@ export default function ReportsPage() {
     <div className="space-y-6">
       <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
         <div>
-          <h1 className="text-2xl font-semibold tracking-normal">Relatorios</h1>
-          <p className="text-sm text-muted-foreground">Visao consolidada de vendas, faturamento, conversao e operacao.</p>
+          <h1 className="text-2xl font-semibold tracking-normal">Relatórios</h1>
+          <p className="text-sm text-muted-foreground">Visão consolidada de vendas, faturamento, conversão e operação.</p>
         </div>
         <div className="flex flex-wrap gap-2">
           <Button variant="outline" onClick={() => download("csv")}>
@@ -108,7 +108,7 @@ export default function ReportsPage() {
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-base">
             <Filter className="h-4 w-4" />
-            Filtros de exportacao
+            Filtros de exportação
           </CardTitle>
           <CardDescription>Aplicados aos arquivos CSV, Excel e PDF baixados nesta tela.</CardDescription>
         </CardHeader>
@@ -130,15 +130,15 @@ export default function ReportsPage() {
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <Metric label="Faturamento" value={money(summary?.revenueCents ?? dashboard.data?.totalRevenueCents)} />
         <Metric label="Ingressos vendidos" value={summary?.ticketsSold ?? dashboard.data?.ticketsSold ?? 0} />
-        <Metric label="Taxa de conversao" value={summary ? `${summary.conversionRate}%` : "—"} />
-        <Metric label="Saldo disponivel" value={money(finance.data?.balanceCents)} />
+        <Metric label="Taxa de conversão" value={summary ? `${summary.conversionRate}%` : "—"} />
+        <Metric label="Saldo disponível" value={money(finance.data?.balanceCents)} />
       </div>
 
       <div className="grid gap-4 lg:grid-cols-[1fr_360px]">
         <Card>
           <CardHeader>
             <CardTitle>Faturamento por mes</CardTitle>
-            <CardDescription>Pedidos pagos agrupados por periodo.</CardDescription>
+            <CardDescription>Pedidos pagos agrupados por período.</CardDescription>
           </CardHeader>
           <CardContent className="h-80">
             <ResponsiveContainer width="100%" height="100%">
@@ -156,7 +156,7 @@ export default function ReportsPage() {
         <Card>
           <CardHeader>
             <CardTitle>Resumo operacional</CardTitle>
-            <CardDescription>Indicadores para tomada de decisao.</CardDescription>
+            <CardDescription>Indicadores para tomada de decisão.</CardDescription>
           </CardHeader>
           <CardContent className="space-y-3">
             <Row label="Pedidos pagos" value={summary?.paidOrders ?? dashboard.data?.paidOrders ?? 0} />

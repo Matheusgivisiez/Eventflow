@@ -62,7 +62,7 @@ export class EmailVerificationService {
       ]);
     } catch (error) {
       this.logger.error(
-        `Falha ao criar o token de verificacao do usuario ${user.id}. A conta segue nao verificada e pode pedir um novo link.`,
+        `Falha ao criar o token de verificação do usuário ${user.id}. A conta segue não verificada e pode pedir um novo link.`,
         error as Error
       );
       return false;
@@ -74,10 +74,10 @@ export class EmailVerificationService {
         to: email,
         subject: "Confirme seu e-mail Event Flow",
         text: `Confirme seu e-mail para reunir seus ingressos: ${url}`,
-        html: `<p>Ola, ${this.escapeHtml(user.name)}.</p><p>Confirme seu e-mail para reunir suas compras em Meus Ingressos.</p><p><a href="${url}">Confirmar e-mail</a></p><p>Este link expira em 30 minutos e so pode ser usado uma vez.</p>`
+        html: `<p>Olá, ${this.escapeHtml(user.name)}.</p><p>Confirme seu e-mail para reunir suas compras em Meus Ingressos.</p><p><a href="${url}">Confirmar e-mail</a></p><p>Este link expira em 30 minutos e só pode ser usado uma vez.</p>`
       });
     } catch (error) {
-      this.logger.error(`Falha ao enviar verificacao de e-mail para o usuario ${user.id}`, error as Error);
+      this.logger.error(`Falha ao enviar verificação de e-mail para o usuário ${user.id}`, error as Error);
       return false;
     }
 

@@ -14,7 +14,7 @@ const schema = z.object({
   password: z.string().min(8, "A senha deve ter pelo menos 8 caracteres."),
   confirmPassword: z.string().min(8, "Confirme sua nova senha.")
 }).refine((data) => data.password === data.confirmPassword, {
-  message: "As senhas nao conferem.",
+  message: "As senhas não conferem.",
   path: ["confirmPassword"]
 });
 

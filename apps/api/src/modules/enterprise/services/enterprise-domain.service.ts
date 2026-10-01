@@ -11,7 +11,7 @@ export abstract class EnterpriseDomainService {
 
   protected async ensureEvent(tenantId: string, eventId: string) {
     const event = await this.prisma.event.findFirst({ where: { id: eventId, tenantId } });
-    if (!event) throw new NotFoundException("Evento nao encontrado.");
+    if (!event) throw new NotFoundException("Evento não encontrado.");
     return event;
   }
 
@@ -26,7 +26,7 @@ export abstract class EnterpriseDomainService {
 
   protected requiredString(value: unknown, field: string) {
     const result = this.string(value);
-    if (!result) throw new BadRequestException(`Campo obrigatorio: ${field}.`);
+    if (!result) throw new BadRequestException(`Campo obrigatório: ${field}.`);
     return result;
   }
 

@@ -41,7 +41,7 @@ test.describe("Fluxo de compra", () => {
     expect(failedResponses).toEqual([]);
   });
 
-  test("processa compra, webhook, emissao e check-in com duplicidade", async ({ page, request }) => {
+  test("processa compra, webhook, emissão e check-in com duplicidade", async ({ page, request }) => {
     const eventResponse = await request.get(`${apiUrl}/events/public/${eventSlug}`);
     await expectOk(eventResponse);
     const event = await eventResponse.json() as {

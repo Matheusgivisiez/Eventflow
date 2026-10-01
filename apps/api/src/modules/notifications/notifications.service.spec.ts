@@ -27,7 +27,7 @@ const purchase = {
   buyerName: "Comprador Convidado",
   eventTitle: "Hallowparty",
   eventStartsAt: new Date("2026-10-22T23:00:00.000Z"),
-  eventVenue: "Rua das Flores, 100, Sao Paulo",
+  eventVenue: "Rua das Flores, 100, São Paulo",
   ticketCount: 2,
   qrCodeLocked: false,
   qrCodeReleaseAt: null,

@@ -23,13 +23,13 @@ export class ValidateTicketUseCase {
     const code = rawCode ? rawCode.trim() : "";
     if (!code) {
       this.metrics?.increment("eventflow_checkin_validations_total", { status: "NOT_FOUND" });
-      throw new NotFoundException("Ingresso nao encontrado.");
+      throw new NotFoundException("Ingresso não encontrado.");
     }
 
     const parsed = this.parseCode(code);
 
     if (options.requireSignedPayload && (!parsed.uuid || !parsed.orderId || !parsed.signature)) {
-      throw new BadRequestException("QR Code assinado obrigatorio para sincronizacao offline.");
+      throw new BadRequestException("QR Code assinado obrigatório para sincronização offline.");
     }
 
     if (parsed.uuid && parsed.orderId && parsed.signature) {
@@ -75,7 +75,7 @@ export class ValidateTicketUseCase {
 
     if (!ticket) {
       this.metrics?.increment("eventflow_checkin_validations_total", { status: "NOT_FOUND" });
-      throw new NotFoundException("Ingresso nao encontrado.");
+      throw new NotFoundException("Ingresso não encontrado.");
     }
 
     if (ticket.eventId !== eventId) {
@@ -104,7 +104,7 @@ export class ValidateTicketUseCase {
     }
 
     if (ticket.status !== TicketStatus.AVAILABLE) {
-      await this.logCheckIn(ticket.id, userId, CheckInStatus.REFUSED, "Ingresso cancelado ou indisponivel.");
+      await this.logCheckIn(ticket.id, userId, CheckInStatus.REFUSED, "Ingresso cancelado ou indisponível.");
       this.metrics?.increment("eventflow_checkin_validations_total", { status: CheckInStatus.REFUSED });
       return { status: CheckInStatus.REFUSED, message: "Entrada recusada.", ticket };
     }
@@ -141,7 +141,7 @@ export class ValidateTicketUseCase {
     });
 
     if (!latest) {
-      throw new NotFoundException("Ingresso nao encontrado.");
+      throw new NotFoundException("Ingresso não encontrado.");
     }
 
     if (latest.status === TicketStatus.USED) {
@@ -150,7 +150,7 @@ export class ValidateTicketUseCase {
       return { status: CheckInStatus.DUPLICATED, message: "Entrada duplicada.", ticket: this.toCheckInTicket(latest, false) };
     }
 
-    await this.logCheckIn(latest.id, userId, CheckInStatus.REFUSED, "Ingresso cancelado ou indisponivel.");
+    await this.logCheckIn(latest.id, userId, CheckInStatus.REFUSED, "Ingresso cancelado ou indisponível.");
     this.metrics?.increment("eventflow_checkin_validations_total", { status: CheckInStatus.REFUSED });
     return { status: CheckInStatus.REFUSED, message: "Entrada recusada.", ticket: latest };
   }
