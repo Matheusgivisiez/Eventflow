@@ -20,6 +20,7 @@ const METRIC_HELP: Record<string, string> = {
   eventflow_webhooks_processed_total: "Payment webhooks processed",
   eventflow_webhooks_duplicates_total: "Duplicate payment webhooks ignored",
   eventflow_webhooks_unmatched_total: "Payment webhooks that could not be matched",
+  eventflow_webhooks_unverified_total: "Payment webhooks whose paid status could not be verified with the provider",
   eventflow_checkin_validations_total: "Check-in validation outcomes",
   eventflow_checkin_signature_failures_total: "Forged or invalid check-in QR signatures"
 };
@@ -31,6 +32,7 @@ export class BusinessMetricsService {
   constructor() {
     this.setGauge("eventflow_api_up", 1);
     this.setGauge("eventflow_enterprise_modules", 12);
+    this.increment("eventflow_webhooks_unverified_total", { provider: "infinite_pay" }, 0);
   }
 
   increment(name: keyof typeof METRIC_HELP, labels: MetricLabels = {}, value = 1) {

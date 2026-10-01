@@ -217,7 +217,7 @@ A migration `20260815120000_order_stock_reservation` adiciona:
 
 | Risco | Severidade | Mitigacao |
 | --- | --- | --- |
-| Webhook sem assinatura criptografica do provedor | Alta | Implementar verificacao de assinatura quando AbacatePay oferecer; monitorar `eventflow_webhooks_unmatched_total`. |
+| Configuracao do webhook InfinitePay em producao ainda nao verificada nesta release | Alta | Configurar o segredo na URL (`?secret=...`) e confirmar que o webhook chega. A API consulta status e valor em `payment_check` antes de emitir ingresso e responde HTTP 400 quando a consulta ainda nao confirma o pagamento, solicitando retentativa. Fazer uma entrega controlada e confirmar o alerta `EventflowWebhookUnverifiedSpike`. |
 | Conciliacao financeira manual | Media | Dashboard financeiro mostra KPIs, mas conciliacao real contra extratos do provedor ainda nao esta automatizada. |
 | Teste de carga nao executado | Media | Rodar k6/Artillery contra checkout e pagina publica antes de venda em alto volume. |
 | 2FA enterprise e fluxo real | Media | Modelo existe, mas fluxo de provisioning TOTP/app authenticator nao esta testado end-to-end. |

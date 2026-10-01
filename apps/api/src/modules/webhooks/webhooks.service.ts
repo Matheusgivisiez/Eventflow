@@ -1,4 +1,4 @@
-import { Injectable, Logger, NotFoundException, Optional, ServiceUnavailableException } from "@nestjs/common";
+import { BadRequestException, Injectable, Logger, NotFoundException, Optional, ServiceUnavailableException } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { PaymentStatus } from "@prisma/client";
 import { AuditService } from "../audit/audit.service";
@@ -94,10 +94,16 @@ export class WebhooksService {
       }
 
       if (verified?.status !== PaymentStatus.PAID) {
-        // O log NAO e marcado como processado de proposito: respondendo 503, o
-        // provedor reenvia o webhook e a venda e confirmada na tentativa
-        // seguinte, em vez de ficar paga sem verificacao ou simplesmente perdida.
+        // O log NAO e marcado como processado de proposito: o provedor pode
+        // reenviar a notificacao para nova consulta, em vez de liberar o
+        // ingresso sem verificacao ou perder o pagamento.
         this.metrics?.increment("eventflow_webhooks_unverified_total", { provider });
+        // InfinitePay documents retries for HTTP 400 responses. Keep its
+        // delivery pending when provider verification fails so it retries;
+        // other providers use 503 for the same transient condition.
+        if (provider === "infinite_pay") {
+          throw new BadRequestException("Pagamento ainda nao confirmado pelo provedor.");
+        }
         throw new ServiceUnavailableException("Pagamento ainda nao confirmado pelo provedor.");
       }
 

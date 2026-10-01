@@ -36,6 +36,7 @@ Webhooks:
 - `eventflow_webhooks_processed_total{provider,status}`
 - `eventflow_webhooks_duplicates_total{provider}`
 - `eventflow_webhooks_unmatched_total{provider}`
+- `eventflow_webhooks_unverified_total{provider}`
 
 Check-in:
 
@@ -112,7 +113,7 @@ Critical:
 
 - API error rate above 2 percent for 5 minutes.
 - Checkout creation failures above threshold.
-- Payment webhook failures.
+- Payment webhook failures and paid notifications that the provider API has not yet confirmed.
 - Database unavailable.
 - Redis unavailable.
 - Queue dead-letter growth.

@@ -17,6 +17,14 @@ groups:
         annotations:
           summary: Webhooks sem pagamento correspondente
           runbook: docs/operations-runbooks.md#failed-payment-webhook
+      - alert: EventflowWebhookUnverifiedSpike
+        expr: increase(eventflow_webhooks_unverified_total[5m]) >= 2
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: Provedor notificou pagamento ainda não confirmado pela consulta à API
+          runbook: docs/operations-runbooks.md#failed-payment-webhook
       - alert: EventflowInventoryConflict
         expr: increase(eventflow_checkout_inventory_conflicts_total[5m]) >= 5
         for: 5m

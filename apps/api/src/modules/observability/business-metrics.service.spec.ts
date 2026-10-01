@@ -13,6 +13,7 @@ describe("BusinessMetricsService", () => {
     expect(output).toContain("# TYPE eventflow_api_up gauge");
     expect(output).toContain('eventflow_checkout_created_total{method="PIX",tenant="tenant-1"} 2');
     expect(output).toContain('eventflow_checkin_validations_total{status="ENTERED"} 1');
+    expect(output).toContain('eventflow_webhooks_unverified_total{provider="infinite_pay"} 0');
     expect(output).not.toContain("email");
     expect(output).not.toContain("token");
   });

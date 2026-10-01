@@ -1,4 +1,4 @@
-import { NotFoundException, ServiceUnavailableException } from "@nestjs/common";
+import { BadRequestException, NotFoundException, ServiceUnavailableException } from "@nestjs/common";
 import { PaymentStatus } from "@prisma/client";
 import { WebhooksService } from "./webhooks.service";
 
@@ -174,6 +174,23 @@ describe("WebhooksService paid payment handling", () => {
     expect(audit.log).not.toHaveBeenCalled();
   });
 
+  it("responde 400 para a InfinitePay repetir o webhook quando payment_check ainda nao confirma", async () => {
+    const { service, prisma, payments } = createService();
+    prisma.paymentLog.upsert.mockResolvedValue({ id: "log-1", processedAt: null });
+    prisma.payment.findFirst.mockResolvedValue(createPayment({ provider: "infinite_pay" }));
+    payments.reconcileProviderStatus.mockResolvedValue({ id: "payment-1", status: PaymentStatus.PENDING });
+
+    await expect(service.handle("infinite_pay", {
+      id: "transaction-1",
+      paid: true,
+      order_nsu: "order-1",
+      transaction_nsu: "transaction-1",
+      invoice_slug: "invoice-1"
+    })).rejects.toThrow(BadRequestException);
+
+    expect(prisma.paymentLog.update).not.toHaveBeenCalled();
+  });
+
   it("recusa o webhook quando a consulta ao provedor falha", async () => {
     const { service, prisma, payments } = createService();
     prisma.paymentLog.upsert.mockResolvedValue({ id: "log-1", processedAt: null });
@@ -233,4 +250,3 @@ describe("WebhooksService paid payment handling", () => {
     });
   });
 });
-

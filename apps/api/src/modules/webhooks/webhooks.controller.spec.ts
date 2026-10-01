@@ -16,6 +16,7 @@ function createController() {
     get: jest.fn((key: string) => {
       if (key === "ABACATE_WEBHOOK_SECRET") return "webhook-secret";
       if (key === "ABACATE_PUBLIC_KEY") return "public-key";
+      if (key === "INFINITEPAY_WEBHOOK_SECRET") return "infinitepay-webhook-secret-which-is-long-enough";
       return undefined;
     })
   };
@@ -54,5 +55,23 @@ describe("WebhooksController AbacatePay security", () => {
     await expect(controller.abacatePay(body, request as any, "webhook-secret", sign(rawBody))).resolves.toEqual({ received: true });
 
     expect(webhooks.handle).toHaveBeenCalledWith("abacate_pay", body);
+  });
+});
+
+describe("WebhooksController InfinitePay security", () => {
+  it("accepts the configured secret from InfinitePay's webhook URL", async () => {
+    const { controller, webhooks, body } = createController();
+
+    await expect(controller.infinitePay(body, "infinitepay-webhook-secret-which-is-long-enough")).resolves.toEqual({ received: true });
+
+    expect(webhooks.handle).toHaveBeenCalledWith("infinite_pay", body);
+  });
+
+  it("rejects a missing or invalid secret without processing the webhook", () => {
+    const { controller, webhooks, body } = createController();
+
+    expect(() => controller.infinitePay(body)).toThrow(UnauthorizedException);
+    expect(() => controller.infinitePay(body, "wrong-secret")).toThrow(UnauthorizedException);
+    expect(webhooks.handle).not.toHaveBeenCalled();
   });
 });
