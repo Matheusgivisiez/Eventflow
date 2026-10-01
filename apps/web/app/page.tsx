@@ -344,7 +344,7 @@ export default function CatalogPage() {
             </div>
           </div>
           <p className="text-center text-xs text-muted-foreground/80">
-            Event Flow é operado por Matheus Givisiez Nalon — CNPJ 69.109.143/0001-32 — Ipatinga, MG
+            Event Flow — CNPJ 69.109.143/0001-32 — Ipatinga, MG
           </p>
         </div>
       </footer>
