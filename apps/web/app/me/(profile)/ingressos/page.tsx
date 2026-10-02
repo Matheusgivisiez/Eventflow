@@ -32,8 +32,7 @@ import {
   Sparkles,
   Smartphone,
 } from "lucide-react";
-import { api } from "@/lib/api";
-import { getApiUrl } from "@/lib/api-url";
+import { api, apiResponse } from "@/lib/api";
 import { publicAssetUrl } from "@/lib/public-asset-url";
 import { useAuthStore } from "@/stores/auth-store";
 import { Button } from "@/components/ui/button";
@@ -815,9 +814,7 @@ export default function MyTicketsPage() {
   const [refundConfirmation, setRefundConfirmation] = useState("");
   const [recipientLookup, setRecipientLookup] =
     useState<RecipientLookup | null>(null);
-  const token = useAuthStore((state) => state.accessToken);
   const user = useAuthStore((state) => state.user);
-  const apiUrl = getApiUrl();
 
   const tickets = useQuery({
     queryKey: ["my-tickets", user?.id],
@@ -963,17 +960,21 @@ export default function MyTicketsPage() {
   }
 
   async function downloadPdf(ticketId: string) {
-    const response = await fetch(`${apiUrl}/buyer/tickets/${ticketId}/pdf`, {
-      headers: token ? { Authorization: `Bearer ${token}` } : undefined,
-    });
-    if (!response.ok) return;
-    const blob = await response.blob();
-    const url = URL.createObjectURL(blob);
-    const anchor = document.createElement("a");
-    anchor.href = url;
-    anchor.download = `eventflow-ticket-${ticketId}.pdf`;
-    anchor.click();
-    URL.revokeObjectURL(url);
+    try {
+      const response = await apiResponse(`/buyer/tickets/${ticketId}/pdf`);
+      const blob = await response.blob();
+      const url = URL.createObjectURL(blob);
+      const anchor = document.createElement("a");
+      anchor.href = url;
+      anchor.download = `eventflow-ticket-${ticketId}.pdf`;
+      anchor.style.display = "none";
+      document.body.appendChild(anchor);
+      anchor.click();
+      anchor.remove();
+      window.setTimeout(() => URL.revokeObjectURL(url), 30_000);
+    } catch (error) {
+      window.alert(error instanceof Error ? error.message : "Não foi possível baixar o ingresso. Tente novamente.");
+    }
   }
 
   return (

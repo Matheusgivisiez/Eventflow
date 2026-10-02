@@ -98,7 +98,7 @@ async function refreshAccessToken(store: ReturnType<typeof useAuthStore.getState
   return refreshPromise;
 }
 
-export async function api<T>(path: string, options: ApiOptions = {}): Promise<T> {
+export async function apiResponse(path: string, options: ApiOptions = {}): Promise<Response> {
   const store = useAuthStore.getState();
   let token = store.accessToken;
 
@@ -132,6 +132,11 @@ export async function api<T>(path: string, options: ApiOptions = {}): Promise<T>
     throw await apiErrorFromResponse(response);
   }
 
+  return response;
+}
+
+export async function api<T>(path: string, options: ApiOptions = {}): Promise<T> {
+  const response = await apiResponse(path, options);
   return response.json();
 }
 
