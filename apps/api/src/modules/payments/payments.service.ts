@@ -96,6 +96,28 @@ export class PaymentsService {
     return result;
   }
 
+  /**
+   * Pedido de total zero (evento gratuito ou cupom de 100%): não existe cobrança,
+   * então nenhum provedor é chamado. Confirma pelo mesmo caminho de um pagamento
+   * aprovado (markPaid), que emite os ingressos, grava o ledger e dispara o e-mail.
+   * Recusa qualquer pedido com valor a pagar — nunca pode virar atalho para
+   * confirmar uma compra paga sem pagamento.
+   */
+  async confirmFreeOrder(orderId: string) {
+    const order = await this.prisma.order.findUnique({ where: { id: orderId }, include: { event: true, payment: true } });
+    if (!order || !order.payment) {
+      throw new NotFoundException("Pedido não encontrado.");
+    }
+    if (order.totalCents !== 0 || order.payment.amountCents !== 0) {
+      throw new BadRequestException("Este pedido exige pagamento.");
+    }
+    await this.prisma.payment.update({ where: { orderId }, data: { provider: "free" } });
+    return this.updateStatus(order.payment.id, order.event.tenantId, {
+      status: PaymentStatus.PAID,
+      providerRef: `free:${order.id}`
+    });
+  }
+
   async updateStatus(id: string, tenantId: string, dto: UpdatePaymentStatusDto) {
     const payment = await this.prisma.payment.findFirst({
       where: { id, event: { tenantId } },
@@ -476,6 +498,7 @@ export class PaymentsService {
         ticketCount: order._count.tickets,
         qrCodeLocked: isQrCodeLocked(order.event),
         qrCodeReleaseAt: getQrCodeReleaseTime(order.event),
+        free: order.totalCents === 0,
         tickets: order.tickets.map((ticket) => ({
           id: ticket.id,
           attendeeName: ticket.attendeeName,

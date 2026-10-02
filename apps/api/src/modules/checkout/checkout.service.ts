@@ -30,6 +30,29 @@ export class CheckoutService {
     const timer = isPerfDiagnosticsEnabled() ? new PhaseTimer() : undefined;
     const order = await this.createCheckout.execute(slug, dto, user);
     timer?.lap("createOrder");
+
+    // Total zero (evento gratuito ou cupom de 100%): não há o que cobrar, então a
+    // InfinitePay não é chamada. O pedido é confirmado na hora e os ingressos emitidos.
+    if (order.totalCents === 0) {
+      try {
+        await this.payments.confirmFreeOrder(order.id);
+      } catch (error) {
+        await this.cancelOrderAfterProviderFailure(order.id);
+        throw error;
+      }
+      timer?.lap("freeConfirmation");
+      if (timer) {
+        this.logger.log(`checkout.request order=${order.id} free=true ${timer.format()}`);
+      }
+      return {
+        ...order,
+        orderId: order.id,
+        orderAccessToken: order.orderAccessToken,
+        status: PaymentStatus.PAID,
+        checkoutUrl: undefined
+      };
+    }
+
     let checkout: Awaited<ReturnType<PaymentsService["createProviderPreference"]>>;
     try {
       checkout = await this.payments.createProviderPreference(order.id);

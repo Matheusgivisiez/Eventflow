@@ -1,7 +1,7 @@
 "use client";
 
 import { Suspense, useEffect, useMemo, useState } from "react";
-import { useParams, useSearchParams } from "next/navigation";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import {
@@ -85,6 +85,7 @@ function parseItemsParam(raw: string | null): Record<string, number> {
 
 function CheckoutForm() {
   const { slug } = useParams<{ slug: string }>();
+  const router = useRouter();
   const searchParams = useSearchParams();
   const initialItems = useMemo(
     () => parseItemsParam(searchParams.get("items")),
@@ -194,6 +195,9 @@ function CheckoutForm() {
       }
       if (data.checkoutUrl) {
         window.location.assign(data.checkoutUrl);
+      } else if (data.status === "PAID" && data.orderId && data.orderAccessToken) {
+        // Pedido de total zero: já foi confirmado pela API, sem etapa de pagamento.
+        router.push(freeOrderSuccessHref(data));
       }
     },
   });
@@ -218,8 +222,32 @@ function CheckoutForm() {
   const feeAbsorbed = Boolean(event?.feeAbsorbedByOrganizer);
   const fee = feeAbsorbed ? 0 : Math.round(discountedSubtotal * 0.08);
   const total = discountedSubtotal + fee;
+  const hasItems = Object.values(purchasableQuantities).some((q) => q > 0);
+  // Evento gratuito ou cupom de 100%: a API confirma na hora, sem InfinitePay.
+  const isFree = hasItems && total === 0;
 
   if (isLoading) return <Skeleton className="m-6 h-[620px]" />;
+
+  if (mutation.data && mutation.data.status === "PAID" && !mutation.data.checkoutUrl) {
+    return (
+      <main className="flex min-h-screen items-center justify-center bg-background p-6">
+        <Card className="max-w-lg">
+          <CardHeader>
+            <CheckCircle2 className="h-10 w-10 text-primary" />
+            <CardTitle>Inscrição confirmada</CardTitle>
+            <CardDescription>
+              Seu ingresso já foi emitido. Estamos abrindo a página do pedido.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Button asChild className="w-full">
+              <Link href={freeOrderSuccessHref(mutation.data)}>Ver meu ingresso</Link>
+            </Button>
+          </CardContent>
+        </Card>
+      </main>
+    );
+  }
 
   if (mutation.data) {
     return (
@@ -383,8 +411,9 @@ function CheckoutForm() {
               </Field>
               <input type="hidden" {...form.register("paymentMethod")} />
               <p className="text-sm text-muted-foreground">
-                Na próxima etapa você escolhe como pagar (PIX ou cartão de
-                crédito) no ambiente seguro da InfinitePay.
+                {isFree
+                  ? "Inscrição gratuita: não há pagamento. Seu ingresso é emitido assim que você confirmar."
+                  : "Na próxima etapa você escolhe como pagar (PIX ou cartão de crédito) no ambiente seguro da InfinitePay."}
               </p>
             </CardContent>
           </Card>
@@ -484,19 +513,27 @@ function CheckoutForm() {
             )}
             <Button
               className="w-full"
-              disabled={mutation.isPending || subtotal === 0}
+              disabled={mutation.isPending || !hasItems}
               onClick={form.handleSubmit((data) => mutation.mutate(data))}
             >
               {mutation.isPending && (
                 <Loader2 className="h-4 w-4 animate-spin" />
               )}
-              {mutation.isPending ? "Criando checkout..." : "Confirmar compra"}
+              {mutation.isPending
+                ? isFree ? "Confirmando inscrição..." : "Criando checkout..."
+                : isFree ? "Confirmar inscrição" : "Confirmar compra"}
             </Button>
           </CardContent>
         </Card>
       </div>
     </main>
   );
+}
+
+function freeOrderSuccessHref(data: CheckoutResponse) {
+  const params = new URLSearchParams({ orderId: data.orderId });
+  if (data.orderAccessToken) params.set("accessToken", data.orderAccessToken);
+  return `/checkout/success?${params.toString()}`;
 }
 
 type AppliedCoupon = {

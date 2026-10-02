@@ -37,6 +37,11 @@ export type PurchaseConfirmedTemplateInput = {
    * transfer-appropriate wording while reusing the exact same ticket card.
    */
   transfer?: { fromName: string };
+  /**
+   * Pedido de total zero (evento gratuito ou cupom de 100%). Não houve cobrança,
+   * então o texto fala em inscrição confirmada, nunca em pagamento.
+   */
+  free?: boolean;
 };
 
 const BRAND = "Event Flow";
@@ -143,14 +148,14 @@ export function renderPurchaseConfirmed(input: PurchaseConfirmedTemplateInput) {
     : `${possessive} para ${input.eventTitle} já ${verb}!`;
   const preheader = transfer
     ? `${transfer.fromName} transferiu ${ticketLine} para você. ${possessive} para ${input.eventTitle} já ${plural ? "estão disponíveis" : "está disponível"}.`
-    : `Pagamento aprovado. ${possessive} para ${input.eventTitle} já ${plural ? "estão disponíveis" : "está disponível"}.`;
+    : `${input.free ? "Inscrição confirmada" : "Pagamento aprovado"}. ${possessive} para ${input.eventTitle} já ${plural ? "estão disponíveis" : "está disponível"}.`;
 
   const text = [
     `Olá, ${input.buyerName}.`,
     "",
     transfer
       ? `${transfer.fromName} transferiu ${ticketLine} para ${input.eventTitle} para você, e já ${plural ? "estão disponíveis" : "está disponível"}.`
-      : `Seu pagamento foi aprovado e ${ticketLine} já ${plural ? "estão disponíveis" : "está disponível"}.`,
+      : `${input.free ? "Sua inscrição foi confirmada" : "Seu pagamento foi aprovado"} e ${ticketLine} já ${plural ? "estão disponíveis" : "está disponível"}.`,
     "",
     `Evento: ${input.eventTitle}`,
     `Local: ${input.eventVenue}`,
@@ -405,7 +410,7 @@ function renderHtml(
                   <tr>
                     <td valign="middle" width="110"><img src="${escapeAttr(input.logoDarkUrl)}" width="110" alt="${BRAND}" style="display:block;border:0" /></td>
                     <td valign="middle" align="right" style="padding-left:16px">
-                      <span style="display:inline-block;background-color:rgba(45,212,191,0.18);color:#8ff2d6;font-family:Arial,Helvetica,sans-serif;font-size:12px;font-weight:700;padding:7px 14px;border-radius:999px;white-space:nowrap">&#10003; ${isTransfer ? "Ingresso recebido" : "Pagamento confirmado"}</span>
+                      <span style="display:inline-block;background-color:rgba(45,212,191,0.18);color:#8ff2d6;font-family:Arial,Helvetica,sans-serif;font-size:12px;font-weight:700;padding:7px 14px;border-radius:999px;white-space:nowrap">&#10003; ${isTransfer ? "Ingresso recebido" : input.free ? "Inscrição confirmada" : "Pagamento confirmado"}</span>
                     </td>
                   </tr>
                 </table>
@@ -422,7 +427,7 @@ function renderHtml(
                 <div style="font-size:14px;line-height:1.6;color:${MUTED};margin-top:8px">
                   ${isTransfer
                     ? `${escapeHtml(input.transfer!.fromName)} transferiu ${escapeHtml(ctx.ticketLine)} para você e já ${input.ticketCount !== 1 ? "estão disponíveis" : "está disponível"} abaixo.`
-                    : `Sua compra foi aprovada e ${escapeHtml(ctx.ticketLine)} já ${input.ticketCount !== 1 ? "estão disponíveis" : "está disponível"} abaixo.`}
+                    : `${input.free ? "Sua inscrição foi confirmada" : "Sua compra foi aprovada"} e ${escapeHtml(ctx.ticketLine)} já ${input.ticketCount !== 1 ? "estão disponíveis" : "está disponível"} abaixo.`}
                   ${qrReleased
                     ? "O QR Code de entrada já está liberado: use o que aparece abaixo, o PDF ou o botão para abrir o ingresso."
                     : "O QR Code de entrada fica protegido dentro do ingresso — abra pelo botão abaixo quando for usar."}
@@ -491,7 +496,7 @@ function renderHtml(
                 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
                   <tr>
                     <td valign="middle" style="font-family:Arial,Helvetica,sans-serif;font-size:12px;color:${MUTED};line-height:1.5">
-                      ${isTransfer ? `Transferência confirmada com segurança pela ${BRAND}.` : `Compra processada com segurança pela ${BRAND}.`}<br />
+                      ${isTransfer ? `Transferência confirmada com segurança pela ${BRAND}.` : `${input.free ? "Inscrição processada" : "Compra processada"} com segurança pela ${BRAND}.`}<br />
                       Em caso de dúvidas, <a href="${escapeAttr(input.createAccountUrl)}" style="color:${ACCENT_SOLID}">fale com nosso time de suporte</a>.
                     </td>
                     <td valign="middle" align="right">

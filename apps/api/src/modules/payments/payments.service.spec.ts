@@ -219,6 +219,55 @@ describe("PaymentsService", () => {
     expect(QRCode.toDataURL).toHaveBeenCalledTimes(2);
   });
 
+  it("confirms a zero-total order without calling any payment provider and emits the tickets", async () => {
+    const { service, prisma, abacatePay } = createService();
+    const freePayment = createPayment({ amountCents: 0 });
+    freePayment.order.feeCents = 0;
+    prisma.order.findUnique.mockResolvedValue({
+      id: "order-1",
+      totalCents: 0,
+      event: { tenantId: "tenant-1" },
+      payment: { id: "payment-1", amountCents: 0 }
+    });
+    prisma.payment.findFirst.mockResolvedValue(freePayment);
+    prisma.payment.findUnique.mockResolvedValue({ id: "payment-1", status: PaymentStatus.PAID });
+    prisma.ticket.count.mockResolvedValue(0);
+    prisma.ledgerEntry.findFirst.mockResolvedValue(null);
+
+    const result = await service.confirmFreeOrder("order-1");
+
+    expect(result).toEqual({ id: "payment-1", status: PaymentStatus.PAID });
+    expect(abacatePay.createCheckout).not.toHaveBeenCalled();
+    expect(prisma.payment.update).toHaveBeenCalledWith({ where: { orderId: "order-1" }, data: { provider: "free" } });
+    expect(prisma.payment.update).toHaveBeenCalledWith(expect.objectContaining({
+      where: { id: "payment-1" },
+      data: expect.objectContaining({
+        status: PaymentStatus.PAID,
+        providerRef: "free:order-1",
+        order: { update: { status: PaymentStatus.PAID } }
+      })
+    }));
+    expect(prisma.ticket.createMany.mock.calls[0][0].data).toHaveLength(2);
+    expect(prisma.ledgerEntry.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({ amountCents: 0, feeCents: 0, reference: "payment-1" })
+    });
+  });
+
+  it("refuses to confirm as free an order that has an amount to pay", async () => {
+    const { service, prisma } = createService();
+    prisma.order.findUnique.mockResolvedValue({
+      id: "order-1",
+      totalCents: 10800,
+      event: { tenantId: "tenant-1" },
+      payment: { id: "payment-1", amountCents: 10800 }
+    });
+
+    await expect(service.confirmFreeOrder("order-1")).rejects.toThrow("Este pedido exige pagamento.");
+
+    expect(prisma.payment.update).not.toHaveBeenCalled();
+    expect(prisma.ticket.createMany).not.toHaveBeenCalled();
+  });
+
   it("does not emit duplicate tickets or duplicate ledger when paid fulfillment is retried", async () => {
     const { service, prisma } = createService();
     prisma.payment.findFirst.mockResolvedValue(createPayment({ status: PaymentStatus.PAID }));

@@ -241,7 +241,9 @@ function SuccessContent() {
           </div>
           <CardTitle className="text-2xl">
             {isPaid
-              ? "Pagamento Confirmado!"
+              ? order.totalCents === 0
+                ? "Inscrição Confirmada!"
+                : "Pagamento Confirmado!"
               : isPending
                 ? "Processando Pagamento..."
                 : "Pedido " + order.status}
@@ -324,8 +326,12 @@ function SuccessContent() {
               </span>
             </div>
             <div className="flex justify-between">
-              <span className="text-muted-foreground">Total Pago</span>
-              <span className="font-semibold">{money(order.totalCents)}</span>
+              <span className="text-muted-foreground">
+                {order.totalCents === 0 ? "Total" : "Total Pago"}
+              </span>
+              <span className="font-semibold">
+                {order.totalCents === 0 ? "Gratuito" : money(order.totalCents)}
+              </span>
             </div>
           </div>
 

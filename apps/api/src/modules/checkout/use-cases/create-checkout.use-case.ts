@@ -107,6 +107,12 @@ export class CreateCheckoutUseCase {
         const { subtotalCents, discountCents, feeCents, totalCents } = this.calculatePricing(
           items, couponResult.couponDiscount, event.feeAbsorbedByOrganizer
         );
+        // Pedido de total zero não tem o atrito do pagamento. Se o organizador não definiu
+        // um limite por CPF, vale o padrão: um CPF só acumula, em pedidos gratuitos e pagos
+        // somados, o que cabe em uma única compra do lote. Pedidos pagos não mudam em nada.
+        if (totalCents === 0 && !event.limitPerCpf) {
+          await this.validateCpfLimit(tx, event, normalizedDto, Math.max(...items.map((item) => item.ticketType.limitPerBuy)));
+        }
         if (!hotRowWritesLast) {
           await this.reserveStockTx(tx, items);
           timer?.lap("reserveStock");
@@ -240,8 +246,9 @@ export class CreateCheckoutUseCase {
     return first === Number(value[12]) && second === Number(value[13]);
   }
 
-  private async validateCpfLimit(tx: CheckoutTx, event: CheckoutEvent, dto: CreateCheckoutDto) {
-    if (!event.limitPerCpf || !dto.buyerDocument) return;
+  private async validateCpfLimit(tx: CheckoutTx, event: CheckoutEvent, dto: CreateCheckoutDto, fallbackLimit?: number) {
+    const limit = event.limitPerCpf || fallbackLimit;
+    if (!limit || !dto.buyerDocument) return;
 
     const previousOrders = await tx.order.findMany({
       where: {
@@ -258,8 +265,8 @@ export class CreateCheckoutUseCase {
     );
     const currentTicketsCount = dto.items.reduce((sum, item) => sum + item.quantity, 0);
 
-    if (previousTicketsCount + currentTicketsCount > event.limitPerCpf) {
-      throw new BadRequestException(`Limite excedido. O limite e de ${event.limitPerCpf} ingressos por CPF/Documento.`);
+    if (previousTicketsCount + currentTicketsCount > limit) {
+      throw new BadRequestException(`Limite excedido. O limite e de ${limit} ingressos por CPF/Documento.`);
     }
   }
 

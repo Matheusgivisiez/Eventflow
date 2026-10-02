@@ -72,6 +72,7 @@ function createService() {
   const createCheckout = { execute: jest.fn() };
   const payments = {
     createProviderPreference: jest.fn(),
+    confirmFreeOrder: jest.fn(),
     updateStatus: jest.fn(),
     reconcileProviderStatus: jest.fn(),
     recordProviderReferences: jest.fn().mockResolvedValue(undefined)
@@ -299,6 +300,51 @@ describe("CheckoutService", () => {
 
     expect(result.orderAccessToken).toBe("public-token");
     expect(result.checkoutUrl).toBe("https://pay.example/checkout");
+  });
+
+  it("never confirms a paid order as free", async () => {
+    const { service, createCheckout, payments } = createService();
+    createCheckout.execute.mockResolvedValue(createOrder({ status: PaymentStatus.PENDING }));
+    payments.createProviderPreference.mockResolvedValue({ checkoutUrl: "https://pay.example/checkout" });
+
+    const result = await service.create("eventflow-conf", {} as any);
+
+    expect(payments.confirmFreeOrder).not.toHaveBeenCalled();
+    expect(payments.createProviderPreference).toHaveBeenCalledWith("order-1");
+    expect(result.status).toBe(PaymentStatus.PENDING);
+  });
+
+  it("confirms a zero-total order on the spot without creating a provider checkout", async () => {
+    const { service, createCheckout, payments } = createService();
+    createCheckout.execute.mockResolvedValue(createOrder({ status: PaymentStatus.PENDING, totalCents: 0 }));
+    payments.confirmFreeOrder.mockResolvedValue({ id: "payment-1", status: PaymentStatus.PAID });
+
+    const result = await service.create("eventflow-conf", {} as any);
+
+    expect(payments.confirmFreeOrder).toHaveBeenCalledWith("order-1");
+    expect(payments.createProviderPreference).not.toHaveBeenCalled();
+    expect(result.status).toBe(PaymentStatus.PAID);
+    expect(result.checkoutUrl).toBeUndefined();
+    expect(result.orderAccessToken).toBe("public-token");
+  });
+
+  it("cancels a zero-total order and releases its stock when the free confirmation fails", async () => {
+    const { service, prisma, createCheckout, payments } = createService();
+    createCheckout.execute.mockResolvedValue(createOrder({ status: PaymentStatus.PENDING, totalCents: 0 }));
+    payments.confirmFreeOrder.mockRejectedValue(new Error("db down"));
+    prisma.order.findUnique.mockResolvedValue(createOrder({ status: PaymentStatus.PENDING, totalCents: 0 }));
+
+    await expect(service.create("eventflow-conf", {} as any)).rejects.toThrow("db down");
+
+    expect(payments.createProviderPreference).not.toHaveBeenCalled();
+    expect(prisma.ticketType.update).toHaveBeenCalledWith({
+      where: { id: "ticket-type-1" },
+      data: { sold: { decrement: 1 } }
+    });
+    expect(prisma.order.update).toHaveBeenCalledWith({
+      where: { id: "order-1" },
+      data: { status: PaymentStatus.CANCELED, stockReservedAt: null }
+    });
   });
 
   it("cancels the order and releases reserved stock when provider checkout creation fails", async () => {

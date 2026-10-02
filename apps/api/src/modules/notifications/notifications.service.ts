@@ -32,6 +32,8 @@ export type PurchaseApprovedInput = {
   ticketCount: number;
   qrCodeLocked: boolean;
   qrCodeReleaseAt: Date | null;
+  /** Pedido de total zero: o e-mail fala em inscrição, não em pagamento. */
+  free?: boolean;
   tickets: Array<{
     id: string;
     attendeeName: string;
@@ -292,6 +294,7 @@ export class NotificationsService {
       ticketCount: input.ticketCount,
       orderUrl: this.orderUrl(input.orderId, input.orderAccessToken),
       createAccountUrl: this.appUrl("/register"),
+      free: input.free,
       qrCodeLocked: input.qrCodeLocked,
       qrCodeReleaseAt: input.qrCodeReleaseAt,
       logoLightUrl: this.appUrl("/images/eventflow-logo-purple-black.png"),

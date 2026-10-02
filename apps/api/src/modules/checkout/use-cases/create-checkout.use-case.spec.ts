@@ -403,3 +403,61 @@ describe("CreateCheckoutUseCase default write order (hot-row writes last)", () =
     expect(order.id).toEqual(expect.any(String));
   });
 });
+
+describe("CreateCheckoutUseCase default CPF limit for zero-total orders", () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  function freeEvent(limitPerCpf: number | null = null) {
+    const event = createEvent(0);
+    event.limitPerCpf = limitPerCpf as any;
+    event.ticketTypes[0].priceCents = 0;
+    event.ticketTypes[0].quantity = 100;
+    event.ticketTypes[0].limitPerBuy = 2;
+    return event;
+  }
+
+  it("creates a free order when the CPF is within one purchase worth of tickets", async () => {
+    const { service, orders } = createService(() => freeEvent());
+
+    const order = await service.execute("eventflow-conf", { ...createDto(), items: [{ ticketTypeId: "ticket-type-1", quantity: 2 }] } as any);
+
+    expect(order.totalCents).toBe(0);
+    expect(orders).toHaveLength(1);
+  });
+
+  it("blocks a CPF from accumulating free tickets beyond one purchase when the event has no CPF limit", async () => {
+    const { service, tx, getSold } = createService(() => freeEvent());
+    tx.order.findMany.mockResolvedValue([{ items: [{ quantity: 2 }] }]);
+
+    await expect(service.execute("eventflow-conf", createDto() as any)).rejects.toThrow(
+      "Limite excedido. O limite e de 2 ingressos por CPF/Documento.",
+    );
+    expect(getSold()).toBe(0);
+  });
+
+  it("keeps the organizer's own CPF limit when one is set", async () => {
+    const { service, tx, orders } = createService(() => freeEvent(10));
+    tx.order.findMany.mockResolvedValue([{ items: [{ quantity: 2 }] }]);
+
+    await service.execute("eventflow-conf", createDto() as any);
+
+    expect(orders).toHaveLength(1);
+  });
+
+  it("does not apply the default CPF limit to paid orders", async () => {
+    const paidEvent = () => {
+      const event = freeEvent();
+      event.ticketTypes[0].priceCents = 10000;
+      return event;
+    };
+    const { service, tx, orders } = createService(paidEvent);
+    tx.order.findMany.mockResolvedValue([{ items: [{ quantity: 50 }] }]);
+
+    await service.execute("eventflow-conf", createDto() as any);
+
+    expect(orders).toHaveLength(1);
+    expect(tx.order.findMany).not.toHaveBeenCalled();
+  });
+});
