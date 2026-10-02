@@ -445,6 +445,7 @@ export class PaymentsService {
               id: true,
               uuid: true,
               attendeeName: true,
+              qrCodeDataUrl: true,
               ticketType: { select: { name: true } }
             }
           },
@@ -479,7 +480,8 @@ export class PaymentsService {
           id: ticket.id,
           attendeeName: ticket.attendeeName,
           ticketTypeName: ticket.ticketType.name,
-          shortCode: ticket.uuid.replace(/-/g, "").slice(0, 10).toUpperCase()
+          shortCode: ticket.uuid.replace(/-/g, "").slice(0, 10).toUpperCase(),
+          qrCodeDataUrl: ticket.qrCodeDataUrl
         }))
       });
     } catch (error) {

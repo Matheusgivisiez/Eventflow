@@ -140,7 +140,7 @@ export class EventsService {
         allowTicketRefund: dto.allowTicketRefund,
         ticketRefundLockHours: dto.ticketRefundLockHours,
         qrCodeReleaseMinutesBeforeStart: dto.qrCodeReleaseMinutesBeforeStart,
-        qrCodeReleaseAt: dto.qrCodeReleaseAt ? new Date(dto.qrCodeReleaseAt) : undefined,
+        qrCodeReleaseAt: dto.qrCodeReleaseAt ? new Date(dto.qrCodeReleaseAt) : dto.qrCodeReleaseAt === null ? null : undefined,
         checkInOpensAt: dto.checkInOpensAt ? new Date(dto.checkInOpensAt) : dto.checkInOpensAt === null ? null : undefined,
         checkInClosesAt: dto.checkInClosesAt ? new Date(dto.checkInClosesAt) : dto.checkInClosesAt === null ? null : undefined
       }

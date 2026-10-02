@@ -71,7 +71,8 @@ const schema = z.object({
   transferLockHours: z.coerce.number().int().min(0),
   allowTicketRefund: z.boolean(),
   refundLockHours: z.coerce.number({ invalid_type_error: "Informe as horas." }).int("Use horas inteiras.").min(0, "Não pode ser negativo.").max(8760, "Máximo de 365 dias."),
-  qrCodeReleaseMinutesBeforeStart: z.coerce.number().int().min(0)
+  // -1 = liberado já na compra (enviado como null para a API).
+  qrCodeReleaseMinutesBeforeStart: z.coerce.number().int().min(-1)
 }).superRefine((data, ctx) => {
   const startsAt = data.startsAt ? scheduleValueToDate(data.startsAt) : undefined;
   const endsAt = data.endsAt ? scheduleValueToDate(data.endsAt) : undefined;
@@ -239,7 +240,7 @@ export default function NewEventPage() {
           ticketTransferLockTime: transferLockTime,
           allowTicketRefund: data.allowTicketRefund,
           ticketRefundLockHours: data.allowTicketRefund ? data.refundLockHours : undefined,
-          qrCodeReleaseMinutesBeforeStart: data.qrCodeReleaseMinutesBeforeStart,
+          qrCodeReleaseMinutesBeforeStart: data.qrCodeReleaseMinutesBeforeStart < 0 ? null : data.qrCodeReleaseMinutesBeforeStart,
           firstTicket: {
             name: data.firstTicketName,
             priceCents: Math.round(data.firstTicketPrice * 100),
@@ -481,9 +482,11 @@ export default function NewEventPage() {
                 )}
                 <Field label="Liberar QR Code">
                   <select className="h-10 w-full rounded-md border bg-background px-3 text-sm" {...form.register("qrCodeReleaseMinutesBeforeStart", { valueAsNumber: true })}>
+                    <option value={-1}>No momento da compra (ingresso já chega ativo)</option>
+                    <option value={0}>No horário de início do evento</option>
                     <option value={60}>1h antes do evento</option>
                     <option value={120}>2h antes do evento</option>
-                    <option value={0}>No momento da compra</option>
+                    <option value={1440}>24h antes do evento</option>
                   </select>
                 </Field>
                 <Field label="Status inicial">

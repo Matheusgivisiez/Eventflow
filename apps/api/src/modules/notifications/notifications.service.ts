@@ -1,11 +1,11 @@
 import { Injectable, Logger } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { NotificationEvent, NotificationStatus, NotificationType, Prisma } from "@prisma/client";
-import { MailService } from "../../common/services/mail.service";
+import { MailAttachment, MailService } from "../../common/services/mail.service";
 import { PrismaService } from "../../prisma/prisma.service";
 import { renderPurchaseConfirmed } from "./templates/purchase-confirmed.template";
 
-type MailBody = { subject: string; text: string; html: string };
+type MailBody = { subject: string; text: string; html: string; attachments?: MailAttachment[] };
 
 type NotifyInput = {
   userId?: string;
@@ -37,6 +37,8 @@ export type PurchaseApprovedInput = {
     attendeeName: string;
     ticketTypeName: string;
     shortCode: string;
+    /** Real QR (PNG data URL). Only embedded in the e-mail when the QR is already released. */
+    qrCodeDataUrl?: string | null;
   }>;
 };
 
@@ -57,6 +59,8 @@ export type TicketTransferDeliveredInput = {
     attendeeName: string;
     ticketTypeName: string;
     shortCode: string;
+    /** Real QR (PNG data URL). Only embedded in the e-mail when the QR is already released. */
+    qrCodeDataUrl?: string | null;
   };
 };
 
@@ -278,7 +282,8 @@ export class NotificationsService {
    * Safe to call again: the dedupe key keeps it to a single message per order.
    */
   async sendPurchaseApproved(input: PurchaseApprovedInput) {
-    const mail = renderPurchaseConfirmed({
+    const qr = this.inlineQrCodes(input.qrCodeLocked, input.tickets);
+    const rendered = renderPurchaseConfirmed({
       buyerName: input.buyerName,
       eventTitle: input.eventTitle,
       eventStartsAt: input.eventStartsAt,
@@ -298,9 +303,11 @@ export class NotificationsService {
         attendeeName: ticket.attendeeName,
         ticketTypeName: ticket.ticketTypeName,
         shortCode: ticket.shortCode,
-        pdfUrl: this.ticketPdfUrl(input.orderId, ticket.id, input.orderAccessToken)
+        pdfUrl: this.ticketPdfUrl(input.orderId, ticket.id, input.orderAccessToken),
+        qrImageSrc: qr.srcByTicketId.get(ticket.id)
       }))
     });
+    const mail = { ...rendered, attachments: qr.attachments };
 
     const payload = {
       orderId: input.orderId,
@@ -341,7 +348,8 @@ export class NotificationsService {
    */
   async sendTicketTransferDelivered(input: TicketTransferDeliveredInput) {
     const myTicketsUrl = this.appUrl("/me/ingressos");
-    const mail = renderPurchaseConfirmed({
+    const qr = this.inlineQrCodes(input.qrCodeLocked, [input.ticket]);
+    const rendered = renderPurchaseConfirmed({
       buyerName: input.recipientName,
       eventTitle: input.eventTitle,
       eventStartsAt: input.eventStartsAt,
@@ -366,10 +374,12 @@ export class NotificationsService {
           // Receiver is an authenticated user, not a guest with an
           // order-access token — send them to their own ticket list
           // rather than a bare, unauthenticated API download link.
-          pdfUrl: myTicketsUrl
+          pdfUrl: myTicketsUrl,
+          qrImageSrc: qr.srcByTicketId.get(input.ticket.id)
         }
       ]
     });
+    const mail = { ...rendered, attachments: qr.attachments };
 
     return this.send({
       userId: input.userId,
@@ -396,6 +406,33 @@ export class NotificationsService {
       error !== null &&
       (error as { code?: string }).code === PRISMA_UNIQUE_VIOLATION
     );
+  }
+
+  /**
+   * Turns each released ticket's QR into an inline (cid) attachment. Data
+   * URIs are stripped by Gmail/Outlook, so the image has to travel with the
+   * message. While the event's QR is still locked nothing is attached and
+   * the template falls back to the locked placeholder.
+   */
+  private inlineQrCodes(
+    locked: boolean,
+    tickets: Array<{ id: string; shortCode: string; qrCodeDataUrl?: string | null }>
+  ) {
+    const srcByTicketId = new Map<string, string>();
+    const attachments: MailAttachment[] = [];
+    if (locked) return { srcByTicketId, attachments: undefined };
+
+    for (const ticket of tickets) {
+      if (!ticket.qrCodeDataUrl?.startsWith("data:image/png;base64,")) continue;
+      const cid = `qr-${ticket.id}@eventflow`;
+      srcByTicketId.set(ticket.id, `cid:${cid}`);
+      attachments.push({
+        filename: `ingresso-${ticket.shortCode}.png`,
+        path: ticket.qrCodeDataUrl,
+        cid
+      });
+    }
+    return { srcByTicketId, attachments: attachments.length > 0 ? attachments : undefined };
   }
 
   private appUrl(path: string) {

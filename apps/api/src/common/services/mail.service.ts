@@ -8,6 +8,15 @@ type MailInput = {
   subject: string;
   text: string;
   html: string;
+  attachments?: MailAttachment[];
+};
+
+/** `cid` makes the file usable inline as `<img src="cid:...">`. */
+export type MailAttachment = {
+  filename: string;
+  /** File path, URL or `data:` URI. */
+  path: string;
+  cid?: string;
 };
 
 type MailHealth =
@@ -51,7 +60,8 @@ export class MailService implements OnApplicationBootstrap {
       to: input.to,
       subject: input.subject,
       text: input.text,
-      html: input.html
+      html: input.html,
+      attachments: input.attachments
     });
 
     return {

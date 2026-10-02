@@ -317,7 +317,8 @@ export class TransfersService {
         id: result.transfer.ticketId,
         attendeeName: result.transfer.ticket.attendeeName,
         ticketTypeName: result.transfer.ticket.ticketType.name,
-        shortCode: result.transfer.ticket.uuid.replace(/-/g, "").slice(0, 10).toUpperCase()
+        shortCode: result.transfer.ticket.uuid.replace(/-/g, "").slice(0, 10).toUpperCase(),
+        qrCodeDataUrl: result.transfer.ticket.qrCodeDataUrl
       }
     });
 

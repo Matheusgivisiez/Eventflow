@@ -5,6 +5,12 @@ export type PurchaseConfirmedTemplateTicket = {
   shortCode: string;
   /** Guest-safe download link, authorized by the order's access token. */
   pdfUrl: string;
+  /**
+   * Source of the real, scannable QR (a `cid:` reference to an inline
+   * attachment). Only set when the event's QR is already released; when
+   * absent the card shows the locked placeholder instead.
+   */
+  qrImageSrc?: string;
 };
 
 export type PurchaseConfirmedTemplateInput = {
@@ -112,14 +118,16 @@ function escapeAttr(value: string) {
 /**
  * Purchase confirmation e-mail.
  *
- * Deliberately carries no CPF, no phone, no ticket signature and no real QR
- * payload: the message travels through servers we do not control, so the
- * QR shown here is a decorative locked placeholder (see qrLockedImageUrl).
- * The real, scannable QR only ever exists behind the order's access token
- * (orderUrl / per-ticket pdfUrl), which itself still applies the event's
- * own QR release-time lock — same reasoning big ticketing platforms use
- * (e.g. Ticketmaster's SafeTix): a static code in an inbox can be
- * forwarded or screenshotted before the buyer reaches the door.
+ * Carries no CPF and no phone. The QR follows the event's own release rule,
+ * which the organizer sets per event:
+ *
+ * - still locked: the card shows a decorative locked placeholder (see
+ *   qrLockedImageUrl) and the real QR only exists behind the order's access
+ *   token (orderUrl / per-ticket pdfUrl), which applies the same lock.
+ * - already released (e.g. "released at purchase"): the real, scannable QR
+ *   is embedded per ticket (`qrImageSrc`). A code sitting in an inbox can be
+ *   forwarded or screenshotted, so the copy below warns about it; the door
+ *   only accepts each code once.
  */
 export function renderPurchaseConfirmed(input: PurchaseConfirmedTemplateInput) {
   const code = orderCode(input.orderId);
@@ -156,7 +164,9 @@ export function renderPurchaseConfirmed(input: PurchaseConfirmedTemplateInput) {
     "",
     `Ver seus ingressos: ${input.orderUrl}`,
     "",
-    "O QR Code de cada ingresso só fica disponível dentro do link acima (não vai por e-mail, por segurança).",
+    input.tickets.every((ticket) => ticket.qrImageSrc)
+      ? "O QR Code de cada ingresso já está liberado: ele vai neste e-mail e também no PDF e no link acima. Cada código só pode ser usado uma vez na entrada."
+      : "O QR Code de cada ingresso só fica disponível dentro do link acima (não vai por e-mail, por segurança).",
     "Este link é pessoal: quem tiver o endereço consegue ver este pedido. Não compartilhe.",
     ...(transfer
       ? []
@@ -253,9 +263,17 @@ function ticketCard(
     showInlineDownload: boolean;
   }
 ) {
-  const qrCaption = ctx.qrCodeLocked && ctx.qrCodeReleaseAt
-    ? `Libera em ${formatEventDate(ctx.qrCodeReleaseAt)}.`
-    : "Toque em “Abrir ingresso” para ver e usar na entrada.";
+  const qrReleased = Boolean(ticket.qrImageSrc);
+  const qrCaption = qrReleased
+    ? "QR Code liberado. Apresente na entrada."
+    : ctx.qrCodeLocked && ctx.qrCodeReleaseAt
+      ? `Libera em ${formatEventDate(ctx.qrCodeReleaseAt)}.`
+      : "Toque em “Abrir ingresso” para ver e usar na entrada.";
+  // The real QR is dense (uuid + order + signature), so it gets the full
+  // width of the stub; the placeholder is decorative and stays small.
+  const qrImage = qrReleased
+    ? `<img src="${escapeAttr(ticket.qrImageSrc!)}" width="148" alt="QR Code do ingresso" style="display:block;border:0;width:100%;max-width:148px;height:auto" />`
+    : `<img src="${escapeAttr(ctx.qrLockedImageUrl)}" width="104" height="104" alt="QR Code protegido" style="display:block;border:0;border-radius:8px" />`;
 
   const iconWhite = (name: string) => asset(ctx.assetsBaseUrl, `icon-white-${name}.png`);
 
@@ -293,14 +311,14 @@ function ticketCard(
       <tr>
         <td align="center" style="padding:13px 12px 2px 12px">
           <table role="presentation" cellpadding="0" cellspacing="0" border="0"><tr>
-            <td valign="middle" style="padding-right:5px"><img src="${escapeAttr(asset(ctx.assetsBaseUrl, "icon-dark-lock.png"))}" width="11" height="11" alt="" style="display:block;border:0" /></td>
+            <td valign="middle" style="padding-right:5px"><img src="${escapeAttr(asset(ctx.assetsBaseUrl, qrReleased ? "icon-dark-ticket.png" : "icon-dark-lock.png"))}" width="11" height="11" alt="" style="display:block;border:0" /></td>
             <td valign="middle" style="font-family:Arial,Helvetica,sans-serif;font-size:10px;font-weight:800;letter-spacing:1px;color:${INK};text-transform:uppercase;white-space:nowrap">Seu ingresso</td>
           </tr></table>
         </td>
       </tr>
       <tr>
         <td align="center" style="padding:8px 14px 14px 14px">
-          <img src="${escapeAttr(ctx.qrLockedImageUrl)}" width="104" height="104" alt="QR Code protegido" style="display:block;border:0;border-radius:8px" />
+          ${qrImage}
           <div style="font-family:Arial,Helvetica,sans-serif;font-size:10px;font-weight:800;letter-spacing:1px;color:${INK};margin-top:7px">${escapeHtml(formatShortCode(ticket.shortCode))}</div>
         </td>
       </tr>
@@ -348,6 +366,7 @@ function renderHtml(
   const isTransfer = Boolean(input.transfer);
 
   const showInlineDownload = input.ticketCount > 1;
+  const qrReleased = input.tickets.every((ticket) => ticket.qrImageSrc);
 
   const cards = input.tickets
     .map((ticket) =>
@@ -404,7 +423,9 @@ function renderHtml(
                   ${isTransfer
                     ? `${escapeHtml(input.transfer!.fromName)} transferiu ${escapeHtml(ctx.ticketLine)} para você e já ${input.ticketCount !== 1 ? "estão disponíveis" : "está disponível"} abaixo.`
                     : `Sua compra foi aprovada e ${escapeHtml(ctx.ticketLine)} já ${input.ticketCount !== 1 ? "estão disponíveis" : "está disponível"} abaixo.`}
-                  O QR Code de entrada fica protegido dentro do ingresso — abra pelo botão abaixo quando for usar.
+                  ${qrReleased
+                    ? "O QR Code de entrada já está liberado: use o que aparece abaixo, o PDF ou o botão para abrir o ingresso."
+                    : "O QR Code de entrada fica protegido dentro do ingresso — abra pelo botão abaixo quando for usar."}
                 </div>
               </td>
             </tr>
@@ -456,8 +477,8 @@ function renderHtml(
                   <tr>
                     <td width="44" valign="top" style="padding:16px 0 16px 18px"><img src="${iconAmber("shield")}" width="26" height="26" alt="" style="display:block;border:0" /></td>
                     <td style="padding:16px 18px 16px 12px;font-family:Arial,Helvetica,sans-serif">
-                      <div style="font-size:13px;font-weight:800;color:#6b4e0a">Este link é pessoal e o QR Code só existe dentro do ingresso.</div>
-                      <div style="font-size:12px;color:#8a6d1f;margin-top:4px;line-height:1.5">Não compartilhe este e-mail. Cada QR Code é único e só pode ser usado uma vez na entrada.</div>
+                      <div style="font-size:13px;font-weight:800;color:#6b4e0a">${qrReleased ? "Este e-mail é o seu ingresso: o QR Code acima já vale na entrada." : "Este link é pessoal e o QR Code só existe dentro do ingresso."}</div>
+                      <div style="font-size:12px;color:#8a6d1f;margin-top:4px;line-height:1.5">${qrReleased ? "Não encaminhe nem publique este e-mail: quem apresentar o QR Code primeiro entra." : "Não compartilhe este e-mail."} Cada QR Code é único e só pode ser usado uma vez na entrada.</div>
                     </td>
                   </tr>
                 </table>

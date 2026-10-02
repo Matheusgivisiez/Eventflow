@@ -75,7 +75,7 @@ const statusLabel: Record<string, string> = {
   CLOSED: "Encerrado"
 };
 
-type QrCodeMode = "default" | "custom_minutes" | "fixed_date";
+type QrCodeMode = "immediate" | "default" | "custom_minutes" | "fixed_date";
 
 export default function EditEventPage() {
   const { id } = useParams<{ id: string }>();
@@ -98,6 +98,8 @@ export default function EditEventPage() {
       // Determine QR code mode from event data
       if (event.qrCodeReleaseAt) {
         setQrCodeMode("fixed_date");
+      } else if (event.qrCodeReleaseMinutesBeforeStart === null) {
+        setQrCodeMode("immediate");
       } else if (event.qrCodeReleaseMinutesBeforeStart !== undefined && event.qrCodeReleaseMinutesBeforeStart !== null && event.qrCodeReleaseMinutesBeforeStart !== 60) {
         setQrCodeMode("custom_minutes");
       } else {
@@ -141,13 +143,19 @@ export default function EditEventPage() {
     };
 
     // Handle QR code mode
-    if (qrCodeMode === "default") {
+    // null limpa o campo na API; os dois campos null = liberado já na compra.
+    if (qrCodeMode === "immediate") {
+      payload.qrCodeReleaseMinutesBeforeStart = null;
+      payload.qrCodeReleaseAt = null;
+    } else if (qrCodeMode === "default") {
       payload.qrCodeReleaseMinutesBeforeStart = 60;
-      payload.qrCodeReleaseAt = undefined;
+      payload.qrCodeReleaseAt = null;
     } else if (qrCodeMode === "custom_minutes") {
-      payload.qrCodeReleaseAt = undefined;
+      payload.qrCodeReleaseMinutesBeforeStart = data.qrCodeReleaseMinutesBeforeStart ?? 60;
+      payload.qrCodeReleaseAt = null;
     } else if (qrCodeMode === "fixed_date") {
       payload.qrCodeReleaseMinutesBeforeStart = undefined;
+      payload.qrCodeReleaseAt = data.qrCodeReleaseAt ? scheduleValueToIso(data.qrCodeReleaseAt) : undefined;
     }
 
     // Clear lock time if empty
@@ -158,7 +166,6 @@ export default function EditEventPage() {
     }
     payload.allowTicketRefund = data.allowTicketRefund ?? false;
     payload.ticketRefundLockHours = data.allowTicketRefund ? data.ticketRefundLockHours ?? null : undefined;
-    payload.qrCodeReleaseAt = data.qrCodeReleaseAt ? scheduleValueToIso(data.qrCodeReleaseAt) : undefined;
     payload.checkInOpensAt = data.checkInOpensAt ? scheduleValueToIso(data.checkInOpensAt) : null;
     payload.checkInClosesAt = data.checkInClosesAt ? scheduleValueToIso(data.checkInClosesAt) : null;
 
@@ -475,7 +482,7 @@ export default function EditEventPage() {
                   <Label className="text-sm font-medium">Liberação do QR Code</Label>
                 </div>
                 <p className="text-xs text-muted-foreground">
-                  Defina quando o QR Code ficará visível para os compradores
+                  Defina quando o QR Code ficará visível para os compradores. Se for liberado na compra, ele já vai válido no e-mail de confirmação e no PDF.
                 </p>
                 <select
                   className="h-10 w-full rounded-md border bg-background px-3 text-sm"
@@ -483,16 +490,21 @@ export default function EditEventPage() {
                   onChange={(e) => {
                     const mode = e.target.value as QrCodeMode;
                     setQrCodeMode(mode);
-                    if (mode === "default") {
+                    if (mode === "immediate") {
+                      form.setValue("qrCodeReleaseMinutesBeforeStart", null);
+                      form.setValue("qrCodeReleaseAt", "");
+                    } else if (mode === "default") {
                       form.setValue("qrCodeReleaseMinutesBeforeStart", 60);
                       form.setValue("qrCodeReleaseAt", "");
                     } else if (mode === "custom_minutes") {
+                      form.setValue("qrCodeReleaseMinutesBeforeStart", 60);
                       form.setValue("qrCodeReleaseAt", "");
                     } else if (mode === "fixed_date") {
                       form.setValue("qrCodeReleaseMinutesBeforeStart", null);
                     }
                   }}
                 >
+                  <option value="immediate">No momento da compra (ingresso já chega ativo)</option>
                   <option value="default">Padrão (1 hora antes do início)</option>
                   <option value="custom_minutes">Personalizado (minutos antes)</option>
                   <option value="fixed_date">Data/hora fixa</option>

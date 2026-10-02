@@ -450,3 +450,45 @@ describe("NotificationsService retry of a failed delivery", () => {
     );
   });
 });
+
+describe("NotificationsService purchase confirmation QR", () => {
+  const qrCodeDataUrl = "data:image/png;base64,iVBORw0KGgo=";
+  const withQr = {
+    ...purchase,
+    tickets: purchase.tickets.map((ticket) => ({ ...ticket, qrCodeDataUrl }))
+  };
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  it("embeds the real QR of each ticket when the event releases it at purchase", async () => {
+    const { service, mail } = createService();
+
+    await service.sendPurchaseApproved({ ...withQr, qrCodeLocked: false });
+
+    const sent = mail.send.mock.calls[0][0];
+    expect(sent.attachments).toEqual([
+      { filename: "ingresso-TICKET0001.png", path: qrCodeDataUrl, cid: "qr-ticket-1@eventflow" },
+      { filename: "ingresso-TICKET0002.png", path: qrCodeDataUrl, cid: "qr-ticket-2@eventflow" }
+    ]);
+    expect(sent.html).toContain("cid:qr-ticket-1@eventflow");
+    expect(sent.html).toContain("cid:qr-ticket-2@eventflow");
+    expect(sent.html).not.toContain("eventflow-ticket-qr-locked.png");
+  });
+
+  it("keeps the locked placeholder and attaches nothing while the QR is not released", async () => {
+    const { service, mail } = createService();
+
+    await service.sendPurchaseApproved({
+      ...withQr,
+      qrCodeLocked: true,
+      qrCodeReleaseAt: new Date("2026-10-22T22:00:00.000Z")
+    });
+
+    const sent = mail.send.mock.calls[0][0];
+    expect(sent.attachments).toBeUndefined();
+    expect(sent.html).not.toContain("cid:qr-");
+    expect(sent.html).toContain("eventflow-ticket-qr-locked.png");
+  });
+});

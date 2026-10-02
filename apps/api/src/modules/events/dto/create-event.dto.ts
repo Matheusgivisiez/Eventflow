@@ -188,16 +188,23 @@ export class CreateEventDto {
   @IsDateString()
   ticketTransferLockTime?: string;
 
-  @ApiPropertyOptional({ description: "Minutos antes do início para liberar QR Code" })
+  @ApiPropertyOptional({
+    description:
+      "Minutos antes do início para liberar QR Code. null (junto com qrCodeReleaseAt null) = liberado já na compra.",
+    nullable: true
+  })
   @IsOptional()
   @IsInt()
   @Min(0)
-  qrCodeReleaseMinutesBeforeStart?: number;
+  qrCodeReleaseMinutesBeforeStart?: number | null;
 
-  @ApiPropertyOptional({ description: "Data/hora absoluta para liberar QR Code (ISO 8601)" })
+  @ApiPropertyOptional({
+    description: "Data/hora absoluta para liberar QR Code (ISO 8601). null remove a data fixa.",
+    nullable: true
+  })
   @IsOptional()
   @IsDateString()
-  qrCodeReleaseAt?: string;
+  qrCodeReleaseAt?: string | null;
 
   @ApiPropertyOptional({ description: "Abertura da portaria para check-in (ISO 8601). O padrão é o início do evento." })
   @IsOptional()

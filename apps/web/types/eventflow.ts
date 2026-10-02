@@ -62,8 +62,9 @@ export type EventFlowEvent = {
   feeAbsorbedByOrganizer?: boolean;
   allowTicketRefund?: boolean;
   ticketRefundLockHours?: number | null;
-  qrCodeReleaseMinutesBeforeStart?: number;
-  qrCodeReleaseAt?: string;
+  /** Both null = QR Code liberado já na compra. */
+  qrCodeReleaseMinutesBeforeStart?: number | null;
+  qrCodeReleaseAt?: string | null;
   checkInOpensAt?: string;
   checkInClosesAt?: string;
 };

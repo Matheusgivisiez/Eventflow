@@ -13,7 +13,10 @@ type QrCodeEventInfo = {
 /**
  * Calculates the absolute date/time when QR codes become visible.
  * Priority: explicit `qrCodeReleaseAt` > relative `qrCodeReleaseMinutesBeforeStart` before event start.
- * Returns `null` if no lock is configured.
+ * Returns `null` if no lock is configured: both fields empty means the
+ * organizer chose "released at purchase", so the QR is valid from the start.
+ * Note that `qrCodeReleaseMinutesBeforeStart: 0` is NOT that - it means
+ * "release exactly when the event starts".
  */
 export function getQrCodeReleaseTime(event: QrCodeEventInfo): Date | null {
   if (event.qrCodeReleaseAt) {
