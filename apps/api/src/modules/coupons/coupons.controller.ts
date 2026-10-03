@@ -18,7 +18,7 @@ export class CouponsController {
   constructor(private readonly coupons: CouponsService) {}
 
   @Post()
-  @Roles(UserRole.ADMIN, UserRole.ORGANIZER, UserRole.TEAM)
+  @Roles(UserRole.ADMIN, UserRole.ORGANIZER)
   create(@CurrentUser() user: RequestUser, @Body() dto: CreateCouponDto) {
     // Admin creates global coupons (tenantId = null).
     const tenantId = user.role === UserRole.ADMIN ? null : user.tenantId;
@@ -26,21 +26,21 @@ export class CouponsController {
   }
 
   @Get()
-  @Roles(UserRole.ADMIN, UserRole.ORGANIZER, UserRole.TEAM)
+  @Roles(UserRole.ADMIN, UserRole.ORGANIZER)
   list(@CurrentUser() user: RequestUser) {
     const tenantId = user.role === UserRole.ADMIN ? null : user.tenantId;
     return this.coupons.list(tenantId);
   }
 
   @Patch(":id")
-  @Roles(UserRole.ADMIN, UserRole.ORGANIZER, UserRole.TEAM)
+  @Roles(UserRole.ADMIN, UserRole.ORGANIZER)
   update(@CurrentUser() user: RequestUser, @Param("id") id: string, @Body() dto: UpdateCouponDto) {
     const tenantId = user.role === UserRole.ADMIN ? null : user.tenantId;
     return this.coupons.update(id, tenantId, dto);
   }
 
   @Delete(":id")
-  @Roles(UserRole.ADMIN, UserRole.ORGANIZER, UserRole.TEAM)
+  @Roles(UserRole.ADMIN, UserRole.ORGANIZER)
   remove(@CurrentUser() user: RequestUser, @Param("id") id: string) {
     const tenantId = user.role === UserRole.ADMIN ? null : user.tenantId;
     return this.coupons.remove(id, tenantId);

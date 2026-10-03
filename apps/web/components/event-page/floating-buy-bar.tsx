@@ -7,6 +7,7 @@ import { money } from "@/lib/utils";
 
 type FloatingBuyBarProps = {
   slug: string;
+  invite?: string;
   totalCents: number;
   totalItems: number;
   selectedItems: Record<string, number>;
@@ -15,6 +16,7 @@ type FloatingBuyBarProps = {
 
 export function FloatingBuyBar({
   slug,
+  invite,
   totalCents,
   totalItems,
   selectedItems,
@@ -25,9 +27,10 @@ export function FloatingBuyBar({
     .map(([id, qty]) => `${id}:${qty}`)
     .join(",");
 
-  const checkoutUrl = itemsParam
-    ? `/checkout/${slug}?items=${encodeURIComponent(itemsParam)}`
-    : `/checkout/${slug}`;
+  const checkoutParams = new URLSearchParams();
+  if (itemsParam) checkoutParams.set("items", itemsParam);
+  if (invite) checkoutParams.set("invite", invite);
+  const checkoutUrl = `/checkout/${slug}${checkoutParams.size ? `?${checkoutParams}` : ""}`;
 
   return (
     <div className="fixed bottom-0 inset-x-0 z-50 animate-slide-up">

@@ -42,7 +42,7 @@ const PERMISSIONS: { key: Permission; label: string; description: string }[] = [
 
 const addMemberSchema = z.object({
   email: z.string().email("Informe um e-mail válido."),
-  permissions: z.array(z.string()).min(1, "Selecione ao menos uma permissão.")
+  permissions: z.array(z.string())
 });
 
 type AddMemberForm = z.infer<typeof addMemberSchema>;
@@ -354,7 +354,7 @@ function AddMemberCard({
           Adicionar membro
         </CardTitle>
         <CardDescription>
-          Informe o e-mail de um usuário já cadastrado na plataforma.
+          Informe o e-mail de uma conta Event Flow. Você pode conceder permissões gerais aqui ou acessos específicos por evento depois.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">

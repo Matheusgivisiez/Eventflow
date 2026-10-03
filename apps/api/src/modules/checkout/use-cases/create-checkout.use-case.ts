@@ -1,6 +1,7 @@
 import { BadRequestException, Injectable, Logger, NotFoundException, Optional } from "@nestjs/common";
 import { EventStatus, PaymentMethod, PaymentStatus, Prisma } from "@prisma/client";
 import { randomBytes } from "crypto";
+import { createHash } from "node:crypto";
 import { CouponsService } from "../../coupons/coupons.service";
 import { PrismaService } from "../../../prisma/prisma.service";
 import { RequestUser } from "../../../common/types/request-user";
@@ -66,7 +67,13 @@ export class CreateCheckoutUseCase {
     // holds its row lock on the hot TicketType row under concurrent checkouts for the same event.
     const timer = isPerfDiagnosticsEnabled() ? new PhaseTimer() : undefined;
     const event = await this.prisma.event.findFirst({
-      where: { slug, status: EventStatus.PUBLISHED },
+      where: {
+        slug, status: EventStatus.PUBLISHED,
+        OR: [
+          { isPrivate: false },
+          ...(dto.inviteToken ? [{ isPrivate: true, inviteTokenHash: createHash("sha256").update(dto.inviteToken).digest("hex") }] : [])
+        ]
+      },
       include: { ticketTypes: true }
     });
     timer?.lap("eventLookup");

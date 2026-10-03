@@ -91,6 +91,7 @@ function CheckoutForm() {
     () => parseItemsParam(searchParams.get("items")),
     [searchParams],
   );
+  const invite = searchParams.get("invite") ?? undefined;
 
   const [quantities, setQuantities] =
     useState<Record<string, number>>(initialItems);
@@ -109,9 +110,9 @@ function CheckoutForm() {
   }, [searchParams, slug]);
 
   const { data: event, isLoading } = useQuery({
-    queryKey: ["checkout-event", slug],
+    queryKey: ["checkout-event", slug, invite],
     queryFn: () =>
-      api<EventFlowEvent>(`/events/public/${slug}`, { auth: false }),
+      api<EventFlowEvent>(`/events/public/${slug}${invite ? `?invite=${encodeURIComponent(invite)}` : ""}`, { auth: false }),
   });
 
   const currentLots = useMemo(
@@ -171,6 +172,7 @@ function CheckoutForm() {
         method: "POST",
         body: JSON.stringify({
           ...data,
+          inviteToken: invite,
           promoterCode,
           couponCode: appliedCoupon?.code,
           buyerName: data.buyerName.trim().replace(/\s+/g, " "),

@@ -57,6 +57,11 @@ export class CreateCheckoutDto {
   @IsString()
   promoterCode?: string;
 
+  @ApiPropertyOptional({ description: "Token do convite para evento privado" })
+  @IsOptional()
+  @IsString()
+  inviteToken?: string;
+
   @ApiPropertyOptional({ description: "Fonte de tráfego" })
   @IsOptional()
   @IsString()

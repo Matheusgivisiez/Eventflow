@@ -1,6 +1,7 @@
 import { Metadata, ResolvingMetadata } from "next";
 import { notFound } from "next/navigation";
 import { HeroBanner } from "@/components/event-page/hero-banner";
+import { VenueMap } from "@/components/event-page/venue-map";
 import { PhotoGallery } from "@/components/event-page/photo-gallery";
 import { LocationMap } from "@/components/event-page/location-map";
 import { EventAgenda } from "@/components/event-page/event-agenda";
@@ -12,11 +13,12 @@ import type { EventFlowEvent } from "@/types/eventflow";
 
 // Helper function to fetch the event from the API directly.
 // We use fetch since this is a server component.
-async function getEvent(slug: string): Promise<EventFlowEvent | null> {
+async function getEvent(slug: string, invite?: string): Promise<EventFlowEvent | null> {
   const API_URL = getApiUrl();
   try {
-    const res = await fetch(`${API_URL}/events/public/${slug}`, {
-      next: { revalidate: 60 } // Cache for 60 seconds
+    const query = invite ? `?invite=${encodeURIComponent(invite)}` : "";
+    const res = await fetch(`${API_URL}/events/public/${slug}${query}`, {
+      ...(invite ? { cache: "no-store" as const } : { next: { revalidate: 60 } })
     });
     if (!res.ok) return null;
     return res.json();
@@ -71,9 +73,10 @@ function refundPolicyText(event: EventFlowEvent) {
   return `você pode solicitar pelo site até ${hours}h antes do início do evento.`;
 }
 
-export default async function PublicEventPage({ params }: { params: Promise<{ slug: string }> }) {
+export default async function PublicEventPage({ params, searchParams }: { params: Promise<{ slug: string }>; searchParams: Promise<{ invite?: string }> }) {
   const { slug } = await params;
-  const event = await getEvent(slug);
+  const { invite } = await searchParams;
+  const event = await getEvent(slug, invite);
 
   if (!event) {
     notFound();
@@ -134,6 +137,7 @@ export default async function PublicEventPage({ params }: { params: Promise<{ sl
       <div className="mx-auto w-full max-w-7xl px-4 sm:px-5 lg:px-8">
         <EventDetailClient
           event={event}
+          invite={invite}
           aboutSection={
             <section className="space-y-4 animate-fade-in">
               <h2 className="text-xl font-bold tracking-tight">Sobre o Evento</h2>
@@ -146,6 +150,7 @@ export default async function PublicEventPage({ params }: { params: Promise<{ sl
               </p>
             </section>
           }
+          venueMapSection={event.venueMapUrl ? <VenueMap url={event.venueMapUrl} title={event.title} /> : null}
           gallerySection={<PhotoGallery urls={event.galleryUrls} title={event.title} />}
           locationSection={<LocationMap event={event} />}
           agendaSection={<EventAgenda agendaJson={event.agendaJson} />}

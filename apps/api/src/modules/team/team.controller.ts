@@ -35,6 +35,6 @@ export class TeamController {
 
   @Delete(":id")
   removeMember(@CurrentUser() user: RequestUser, @Param("id") id: string) {
-    return this.team.removeMember(id, user.tenantId!);
+    return this.team.removeMember(id, user.tenantId!, user.id);
   }
 }

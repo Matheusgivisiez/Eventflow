@@ -29,6 +29,12 @@ enum EventFormat {
   IN_PERSON
 }
 
+enum EventAccessRole {
+  GESTOR
+  EDITOR
+  OPERACAO
+}
+
 enum PaymentMethod {
   PIX
   CREDIT_CARD
@@ -232,6 +238,7 @@ model User {
   resets       PasswordResetToken[]
   emailVerifications EmailVerificationToken[]
   events       Event[]        @relation("EventOwner")
+  eventAccess  EventAccess[]
   orders       Order[]
   checkIns     CheckInLog[]
   teamMembers  TeamMember[]
@@ -304,6 +311,7 @@ model Event {
   category               String
   bannerUrl              String?
   galleryUrls            String[]     @default([])
+  venueMapUrl            String?
   startsAt               DateTime
   endsAt                 DateTime?
   city                   String?
@@ -314,6 +322,8 @@ model Event {
   onlineUrl              String?
   format                 EventFormat
   status                 EventStatus  @default(DRAFT)
+  isPrivate              Boolean      @default(false)
+  inviteTokenHash        String?      @unique
   seoTitle               String?
   seoDescription         String?
   faqJson                Json?
@@ -354,6 +364,7 @@ model Event {
   payments               Payment[]
   tickets                Ticket[]
   promoterLinks          PromoterLink[]
+  accessMembers          EventAccess[]
   artists                EventArtist[]
   couponScopes           CouponEvent[]
 
@@ -362,6 +373,20 @@ model Event {
   @@index([startsAt])
   @@index([category, status])
   @@index([slug, status])
+}
+
+model EventAccess {
+  id        String          @id @default(cuid())
+  eventId   String
+  userId    String
+  role      EventAccessRole
+  createdAt DateTime        @default(now())
+  updatedAt DateTime        @updatedAt
+  event     Event           @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  user      User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([eventId, userId])
+  @@index([userId, role])
 }
 
 // ─── Artists ─────────────────────────────────────────────────────

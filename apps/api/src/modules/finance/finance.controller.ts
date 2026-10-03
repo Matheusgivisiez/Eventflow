@@ -11,13 +11,10 @@ import { ApproveWithdrawalDto } from "./dto/approve-withdrawal.dto";
 import { RequestWithdrawalDto } from "./dto/request-withdrawal.dto";
 import { FinanceService } from "./finance.service";
 
-// Access is unchanged: any authenticated account that belongs to an
-// organization (ORGANIZER, ADMIN, TEAM, CHECKIN) keeps using these routes.
-// The only difference is that an account with no tenant (CUSTOMER/PROMOTER)
-// is refused instead of reaching a query built from `tenantId: null`.
 @ApiTags("Financeiro")
 @ApiBearerAuth()
-@UseGuards(JwtAuthGuard)
+@UseGuards(JwtAuthGuard, RolesGuard)
+@Roles(UserRole.ADMIN, UserRole.ORGANIZER)
 @Controller("finance")
 export class FinanceController {
   constructor(private readonly finance: FinanceService) {}

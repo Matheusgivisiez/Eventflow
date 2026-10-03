@@ -4,11 +4,15 @@ import { Response } from "express";
 import { CurrentUser } from "../../common/decorators/current-user.decorator";
 import { JwtAuthGuard } from "../../common/guards/jwt-auth.guard";
 import { RequestUser } from "../../common/types/request-user";
+import { Roles } from "../../common/decorators/roles.decorator";
+import { RolesGuard } from "../../common/guards/roles.guard";
+import { UserRole } from "@prisma/client";
 import { ReportsService } from "./reports.service";
 
 @ApiTags("Relatórios")
 @ApiBearerAuth()
-@UseGuards(JwtAuthGuard)
+@UseGuards(JwtAuthGuard, RolesGuard)
+@Roles(UserRole.ADMIN, UserRole.ORGANIZER)
 @Controller("reports")
 export class ReportsController {
   constructor(private readonly reports: ReportsService) {}

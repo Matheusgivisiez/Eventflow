@@ -34,12 +34,16 @@ export type EventArtist = { artistId?: string; position: number; artist: Artist 
 
 export type EventFlowEvent = {
   id: string;
+  ownerId?: string;
+  accessRole?: "OWNER" | "GESTOR" | "EDITOR" | "OPERACAO";
   title: string;
   slug: string;
   description: string;
   category: string;
   bannerUrl?: string;
   galleryUrls: string[];
+  /** Imagem do mapa do evento (setores/camarotes). Opcional. */
+  venueMapUrl?: string | null;
   startsAt: string;
   endsAt?: string;
   city?: string;
@@ -49,6 +53,7 @@ export type EventFlowEvent = {
   mapUrl?: string;
   format: EventFormat;
   status: EventStatus;
+  isPrivate?: boolean;
   onlineUrl?: string;
   seoTitle?: string;
   seoDescription?: string;

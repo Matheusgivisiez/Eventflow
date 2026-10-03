@@ -22,6 +22,7 @@ import { isoToScheduleValue, scheduleValueToIso } from "@/lib/new-event-schedule
 const ImageUpload = dynamic(() => import("@/components/image-upload").then(m => m.ImageUpload), { ssr: false, loading: () => <Skeleton className="h-40 w-full" /> });
 import type { EventFlowEvent } from "@/types/eventflow";
 import { ArtistManager } from "@/components/events/artist-manager";
+import { EventAccessManager } from "@/components/events/event-access-manager";
 
 const schema = z.object({
   title: z.string().min(3, "Informe o nome do evento."),
@@ -30,6 +31,7 @@ const schema = z.object({
   startsAt: z.string().min(1, "Informe data e horário."),
   endsAt: z.string().optional(),
   bannerUrl: z.string().optional(),
+  venueMapUrl: z.string().optional(),
   city: z.string().optional(),
   state: z.string().optional(),
   zipCode: z.string().optional(),
@@ -38,6 +40,7 @@ const schema = z.object({
   onlineUrl: z.string().optional(),
   format: z.enum(["ONLINE", "IN_PERSON"]),
   status: z.enum(["DRAFT", "PUBLISHED", "CLOSED"]),
+  isPrivate: z.boolean().optional(),
   seoTitle: z.string().optional(),
   seoDescription: z.string().optional(),
   feeAbsorbedByOrganizer: z.boolean().optional(),
@@ -87,6 +90,7 @@ export default function EditEventPage() {
     queryKey: ["event", id],
     queryFn: () => api<EventFlowEvent>(`/events/${id}`)
   });
+  const { data: currentUser } = useQuery<{ id: string }>({ queryKey: ["current-user"], queryFn: () => api("/auth/me") });
 
   const form = useForm<FormData>({
     resolver: zodResolver(schema),
@@ -113,6 +117,7 @@ export default function EditEventPage() {
         startsAt: isoToScheduleValue(event.startsAt),
         endsAt: isoToScheduleValue(event.endsAt),
         bannerUrl: event.bannerUrl ?? "",
+        venueMapUrl: event.venueMapUrl ?? "",
         city: event.city ?? "",
         state: event.state ?? "",
         zipCode: event.zipCode ?? "",
@@ -120,6 +125,7 @@ export default function EditEventPage() {
         mapUrl: event.mapUrl ?? "",
         format: event.format,
         status: event.status,
+        isPrivate: event.isPrivate ?? false,
         seoTitle: event.seoTitle ?? "",
         seoDescription: event.seoDescription ?? "",
         allowTicketTransfer: event.allowTicketTransfer ?? true,
@@ -138,6 +144,8 @@ export default function EditEventPage() {
     const payload: Record<string, unknown> = {
       ...data,
       bannerUrl: data.bannerUrl || undefined,
+      // null remove o mapa já salvo; a seção some da página pública.
+      venueMapUrl: data.venueMapUrl || null,
       startsAt: scheduleValueToIso(data.startsAt),
       endsAt: scheduleValueToIso(data.endsAt)
     };
@@ -191,6 +199,18 @@ export default function EditEventPage() {
       queryClient.invalidateQueries({ queryKey: ["events"] });
       router.push("/events");
     }
+  });
+
+  const [inviteLink, setInviteLink] = useState("");
+  const inviteMutation = useMutation({
+    mutationFn: async () => {
+      if (!event?.isPrivate) {
+        await api(`/events/${id}`, { method: "PATCH", body: JSON.stringify({ isPrivate: true }) });
+        queryClient.invalidateQueries({ queryKey: ["event", id] });
+      }
+      return api<{ token: string }>(`/events/${id}/invite-link`, { method: "POST" });
+    },
+    onSuccess: ({ token }) => setInviteLink(`${window.location.origin}/eventos/${event!.slug}?invite=${encodeURIComponent(token)}`)
   });
 
   if (isLoading) {
@@ -312,6 +332,23 @@ export default function EditEventPage() {
 
           <Card>
             <CardHeader>
+              <CardTitle>Mapa do evento</CardTitle>
+              <CardDescription>
+                Opcional. Envie a planta com setores, palco e camarotes — ela aparece junto dos ingressos na página do evento. Sem imagem, a seção não é exibida.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <ImageUpload
+                crop={false}
+                label="JPG, PNG ou WebP, até 5 MB"
+                value={form.watch("venueMapUrl")}
+                onChange={(url) => form.setValue("venueMapUrl", url ?? "", { shouldDirty: true })}
+              />
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
               <CardTitle>Local e online</CardTitle>
             </CardHeader>
             <CardContent className="grid gap-3 sm:grid-cols-2">
@@ -337,6 +374,7 @@ export default function EditEventPage() {
           </Card>
 
           <ArtistManager eventId={id} initialArtists={event.artists} />
+          {event.ownerId && event.ownerId === currentUser?.id && <EventAccessManager eventId={id} />}
         </div>
 
         <div className="space-y-6">
@@ -364,6 +402,19 @@ export default function EditEventPage() {
                   <option value="CLOSED">Encerrado</option>
                 </select>
               </Field>
+              <label className="flex items-start gap-3 rounded-lg border p-3 text-sm">
+                <input type="checkbox" className="mt-1" {...form.register("isPrivate")} />
+                <span><strong className="block">Evento privado</strong><span className="text-muted-foreground">Acesso somente pelo link de convite.</span></span>
+              </label>
+              {form.watch("isPrivate") && (
+                <div className="space-y-2 rounded-lg border p-3">
+                  <Button type="button" variant="outline" className="w-full" onClick={() => inviteMutation.mutate()} disabled={inviteMutation.isPending}>
+                    {inviteMutation.isPending ? "Gerando link…" : "Gerar novo link de convite"}
+                  </Button>
+                  {inviteLink && <Input readOnly value={inviteLink} onFocus={(e) => e.currentTarget.select()} aria-label="Link de convite" />}
+                  <p className="text-xs text-muted-foreground">Gerar um novo link invalida o anterior. Compartilhe com as pessoas convidadas.</p>
+                </div>
+              )}
               <Button className="w-full" disabled={updateMutation.isPending}>
                 {updateMutation.isPending ? (
                   <Loader2 className="h-4 w-4 animate-spin" />

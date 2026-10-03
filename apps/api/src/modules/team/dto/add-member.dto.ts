@@ -1,11 +1,7 @@
 import { TeamPermission } from "@prisma/client";
-import { IsArray, IsEmail, IsEnum, IsNotEmpty, IsString } from "class-validator";
+import { IsArray, IsEmail, IsEnum } from "class-validator";
 
 export class AddMemberDto {
-  @IsString()
-  @IsNotEmpty()
-  name!: string;
-
   @IsEmail()
   email!: string;
 

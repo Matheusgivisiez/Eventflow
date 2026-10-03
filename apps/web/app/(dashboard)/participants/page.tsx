@@ -200,11 +200,21 @@ export default function ParticipantsPage() {
     queryKey: ["events-filter"],
     queryFn: () => api<Paginated<EventFlowEvent>>("/events?perPage=100"),
   });
+  const { data: currentUser } = useQuery<{ id: string; role: string }>({
+    queryKey: ["current-user"],
+    queryFn: () => api("/auth/me")
+  });
+
+  useEffect(() => {
+    const isOrganizationAdmin = currentUser?.role === "ORGANIZER" || currentUser?.role === "ADMIN";
+    if (!isOrganizationAdmin && !eventId && events?.data?.length) setEventId(events.data[0].id);
+  }, [currentUser?.role, eventId, events?.data]);
 
   const { data, isLoading, error } = useQuery({
     queryKey: ["participants", params],
     queryFn: () => api<Paginated<Participant>>(`/participants?${params}`),
     placeholderData: (prev) => prev,
+    enabled: currentUser?.role === "ORGANIZER" || currentUser?.role === "ADMIN" || Boolean(eventId),
   });
 
   // All-participants query for export (no pagination)

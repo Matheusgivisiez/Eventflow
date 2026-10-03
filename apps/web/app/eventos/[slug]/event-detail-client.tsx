@@ -10,7 +10,9 @@ import type { EventFlowEvent } from "@/types/eventflow";
 
 type EventDetailClientProps = {
   event: EventFlowEvent;
+  invite?: string;
   aboutSection: ReactNode;
+  venueMapSection: ReactNode;
   gallerySection: ReactNode;
   locationSection: ReactNode;
   agendaSection: ReactNode;
@@ -20,7 +22,9 @@ type EventDetailClientProps = {
 
 export function EventDetailClient({
   event,
+  invite,
   aboutSection,
+  venueMapSection,
   gallerySection,
   locationSection,
   agendaSection,
@@ -75,7 +79,7 @@ export function EventDetailClient({
 
   const ticketsAndArtists = (
     <>
-      <ShareButtons title={event.title} slug={event.slug} />
+      <ShareButtons title={event.title} slug={event.slug} invite={invite} />
       <TicketSelector
         ticketTypes={event.ticketTypes}
         quantities={quantities}
@@ -98,6 +102,8 @@ export function EventDetailClient({
             {ticketsAndArtists}
           </div>
 
+          {/* Mapa do evento: logo depois dos ingressos no mobile, ao lado deles no desktop */}
+          {venueMapSection}
           {gallerySection}
           {locationSection}
           {agendaSection}
@@ -116,6 +122,7 @@ export function EventDetailClient({
       {/* Barra fixa de compra */}
       <FloatingBuyBar
         slug={event.slug}
+        invite={invite}
         totalCents={totalCents}
         totalItems={totalItems}
         selectedItems={purchasableQuantities}

@@ -12,12 +12,16 @@ interface ImageUploadProps {
   onChange: (url: string | undefined) => void;
   label?: string;
   aspect?: number;
+  /** false envia a imagem inteira, sem recorte (ex.: mapa do evento). */
+  crop?: boolean;
 }
 
-export function ImageUpload({ value, onChange, label, aspect = 1 }: ImageUploadProps) {
+export function ImageUpload({ value, onChange, label, aspect = 1, crop: cropEnabled = true }: ImageUploadProps) {
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string>();
   const [preview, setPreview] = useState(value);
+  // O valor chega depois do primeiro render quando o formulário carrega o evento.
+  useEffect(() => { setPreview(value || undefined); }, [value]);
   const [dragOver, setDragOver] = useState(false);
   const [imageToCrop, setImageToCrop] = useState<string>();
   const [crop, setCrop] = useState({ x: 0, y: 0 });
@@ -31,10 +35,28 @@ export function ImageUpload({ value, onChange, label, aspect = 1 }: ImageUploadP
   const handleUpload = useCallback(async (file: File) => {
     if (!file.type.startsWith("image/")) return;
     setError(undefined);
+    if (!cropEnabled) {
+      if (file.size > 5 * 1024 * 1024) {
+        setError("A imagem deve ter no máximo 5 MB.");
+        return;
+      }
+      setUploading(true);
+      try {
+        const { url } = await uploadFile(file);
+        const fullUrl = toPublicAssetUrl(url);
+        setPreview(fullUrl);
+        onChange(fullUrl);
+      } catch (uploadError) {
+        setError(uploadError instanceof Error ? uploadError.message : "Não foi possível enviar a imagem.");
+      } finally {
+        setUploading(false);
+      }
+      return;
+    }
     setCrop({ x: 0, y: 0 });
     setZoom(1);
     setImageToCrop(URL.createObjectURL(file));
-  }, []);
+  }, [cropEnabled, onChange]);
 
   const finishCrop = useCallback(async () => {
     if (!imageToCrop || !croppedAreaPixels) return;
@@ -80,13 +102,13 @@ export function ImageUpload({ value, onChange, label, aspect = 1 }: ImageUploadP
 
   if (preview) {
     return (
-      <div className="relative h-40 overflow-hidden rounded-md border">
+      <div className={`relative overflow-hidden rounded-md border ${cropEnabled ? "h-40" : "h-64 bg-muted/40"}`}>
         <Image
           src={preview}
           alt="Preview"
           fill
           sizes="(max-width: 768px) 100vw, 640px"
-          className="object-cover"
+          className={cropEnabled ? "object-cover" : "object-contain"}
         />
         <button
           type="button"

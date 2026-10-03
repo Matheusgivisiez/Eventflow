@@ -1,6 +1,6 @@
 import { EventFormat, EventStatus } from "@prisma/client";
 import { Type } from "class-transformer";
-import { IsArray, IsBoolean, IsDateString, IsEnum, IsInt, IsNotEmpty, IsOptional, IsString, Max, Min, ValidateNested } from "class-validator";
+import { IsArray, IsBoolean, IsDateString, IsEnum, IsInt, IsNotEmpty, IsOptional, IsString, Max, MaxLength, Min, ValidateNested } from "class-validator";
 import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger";
 
 export class CreateEventFirstTicketDto {
@@ -88,6 +88,12 @@ export class CreateEventDto {
   @IsString({ each: true })
   galleryUrls?: string[];
 
+  @ApiPropertyOptional({ description: "URL da imagem do mapa do evento (setores, camarotes). null remove o mapa." })
+  @IsOptional()
+  @IsString()
+  @MaxLength(2048)
+  venueMapUrl?: string | null;
+
   @ApiPropertyOptional({ description: "Cidade do evento" })
   @IsOptional()
   @IsString()
@@ -121,6 +127,11 @@ export class CreateEventDto {
   @IsOptional()
   @IsEnum(EventStatus)
   status?: EventStatus;
+
+  @ApiPropertyOptional({ description: "Evento acessível somente por link de convite" })
+  @IsOptional()
+  @IsBoolean()
+  isPrivate?: boolean;
 
   @ApiPropertyOptional({ description: "Título SEO" })
   @IsOptional()

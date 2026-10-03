@@ -72,6 +72,7 @@ describe("EventsRepository public visibility", () => {
       where: {
         slug: "festival-antigo",
         status: EventStatus.PUBLISHED,
+        isPrivate: false,
         AND: [
           {
             OR: [

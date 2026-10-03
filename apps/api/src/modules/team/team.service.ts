@@ -1,7 +1,5 @@
 import { BadRequestException, Injectable, NotFoundException } from "@nestjs/common";
 import { UserRole } from "@prisma/client";
-import * as bcrypt from "bcryptjs";
-import { nanoid } from "nanoid";
 import { PrismaService } from "../../prisma/prisma.service";
 import { AddMemberDto } from "./dto/add-member.dto";
 import { UpdatePermissionsDto } from "./dto/update-permissions.dto";
@@ -18,19 +16,14 @@ export class TeamService {
     }
 
     if (!user) {
-      const tempPassword = nanoid(10);
-      const passwordHash = await bcrypt.hash(tempPassword, 12);
-      
-      user = await this.prisma.user.create({
-        data: {
-          tenantId,
-          name: dto.name,
-          email: dto.email.toLowerCase(),
-          passwordHash,
-          role: UserRole.TEAM
-        }
-      });
-      // Em um ambiente real, enviaríamos um email com a senha temporária aqui.
+      throw new BadRequestException("A pessoa precisa criar uma conta Event Flow antes de entrar na equipe.");
+    }
+
+    if (user.role === UserRole.CUSTOMER && (!user.tenantId || user.tenantId === tenantId)) {
+      user = await this.prisma.user.update({ where: { id: user.id }, data: { tenantId, role: UserRole.TEAM } });
+    }
+    if (user.role !== UserRole.TEAM || user.tenantId !== tenantId) {
+      throw new BadRequestException("Esta conta não pode ser adicionada como colaboradora desta organização.");
     }
 
     const existingMember = await this.prisma.teamMember.findUnique({
@@ -72,13 +65,29 @@ export class TeamService {
     });
   }
 
-  async removeMember(id: string, tenantId: string) {
+  async removeMember(id: string, tenantId: string, actorUserId?: string) {
     const member = await this.prisma.teamMember.findFirst({ where: { id, tenantId } });
     if (!member) {
       throw new NotFoundException("Membro não encontrado.");
     }
     
-    await this.prisma.teamMember.delete({ where: { id } });
+    await this.prisma.$transaction(async (tx) => {
+      const eventAssignments = await tx.eventAccess.findMany({
+        where: { userId: member.userId, event: { tenantId } },
+        select: { eventId: true, role: true }
+      });
+      await tx.eventAccess.deleteMany({ where: { userId: member.userId, event: { tenantId } } });
+      await tx.teamMember.delete({ where: { id } });
+      for (const assignment of eventAssignments) {
+        await tx.auditLog.create({ data: {
+          userId: actorUserId,
+          action: "event_access.revoked_with_team_membership",
+          entity: "event_access",
+          entityId: assignment.eventId,
+          metadata: { targetUserId: member.userId, role: assignment.role }
+        } });
+      }
+    });
     return { success: true };
   }
 }

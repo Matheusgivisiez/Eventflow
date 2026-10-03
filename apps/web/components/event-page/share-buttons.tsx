@@ -7,9 +7,10 @@ import { Button } from "@/components/ui/button";
 type ShareButtonsProps = {
   title: string;
   slug: string;
+  invite?: string;
 };
 
-export function ShareButtons({ title, slug }: ShareButtonsProps) {
+export function ShareButtons({ title, slug, invite }: ShareButtonsProps) {
   const [copied, setCopied] = useState(false);
   const [canShare, setCanShare] = useState(false);
 
@@ -18,7 +19,7 @@ export function ShareButtons({ title, slug }: ShareButtonsProps) {
   }, []);
 
   const eventUrl = typeof window !== "undefined"
-    ? `${window.location.origin}/eventos/${slug}`
+    ? `${window.location.origin}/eventos/${slug}${invite ? `?invite=${encodeURIComponent(invite)}` : ""}`
     : "";
 
   const handleCopyLink = async () => {

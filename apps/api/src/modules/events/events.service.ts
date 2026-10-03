@@ -1,5 +1,6 @@
 import { BadRequestException, Injectable, NotFoundException } from "@nestjs/common";
-import { EventFormat, EventStatus, Prisma } from "@prisma/client";
+import { createHash, randomBytes } from "node:crypto";
+import { EventFormat, EventStatus, Prisma, UserRole } from "@prisma/client";
 import { nanoid } from "nanoid";
 import { PrismaService } from "../../prisma/prisma.service";
 import { CacheService } from "../cache/cache.service";
@@ -15,7 +16,7 @@ export class EventsService {
     private readonly cache: CacheService
   ) {}
 
-  list(tenantId: string, query: { page?: string; perPage?: string; search?: string; status?: EventStatus; summary?: string }) {
+  list(tenantId: string, query: { page?: string; perPage?: string; search?: string; status?: EventStatus; summary?: string }, access?: { userId: string; role: UserRole }) {
     const page = Math.max(1, Number(query.page ?? 1) || 1);
     const perPage = Math.min(100, Math.max(1, Number(query.perPage ?? 10) || 10));
     return this.events.list(tenantId, {
@@ -23,7 +24,9 @@ export class EventsService {
       perPage,
       search: query.search,
       status: query.status,
-      summary: query.summary === "1" || query.summary === "true"
+      summary: query.summary === "1" || query.summary === "true",
+      userId: access?.userId,
+      restricted: access ? access.role !== UserRole.ORGANIZER && access.role !== UserRole.ADMIN : false
     });
   }
 
@@ -44,6 +47,7 @@ export class EventsService {
       const createdEvent = await tx.event.create({
         data: {
           ...eventDto,
+          inviteTokenHash: dto.isPrivate ? this.hashInviteToken(randomBytes(32).toString("base64url")) : null,
           tenantId,
           ownerId,
           slug: await this.uniqueSlug(dto.title),
@@ -115,7 +119,27 @@ export class EventsService {
     if (!event) {
       throw new NotFoundException("Evento indisponível.");
     }
-    return event;
+    const { inviteTokenHash: _inviteTokenHash, ...publicEvent } = event;
+    return publicEvent;
+  }
+
+  async publicByInvite(slug: string, token: string) {
+    const event = await this.events.findPublishedByInvite(slug, this.hashInviteToken(token));
+    if (!event) throw new NotFoundException("Convite inválido ou evento indisponível.");
+    const { inviteTokenHash: _inviteTokenHash, ...publicEvent } = event;
+    return publicEvent;
+  }
+
+  async createInviteLink(id: string, tenantId: string) {
+    const event = await this.findOne(id, tenantId);
+    if (!event.isPrivate) throw new BadRequestException("Ative o modo privado para gerar um link de convite.");
+    const token = randomBytes(32).toString("base64url");
+    await this.prisma.event.update({ where: { id }, data: { inviteTokenHash: this.hashInviteToken(token) } });
+    return { token };
+  }
+
+  private hashInviteToken(token: string) {
+    return createHash("sha256").update(token).digest("hex");
   }
 
   async update(id: string, tenantId: string, dto: UpdateEventDto) {
@@ -125,6 +149,7 @@ export class EventsService {
       where: { id },
       data: {
         ...dto,
+        inviteTokenHash: dto.isPrivate === false ? null : undefined,
         startsAt: dto.startsAt ? new Date(dto.startsAt) : undefined,
         endsAt: dto.endsAt ? new Date(dto.endsAt) : undefined,
         galleryUrls: dto.galleryUrls,

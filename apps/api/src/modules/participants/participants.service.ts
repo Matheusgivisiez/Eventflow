@@ -48,4 +48,33 @@ export class ParticipantsService {
 
     return paginate(data, total, page, perPage);
   }
+
+  async listForOperations(tenantId: string, query: ParticipantQuery) {
+    const page = Math.max(1, Number(query.page ?? 1) || 1);
+    const perPage = Math.min(100, Math.max(1, Number(query.perPage ?? 20) || 20));
+    const where: Prisma.TicketWhereInput = {
+      event: { tenantId },
+      eventId: query.eventId,
+      status: query.status,
+      order: { status: PaymentStatus.PAID },
+      attendeeName: query.search ? { contains: query.search, mode: "insensitive" } : undefined
+    };
+    const [data, total] = await this.prisma.$transaction([
+      this.prisma.ticket.findMany({
+        where,
+        select: {
+          id: true,
+          status: true,
+          attendeeName: true,
+          event: { select: { id: true, title: true, startsAt: true } },
+          ticketType: { select: { name: true } }
+        },
+        orderBy: { createdAt: "desc" },
+        skip: (page - 1) * perPage,
+        take: perPage
+      }),
+      this.prisma.ticket.count({ where })
+    ]);
+    return paginate(data, total, page, perPage);
+  }
 }

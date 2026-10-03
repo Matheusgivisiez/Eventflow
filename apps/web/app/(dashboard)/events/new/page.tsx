@@ -42,6 +42,7 @@ const schema = z.object({
   onlineUrl: z.string().optional(),
   format: z.enum(["ONLINE", "IN_PERSON"]),
   status: z.enum(["DRAFT", "PUBLISHED"]),
+  isPrivate: z.boolean(),
   seoTitle: z.string().optional(),
   seoDescription: z.string().optional(),
   firstTicketName: z.string().min(2, "Informe o nome do lote."),
@@ -132,6 +133,7 @@ export default function NewEventPage() {
     defaultValues: {
       format: "IN_PERSON",
       status: "DRAFT",
+      isPrivate: false,
       firstTicketName: "Primeiro lote",
       firstTicketPrice: 0,
       firstTicketQuantity: 100,
@@ -233,6 +235,7 @@ export default function NewEventPage() {
           onlineUrl: data.format === "ONLINE" ? data.onlineUrl : undefined,
           format: data.format,
           status: data.status,
+          isPrivate: data.isPrivate,
           seoTitle: data.seoTitle || undefined,
           seoDescription: data.seoDescription || undefined,
           feeAbsorbedByOrganizer: data.feePayer === "ORGANIZER",
@@ -495,6 +498,13 @@ export default function NewEventPage() {
                     <option value="PUBLISHED">Publicado</option>
                   </select>
                 </Field>
+                <label className="flex items-start gap-3 rounded-lg border p-4">
+                  <input type="checkbox" className="mt-1 h-4 w-4" {...form.register("isPrivate")} />
+                  <span>
+                    <span className="block font-medium">Evento privado por convite</span>
+                    <span className="text-sm text-muted-foreground">Não aparece na busca pública. Só abre pelo link de convite, que pode ser gerado após salvar.</span>
+                  </span>
+                </label>
               </>
             )}
           </CardContent>
