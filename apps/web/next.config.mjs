@@ -9,7 +9,12 @@ const securityHeaders = [
 
 const nextConfig = {
   async headers() {
-    return [{ source: "/:path*", headers: securityHeaders }];
+    return [
+      { source: "/:path*", headers: securityHeaders },
+      // A URL desta página carrega o token do pedido: não vazar em Referer.
+      // (Vem depois da regra geral para sobrescrever o Referrer-Policy dela.)
+      { source: "/checkout/success", headers: [{ key: "Referrer-Policy", value: "no-referrer" }] }
+    ];
   },
   images: {
     remotePatterns: [

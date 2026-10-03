@@ -18,7 +18,8 @@ function createOrder(overrides: Record<string, unknown> = {}) {
     event: {
       id: "event-1",
       title: "Event Flow Conf",
-      startsAt: new Date("2026-09-12T18:00:00.000Z"),
+      // Relativo a "agora": o link do pedido expira N dias após o evento.
+      startsAt: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000),
       address: "Avenida Paulista, 1000"
     },
     buyerName: "Buyer Test",
@@ -103,6 +104,15 @@ describe("CheckoutService", () => {
       await expect(service.ticketPdf("order-1", "ticket-1", "wrong-token")).rejects.toThrow(UnauthorizedException);
     });
 
+    it("rejects an expired order link", async () => {
+      const { service, prisma } = createService();
+      const longAgo = new Date(Date.now() - 31 * 24 * 60 * 60 * 1000);
+      prisma.order.findUnique.mockResolvedValue({ orderAccessToken: "public-token", event: { startsAt: longAgo, endsAt: null } });
+
+      await expect(service.ticketPdf("order-1", "ticket-1", "public-token")).rejects.toThrow("Este link expirou");
+      expect(prisma.ticket.findFirst).not.toHaveBeenCalled();
+    });
+
     it("rejects a ticket that does not belong to this order", async () => {
       const { service, prisma } = createService();
       prisma.order.findUnique.mockResolvedValue({ orderAccessToken: "public-token" });
@@ -166,6 +176,22 @@ describe("CheckoutService", () => {
     prisma.order.findUnique.mockResolvedValue(createOrder());
 
     await expect(service.getOrderStatus("order-1", "wrong-token")).rejects.toThrow(UnauthorizedException);
+  });
+
+  it("blocks public order lookup once the link expired after the event", async () => {
+    const { service, prisma } = createService();
+    const longAgo = new Date(Date.now() - 31 * 24 * 60 * 60 * 1000);
+    prisma.order.findUnique.mockResolvedValue(createOrder({ event: { id: "event-1", startsAt: longAgo, endsAt: longAgo } }));
+
+    await expect(service.getOrderStatus("order-1", "public-token")).rejects.toThrow("Este link expirou");
+  });
+
+  it("keeps the public order link valid within the window after the event", async () => {
+    const { service, prisma } = createService();
+    const recent = new Date(Date.now() - 29 * 24 * 60 * 60 * 1000);
+    prisma.order.findUnique.mockResolvedValue(createOrder({ event: { id: "event-1", startsAt: recent, endsAt: recent } }));
+
+    await expect(service.getOrderStatus("order-1", "public-token")).resolves.toEqual(expect.objectContaining({ id: "order-1" }));
   });
 
   it("returns public order details with a valid access token", async () => {

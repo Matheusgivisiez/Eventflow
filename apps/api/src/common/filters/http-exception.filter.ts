@@ -16,6 +16,11 @@ export class HttpExceptionFilter implements ExceptionFilter {
       message = typeof payload === "string"
         ? payload
         : (payload as { message?: string | string[] }).message ?? exception.message;
+      // Nest's router 404 is "Cannot GET <full url>", which echoes the query
+      // string back — including order access tokens. Never reflect the URL.
+      if (status === HttpStatus.NOT_FOUND && typeof message === "string" && /^Cannot [A-Z]+ /.test(message)) {
+        message = "Rota não encontrada.";
+      }
     } else if (exception instanceof Error) {
       this.logger.error(`Unhandled exception: ${exception.message}`, exception.stack);
       message = "Erro interno inesperado.";
