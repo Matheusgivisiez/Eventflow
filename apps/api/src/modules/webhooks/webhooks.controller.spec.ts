@@ -62,9 +62,16 @@ describe("WebhooksController InfinitePay security", () => {
   it("accepts the configured secret from InfinitePay's webhook URL", async () => {
     const { controller, webhooks, body } = createController();
 
-    await expect(controller.infinitePay(body, "infinitepay-webhook-secret-which-is-long-enough")).resolves.toEqual({ received: true });
+    await expect(controller.infinitePay(body, "infinitepay-webhook-secret-which-is-long-enough")).resolves.toEqual({ success: true });
 
     expect(webhooks.handle).toHaveBeenCalledWith("infinite_pay", body);
+  });
+
+  it("does not acknowledge success when processing fails", async () => {
+    const { controller, webhooks, body } = createController();
+    webhooks.handle.mockRejectedValue(new Error("provider unavailable"));
+    await expect(controller.infinitePay(body, "infinitepay-webhook-secret-which-is-long-enough"))
+      .rejects.toThrow("provider unavailable");
   });
 
   it("rejects a missing or invalid secret without processing the webhook", () => {

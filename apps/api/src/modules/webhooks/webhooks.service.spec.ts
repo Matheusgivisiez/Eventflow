@@ -174,6 +174,38 @@ describe("WebhooksService paid payment handling", () => {
     expect(audit.log).not.toHaveBeenCalled();
   });
 
+  it.each(["pix", "credit_card"])("reconciles the documented InfinitePay %s notification without a paid flag", async (captureMethod) => {
+    const { service, prisma, payments } = createService();
+    prisma.paymentLog.create.mockResolvedValue({ id: "log-official", processedAt: null });
+    prisma.payment.findFirst.mockResolvedValue(createPayment({ provider: "infinite_pay" }));
+    payments.reconcileProviderStatus.mockResolvedValue({ id: "payment-1", status: PaymentStatus.PAID });
+
+    const result = await service.handle("infinite_pay", {
+      invoice_slug: "invoice-1", transaction_nsu: "transaction-1", order_nsu: "order-1",
+      amount: 100, paid_amount: captureMethod === "pix" ? 100 : 105,
+      installments: 1, capture_method: captureMethod,
+      receipt_url: "https://receipt.example/1", items: []
+    });
+
+    expect(payments.recordProviderReferences).toHaveBeenCalledWith("payment-1", "tenant-1", {
+      providerRef: "transaction-1", transactionId: "transaction-1", checkoutId: "invoice-1"
+    });
+    expect(payments.reconcileProviderStatus).toHaveBeenCalledWith("payment-1", "tenant-1");
+    expect(payments.updateStatus).not.toHaveBeenCalled();
+    expect(result.status).toBe(PaymentStatus.PAID);
+  });
+
+  it.each([
+    { order_nsu: "order-1" },
+    { order_nsu: "order-1", transaction_nsu: "tx", invoice_slug: "invoice", paid: false }
+  ])("rejects incomplete or explicitly unpaid InfinitePay notifications", async (payload) => {
+    const { service, prisma, payments } = createService();
+    prisma.payment.findFirst.mockResolvedValue(createPayment({ provider: "infinite_pay", status: PaymentStatus.PAID }));
+    await expect(service.handle("infinite_pay", payload)).rejects.toThrow(BadRequestException);
+    expect(payments.updateStatus).not.toHaveBeenCalled();
+    expect(prisma.paymentLog.update).not.toHaveBeenCalled();
+  });
+
   it("responde 400 para a InfinitePay repetir o webhook quando payment_check ainda não confirma", async () => {
     const { service, prisma, payments } = createService();
     prisma.paymentLog.upsert.mockResolvedValue({ id: "log-1", processedAt: null });
@@ -182,7 +214,6 @@ describe("WebhooksService paid payment handling", () => {
 
     await expect(service.handle("infinite_pay", {
       id: "transaction-1",
-      paid: true,
       order_nsu: "order-1",
       transaction_nsu: "transaction-1",
       invoice_slug: "invoice-1"

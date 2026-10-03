@@ -201,7 +201,18 @@ export class WebhooksService {
 
   private mapStatus(provider: string, payload: Record<string, any>): PaymentStatus {
     if (provider === "infinite_pay") {
-      return payload.paid === true ? PaymentStatus.PAID : PaymentStatus.PENDING;
+      // Approved notifications omit `paid` (that flag belongs to payment_check).
+      // Treat the documented references as a request to verify with the provider;
+      // the PAID branch still checks the actual status and amount before issuance.
+      const hasReferences = Boolean(
+        this.extractOrderId(provider, payload) &&
+        this.extractTransactionId(provider, payload) &&
+        this.extractCheckoutId(provider, payload)
+      );
+      if (payload.paid === true || (payload.paid === undefined && hasReferences)) {
+        return PaymentStatus.PAID;
+      }
+      throw new BadRequestException("Notificação InfinitePay sem confirmação ou referências válidas.");
     }
     const raw = String(payload.status ?? payload.event ?? payload.data?.status ?? payload.payment?.status ?? "").toLowerCase();
     // AbacatePay events: checkout.completed, transparent.completed

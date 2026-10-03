@@ -1,3 +1,4 @@
+import { checkoutReturnOrigin } from "./checkout-return-origin";
 import { BadRequestException, Injectable, Logger, NotFoundException, Optional } from "@nestjs/common";
 import { PaymentStatus, Prisma, TicketStatus } from "@prisma/client";
 import { createHash, createHmac, randomUUID } from "crypto";
@@ -55,7 +56,7 @@ export class PaymentsService {
     });
   }
 
-  async createProviderPreference(orderId: string, tenantId?: string | null) {
+  async createProviderPreference(orderId: string, tenantId?: string | null, returnOrigin?: string) {
     const order = await this.prisma.order.findUnique({ where: { id: orderId }, include: { event: true, payment: true } });
     if (!order || !order.payment) {
       throw new NotFoundException("Pedido não encontrado.");
@@ -68,7 +69,7 @@ export class PaymentsService {
     if (order.orderAccessToken) {
       successParams.set("accessToken", order.orderAccessToken);
     }
-    const successUrl = `${appUrl}/checkout/success?${successParams.toString()}`;
+    const successUrl = `${checkoutReturnOrigin(appUrl, returnOrigin)}/checkout/success?${successParams.toString()}`;
     const provider = this.getProviderForNewPayment();
     const result = await provider.createCheckout({
       orderId,

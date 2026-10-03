@@ -172,6 +172,7 @@ function CheckoutForm() {
         method: "POST",
         body: JSON.stringify({
           ...data,
+          returnOrigin: window.location.origin,
           inviteToken: invite,
           promoterCode,
           couponCode: appliedCoupon?.code,

@@ -132,6 +132,20 @@ describe("PaymentsService", () => {
     }));
   });
 
+  it("passes the buyer's approved origin to the hosted payment provider", async () => {
+    const { service, prisma, abacatePay, config } = createService();
+    config.get.mockImplementation((key: string) => key === "APP_URL" ? "https://eventflowtickets.com.br" : undefined);
+    prisma.order.findUnique.mockResolvedValue({
+      id: "order-1", totalCents: 100, orderAccessToken: "public-token",
+      event: { tenantId: "tenant-1", title: "Test" }, payment: { method: PaymentMethod.PIX }
+    });
+    abacatePay.createCheckout.mockResolvedValue({ provider: "abacate_pay", providerRef: "checkout-1" });
+    await service.createProviderPreference("order-1", undefined, "https://www.eventflowtickets.com.br");
+    expect(abacatePay.createCheckout).toHaveBeenCalledWith(expect.objectContaining({
+      returnUrl: "https://www.eventflowtickets.com.br/checkout/success?orderId=order-1&accessToken=public-token"
+    }));
+  });
+
   it("blocks provider preference creation for orders from another tenant", async () => {
     const { service, prisma, abacatePay } = createService();
     prisma.order.findUnique.mockResolvedValue({
