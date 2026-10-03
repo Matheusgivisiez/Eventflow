@@ -56,7 +56,7 @@ export class CheckoutService {
 
     let checkout: Awaited<ReturnType<PaymentsService["createProviderPreference"]>>;
     try {
-      checkout = await this.payments.createProviderPreference(order.id);
+      checkout = await this.payments.createProviderPreference(order.id, undefined, dto.returnOrigin);
     } catch (error) {
       await this.cancelOrderAfterProviderFailure(order.id);
       throw error;

@@ -171,6 +171,6 @@ export class WebhooksController {
     if (!validateWebhookSecret(this.infinitePaySecret, providedSecret)) {
       throw new UnauthorizedException("Secret do webhook InfinitePay inválido ou não configurado.");
     }
-    return this.webhooks.handle("infinite_pay", body);
+    return this.webhooks.handle("infinite_pay", body).then(() => ({ success: true }));
   }
 }

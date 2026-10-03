@@ -322,8 +322,9 @@ describe("CheckoutService", () => {
     createCheckout.execute.mockResolvedValue(createOrder({ status: PaymentStatus.PENDING }));
     payments.createProviderPreference.mockResolvedValue({ checkoutUrl: "https://pay.example/checkout" });
 
-    const result = await service.create("eventflow-conf", {} as any);
+    const result = await service.create("eventflow-conf", { returnOrigin: "https://www.eventflowtickets.com.br" } as any);
 
+    expect(payments.createProviderPreference).toHaveBeenCalledWith("order-1", undefined, "https://www.eventflowtickets.com.br");
     expect(result.orderAccessToken).toBe("public-token");
     expect(result.checkoutUrl).toBe("https://pay.example/checkout");
   });
@@ -336,7 +337,7 @@ describe("CheckoutService", () => {
     const result = await service.create("eventflow-conf", {} as any);
 
     expect(payments.confirmFreeOrder).not.toHaveBeenCalled();
-    expect(payments.createProviderPreference).toHaveBeenCalledWith("order-1");
+    expect(payments.createProviderPreference).toHaveBeenCalledWith("order-1", undefined, undefined);
     expect(result.status).toBe(PaymentStatus.PENDING);
   });
 

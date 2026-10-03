@@ -21,6 +21,11 @@ export class CheckoutItemDto {
 }
 
 export class CreateCheckoutDto {
+  @ApiPropertyOptional({ description: "Origem do site para retorno após o pagamento; validada pelo servidor" })
+  @IsOptional()
+  @IsString()
+  returnOrigin?: string;
+
   @ApiProperty({ description: "Nome do comprador" })
   @IsString()
   @IsNotEmpty()
