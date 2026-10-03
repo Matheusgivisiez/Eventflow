@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Post, Query, Res, StreamableFile, UseGuards } from "@nestjs/common";
+import { Body, Controller, Get, Header, Param, Post, Query, Res, StreamableFile, UseGuards } from "@nestjs/common";
 import { ApiBearerAuth, ApiOperation, ApiTags } from "@nestjs/swagger";
 import { Throttle } from "@nestjs/throttler";
 import { Response } from "express";
@@ -36,6 +36,8 @@ export class CheckoutController {
   }
 
   @Get("order/:orderId")
+  // Resposta autorizada por token na URL: nunca deve ficar em cache de navegador ou proxy.
+  @Header("Cache-Control", "no-store")
   @Throttle({ default: { limit: 600, ttl: 60000 } })
   @ApiOperation({ summary: "Consultar status público de um pedido", description: "Permite que compradores consultem o status e ingressos do seu pedido sem login." })
   getOrderStatus(
@@ -52,6 +54,7 @@ export class CheckoutController {
   }
 
   @Get("order/:orderId/tickets/:ticketId/pdf")
+  @Header("Cache-Control", "no-store")
   @Throttle({ default: { limit: 60, ttl: 60000 } })
   @ApiOperation({ summary: "Baixar o PDF de um ingresso sem login", description: "Rota pública, autorizada pelo token de acesso do pedido (o mesmo usado no link do e-mail de confirmação)." })
   async ticketPdf(

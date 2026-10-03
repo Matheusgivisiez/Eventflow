@@ -1,5 +1,6 @@
 import { BadRequestException, ForbiddenException, Injectable, Logger, NotFoundException, UnauthorizedException } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
+import { timingSafeEqual } from "node:crypto";
 import { PaymentStatus, TransferStatus } from "@prisma/client";
 import { isPerfDiagnosticsEnabled, PhaseTimer } from "../../common/diagnostics/perf-diagnostics";
 import { RequestUser } from "../../common/types/request-user";
@@ -87,9 +88,7 @@ export class CheckoutService {
     if (!order) {
       throw new NotFoundException("Pedido não encontrado.");
     }
-    if (!order.orderAccessToken || !accessToken || order.orderAccessToken !== accessToken) {
-      throw new UnauthorizedException("Token de acesso do pedido inválido.");
-    }
+    this.assertOrderAccess(order, accessToken);
 
     if (order.payment && (providerReferences?.checkoutId || providerReferences?.transactionId)) {
       await this.payments.recordProviderReferences(order.payment.id, order.event.tenantId, {
@@ -191,7 +190,7 @@ export class CheckoutService {
       where: { id: orderId },
       include: { event: true, payment: true },
     });
-    if (!order || !order.orderAccessToken || order.orderAccessToken !== accessToken) {
+    if (!order || !this.orderTokenMatches(order.orderAccessToken, accessToken)) {
       throw new UnauthorizedException("Token de acesso do pedido inválido.");
     }
     if (!order.payment) {
@@ -220,14 +219,12 @@ export class CheckoutService {
   async ticketPdf(orderId: string, ticketId: string, accessToken?: string) {
     const order = await this.prisma.order.findUnique({
       where: { id: orderId },
-      select: { orderAccessToken: true, userId: true }
+      select: { orderAccessToken: true, userId: true, event: { select: { startsAt: true, endsAt: true } } }
     });
     if (!order) {
       throw new NotFoundException("Pedido não encontrado.");
     }
-    if (!order.orderAccessToken || !accessToken || order.orderAccessToken !== accessToken) {
-      throw new UnauthorizedException("Token de acesso do pedido inválido.");
-    }
+    this.assertOrderAccess(order, accessToken);
 
     const ticket = await this.prisma.ticket.findFirst({
       where: { id: ticketId, orderId },
@@ -251,6 +248,33 @@ export class CheckoutService {
     }
 
     return this.buyer.renderTicketPdfFor(ticket);
+  }
+
+  private orderTokenMatches(expected?: string | null, provided?: string | null) {
+    if (!expected || !provided) return false;
+    const a = Buffer.from(expected);
+    const b = Buffer.from(provided);
+    return a.length === b.length && timingSafeEqual(a, b);
+  }
+
+  /**
+   * Guest access to an order is authorized only by its access token, and only
+   * until ORDER_ACCESS_TOKEN_TTL_DAYS after the event ends — a link leaked in
+   * an old e-mail or browser history stops exposing buyer data after that.
+   */
+  private assertOrderAccess(
+    order: { orderAccessToken?: string | null; event?: { startsAt?: Date | null; endsAt?: Date | null } | null },
+    accessToken?: string
+  ) {
+    if (!this.orderTokenMatches(order.orderAccessToken, accessToken)) {
+      throw new UnauthorizedException("Token de acesso do pedido inválido.");
+    }
+    const eventEnd = order.event?.endsAt ?? order.event?.startsAt;
+    if (!eventEnd) return;
+    const ttlDays = Number(this.config.get<number>("ORDER_ACCESS_TOKEN_TTL_DAYS")) || 30;
+    if (Date.now() > eventEnd.getTime() + ttlDays * 24 * 60 * 60 * 1000) {
+      throw new UnauthorizedException("Este link expirou. Entre na sua conta para acessar o pedido.");
+    }
   }
 
   private orderInclude() {
