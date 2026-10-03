@@ -1,6 +1,6 @@
 import { CanActivate, ExecutionContext, Injectable, ForbiddenException } from "@nestjs/common";
 import { Reflector } from "@nestjs/core";
-import { TeamPermission, UserRole } from "@prisma/client";
+import { EventAccessRole, TeamPermission, UserRole } from "@prisma/client";
 import { PERMISSIONS_KEY } from "../decorators/permissions.decorator";
 import { RequestUser } from "../types/request-user";
 import { PrismaService } from "../../prisma/prisma.service";
@@ -32,17 +32,7 @@ export class TeamPermissionGuard implements CanActivate {
       return true;
     }
 
-    if (requiredPermissions.includes(TeamPermission.CHECK_IN)) {
-      const request = context.switchToHttp().getRequest<{ params?: { eventId?: string } }>();
-      const eventId = request.params?.eventId;
-      if (!eventId || !user.tenantId) return false;
-      const eventAccess = await this.prisma.eventAccess.findFirst({
-        where: { eventId, userId: user.id, event: { tenantId: user.tenantId } },
-        select: { role: true }
-      });
-      return eventAccess?.role === "GESTOR" || eventAccess?.role === "OPERACAO";
-    }
-
+    // Só colaboradores (TEAM) que ainda pertencem à equipe da organização passam daqui.
     if (user.role !== UserRole.TEAM || !user.tenantId) {
       return false;
     }
@@ -50,23 +40,28 @@ export class TeamPermissionGuard implements CanActivate {
     const member = await this.prisma.teamMember.findUnique({
       where: { tenantId_userId: { tenantId: user.tenantId, userId: user.id } }
     });
-
     if (!member) {
-      const eventId = context.switchToHttp().getRequest<{ params?: { eventId?: string } }>().params?.eventId;
-      if (!eventId) return false;
-      const eventAccess = await this.prisma.eventAccess.findUnique({ where: { eventId_userId: { eventId, userId: user.id } } });
-      return eventAccess?.role === "GESTOR" || eventAccess?.role === "OPERACAO";
+      return false;
     }
 
-    const hasPermission = requiredPermissions.every((perm) => member.permissions.includes(perm));
-    
-    if (!hasPermission) {
-      const eventId = context.switchToHttp().getRequest<{ params?: { eventId?: string } }>().params?.eventId;
-      if (eventId) {
-        const eventAccess = await this.prisma.eventAccess.findUnique({ where: { eventId_userId: { eventId, userId: user.id } } });
-        if (eventAccess?.role === "GESTOR" || eventAccess?.role === "OPERACAO") return true;
-      }
+    // CHECK_IN é concedido por evento (EventAccess GESTOR/OPERACAO), não pela
+    // permissão geral da equipe. A atribuição por evento vale SOMENTE para
+    // CHECK_IN: qualquer outra permissão continua exigindo a permissão de equipe.
+    const teamPermissions = requiredPermissions.filter((perm) => perm !== TeamPermission.CHECK_IN);
+    if (!teamPermissions.every((perm) => member.permissions.includes(perm))) {
       throw new ForbiddenException("Você não tem permissão para realizar esta ação na equipe.");
+    }
+
+    if (requiredPermissions.includes(TeamPermission.CHECK_IN)) {
+      const eventId = context.switchToHttp().getRequest<{ params?: { eventId?: string } }>().params?.eventId;
+      if (!eventId) return false;
+      const eventAccess = await this.prisma.eventAccess.findFirst({
+        where: { eventId, userId: user.id, event: { tenantId: user.tenantId } },
+        select: { role: true }
+      });
+      if (eventAccess?.role !== EventAccessRole.GESTOR && eventAccess?.role !== EventAccessRole.OPERACAO) {
+        throw new ForbiddenException("Você não está atribuído à portaria deste evento.");
+      }
     }
 
     return true;

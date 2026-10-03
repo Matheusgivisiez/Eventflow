@@ -23,7 +23,7 @@ export class CheckoutController {
   @Throttle({ default: { limit: 20, ttl: 60000 } })
   @ApiOperation({ summary: "Validar cupom no checkout", description: "Confere se o cupom vale para o evento e retorna o desconto. Não consome uso." })
   previewCoupon(@Param("slug") slug: string, @Body() dto: PreviewCouponDto) {
-    return this.coupons.previewForEvent(slug, dto.code);
+    return this.coupons.previewForEvent(slug, dto.code, dto.inviteToken);
   }
 
   @Post(":slug")

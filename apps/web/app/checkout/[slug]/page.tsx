@@ -144,7 +144,7 @@ function CheckoutForm() {
       api<AppliedCoupon>(`/checkout/${slug}/coupon`, {
         method: "POST",
         auth: false,
-        body: JSON.stringify({ code }),
+        body: JSON.stringify({ code, inviteToken: invite }),
       }),
     onSuccess: (coupon) => {
       setAppliedCoupon(coupon);

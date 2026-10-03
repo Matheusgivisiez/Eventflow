@@ -61,7 +61,7 @@ export class EventsController {
   findOne(@CurrentUser() user: RequestUser, @Param("id") id: string) {
     return this.access.assertAccess(id, user.id, [EventAccessRole.GESTOR, EventAccessRole.EDITOR, EventAccessRole.OPERACAO]).then(async () => {
       const role = await this.access.roleFor(id, user.id);
-      const event = await this.events.findOne(id, user.tenantId!);
+      const { inviteTokenHash: _inviteTokenHash, ...event } = await this.events.findOne(id, user.tenantId!);
       if (role === EventAccessRole.OPERACAO) {
         return { ...event, accessRole: role, onlineUrl: null, ticketTypes: [] };
       }

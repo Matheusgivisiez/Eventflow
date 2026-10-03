@@ -10,7 +10,8 @@ export class EnterpriseMarketplaceService extends EnterpriseDomainService {
   }
 
   async marketplaceSearch(query: Record<string, string>) {
-    const where: AnyRecord = { status: "PUBLISHED" };
+    // Evento privado só é alcançável pelo link de convite: nunca entra na vitrine.
+    const where: AnyRecord = { status: "PUBLISHED", isPrivate: false };
     if (query.category) where.category = query.category;
     if (query.city) where.city = { contains: query.city, mode: "insensitive" };
     if (query.search) {

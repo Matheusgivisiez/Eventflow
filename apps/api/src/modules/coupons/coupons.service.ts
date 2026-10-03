@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { BadRequestException, Injectable, NotFoundException } from "@nestjs/common";
 import { EventStatus } from "@prisma/client";
 import { PrismaService } from "../../prisma/prisma.service";
@@ -112,9 +113,17 @@ export class CouponsService {
    * Validação pública usada pelo checkout antes de pagar: diz se o cupom vale para o evento
    * e qual o desconto, sem reservar uso. O uso só é contado ao criar o pedido.
    */
-  async previewForEvent(slug: string, rawCode: string) {
+  async previewForEvent(slug: string, rawCode: string, inviteToken?: string) {
     const event = await this.prisma.event.findFirst({
-      where: { slug, status: EventStatus.PUBLISHED },
+      where: {
+        slug,
+        status: EventStatus.PUBLISHED,
+        // Mesma regra do checkout: evento privado exige o token do convite.
+        OR: [
+          { isPrivate: false },
+          ...(inviteToken ? [{ isPrivate: true, inviteTokenHash: createHash("sha256").update(inviteToken).digest("hex") }] : [])
+        ]
+      },
       select: { id: true, tenantId: true }
     });
     if (!event) {

@@ -53,6 +53,19 @@ describe("CouponsService", () => {
     await expect(service.previewForEvent("festa", "PROMO10")).rejects.toBeInstanceOf(BadRequestException);
   });
 
+  it("só enxerga evento privado quando o token do convite confere", async () => {
+    const { service, prisma } = makeService();
+
+    await service.previewForEvent("festa", "PROMO10");
+    expect(prisma.event.findFirst.mock.calls[0][0].where.OR).toEqual([{ isPrivate: false }]);
+
+    await service.previewForEvent("festa", "PROMO10", "convite");
+    expect(prisma.event.findFirst.mock.calls[1][0].where.OR).toEqual([
+      { isPrivate: false },
+      { isPrivate: true, inviteTokenHash: expect.stringMatching(/^[0-9a-f]{64}$/) }
+    ]);
+  });
+
   it("recusa evento inexistente", async () => {
     const { service } = makeService(baseCoupon, null);
     await expect(service.previewForEvent("nada", "PROMO10")).rejects.toBeInstanceOf(NotFoundException);
