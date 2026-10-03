@@ -20,6 +20,14 @@ async function bootstrap() {
 
   app.set("trust proxy", 1);
   app.use(compression());
+  // Ticket PDF links sent before API_URL included the /api prefix need to
+  // keep working. Forward the legacy path while preserving its access token.
+  app.use((req, res, next) => {
+    if (/^\/checkout\/order\/[^/]+\/tickets\/[^/]+\/pdf\/?$/.test(req.path)) {
+      return res.redirect(307, `/api${req.originalUrl}`);
+    }
+    next();
+  });
   app.setGlobalPrefix("api");
   app.useStaticAssets(join(process.cwd(), "uploads"), { prefix: "/uploads" });
   app.enableCors({

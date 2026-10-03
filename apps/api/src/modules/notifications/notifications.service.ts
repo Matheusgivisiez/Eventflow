@@ -445,7 +445,8 @@ export class NotificationsService {
 
   private apiUrl(path: string) {
     const base = (this.config.get<string>("API_URL") ?? "http://localhost:3001").replace(/\/+$/, "");
-    return `${base}${path}`;
+    const apiBase = /\/api$/i.test(base) ? base : `${base}/api`;
+    return `${apiBase}${path.startsWith("/") ? path : `/${path}`}`;
   }
 
   private orderUrl(orderId: string, accessToken?: string | null) {
