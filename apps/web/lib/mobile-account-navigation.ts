@@ -34,7 +34,7 @@ export function getMobileAccountNavItems(
   pathname: string
 ): MobileAccountNavItem[] {
   const hasPanelAccess = PANEL_ACCESS_ROLES.includes(role);
-  const producerHref = role === "CHECKIN" ? "/check-in" : "/dashboard";
+  const producerHref = role === "CHECKIN" ? "/check-in" : role === "TEAM" ? "/events" : "/dashboard";
 
   return [
     {

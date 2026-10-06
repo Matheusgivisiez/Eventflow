@@ -1,5 +1,5 @@
 import { TeamPermission } from "@prisma/client";
-import { IsArray, IsEmail, IsEnum } from "class-validator";
+import { IsArray, IsBoolean, IsEmail, IsEnum, IsString } from "class-validator";
 
 export class AddMemberDto {
   @IsEmail()
@@ -8,4 +8,11 @@ export class AddMemberDto {
   @IsArray()
   @IsEnum(TeamPermission, { each: true })
   permissions!: TeamPermission[];
+
+  @IsBoolean()
+  allEvents!: boolean;
+
+  @IsArray()
+  @IsString({ each: true })
+  eventIds!: string[];
 }

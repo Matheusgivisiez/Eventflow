@@ -242,6 +242,7 @@ model User {
   orders       Order[]
   checkIns     CheckInLog[]
   teamMembers  TeamMember[]
+  managedTeamMembers TeamMember[] @relation("TeamManager")
   twoFactorEnabled Boolean    @default(false)
   promoterProfile Promoter?
   ownedTickets Ticket[] @relation("TicketOwner")
@@ -249,6 +250,7 @@ model User {
   receivedTransfers Transfer[] @relation("TransferReceiver")
   transferHistory TransferHistory[]
   createdArtists Artist[] @relation("ArtistCreator")
+  couponsCreated Coupon[] @relation("CouponCreator")
 }
 
 model RefreshToken {
@@ -290,13 +292,19 @@ model TeamMember {
   id          String           @id @default(cuid())
   tenantId    String
   userId      String
+  managerId   String?
   permissions TeamPermission[]
+  allEvents   Boolean          @default(false)
+  eventIds    String[]         @default([])
+  scopeConfigured Boolean     @default(false)
   createdAt   DateTime         @default(now())
   updatedAt   DateTime         @updatedAt
   tenant      Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   user        User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  manager     User?            @relation("TeamManager", fields: [managerId], references: [id], onDelete: SetNull)
 
   @@unique([tenantId, userId])
+  @@index([managerId])
 }
 
 // ─── Events ─────────────────────────────────────────────────────
@@ -679,6 +687,7 @@ model Withdrawal {
 model Coupon {
   id              String   @id @default(cuid())
   tenantId        String?
+  ownerId         String?
   code            String   @unique
   discountPercent Int      @default(0)
   discountFixedCents Int   @default(0)
@@ -690,17 +699,17 @@ model Coupon {
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
   tenant          Tenant?  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  owner           User?    @relation("CouponCreator", fields: [ownerId], references: [id], onDelete: SetNull)
   orders          Order[]
   events          CouponEvent[]
 
   @@index([code, isActive])
   @@index([tenantId, isActive])
+  @@index([ownerId])
 }
 
-// Restringe um cupom a eventos específicos do organizador. Sem nenhuma linha
-// aqui, o cupom continua valendo para todos os eventos do tenant (ou, se
-// tenantId do cupom for nulo, para qualquer evento) - comportamento anterior
-// preservado por padrão.
+// Sem vínculos, um cupom do organizador vale para todos os eventos criados
+// por ele. Cupons globais do admin (tenantId nulo) valem em qualquer evento.
 model CouponEvent {
   couponId  String
   eventId   String

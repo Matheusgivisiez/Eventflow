@@ -209,7 +209,7 @@ describe("CreateCheckoutUseCase stock reservation (legacy write order, CHECKOUT_
   it("atomically reserves the final coupon use before creating the order", async () => {
     const { service, tx } = createService();
     tx.coupon.findUnique.mockResolvedValue({
-      id: "coupon-1", tenantId: "tenant-1", isActive: true, maxUses: 1, usedCount: 0,
+      id: "coupon-1", tenantId: "tenant-1", ownerId: "owner-1", isActive: true, maxUses: 1, usedCount: 0,
       validFrom: new Date(Date.now() - 60_000), validUntil: new Date(Date.now() + 60_000),
       discountPercent: 10, discountFixedCents: 0
     });
@@ -225,7 +225,7 @@ describe("CreateCheckoutUseCase stock reservation (legacy write order, CHECKOUT_
   it("rejects checkout when another request consumed the final coupon use", async () => {
     const { service, tx, orders } = createService();
     tx.coupon.findUnique.mockResolvedValue({
-      id: "coupon-1", tenantId: "tenant-1", isActive: true, maxUses: 1, usedCount: 0,
+      id: "coupon-1", tenantId: "tenant-1", ownerId: "owner-1", isActive: true, maxUses: 1, usedCount: 0,
       validFrom: new Date(Date.now() - 60_000), validUntil: new Date(Date.now() + 60_000),
       discountPercent: 10, discountFixedCents: 0
     });
@@ -238,7 +238,7 @@ describe("CreateCheckoutUseCase stock reservation (legacy write order, CHECKOUT_
   it("rejects a coupon restricted to a different event", async () => {
     const { service, tx, orders } = createService();
     tx.coupon.findUnique.mockResolvedValue({
-      id: "coupon-1", tenantId: "tenant-1", isActive: true, maxUses: 1, usedCount: 0,
+      id: "coupon-1", tenantId: "tenant-1", ownerId: "owner-1", isActive: true, maxUses: 1, usedCount: 0,
       validFrom: new Date(Date.now() - 60_000), validUntil: new Date(Date.now() + 60_000),
       discountPercent: 10, discountFixedCents: 0,
       events: [{ eventId: "other-event" }]
@@ -250,10 +250,22 @@ describe("CreateCheckoutUseCase stock reservation (legacy write order, CHECKOUT_
     expect(orders).toHaveLength(0);
   });
 
+  it("rejects a coupon from another event owner in the same organization", async () => {
+    const { service, tx, orders } = createService();
+    tx.coupon.findUnique.mockResolvedValue({
+      id: "coupon-1", tenantId: "tenant-1", ownerId: "owner-2", isActive: true,
+      maxUses: 0, usedCount: 0, events: [],
+      validFrom: new Date(Date.now() - 60_000), validUntil: new Date(Date.now() + 60_000),
+      discountPercent: 10, discountFixedCents: 0
+    });
+    await expect(service.execute("eventflow-conf", { ...createDto(), couponCode: "FIRST" } as any)).rejects.toBeInstanceOf(NotFoundException);
+    expect(orders).toHaveLength(0);
+  });
+
   it("accepts a coupon restricted to this event", async () => {
     const { service, tx } = createService();
     tx.coupon.findUnique.mockResolvedValue({
-      id: "coupon-1", tenantId: "tenant-1", isActive: true, maxUses: 1, usedCount: 0,
+      id: "coupon-1", tenantId: "tenant-1", ownerId: "owner-1", isActive: true, maxUses: 1, usedCount: 0,
       validFrom: new Date(Date.now() - 60_000), validUntil: new Date(Date.now() + 60_000),
       discountPercent: 10, discountFixedCents: 0,
       events: [{ eventId: "event-1" }]
@@ -379,7 +391,7 @@ describe("CreateCheckoutUseCase default write order (hot-row writes last)", () =
   it("defers the coupon reservation until after the order is created and still enforces the limit", async () => {
     const { service, tx } = createService();
     tx.coupon.findUnique.mockResolvedValue({
-      id: "coupon-1", tenantId: "tenant-1", isActive: true, maxUses: 1, usedCount: 0,
+      id: "coupon-1", tenantId: "tenant-1", ownerId: "owner-1", isActive: true, maxUses: 1, usedCount: 0,
       validFrom: new Date(Date.now() - 60_000), validUntil: new Date(Date.now() + 60_000),
       discountPercent: 10, discountFixedCents: 0
     });

@@ -44,17 +44,21 @@ export class TeamPermissionGuard implements CanActivate {
       return false;
     }
 
-    // CHECK_IN é concedido por evento (EventAccess GESTOR/OPERACAO), não pela
-    // permissão geral da equipe. A atribuição por evento vale SOMENTE para
-    // CHECK_IN: qualquer outra permissão continua exigindo a permissão de equipe.
-    const teamPermissions = requiredPermissions.filter((perm) => perm !== TeamPermission.CHECK_IN);
-    if (!teamPermissions.every((perm) => member.permissions.includes(perm))) {
+    if (!requiredPermissions.every((perm) => member.permissions.includes(perm) || (perm === TeamPermission.CHECK_IN && !member.scopeConfigured))) {
       throw new ForbiddenException("Você não tem permissão para realizar esta ação na equipe.");
     }
 
     if (requiredPermissions.includes(TeamPermission.CHECK_IN)) {
-      const eventId = context.switchToHttp().getRequest<{ params?: { eventId?: string } }>().params?.eventId;
-      if (!eventId) return false;
+      const checkInRequest = context.switchToHttp().getRequest<{ params?: { eventId?: string }; body?: { eventId?: string } }>();
+      const eventId = checkInRequest.params?.eventId ?? checkInRequest.body?.eventId;
+      if (!eventId) return member.permissions.includes(TeamPermission.CHECK_IN);
+      if (member.scopeConfigured) {
+        const event = await this.prisma.event.findFirst({ where: { id: eventId, tenantId: user.tenantId }, select: { id: true, ownerId: true } });
+        if (!event || (member.allEvents && member.managerId !== event.ownerId) || (!member.allEvents && !member.eventIds.includes(eventId))) {
+          throw new ForbiddenException("Você não está atribuído à portaria deste evento.");
+        }
+        return true;
+      }
       const eventAccess = await this.prisma.eventAccess.findFirst({
         where: { eventId, userId: user.id, event: { tenantId: user.tenantId } },
         select: { role: true }

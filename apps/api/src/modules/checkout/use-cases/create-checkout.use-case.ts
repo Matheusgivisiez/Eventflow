@@ -291,6 +291,7 @@ export class CreateCheckoutUseCase {
       const coupon = await tx.coupon.findUnique({ where: { code: couponCode }, include: { events: true } });
       if (!coupon || !coupon.isActive) throw new NotFoundException("Cupom inválido ou inativo.");
       if (coupon.tenantId && coupon.tenantId !== event.tenantId) throw new NotFoundException("Cupom inválido para este evento.");
+      if (coupon.tenantId && (!coupon.ownerId || coupon.ownerId !== event.ownerId)) throw new NotFoundException("Cupom inválido para este evento.");
       if (!CouponsService.appliesToEvent(coupon, event.id)) throw new NotFoundException("Cupom inválido para este evento.");
 
       const now = new Date();

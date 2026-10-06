@@ -16,9 +16,22 @@ export class EventsService {
     private readonly cache: CacheService
   ) {}
 
-  list(tenantId: string, query: { page?: string; perPage?: string; search?: string; status?: EventStatus; summary?: string }, access?: { userId: string; role: UserRole }) {
+  async list(tenantId: string, query: { page?: string; perPage?: string; search?: string; status?: EventStatus; summary?: string; purpose?: string }, access?: { userId: string; role: UserRole }) {
     const page = Math.max(1, Number(query.page ?? 1) || 1);
     const perPage = Math.min(100, Math.max(1, Number(query.perPage ?? 10) || 10));
+    const member = access?.role === UserRole.TEAM
+      ? await this.prisma.teamMember.findUnique({ where: { tenantId_userId: { tenantId, userId: access.userId } } })
+      : null;
+    let scopedIds: string[] | null | undefined;
+    if (access?.role === UserRole.TEAM) {
+      if (!member) scopedIds = [];
+      else if (member.scopeConfigured) {
+        const canAccess = query.purpose === "CHECK_IN"
+          ? member.permissions.includes("CHECK_IN")
+          : member.permissions.includes("CHECK_IN") || member.permissions.includes("EDIT_EVENT");
+        scopedIds = canAccess ? (member.allEvents ? null : member.eventIds) : [];
+      }
+    }
     return this.events.list(tenantId, {
       page,
       perPage,
@@ -26,7 +39,10 @@ export class EventsService {
       status: query.status,
       summary: query.summary === "1" || query.summary === "true",
       userId: access?.userId,
-      restricted: access ? access.role !== UserRole.ORGANIZER && access.role !== UserRole.ADMIN : false
+      restricted: access ? access.role !== UserRole.ORGANIZER && access.role !== UserRole.ADMIN : false,
+      scopedIds,
+      scopedOwnerId: scopedIds === null ? member?.managerId ?? "" : undefined,
+      checkInOnly: query.purpose === "CHECK_IN"
     });
   }
 

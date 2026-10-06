@@ -8,7 +8,8 @@ import { UpdatePermissionsDto } from "./dto/update-permissions.dto";
 export class TeamService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async addMember(tenantId: string, dto: AddMemberDto) {
+  async addMember(tenantId: string, managerId: string, dto: AddMemberDto) {
+    const eventIds = await this.validateEventIds(tenantId, managerId, dto.allEvents, dto.eventIds);
     let user = await this.prisma.user.findUnique({ where: { email: dto.email.toLowerCase() } });
     
     if (user && user.tenantId && user.tenantId !== tenantId) {
@@ -38,35 +39,49 @@ export class TeamService {
       data: {
         tenantId,
         userId: user.id,
-        permissions: dto.permissions
+        managerId,
+        permissions: dto.permissions,
+        allEvents: dto.allEvents,
+        eventIds,
+        scopeConfigured: true
       },
       include: { user: { select: { id: true, name: true, email: true, role: true } } }
     });
   }
 
-  list(tenantId: string) {
+  list(tenantId: string, managerId: string) {
     return this.prisma.teamMember.findMany({
-      where: { tenantId },
+      where: { tenantId, managerId },
       include: { user: { select: { id: true, name: true, email: true, role: true, avatarUrl: true } } },
       orderBy: { createdAt: "desc" }
     });
   }
 
-  async updatePermissions(id: string, tenantId: string, dto: UpdatePermissionsDto) {
-    const member = await this.prisma.teamMember.findFirst({ where: { id, tenantId } });
+  async updatePermissions(id: string, tenantId: string, managerId: string, dto: UpdatePermissionsDto) {
+    const member = await this.prisma.teamMember.findFirst({ where: { id, tenantId, managerId } });
     if (!member) {
       throw new NotFoundException("Membro não encontrado.");
     }
 
+    const eventIds = await this.validateEventIds(tenantId, managerId, dto.allEvents, dto.eventIds);
     return this.prisma.teamMember.update({
       where: { id },
-      data: { permissions: dto.permissions },
+      data: { permissions: dto.permissions, managerId, allEvents: dto.allEvents, eventIds, scopeConfigured: true },
       include: { user: { select: { id: true, name: true, email: true, role: true } } }
     });
   }
 
-  async removeMember(id: string, tenantId: string, actorUserId?: string) {
-    const member = await this.prisma.teamMember.findFirst({ where: { id, tenantId } });
+  private async validateEventIds(tenantId: string, managerId: string, allEvents: boolean, eventIds: string[]) {
+    if (allEvents) return [];
+    const ids = [...new Set(eventIds.filter(Boolean))];
+    if (!ids.length) throw new BadRequestException("Selecione ao menos um evento ou marque todos os eventos.");
+    const count = await this.prisma.event.count({ where: { id: { in: ids }, tenantId, ownerId: managerId } });
+    if (count !== ids.length) throw new BadRequestException("Selecione apenas eventos criados por você.");
+    return ids;
+  }
+
+  async removeMember(id: string, tenantId: string, actorUserId: string) {
+    const member = await this.prisma.teamMember.findFirst({ where: { id, tenantId, managerId: actorUserId } });
     if (!member) {
       throw new NotFoundException("Membro não encontrado.");
     }

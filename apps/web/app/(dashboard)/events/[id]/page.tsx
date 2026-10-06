@@ -22,7 +22,6 @@ import { isoToScheduleValue, scheduleValueToIso } from "@/lib/new-event-schedule
 const ImageUpload = dynamic(() => import("@/components/image-upload").then(m => m.ImageUpload), { ssr: false, loading: () => <Skeleton className="h-40 w-full" /> });
 import type { EventFlowEvent } from "@/types/eventflow";
 import { ArtistManager } from "@/components/events/artist-manager";
-import { EventAccessManager } from "@/components/events/event-access-manager";
 
 const schema = z.object({
   title: z.string().min(3, "Informe o nome do evento."),
@@ -236,6 +235,14 @@ export default function EditEventPage() {
     );
   }
 
+  if (event.accessRole === "OPERACAO") {
+    return <Card><CardContent className="space-y-4 pt-6">
+      <h1 className="text-xl font-semibold">{event.title}</h1>
+      <p className="text-sm text-muted-foreground">Sua função neste evento é de check-in.</p>
+      <Button asChild><Link href="/check-in"><DoorOpen className="h-4 w-4" />Abrir check-in</Link></Button>
+    </CardContent></Card>;
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
@@ -260,13 +267,13 @@ export default function EditEventPage() {
               Lotes de ingresso
             </Link>
           </Button>
-          <Button variant="outline" asChild>
+          {event.accessRole === "OWNER" && <Button variant="outline" asChild>
             <Link href={`/events/${id}/promoters`}>
               <Megaphone className="h-4 w-4 mr-2" />
               Promoters
             </Link>
-          </Button>
-          <Button
+          </Button>}
+          {event.accessRole === "OWNER" && <Button
             variant="destructive"
             size="icon"
             title="Excluir evento"
@@ -282,7 +289,7 @@ export default function EditEventPage() {
             ) : (
               <Trash2 className="h-4 w-4" />
             )}
-          </Button>
+          </Button>}
         </div>
       </div>
 
@@ -374,7 +381,7 @@ export default function EditEventPage() {
           </Card>
 
           <ArtistManager eventId={id} initialArtists={event.artists} />
-          {event.ownerId && event.ownerId === currentUser?.id && <EventAccessManager eventId={id} />}
+          {event.ownerId && event.ownerId === currentUser?.id && <Card><CardContent className="pt-6 text-sm">Atribua funções e eventos em <Link className="underline" href="/team">Equipe</Link>.</CardContent></Card>}
         </div>
 
         <div className="space-y-6">
@@ -395,6 +402,7 @@ export default function EditEventPage() {
               <Field label="Status">
                 <select
                   className="h-10 w-full rounded-md border bg-background px-3 text-sm"
+                  disabled={event.accessRole !== "OWNER"}
                   {...form.register("status")}
                 >
                   <option value="DRAFT">Rascunho</option>
@@ -403,10 +411,10 @@ export default function EditEventPage() {
                 </select>
               </Field>
               <label className="flex items-start gap-3 rounded-lg border p-3 text-sm">
-                <input type="checkbox" className="mt-1" {...form.register("isPrivate")} />
+                <input type="checkbox" className="mt-1" disabled={event.accessRole !== "OWNER"} {...form.register("isPrivate")} />
                 <span><strong className="block">Evento privado</strong><span className="text-muted-foreground">Acesso somente pelo link de convite.</span></span>
               </label>
-              {form.watch("isPrivate") && (
+              {event.accessRole === "OWNER" && form.watch("isPrivate") && (
                 <div className="space-y-2 rounded-lg border p-3">
                   <Button type="button" variant="outline" className="w-full" onClick={() => inviteMutation.mutate()} disabled={inviteMutation.isPending}>
                     {inviteMutation.isPending ? "Gerando link…" : "Gerar novo link de convite"}

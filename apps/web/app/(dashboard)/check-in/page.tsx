@@ -169,7 +169,12 @@ export default function CheckInPage() {
   // Consulta de eventos publicados
   const { data: events, isLoading: isLoadingEvents } = useQuery({
     queryKey: ["events-checkin"],
-    queryFn: () => api<Paginated<EventFlowEvent>>("/events?status=PUBLISHED")
+    queryFn: async () => {
+      const first = await api<Paginated<EventFlowEvent>>("/events?status=PUBLISHED&purpose=CHECK_IN&perPage=100&page=1&summary=1");
+      const pages = await Promise.all(Array.from({ length: Math.max(0, first.meta.totalPages - 1) }, (_, i) =>
+        api<Paginated<EventFlowEvent>>(`/events?status=PUBLISHED&purpose=CHECK_IN&perPage=100&page=${i + 2}&summary=1`)));
+      return { ...first, data: [...first.data, ...pages.flatMap((page) => page.data)] };
+    }
   });
 
   // Se tiver apenas 1 evento publicado e nenhum selecionado, seleciona automaticamente

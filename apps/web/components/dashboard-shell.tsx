@@ -20,16 +20,16 @@ import { useQueryClient } from "@tanstack/react-query";
 import { api } from "@/lib/api";
 
 const nav = [
-  { href: "/dashboard", label: "Dashboard", icon: BarChart3, roles: ["ORGANIZER", "ADMIN", "TEAM"] },
+  { href: "/dashboard", label: "Dashboard", icon: BarChart3, roles: ["ORGANIZER", "ADMIN"] },
   { href: "/events", label: "Eventos", icon: CalendarDays, roles: ["ORGANIZER", "ADMIN", "TEAM"] },
   { href: "/participants", label: "Participantes", icon: UserCheck, roles: ["ORGANIZER", "ADMIN", "TEAM"] },
   { href: "/check-in", label: "Check-in", icon: DoorOpen, roles: ["ORGANIZER", "ADMIN", "TEAM", "CHECKIN"] },
-  { href: "/finance", label: "Financeiro", icon: CreditCard, roles: ["ORGANIZER", "ADMIN", "TEAM"] },
-  { href: "/reports", label: "Relatórios", icon: FileBarChart2, roles: ["ORGANIZER", "ADMIN", "TEAM"] },
+  { href: "/finance", label: "Financeiro", icon: CreditCard, roles: ["ORGANIZER", "ADMIN"] },
+  { href: "/reports", label: "Relatórios", icon: FileBarChart2, roles: ["ORGANIZER", "ADMIN"] },
   { href: "/enterprise", label: "Enterprise", icon: Building2, roles: ["ORGANIZER", "ADMIN", "TEAM"] },
-  { href: "/promoters", label: "Promoters", icon: Megaphone, roles: ["ORGANIZER", "ADMIN", "TEAM"] },
+  { href: "/promoters", label: "Promoters", icon: Megaphone, roles: ["ORGANIZER", "ADMIN"] },
   { href: "/team", label: "Equipe", icon: Users, roles: ["ORGANIZER", "ADMIN"] },
-  { href: "/coupons", label: "Cupons", icon: Tag, roles: ["ORGANIZER", "ADMIN", "TEAM"] },
+  { href: "/coupons", label: "Cupons", icon: Tag, roles: ["ORGANIZER", "ADMIN"] },
   { href: "/notifications", label: "Notificações", icon: Bell, roles: ["ADMIN"] },
   { href: "/profile", label: "Perfil", icon: UserCircle, roles: ["ORGANIZER", "ADMIN", "TEAM", "CHECKIN"] },
   { href: "/admin", label: "Admin", icon: Shield, roles: ["ADMIN"] }

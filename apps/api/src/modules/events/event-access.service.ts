@@ -1,5 +1,5 @@
 import { ForbiddenException, Injectable, NotFoundException } from "@nestjs/common";
-import { EventAccessRole, UserRole } from "@prisma/client";
+import { EventAccessRole, TeamPermission, UserRole } from "@prisma/client";
 import { PrismaService } from "../../prisma/prisma.service";
 
 @Injectable()
@@ -7,22 +7,32 @@ export class EventAccessService {
   constructor(private readonly prisma: PrismaService) {}
 
   async assertAccess(eventId: string, userId: string, allowedRoles: EventAccessRole[]) {
-    const event = await this.prisma.event.findUnique({ where: { id: eventId }, select: { id: true, ownerId: true, tenantId: true } });
-    if (!event) throw new NotFoundException("Evento não encontrado.");
-    if (event.ownerId === userId) return;
-    const [access, teamMember] = await Promise.all([
-      this.prisma.eventAccess.findUnique({ where: { eventId_userId: { eventId, userId } } }),
-      this.prisma.teamMember.findUnique({ where: { tenantId_userId: { tenantId: event.tenantId, userId } }, select: { id: true } })
-    ]);
-    if (!access || !teamMember || !allowedRoles.includes(access.role)) {
+    const role = await this.roleFor(eventId, userId);
+    if (role !== "OWNER" && !allowedRoles.includes(role)) {
       throw new ForbiddenException("Você não tem permissão para acessar este evento.");
     }
   }
 
   async roleFor(eventId: string, userId: string): Promise<EventAccessRole | "OWNER"> {
-    const event = await this.prisma.event.findUnique({ where: { id: eventId }, select: { id: true, ownerId: true } });
+    const event = await this.prisma.event.findUnique({ where: { id: eventId }, select: { id: true, ownerId: true, tenantId: true } });
     if (!event) throw new NotFoundException("Evento não encontrado.");
     if (event.ownerId === userId) return "OWNER";
+    const member = await this.prisma.teamMember.findUnique({
+      where: { tenantId_userId: { tenantId: event.tenantId, userId } },
+      include: { user: { select: { role: true } } }
+    });
+    if (!member || member.user.role !== UserRole.TEAM) throw new ForbiddenException("Você não tem permissão para acessar este evento.");
+    if (member.scopeConfigured) {
+      if ((member.allEvents && member.managerId !== event.ownerId) || (!member.allEvents && !member.eventIds.includes(eventId))) {
+        throw new ForbiddenException("Você não foi atribuído a este evento.");
+      }
+      const canEdit = member.permissions.includes(TeamPermission.EDIT_EVENT);
+      const canCheckIn = member.permissions.includes(TeamPermission.CHECK_IN);
+      if (canEdit && canCheckIn) return EventAccessRole.GESTOR;
+      if (canEdit) return EventAccessRole.EDITOR;
+      if (canCheckIn) return EventAccessRole.OPERACAO;
+      throw new ForbiddenException("Você não tem permissão para acessar este evento.");
+    }
     const access = await this.prisma.eventAccess.findUnique({ where: { eventId_userId: { eventId, userId } } });
     if (!access) throw new ForbiddenException("Você não tem permissão para acessar este evento.");
     return access.role;

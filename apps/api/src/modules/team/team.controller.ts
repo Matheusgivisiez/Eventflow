@@ -20,17 +20,17 @@ export class TeamController {
 
   @Post()
   addMember(@CurrentUser() user: RequestUser, @Body() dto: AddMemberDto) {
-    return this.team.addMember(user.tenantId!, dto);
+    return this.team.addMember(user.tenantId!, user.id, dto);
   }
 
   @Get()
   list(@CurrentUser() user: RequestUser) {
-    return this.team.list(user.tenantId!);
+    return this.team.list(user.tenantId!, user.id);
   }
 
   @Patch(":id")
   updatePermissions(@CurrentUser() user: RequestUser, @Param("id") id: string, @Body() dto: UpdatePermissionsDto) {
-    return this.team.updatePermissions(id, user.tenantId!, dto);
+    return this.team.updatePermissions(id, user.tenantId!, user.id, dto);
   }
 
   @Delete(":id")
