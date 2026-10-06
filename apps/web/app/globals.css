@@ -171,6 +171,17 @@ body {
   50%      { opacity: 0.7; }
 }
 
+@keyframes ticket-selection-attention {
+  0%, 100% { transform: scale(1); }
+  35% { transform: scale(1.018); }
+  65% { transform: scale(0.995); }
+}
+
+@keyframes ticket-add-attention {
+  0%, 100% { transform: scale(1); box-shadow: 0 0 0 0 hsl(var(--primary) / 0); }
+  45% { transform: scale(1.12); box-shadow: 0 0 0 9px hsl(var(--primary) / 0.16); }
+}
+
 /* ─── Classes utilitárias de animação ──────────── */
 .animate-fade-in {
   animation: fade-in 0.5s ease-out;
@@ -190,6 +201,14 @@ body {
 
 .animate-pulse-soft {
   animation: pulse-soft 2s ease-in-out infinite;
+}
+
+.ticket-selection-attention {
+  animation: ticket-selection-attention 700ms ease-in-out 2;
+}
+
+.ticket-add-attention {
+  animation: ticket-add-attention 700ms ease-in-out 2;
 }
 
 /* ─── Stagger: animação em cascata para grids ─── */
@@ -326,4 +345,3 @@ body {
 .animate-scanner-laser {
   animation: scannerLaserSweep 2.2s cubic-bezier(0.4, 0, 0.2, 1) infinite;
 }
-
