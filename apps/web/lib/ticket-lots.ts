@@ -49,3 +49,14 @@ export function getVisibleTicketLots(ticketTypes: TicketType[], now = new Date()
 export function getCurrentTicketLots(ticketTypes: TicketType[]) {
   return getVisibleTicketLots(ticketTypes).filter((lot) => lot.status === "current");
 }
+
+/**
+ * Preço anunciado na vitrine: o do lote aberto agora, o mesmo que a página do
+ * evento vende. Lotes esgotados ou encerrados não contam.
+ * null = nenhum lote aberto (ou evento sem lotes): não anunciar preço.
+ */
+export function getCurrentLotPriceCents(ticketTypes: TicketType[], now = new Date()): number | null {
+  const currentLots = getVisibleTicketLots(ticketTypes, now).filter((lot) => lot.status === "current");
+  if (!currentLots.length) return null;
+  return Math.min(...currentLots.map(({ ticket }) => ticket.priceCents));
+}
