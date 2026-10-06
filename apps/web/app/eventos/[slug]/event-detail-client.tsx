@@ -32,6 +32,7 @@ export function EventDetailClient({
   organizerSection
 }: EventDetailClientProps) {
   const [quantities, setQuantities] = useState<Record<string, number>>({});
+  const [ticketAttentionRequest, setTicketAttentionRequest] = useState(0);
   const mobileTicketsRef = useRef<HTMLDivElement>(null);
   const desktopTicketsRef = useRef<HTMLDivElement>(null);
 
@@ -74,7 +75,15 @@ export function EventDetailClient({
     const desktopEl = desktopTicketsRef.current;
     const isMobileVisible = mobileEl !== null && mobileEl.offsetParent !== null;
     const target = isMobileVisible ? mobileEl : desktopEl;
+    setTicketAttentionRequest((request) => request + 1);
     target?.scrollIntoView({ behavior: "smooth", block: "start" });
+
+    // Depois da rolagem, o foco reforça qual controle adiciona o ingresso.
+    window.setTimeout(() => {
+      target
+        ?.querySelector<HTMLButtonElement>("[data-ticket-add]")
+        ?.focus({ preventScroll: true });
+    }, 450);
   }
 
   const ticketsAndArtists = (
@@ -84,6 +93,7 @@ export function EventDetailClient({
         ticketTypes={event.ticketTypes}
         quantities={quantities}
         onQuantityChange={handleQuantityChange}
+        attentionRequest={ticketAttentionRequest}
       />
       <EventArtists artists={event.artists} compact />
     </>
@@ -98,7 +108,7 @@ export function EventDetailClient({
 
           {/* No mobile, ingressos + artistas vêm logo após o resumo do evento,
               antes de galeria/localização/agenda (no desktop isso vira a sidebar abaixo) */}
-          <div ref={mobileTicketsRef} className="space-y-6 lg:hidden">
+          <div ref={mobileTicketsRef} className="scroll-mt-24 space-y-6 lg:hidden">
             {ticketsAndArtists}
           </div>
 
@@ -113,7 +123,7 @@ export function EventDetailClient({
 
         {/* Coluna direita: sidebar sticky com ingressos (somente desktop) */}
         <div className="relative hidden min-w-0 lg:block">
-          <div ref={desktopTicketsRef} className="sticky top-20 space-y-6">
+          <div ref={desktopTicketsRef} className="sticky top-20 scroll-mt-24 space-y-6">
             {ticketsAndArtists}
           </div>
         </div>

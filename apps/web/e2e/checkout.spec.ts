@@ -2,7 +2,7 @@ import { expect, test } from "@playwright/test";
 import type { APIResponse } from "@playwright/test";
 import { createHmac } from "node:crypto";
 
-const eventSlug = "summit-eventflow-2026";
+const eventSlug = process.env.E2E_EVENT_SLUG ?? "summit-eventflow-2026";
 const apiUrl = process.env.E2E_API_URL ?? "http://localhost:3001/api";
 const webhookSigningKey = "eventflow-local-public-key";
 
@@ -39,6 +39,21 @@ test.describe("Fluxo de compra", () => {
     await expect(page.locator('[data-testid="ticket-selector"]:visible')).toBeVisible();
     await expect.poll(() => runtimeErrors).toEqual([]);
     expect(failedResponses).toEqual([]);
+  });
+
+  test("orienta o comprador a adicionar um ingresso antes de continuar", async ({ page }) => {
+    await page.goto(`/eventos/${eventSlug}`);
+
+    const selector = page.locator('[data-testid="ticket-selector"]:visible');
+    await page.getByRole("button", { name: "Selecionar ingressos para continuar" }).click();
+
+    await expect(selector.locator('[data-needs-attention="true"]')).toBeVisible();
+    await expect(selector.getByText("Clique no + para adicionar")).toBeVisible();
+
+    const addButton = selector.locator("[data-ticket-add]").first();
+    await expect(addButton).toBeFocused();
+    await addButton.click();
+    await expect(selector.getByText("Clique no + para adicionar")).toHaveCount(0);
   });
 
   test("processa compra, webhook, emissão e check-in com duplicidade", async ({ page, request }) => {
