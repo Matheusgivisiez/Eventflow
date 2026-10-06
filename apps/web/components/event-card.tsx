@@ -5,6 +5,7 @@ import { Calendar, MapPin, Ticket, ChevronRight } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { dateTime, money } from "@/lib/utils";
 import { publicAssetUrl } from "@/lib/public-asset-url";
+import { getCurrentLotPriceCents } from "@/lib/ticket-lots";
 import type { EventFlowEvent } from "@/types/eventflow";
 
 interface EventCardProps {
@@ -12,8 +13,9 @@ interface EventCardProps {
 }
 
 export function EventCard({ event }: EventCardProps) {
-  const activeTicketTypes = event.ticketTypes?.filter((ticket) => ticket.isActive) ?? [];
-  const minPrice = activeTicketTypes.length ? Math.min(...activeTicketTypes.map((ticket) => ticket.priceCents)) : null;
+  // Preço do lote aberto agora (igual ao da página do evento), não o menor
+  // preço entre todos os lotes: um lote esgotado não pode ser anunciado.
+  const minPrice = getCurrentLotPriceCents(event.ticketTypes ?? []);
   const location = event.format === "ONLINE" ? "Evento online" : `${event.city ?? "Local não definido"}${event.state ? `, ${event.state}` : ""}`;
   const bannerUrl = publicAssetUrl(event.bannerUrl);
   const eventHref = `/eventos/${event.slug}`;

@@ -1,4 +1,4 @@
-import { Metadata, ResolvingMetadata } from "next";
+import { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { HeroBanner } from "@/components/event-page/hero-banner";
 import { VenueMap } from "@/components/event-page/venue-map";
@@ -9,7 +9,10 @@ import { EventFaq } from "@/components/event-page/event-faq";
 import { OrganizerInfo } from "@/components/event-page/organizer-info";
 import { EventDetailClient } from "./event-detail-client";
 import { getApiUrl } from "@/lib/api-url";
+import { getCurrentTicketLots } from "@/lib/ticket-lots";
 import type { EventFlowEvent } from "@/types/eventflow";
+
+const siteUrl = "https://eventflowtickets.com.br";
 
 // Helper function to fetch the event from the API directly.
 // We use fetch since this is a server component.
@@ -29,16 +32,20 @@ async function getEvent(slug: string, invite?: string): Promise<EventFlowEvent |
 
 // Generate dynamic metadata for SEO
 export async function generateMetadata(
-  { params }: { params: Promise<{ slug: string }> },
-  parent: ResolvingMetadata
+  { params, searchParams }: {
+    params: Promise<{ slug: string }>;
+    searchParams: Promise<{ invite?: string }>;
+  }
 ): Promise<Metadata> {
   const { slug } = await params;
-  const event = await getEvent(slug);
+  const { invite } = await searchParams;
+  const event = await getEvent(slug, invite);
 
   if (!event) {
     return {
       title: "Evento não encontrado | Event Flow",
-      description: "O evento procurado não existe ou não está mais disponível."
+      description: "O evento procurado não existe ou não está mais disponível.",
+      ...(invite ? { robots: { index: false, follow: false } } : {})
     };
   }
 
@@ -48,9 +55,12 @@ export async function generateMetadata(
   return {
     title,
     description,
+    ...(!invite ? { alternates: { canonical: `/eventos/${encodeURIComponent(slug)}` } } : {}),
+    ...(invite ? { robots: { index: false, follow: false } } : {}),
     openGraph: {
       title,
       description,
+      url: `/eventos/${encodeURIComponent(slug)}`,
       images: event.bannerUrl ? [event.bannerUrl] : []
     },
     twitter: {
@@ -82,42 +92,49 @@ export default async function PublicEventPage({ params, searchParams }: { params
     notFound();
   }
 
-  const organizerName = event.tenant?.name || "Organizador do Evento";
+  const organizerName = event.tenant?.name;
+  const eventUrl = `${siteUrl}/eventos/${encodeURIComponent(slug)}`;
+  const currentTicket = getCurrentTicketLots(event.ticketTypes ?? [])[0]?.ticket;
 
   const jsonLd = {
     "@context": "https://schema.org",
     "@type": "Event",
+    url: eventUrl,
     name: event.title,
     description: event.description,
     startDate: event.startsAt,
-    endDate: event.endsAt,
-    image: event.bannerUrl,
+    ...(event.endsAt ? { endDate: event.endsAt } : {}),
+    eventStatus: "https://schema.org/EventScheduled",
+    eventAttendanceMode: event.format === "IN_PERSON"
+      ? "https://schema.org/OfflineEventAttendanceMode"
+      : "https://schema.org/OnlineEventAttendanceMode",
+    ...(event.bannerUrl ? { image: [event.bannerUrl] } : {}),
     location: event.format === "IN_PERSON" ? {
       "@type": "Place",
-      name: event.address,
+      name: event.address || event.city || event.title,
       address: {
         "@type": "PostalAddress",
-        streetAddress: event.address,
-        addressLocality: event.city,
-        addressRegion: event.state,
-        postalCode: event.zipCode
+        ...(event.address ? { streetAddress: event.address } : {}),
+        ...(event.city ? { addressLocality: event.city } : {}),
+        ...(event.state ? { addressRegion: event.state } : {}),
+        ...(event.zipCode ? { postalCode: event.zipCode } : {})
       }
     } : {
       "@type": "VirtualLocation",
-      url: event.onlineUrl
+      ...(event.onlineUrl ? { url: event.onlineUrl } : {})
     },
-    offers: event.ticketTypes.length > 0 ? {
+    offers: currentTicket ? {
       "@type": "Offer",
-      price: (Math.min(...event.ticketTypes.map((t) => t.priceCents)) / 100).toFixed(2),
+      price: (currentTicket.priceCents / 100).toFixed(2),
       priceCurrency: "BRL",
       availability: "https://schema.org/InStock",
-      url: `${getApiUrl().replace("/api", "")}/eventos/${slug}`
+      url: eventUrl
     } : undefined,
-    organizer: {
+    ...(organizerName ? { organizer: {
       "@type": "Organization",
       name: organizerName,
       ...(event.tenant?.logoUrl ? { logo: event.tenant.logoUrl } : {})
-    }
+    } } : {})
   };
 
   return (
@@ -157,7 +174,7 @@ export default async function PublicEventPage({ params, searchParams }: { params
           faqSection={<EventFaq faqJson={event.faqJson} />}
           organizerSection={
             <OrganizerInfo
-              name={organizerName}
+              name={organizerName ?? "Organizador do Evento"}
               logoUrl={event.tenant?.logoUrl}
               description="Produtora responsável por organizar eventos, ingressos e experiências memoráveis."
             />

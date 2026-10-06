@@ -8,6 +8,28 @@ import { CookieConsent } from "@/components/cookie-consent";
 import { CookieScripts } from "@/components/cookie-scripts";
 
 const poppins = Poppins({ subsets: ["latin"], weight: ["400", "500", "600", "700", "800", "900"], variable: "--font-poppins" });
+const siteStructuredData = {
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "Organization",
+      "@id": "https://eventflowtickets.com.br/#organization",
+      name: "Event Flow",
+      url: "https://eventflowtickets.com.br",
+      logo: "https://eventflowtickets.com.br/images/eventflow-logo-purple-black.png",
+      email: "suporte@eventflowtickets.com.br",
+      sameAs: ["https://instagram.com/eventflowmg"]
+    },
+    {
+      "@type": "WebSite",
+      "@id": "https://eventflowtickets.com.br/#website",
+      name: "Event Flow",
+      url: "https://eventflowtickets.com.br",
+      inLanguage: "pt-BR",
+      publisher: { "@id": "https://eventflowtickets.com.br/#organization" }
+    }
+  ]
+};
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://eventflowtickets.com.br"),
@@ -40,6 +62,10 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
     <html lang="pt-BR" suppressHydrationWarning>
       <head>
         <CookieScripts />
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(siteStructuredData).replace(/</g, "\\u003c") }}
+        />
       </head>
       <body className={poppins.className}>
         <Providers>
