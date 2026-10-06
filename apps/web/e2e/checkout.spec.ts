@@ -43,6 +43,7 @@ test.describe("Fluxo de compra", () => {
 
   test("orienta o comprador a adicionar um ingresso antes de continuar", async ({ page }) => {
     await page.goto(`/eventos/${eventSlug}`);
+    await page.getByRole("button", { name: "Recusar Opcionais" }).click();
 
     const selector = page.locator('[data-testid="ticket-selector"]:visible');
     await page.getByRole("button", { name: "Selecionar ingressos para continuar" }).click();
