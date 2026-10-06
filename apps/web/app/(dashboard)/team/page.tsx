@@ -19,12 +19,17 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { api } from "@/lib/api";
+import type { Paginated } from "@/types/eventflow";
+import { useAuthStore } from "@/stores/auth-store";
 
 type Permission = "CHECK_IN" | "FINANCE" | "EDIT_EVENT" | "VIEW_SALES";
 
 type TeamMember = {
   id: string;
   permissions: Permission[];
+  allEvents: boolean;
+  eventIds: string[];
+  scopeConfigured: boolean;
   user: {
     id: string;
     name: string;
@@ -32,22 +37,28 @@ type TeamMember = {
     avatarUrl?: string;
   };
 };
+type TeamEvent = { id: string; title: string; ownerId: string };
+type MemberSettings = { permissions: Permission[]; allEvents: boolean; eventIds: string[] };
 
 const PERMISSIONS: { key: Permission; label: string; description: string }[] = [
   { key: "CHECK_IN", label: "Check-in", description: "Validar ingressos na entrada" },
-  { key: "VIEW_SALES", label: "Ver vendas", description: "Visualizar relatórios de vendas" },
-  { key: "EDIT_EVENT", label: "Editar evento", description: "Editar dados e lotes do evento" },
-  { key: "FINANCE", label: "Financeiro", description: "Acessar saldo e solicitar saques" }
+  { key: "EDIT_EVENT", label: "Editar evento", description: "Editar dados e lotes do evento" }
 ];
+const permissionNames: Record<Permission, string> = {
+  CHECK_IN: "Check-in", EDIT_EVENT: "Editar evento", VIEW_SALES: "Ver vendas (acesso antigo)", FINANCE: "Financeiro (acesso antigo)"
+};
 
 const addMemberSchema = z.object({
   email: z.string().email("Informe um e-mail válido."),
-  permissions: z.array(z.string())
+  permissions: z.array(z.enum(["CHECK_IN", "FINANCE", "EDIT_EVENT", "VIEW_SALES"])),
+  allEvents: z.boolean(),
+  eventIds: z.array(z.string())
 });
 
 type AddMemberForm = z.infer<typeof addMemberSchema>;
 
 export default function TeamPage() {
+  const user = useAuthStore((state) => state.user);
   const queryClient = useQueryClient();
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -56,6 +67,16 @@ export default function TeamPage() {
     queryKey: ["team"],
     queryFn: () => api<TeamMember[]>("/team")
   });
+  const { data: tenantEvents = [], error: eventsError } = useQuery<TeamEvent[]>({
+    queryKey: ["team-events"],
+    queryFn: async () => {
+      const first = await api<Paginated<TeamEvent>>("/events?perPage=100&page=1&summary=1");
+      const pages = await Promise.all(Array.from({ length: Math.max(0, first.meta.totalPages - 1) }, (_, i) =>
+        api<Paginated<TeamEvent>>(`/events?perPage=100&page=${i + 2}&summary=1`)));
+      return [...first.data, ...pages.flatMap((page) => page.data)];
+    }
+  });
+  const events = tenantEvents.filter((event) => event.ownerId === user?.id);
 
   const invalidate = () => queryClient.invalidateQueries({ queryKey: ["team"] });
 
@@ -69,19 +90,9 @@ export default function TeamPage() {
   });
 
   const updatePermsMutation = useMutation({
-    mutationFn: ({ id, permissions }: { id: string; permissions: string[] }) =>
-      api(`/team/${id}`, { method: "PATCH", body: JSON.stringify({ permissions }) }),
-    onMutate: async ({ id, permissions }) => {
-      await queryClient.cancelQueries({ queryKey: ["team"] });
-      const previous = queryClient.getQueryData<TeamMember[]>(["team"]);
-      queryClient.setQueryData<TeamMember[]>(["team"], (old) => 
-        old?.map(m => m.id === id ? { ...m, permissions: permissions as any } : m)
-      );
-      setEditingId(null);
-      return { previous };
-    },
-    onError: (err, vars, context) => queryClient.setQueryData(["team"], context?.previous),
-    onSettled: invalidate
+    mutationFn: ({ id, settings }: { id: string; settings: MemberSettings }) =>
+      api(`/team/${id}`, { method: "PATCH", body: JSON.stringify(settings) }),
+    onSuccess: () => { setEditingId(null); invalidate(); }
   });
 
   const removeMutation = useMutation({
@@ -117,6 +128,8 @@ export default function TeamPage() {
           onCancel={() => setShowForm(false)}
           isPending={addMutation.isPending}
           error={addMutation.error?.message}
+          events={events}
+          eventsError={eventsError?.message}
         />
       )}
 
@@ -145,8 +158,10 @@ export default function TeamPage() {
             <EditPermissionsCard
               key={member.id}
               member={member}
-              onSave={(permissions) =>
-                updatePermsMutation.mutate({ id: member.id, permissions })
+              events={events}
+              eventsError={eventsError?.message}
+              onSave={(settings) =>
+                updatePermsMutation.mutate({ id: member.id, settings })
               }
               onCancel={() => setEditingId(null)}
               isPending={updatePermsMutation.isPending}
@@ -156,6 +171,7 @@ export default function TeamPage() {
             <MemberCard
               key={member.id}
               member={member}
+              events={events}
               onEdit={() => setEditingId(member.id)}
               onRemove={() => {
                 if (
@@ -179,11 +195,13 @@ export default function TeamPage() {
 
 function MemberCard({
   member,
+  events,
   onEdit,
   onRemove,
   isRemoving
 }: {
   member: TeamMember;
+  events: TeamEvent[];
   onEdit: () => void;
   onRemove: () => void;
   isRemoving: boolean;
@@ -233,13 +251,18 @@ function MemberCard({
           {member.permissions.length > 0 ? (
             member.permissions.map((perm) => (
               <Badge key={perm} variant="secondary" className="text-xs">
-                {PERMISSIONS.find((p) => p.key === perm)?.label ?? perm}
+                {permissionNames[perm] ?? perm}
               </Badge>
             ))
           ) : (
             <span className="text-xs text-muted-foreground">Nenhuma permissão</span>
           )}
         </div>
+        <p className="mt-3 text-xs text-muted-foreground">
+          {member.scopeConfigured
+            ? member.allEvents ? "Eventos: todos, inclusive futuros" : `Eventos: ${member.eventIds.map((id) => events.find((event) => event.id === id)?.title ?? "Evento removido").join(", ") || "nenhum"}`
+            : "Acesso antigo por evento: configure aqui para atualizar"}
+        </p>
       </CardContent>
     </Card>
   );
@@ -247,22 +270,28 @@ function MemberCard({
 
 function EditPermissionsCard({
   member,
+  events,
+  eventsError,
   onSave,
   onCancel,
   isPending,
   error
 }: {
   member: TeamMember;
-  onSave: (permissions: string[]) => void;
+  events: TeamEvent[];
+  eventsError?: string;
+  onSave: (settings: MemberSettings) => void;
   onCancel: () => void;
   isPending: boolean;
   error?: string;
 }) {
-  const [selected, setSelected] = useState<Set<string>>(
+  const [selected, setSelected] = useState<Set<Permission>>(
     new Set(member.permissions)
   );
+  const [allEvents, setAllEvents] = useState(member.scopeConfigured ? member.allEvents : false);
+  const [eventIds, setEventIds] = useState<string[]>(member.scopeConfigured ? member.eventIds : []);
 
-  const toggle = (key: string) => {
+  const toggle = (key: Permission) => {
     setSelected((prev) => {
       const next = new Set(prev);
       if (next.has(key)) next.delete(key);
@@ -295,12 +324,13 @@ function EditPermissionsCard({
             </div>
           </label>
         ))}
+        <EventScopePicker events={events} eventsError={eventsError} allEvents={allEvents} eventIds={eventIds} onAllEventsChange={setAllEvents} onEventIdsChange={setEventIds} />
         {error && <p className="text-sm text-destructive">{error}</p>}
         <div className="flex gap-2 pt-1">
           <Button
             size="sm"
-            onClick={() => onSave(Array.from(selected))}
-            disabled={isPending}
+            onClick={() => onSave({ permissions: Array.from(selected), allEvents, eventIds: allEvents ? [] : eventIds })}
+            disabled={isPending || (!allEvents && eventIds.length === 0)}
           >
             {isPending && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
             Salvar
@@ -318,21 +348,27 @@ function AddMemberCard({
   onSubmit,
   onCancel,
   isPending,
-  error
+  error,
+  events,
+  eventsError
 }: {
   onSubmit: (data: AddMemberForm) => void;
   onCancel: () => void;
   isPending: boolean;
   error?: string;
+  events: TeamEvent[];
+  eventsError?: string;
 }) {
   const form = useForm<AddMemberForm>({
     resolver: zodResolver(addMemberSchema),
-    defaultValues: { email: "", permissions: [] }
+    defaultValues: { email: "", permissions: [], allEvents: false, eventIds: [] }
   });
 
-  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [selected, setSelected] = useState<Set<Permission>>(new Set());
+  const [allEvents, setAllEvents] = useState(false);
+  const [eventIds, setEventIds] = useState<string[]>([]);
 
-  const toggle = (key: string) => {
+  const toggle = (key: Permission) => {
     setSelected((prev) => {
       const next = new Set(prev);
       if (next.has(key)) next.delete(key);
@@ -343,7 +379,7 @@ function AddMemberCard({
   };
 
   const handleSubmit = form.handleSubmit((data) => {
-    onSubmit({ ...data, permissions: Array.from(selected) });
+    onSubmit({ ...data, permissions: Array.from(selected), allEvents, eventIds: allEvents ? [] : eventIds });
   });
 
   return (
@@ -354,7 +390,7 @@ function AddMemberCard({
           Adicionar membro
         </CardTitle>
         <CardDescription>
-          Informe o e-mail de uma conta Event Flow. Você pode conceder permissões gerais aqui ou acessos específicos por evento depois.
+          Informe o e-mail de uma conta Event Flow, escolha as funções e os eventos.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
@@ -399,9 +435,10 @@ function AddMemberCard({
               </p>
             )}
           </div>
+          <EventScopePicker events={events} eventsError={eventsError} allEvents={allEvents} eventIds={eventIds} onAllEventsChange={setAllEvents} onEventIdsChange={setEventIds} />
           {error && <p className="text-sm text-destructive">{error}</p>}
           <div className="flex gap-2">
-            <Button type="submit" disabled={isPending}>
+            <Button type="submit" disabled={isPending || (!allEvents && eventIds.length === 0)}>
               {isPending && <Loader2 className="h-4 w-4 animate-spin" />}
               Adicionar
             </Button>
@@ -413,4 +450,30 @@ function AddMemberCard({
       </CardContent>
     </Card>
   );
+}
+
+function EventScopePicker({ events, eventsError, allEvents, eventIds, onAllEventsChange, onEventIdsChange }: {
+  events: TeamEvent[];
+  eventsError?: string;
+  allEvents: boolean;
+  eventIds: string[];
+  onAllEventsChange: (value: boolean) => void;
+  onEventIdsChange: (value: string[]) => void;
+}) {
+  return <div className="space-y-2 rounded-md border p-3">
+    <Label>Eventos sob responsabilidade</Label>
+    <label className="flex items-center gap-2 text-sm">
+      <input type="checkbox" checked={allEvents} onChange={(e) => onAllEventsChange(e.target.checked)} />
+      Todos os eventos que você criou, inclusive futuros
+    </label>
+    {!allEvents && <div className="max-h-48 space-y-1 overflow-y-auto pl-1">
+      {eventsError && <p className="text-xs text-destructive">Não foi possível carregar os eventos: {eventsError}</p>}
+      {!eventsError && events.length === 0 && <p className="text-xs text-muted-foreground">Nenhum evento disponível. Crie um evento ou marque todos os eventos.</p>}
+      {events.map((event) => <label key={event.id} className="flex items-center gap-2 py-1 text-sm">
+        <input type="checkbox" checked={eventIds.includes(event.id)} onChange={(e) => onEventIdsChange(e.target.checked ? [...eventIds, event.id] : eventIds.filter((id) => id !== event.id))} />
+        {event.title}
+      </label>)}
+    </div>}
+    {!allEvents && eventIds.length === 0 && <p className="text-xs text-destructive">Selecione ao menos um evento.</p>}
+  </div>;
 }

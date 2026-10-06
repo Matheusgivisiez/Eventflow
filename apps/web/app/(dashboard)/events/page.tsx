@@ -5,7 +5,7 @@ import { useState, useEffect } from "react";
 import { keepPreviousData, useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   CalendarPlus, ExternalLink, Pencil, Search, Ticket,
-  Copy, XCircle, MoreVertical, Filter, TrendingUp, Clock, CheckCircle2
+  Copy, XCircle, MoreVertical, Filter, TrendingUp, Clock, CheckCircle2, UserCheck
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -13,6 +13,7 @@ import { Input } from "@/components/ui/input";
 import { api } from "@/lib/api";
 import { cn, dateTime, money } from "@/lib/utils";
 import type { EventFlowEvent, Paginated } from "@/types/eventflow";
+import { useAuthStore } from "@/stores/auth-store";
 
 const STATUS_TABS = [
   { key: "all", label: "Todos", icon: Filter },
@@ -29,6 +30,8 @@ const statusColor: Record<string, string> = {
 };
 
 export default function EventsPage() {
+  const user = useAuthStore((state) => state.user);
+  const isTeam = user?.role === "TEAM";
   const [search, setSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [activeTab, setActiveTab] = useState<"all" | "PUBLISHED" | "DRAFT" | "CLOSED">("all");
@@ -73,9 +76,9 @@ export default function EventsPage() {
           <h1 className="text-3xl font-extrabold tracking-tight">Eventos</h1>
           <p className="text-sm text-muted-foreground mt-1 font-medium">Crie, publique e acompanhe seus eventos.</p>
         </div>
-        <Button asChild className="bg-primary hover:bg-primary/90 text-white shadow-md shadow-primary/30 rounded-xl font-semibold self-start sm:self-auto">
+        {!isTeam && <Button asChild className="bg-primary hover:bg-primary/90 text-white shadow-md shadow-primary/30 rounded-xl font-semibold self-start sm:self-auto">
           <Link href="/events/new"><CalendarPlus className="h-4 w-4" />Novo evento</Link>
-        </Button>
+        </Button>}
       </div>
 
       {/* Status tabs */}
@@ -135,19 +138,19 @@ export default function EventsPage() {
           <p className="text-sm text-muted-foreground mt-2 max-w-sm">
             {activeTab !== "all" ? "Nenhum evento nesta categoria." : "Comece criando seu primeiro evento."}
           </p>
-          <Button asChild className="mt-6 bg-primary hover:bg-primary/90 text-white">
+          {!isTeam && <Button asChild className="mt-6 bg-primary hover:bg-primary/90 text-white">
             <Link href="/events/new"><CalendarPlus className="h-4 w-4" />Criar evento</Link>
-          </Button>
+          </Button>}
         </div>
       )}
 
       {/* Event Cards */}
       <div className="space-y-4 stagger-children">
         {data?.data.map((event) => {
-          const totalSold = event.ticketTypes.reduce((s, t) => s + t.sold, 0);
-          const totalQty = event.ticketTypes.reduce((s, t) => s + t.quantity, 0);
+          const totalSold = event.ticketTypes.reduce((s, t) => s + (t.sold ?? 0), 0);
+          const totalQty = event.ticketTypes.reduce((s, t) => s + (t.quantity ?? 0), 0);
           const totalAvail = totalQty - totalSold;
-          const minPrice = event.ticketTypes.length ? Math.min(...event.ticketTypes.map((t) => t.priceCents)) : 0;
+          const minPrice = event.ticketTypes.length ? Math.min(...event.ticketTypes.map((t) => t.priceCents ?? 0)) : 0;
           const stockPct = totalQty > 0 ? Math.round((totalSold / totalQty) * 100) : 0;
           const isMenuOpen = openMenuId === event.id;
 
@@ -183,15 +186,15 @@ export default function EventsPage() {
                       <Link href={`/events/${event.id}`}
                         className="flex items-center gap-2.5 rounded-xl px-3 py-2 text-sm font-medium hover:bg-primary/10 hover:text-primary transition-colors"
                         onClick={() => setOpenMenuId(null)}>
-                        <Pencil className="h-4 w-4" /> Editar
+                        <Pencil className="h-4 w-4" /> {isTeam ? "Ver evento" : "Editar"}
                       </Link>
-                      <button
+                      {!isTeam && <button
                         onClick={() => duplicateMutation.mutate(event.id)}
                         disabled={duplicateMutation.isPending}
                         className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2 text-sm font-medium hover:bg-muted transition-colors">
                         <Copy className="h-4 w-4" /> Duplicar
-                      </button>
-                      {event.status !== "CLOSED" && (
+                      </button>}
+                      {!isTeam && event.status !== "CLOSED" && (
                         <div className="border-t border-border/50 mt-1 pt-1">
                           <button
                             onClick={() => cancelMutation.mutate(event.id)}
@@ -216,7 +219,7 @@ export default function EventsPage() {
               </div>
 
               {/* Metrics */}
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 px-6 py-4">
+              {!isTeam && <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 px-6 py-4">
                 {[
                   { label: "Lotes", value: event.ticketTypes.length, icon: Ticket },
                   { label: "Vendidos", value: totalSold, icon: TrendingUp },
@@ -228,10 +231,10 @@ export default function EventsPage() {
                     <p className="mt-1 font-bold text-base text-foreground">{m.value}</p>
                   </div>
                 ))}
-              </div>
+              </div>}
 
               {/* Stock progress bar */}
-              {totalQty > 0 && (
+              {!isTeam && totalQty > 0 && (
                 <div className="px-6 pb-4">
                   <div className="flex items-center justify-between text-xs font-semibold text-muted-foreground mb-2">
                     <span>Ocupação Total</span>
@@ -249,11 +252,12 @@ export default function EventsPage() {
               {/* Footer actions */}
               <div className="flex flex-wrap gap-3 border-t border-border/50 bg-muted/20 px-6 py-4">
                 <Button variant="outline" size="sm" asChild className="rounded-xl font-semibold bg-white/50 dark:bg-card/50 hover:bg-white dark:hover:bg-card shadow-sm">
-                  <Link href={`/events/${event.id}`}><Pencil className="h-4 w-4" />Editar Detalhes</Link>
+                  <Link href={`/events/${event.id}`}><Pencil className="h-4 w-4" />{isTeam ? "Ver evento" : "Editar Detalhes"}</Link>
                 </Button>
-                <Button variant="outline" size="sm" asChild className="rounded-xl font-semibold bg-white/50 dark:bg-card/50 hover:bg-white dark:hover:bg-card shadow-sm">
+                {!isTeam && <Button variant="outline" size="sm" asChild className="rounded-xl font-semibold bg-white/50 dark:bg-card/50 hover:bg-white dark:hover:bg-card shadow-sm">
                   <Link href={`/events/${event.id}/tickets`}><Ticket className="h-4 w-4" />Gerenciar Lotes ({event.ticketTypes.length})</Link>
-                </Button>
+                </Button>}
+                {isTeam && event.status === "PUBLISHED" && <Button variant="outline" size="sm" asChild><Link href="/check-in"><UserCheck className="h-4 w-4" />Check-in</Link></Button>}
                 {event.status === "PUBLISHED" && (
                   <Button variant="ghost" size="sm" asChild className="rounded-xl font-semibold text-primary hover:text-primary hover:bg-primary/10">
                     <a href={`/eventos/${event.slug}`} target="_blank" rel="noreferrer">

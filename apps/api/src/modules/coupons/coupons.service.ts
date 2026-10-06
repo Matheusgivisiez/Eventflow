@@ -9,7 +9,7 @@ import { UpdateCouponDto } from "./dto/update-coupon.dto";
 export class CouponsService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async create(tenantId: string | null, dto: CreateCouponDto) {
+  async create(tenantId: string | null, ownerId: string | null, dto: CreateCouponDto) {
     this.validateDiscount(dto.discountPercent, dto.discountFixedCents, true);
     const code = CouponsService.normalizeCode(dto.code);
     if (!code) {
@@ -22,7 +22,7 @@ export class CouponsService {
     if (new Date(dto.validUntil) <= new Date(dto.validFrom)) {
       throw new BadRequestException("Data de validade deve ser posterior ao início.");
     }
-    const eventIds = await this.resolveEventIds(tenantId, dto.eventIds);
+    const eventIds = await this.resolveEventIds(tenantId, ownerId, dto.eventIds);
     const { eventIds: _eventIds, ...couponFields } = dto;
 
     return this.prisma.coupon.create({
@@ -30,6 +30,7 @@ export class CouponsService {
         ...couponFields,
         code,
         tenantId,
+        ownerId,
         validFrom: new Date(dto.validFrom),
         validUntil: new Date(dto.validUntil),
         events: eventIds.length ? { create: eventIds.map((eventId) => ({ eventId })) } : undefined
@@ -39,36 +40,36 @@ export class CouponsService {
   }
 
   /**
-   * Confere que os eventos escolhidos pertencem ao organizador antes de
+   * Confere que os eventos escolhidos foram criados pelo organizador antes de
    * restringir o cupom a eles. Um admin criando cupom global (tenantId nulo)
    * não tem essa restrição.
    */
-  private async resolveEventIds(tenantId: string | null, eventIds?: string[]) {
+  private async resolveEventIds(tenantId: string | null, ownerId: string | null, eventIds?: string[]) {
     const ids = Array.from(new Set((eventIds ?? []).filter(Boolean)));
     if (!ids.length || !tenantId) {
       return ids;
     }
     const owned = await this.prisma.event.findMany({
-      where: { id: { in: ids }, tenantId },
+      where: { id: { in: ids }, tenantId, ...(ownerId ? { ownerId } : {}) },
       select: { id: true }
     });
     if (owned.length !== ids.length) {
-      throw new BadRequestException("Um ou mais eventos selecionados não pertencem a sua conta.");
+      throw new BadRequestException("Selecione apenas eventos criados por você.");
     }
     return ids;
   }
 
-  list(tenantId: string | null) {
+  list(tenantId: string | null, ownerId: string | null) {
     return this.prisma.coupon.findMany({
-      where: { tenantId },
+      where: { tenantId, ownerId },
       orderBy: { createdAt: "desc" },
       include: { events: { include: { event: { select: { id: true, title: true } } } } }
     });
   }
 
-  async update(id: string, tenantId: string | null, dto: UpdateCouponDto) {
+  async update(id: string, tenantId: string | null, ownerId: string | null, dto: UpdateCouponDto) {
     this.validateDiscount(dto.discountPercent, dto.discountFixedCents, false);
-    const coupon = await this.prisma.coupon.findFirst({ where: { id, tenantId } });
+    const coupon = await this.prisma.coupon.findFirst({ where: { id, tenantId, ownerId } });
     if (!coupon) {
       throw new NotFoundException("Cupom não encontrado.");
     }
@@ -76,7 +77,7 @@ export class CouponsService {
       throw new BadRequestException("Data de validade deve ser posterior ao início.");
     }
     // undefined = não mexe na restrição de eventos; [] = volta a valer pra todos.
-    const eventIds = dto.eventIds === undefined ? undefined : await this.resolveEventIds(tenantId, dto.eventIds);
+    const eventIds = dto.eventIds === undefined ? undefined : await this.resolveEventIds(tenantId, ownerId, dto.eventIds);
     const { eventIds: _eventIds, ...couponFields } = dto;
 
     return this.prisma.coupon.update({
@@ -95,8 +96,8 @@ export class CouponsService {
     });
   }
 
-  async remove(id: string, tenantId: string | null) {
-    const coupon = await this.prisma.coupon.findFirst({ where: { id, tenantId } });
+  async remove(id: string, tenantId: string | null, ownerId: string | null) {
+    const coupon = await this.prisma.coupon.findFirst({ where: { id, tenantId, ownerId } });
     if (!coupon) {
       throw new NotFoundException("Cupom não encontrado.");
     }
@@ -124,12 +125,12 @@ export class CouponsService {
           ...(inviteToken ? [{ isPrivate: true, inviteTokenHash: createHash("sha256").update(inviteToken).digest("hex") }] : [])
         ]
       },
-      select: { id: true, tenantId: true }
+      select: { id: true, tenantId: true, ownerId: true }
     });
     if (!event) {
       throw new NotFoundException("Evento não encontrado.");
     }
-    const coupon = await this.validateAndApply(rawCode, event.tenantId, event.id);
+    const coupon = await this.validateAndApply(rawCode, event.tenantId, event.id, event.ownerId);
     return {
       code: coupon.code,
       discountPercent: coupon.discountPercent,
@@ -137,7 +138,7 @@ export class CouponsService {
     };
   }
 
-  async validateAndApply(rawCode: string, tenantId: string, eventId: string) {
+  async validateAndApply(rawCode: string, tenantId: string, eventId: string, eventOwnerId?: string) {
     const code = CouponsService.normalizeCode(rawCode);
     const coupon = code
       ? await this.prisma.coupon.findUnique({ where: { code }, include: { events: true } })
@@ -146,6 +147,9 @@ export class CouponsService {
       throw new NotFoundException("Cupom inválido ou inativo.");
     }
     if (coupon.tenantId && coupon.tenantId !== tenantId) {
+      throw new NotFoundException("Cupom inválido para este evento.");
+    }
+    if (coupon.tenantId && (!coupon.ownerId || coupon.ownerId !== eventOwnerId)) {
       throw new NotFoundException("Cupom inválido para este evento.");
     }
     if (!CouponsService.appliesToEvent(coupon, eventId)) {
@@ -164,9 +168,8 @@ export class CouponsService {
   }
 
   /**
-   * Sem nenhum evento vinculado, o cupom vale para todos os eventos do
-   * tenant (comportamento anterior). Com eventos vinculados, só vale para
-   * eles. Usado tanto aqui quanto no checkout (fora de uma transação) e
+   * Sem nenhum evento vinculado, a restrição por dono define o alcance.
+   * Com eventos vinculados, só vale para eles. Usado aqui e no checkout e
    * repetido, propositalmente simples, dentro da transação de checkout.
    */
   static appliesToEvent(coupon: { events?: { eventId: string }[] }, eventId: string) {

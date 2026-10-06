@@ -11,12 +11,13 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { api } from "@/lib/api";
 import { dateTime, money } from "@/lib/utils";
 import type { CouponType, EventFlowEvent, Paginated } from "@/types/eventflow";
+import { useAuthStore } from "@/stores/auth-store";
 
 const couponSchema = z.object({
   code: z.string().min(3, "O código deve ter pelo menos 3 caracteres.").toUpperCase(),
@@ -40,6 +41,7 @@ function brlToCents(brl?: number) {
 }
 
 export default function CouponsPage() {
+  const user = useAuthStore((state) => state.user);
   const qc = useQueryClient();
   const [showNew, setShowNew] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -51,9 +53,14 @@ export default function CouponsPage() {
 
   const { data: eventsPage } = useQuery({
     queryKey: ["events-for-coupons"],
-    queryFn: () => api<Paginated<EventFlowEvent>>("/events?perPage=100")
+    queryFn: async () => {
+      const first = await api<Paginated<EventFlowEvent>>("/events?perPage=100&page=1&summary=1");
+      const pages = await Promise.all(Array.from({ length: Math.max(0, first.meta.totalPages - 1) }, (_, i) =>
+        api<Paginated<EventFlowEvent>>(`/events?perPage=100&page=${i + 2}&summary=1`)));
+      return { ...first, data: [...first.data, ...pages.flatMap((page) => page.data)] };
+    }
   });
-  const events = eventsPage?.data ?? [];
+  const events = (eventsPage?.data ?? []).filter((event) => user?.role === "ADMIN" || event.ownerId === user?.id);
 
   const invalidate = useCallback(() => qc.invalidateQueries({ queryKey: ["coupons"] }), [qc]);
 
@@ -313,7 +320,7 @@ function CouponFormComponent({
       </div>
 
       <div className="space-y-2">
-        <Label>Eventos em que o cupom vale — nenhum marcado = vale em todos os seus eventos</Label>
+        <Label>Eventos em que o cupom vale — nenhum marcado = vale em todos os eventos que você criou</Label>
         {events.length === 0 ? (
           <p className="text-xs text-muted-foreground">Nenhum evento cadastrado ainda.</p>
         ) : (

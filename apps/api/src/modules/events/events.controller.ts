@@ -7,6 +7,7 @@ import { RolesGuard } from "../../common/guards/roles.guard";
 import { CurrentUser } from "../../common/decorators/current-user.decorator";
 import { JwtAuthGuard } from "../../common/guards/jwt-auth.guard";
 import { RequestUser } from "../../common/types/request-user";
+import { requireTenant } from "../../common/utils/require-tenant";
 import { CreateEventDto } from "./dto/create-event.dto";
 import { UpdateEventDto } from "./dto/update-event.dto";
 import { EventsService } from "./events.service";
@@ -36,12 +37,13 @@ export class EventsController {
   @Get()
   @ApiBearerAuth()
   @ApiOperation({ summary: "Listar eventos do organizador", description: "Retorna eventos paginados do tenant autenticado." })
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.ADMIN, UserRole.ORGANIZER, UserRole.TEAM)
   list(
     @CurrentUser() user: RequestUser,
-    @Query() query: { page?: string; perPage?: string; search?: string; status?: EventStatus; summary?: string }
+    @Query() query: { page?: string; perPage?: string; search?: string; status?: EventStatus; summary?: string; purpose?: string }
   ) {
-    return this.events.list(user.tenantId!, query, { userId: user.id, role: user.role });
+    return this.events.list(requireTenant(user), query, { userId: user.id, role: user.role });
   }
 
   @Post()
@@ -77,7 +79,7 @@ export class EventsController {
   update(@CurrentUser() user: RequestUser, @Param("id") id: string, @Body() dto: UpdateEventDto) {
     return this.access.assertAccess(id, user.id, [EventAccessRole.GESTOR, EventAccessRole.EDITOR]).then(async () => {
       const role = await this.access.roleFor(id, user.id);
-      if (role === EventAccessRole.EDITOR && (dto.status !== undefined || dto.isPrivate !== undefined)) {
+      if ((role === EventAccessRole.EDITOR || user.role === UserRole.TEAM) && (dto.status !== undefined || dto.isPrivate !== undefined)) {
         const current = await this.events.findOne(id, user.tenantId!);
         if ((dto.status !== undefined && dto.status !== current.status) || (dto.isPrivate !== undefined && dto.isPrivate !== current.isPrivate)) {
           throw new ForbiddenException("Somente o criador ou gestor pode alterar publicação e privacidade.");

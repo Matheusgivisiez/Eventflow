@@ -22,27 +22,27 @@ export class CouponsController {
   create(@CurrentUser() user: RequestUser, @Body() dto: CreateCouponDto) {
     // Admin creates global coupons (tenantId = null).
     const tenantId = user.role === UserRole.ADMIN ? null : user.tenantId;
-    return this.coupons.create(tenantId, dto);
+    return this.coupons.create(tenantId, user.role === UserRole.ADMIN ? null : user.id, dto);
   }
 
   @Get()
   @Roles(UserRole.ADMIN, UserRole.ORGANIZER)
   list(@CurrentUser() user: RequestUser) {
     const tenantId = user.role === UserRole.ADMIN ? null : user.tenantId;
-    return this.coupons.list(tenantId);
+    return this.coupons.list(tenantId, user.role === UserRole.ADMIN ? null : user.id);
   }
 
   @Patch(":id")
   @Roles(UserRole.ADMIN, UserRole.ORGANIZER)
   update(@CurrentUser() user: RequestUser, @Param("id") id: string, @Body() dto: UpdateCouponDto) {
     const tenantId = user.role === UserRole.ADMIN ? null : user.tenantId;
-    return this.coupons.update(id, tenantId, dto);
+    return this.coupons.update(id, tenantId, user.role === UserRole.ADMIN ? null : user.id, dto);
   }
 
   @Delete(":id")
   @Roles(UserRole.ADMIN, UserRole.ORGANIZER)
   remove(@CurrentUser() user: RequestUser, @Param("id") id: string) {
     const tenantId = user.role === UserRole.ADMIN ? null : user.tenantId;
-    return this.coupons.remove(id, tenantId);
+    return this.coupons.remove(id, tenantId, user.role === UserRole.ADMIN ? null : user.id);
   }
 }

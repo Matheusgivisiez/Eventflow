@@ -1,5 +1,5 @@
 import { BadRequestException } from "@nestjs/common";
-import { EventFormat, EventStatus, Prisma } from "@prisma/client";
+import { EventFormat, EventStatus, Prisma, TeamPermission, UserRole } from "@prisma/client";
 import { EventsService } from "./events.service";
 
 jest.mock("nanoid", () => ({ nanoid: jest.fn(() => "fixed-id") }));
@@ -29,6 +29,7 @@ function createService() {
     }
   };
   const prisma = {
+    teamMember: { findUnique: jest.fn() },
     event: {
       findUnique: jest.fn(),
       update: jest.fn(),
@@ -38,7 +39,8 @@ function createService() {
     $transaction: jest.fn((callback) => callback(tx))
   };
   const repository = {
-    findByIdForTenant: jest.fn()
+    findByIdForTenant: jest.fn(),
+    list: jest.fn()
   };
   const cache = {
     del: jest.fn(),
@@ -104,5 +106,26 @@ describe("EventsService", () => {
     await expect(
       service.update("event-1", "tenant-1", { startsAt: new Date(Date.now() - 1000).toISOString() } as any)
     ).rejects.toThrow(BadRequestException);
+  });
+
+  it("lists only selected events for a team member", async () => {
+    const { service, prisma, repository } = createService();
+    prisma.teamMember.findUnique.mockResolvedValue({ scopeConfigured: true, allEvents: false, eventIds: ["event-1"], permissions: [TeamPermission.EDIT_EVENT] });
+    await service.list("tenant-1", {}, { userId: "member-1", role: UserRole.TEAM });
+    expect(repository.list).toHaveBeenCalledWith("tenant-1", expect.objectContaining({ scopedIds: ["event-1"] }));
+  });
+
+  it("keeps edit-only events out of the check-in selector", async () => {
+    const { service, prisma, repository } = createService();
+    prisma.teamMember.findUnique.mockResolvedValue({ scopeConfigured: true, allEvents: true, eventIds: [], permissions: [TeamPermission.EDIT_EVENT] });
+    await service.list("tenant-1", { purpose: "CHECK_IN" }, { userId: "member-1", role: UserRole.TEAM });
+    expect(repository.list).toHaveBeenCalledWith("tenant-1", expect.objectContaining({ scopedIds: [] }));
+  });
+
+  it("limits all-events scope to the manager's events", async () => {
+    const { service, prisma, repository } = createService();
+    prisma.teamMember.findUnique.mockResolvedValue({ managerId: "owner-1", scopeConfigured: true, allEvents: true, eventIds: [], permissions: [TeamPermission.CHECK_IN] });
+    await service.list("tenant-1", {}, { userId: "member-1", role: UserRole.TEAM });
+    expect(repository.list).toHaveBeenCalledWith("tenant-1", expect.objectContaining({ scopedIds: null, scopedOwnerId: "owner-1" }));
   });
 });

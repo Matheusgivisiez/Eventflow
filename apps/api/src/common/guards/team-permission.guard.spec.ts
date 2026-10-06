@@ -6,15 +6,17 @@ function setup(options: {
   required: TeamPermission[];
   user?: { id: string; role: UserRole; tenantId?: string | null };
   eventId?: string;
-  member?: { permissions: TeamPermission[] } | null;
+  bodyEventId?: string;
+  member?: { permissions: TeamPermission[]; managerId?: string; scopeConfigured?: boolean; allEvents?: boolean; eventIds?: string[] } | null;
   eventRole?: EventAccessRole | null;
 }) {
   const reflector = { getAllAndOverride: jest.fn().mockReturnValue(options.required) };
   const prisma = {
     teamMember: { findUnique: jest.fn().mockResolvedValue(options.member ?? null) },
+    event: { findFirst: jest.fn().mockResolvedValue({ id: options.eventId, ownerId: "owner" }) },
     eventAccess: { findFirst: jest.fn().mockResolvedValue(options.eventRole ? { role: options.eventRole } : null) }
   };
-  const request = { user: options.user, params: options.eventId ? { eventId: options.eventId } : {} };
+  const request = { user: options.user, params: options.eventId ? { eventId: options.eventId } : {}, body: options.bodyEventId ? { eventId: options.bodyEventId } : {} };
   const context = {
     getHandler: () => undefined,
     getClass: () => undefined,
@@ -47,6 +49,48 @@ describe("TeamPermissionGuard", () => {
     const { guard, context } = setup({
       required: [TeamPermission.CHECK_IN], user: team, eventId: "event-1",
       member: { permissions: [TeamPermission.CHECK_IN] }, eventRole: null
+    });
+    await expect(guard.canActivate(context)).rejects.toThrow(ForbiddenException);
+  });
+
+  it("libera check-in em evento escolhido na equipe", async () => {
+    const { guard, context, prisma } = setup({
+      required: [TeamPermission.CHECK_IN], user: team, eventId: "event-1",
+      member: { permissions: [TeamPermission.CHECK_IN], scopeConfigured: true, allEvents: false, eventIds: ["event-1"] }
+    });
+    await expect(guard.canActivate(context)).resolves.toBe(true);
+    expect(prisma.eventAccess.findFirst).not.toHaveBeenCalled();
+  });
+
+  it("nega check-in em outro evento da mesma organização", async () => {
+    const { guard, context } = setup({
+      required: [TeamPermission.CHECK_IN], user: team, eventId: "event-2",
+      member: { permissions: [TeamPermission.CHECK_IN], scopeConfigured: true, allEvents: false, eventIds: ["event-1"] }
+    });
+    await expect(guard.canActivate(context)).rejects.toThrow(ForbiddenException);
+  });
+
+  it("libera check-in em eventos futuros quando todos estão marcados", async () => {
+    const { guard, context } = setup({
+      required: [TeamPermission.CHECK_IN], user: team, eventId: "event-future",
+      member: { permissions: [TeamPermission.CHECK_IN], managerId: "owner", scopeConfigured: true, allEvents: true, eventIds: [] }
+    });
+    await expect(guard.canActivate(context)).resolves.toBe(true);
+  });
+
+  it("não libera todos os eventos de outro organizador da mesma organização", async () => {
+    const { guard, context, prisma } = setup({
+      required: [TeamPermission.CHECK_IN], user: team, eventId: "other-event",
+      member: { permissions: [TeamPermission.CHECK_IN], managerId: "owner", scopeConfigured: true, allEvents: true, eventIds: [] }
+    });
+    prisma.event.findFirst.mockResolvedValue({ id: "other-event", ownerId: "other-owner" });
+    await expect(guard.canActivate(context)).rejects.toThrow(ForbiddenException);
+  });
+
+  it("usa o evento do corpo na sincronização de check-in offline", async () => {
+    const { guard, context } = setup({
+      required: [TeamPermission.CHECK_IN], user: team, bodyEventId: "event-2",
+      member: { permissions: [TeamPermission.CHECK_IN], managerId: "owner", scopeConfigured: true, allEvents: false, eventIds: ["event-1"] }
     });
     await expect(guard.canActivate(context)).rejects.toThrow(ForbiddenException);
   });

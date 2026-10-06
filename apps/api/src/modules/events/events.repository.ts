@@ -17,15 +17,20 @@ export class EventsRepository implements IEventsRepository {
     };
   }
 
-  async list(tenantId: string, options: { page: number; perPage: number; search?: string; status?: EventStatus; summary?: boolean; userId?: string; restricted?: boolean }) {
+  async list(tenantId: string, options: { page: number; perPage: number; search?: string; status?: EventStatus; summary?: boolean; userId?: string; restricted?: boolean; scopedIds?: string[] | null; scopedOwnerId?: string; checkInOnly?: boolean }) {
+    const accessFilter: Prisma.EventWhereInput = options.scopedIds !== undefined
+      ? options.scopedIds === null ? { ownerId: options.scopedOwnerId } : { id: { in: options.scopedIds } }
+      : options.restricted && options.userId
+        ? { OR: [
+            { ownerId: options.userId },
+            { accessMembers: { some: { userId: options.userId, ...(options.checkInOnly ? { role: { in: ["GESTOR", "OPERACAO"] } } : {}) } } }
+          ] }
+        : {};
     const where: Prisma.EventWhereInput = {
       tenantId,
       status: options.status,
       AND: [
-        options.restricted && options.userId ? { OR: [
-          { ownerId: options.userId },
-          { accessMembers: { some: { userId: options.userId } } }
-        ] } : {},
+        accessFilter,
         options.search ? { OR: [
             { title: { contains: options.search, mode: "insensitive" } },
             { city: { contains: options.search, mode: "insensitive" } },

@@ -5,6 +5,7 @@ const baseCoupon = {
   id: "c1",
   code: "PROMO10",
   tenantId: "t1",
+  ownerId: "owner-1",
   isActive: true,
   discountPercent: 10,
   discountFixedCents: 0,
@@ -16,7 +17,7 @@ const baseCoupon = {
 
 function makeService(
   coupon: (Partial<typeof baseCoupon> & { events?: { eventId: string }[] }) | null = baseCoupon,
-  event: { id: string; tenantId: string } | null = { id: "e1", tenantId: "t1" }
+  event: { id: string; tenantId: string; ownerId: string } | null = { id: "e1", tenantId: "t1", ownerId: "owner-1" }
 ) {
   const prisma = {
     coupon: {
@@ -41,6 +42,27 @@ describe("CouponsService", () => {
   it("recusa cupom de outro organizador", async () => {
     const { service } = makeService({ tenantId: "outro" });
     await expect(service.previewForEvent("festa", "PROMO10")).rejects.toBeInstanceOf(NotFoundException);
+  });
+
+  it("recusa cupom de outro criador dentro da mesma organização", async () => {
+    const { service } = makeService({ ownerId: "owner-2" });
+    await expect(service.previewForEvent("festa", "PROMO10")).rejects.toBeInstanceOf(NotFoundException);
+  });
+
+  it("não deixa o organizador vincular cupom a evento de outro criador", async () => {
+    const prisma = {
+      coupon: { findUnique: jest.fn().mockResolvedValue(null), create: jest.fn() },
+      event: { findMany: jest.fn().mockResolvedValue([]) }
+    };
+    const service = new CouponsService(prisma as never);
+    await expect(service.create("t1", "owner-1", {
+      code: "NOVO10", discountPercent: 10, maxUses: 0,
+      validFrom: new Date(Date.now() - 1000).toISOString(),
+      validUntil: new Date(Date.now() + 60_000).toISOString(),
+      eventIds: ["event-of-owner-2"]
+    })).rejects.toBeInstanceOf(BadRequestException);
+    expect(prisma.event.findMany).toHaveBeenCalledWith({ where: { id: { in: ["event-of-owner-2"] }, tenantId: "t1", ownerId: "owner-1" }, select: { id: true } });
+    expect(prisma.coupon.create).not.toHaveBeenCalled();
   });
 
   it("recusa cupom esgotado", async () => {
