@@ -1,6 +1,10 @@
 import { Body, Controller, Get, Param, Post, UseGuards } from "@nestjs/common";
 import { ApiBearerAuth, ApiTags } from "@nestjs/swagger";
-import { UserRole } from "@prisma/client";
+import { TeamPermission, UserRole } from "@prisma/client";
+import { RequirePermissions } from "../../common/decorators/permissions.decorator";
+import { TeamPermissionGuard } from "../../common/guards/team-permission.guard";
+import { teamEventIds } from "../../common/services/team-event-scope";
+import { PrismaService } from "../../prisma/prisma.service";
 import { CurrentUser } from "../../common/decorators/current-user.decorator";
 import { Roles } from "../../common/decorators/roles.decorator";
 import { JwtAuthGuard } from "../../common/guards/jwt-auth.guard";
@@ -13,23 +17,27 @@ import { FinanceService } from "./finance.service";
 
 @ApiTags("Financeiro")
 @ApiBearerAuth()
-@UseGuards(JwtAuthGuard, RolesGuard)
-@Roles(UserRole.ADMIN, UserRole.ORGANIZER)
+@UseGuards(JwtAuthGuard, RolesGuard, TeamPermissionGuard)
+@Roles(UserRole.ADMIN, UserRole.ORGANIZER, UserRole.TEAM)
+@RequirePermissions(TeamPermission.FINANCE)
 @Controller("finance")
 export class FinanceController {
-  constructor(private readonly finance: FinanceService) {}
+  constructor(private readonly finance: FinanceService, private readonly prisma: PrismaService) {}
 
   @Get("summary")
-  summary(@CurrentUser() user: RequestUser) {
+  async summary(@CurrentUser() user: RequestUser) {
+    if (user.role === UserRole.TEAM) return this.finance.teamSummary(await teamEventIds(this.prisma, user, TeamPermission.FINANCE));
     return this.finance.summary(requireTenant(user));
   }
 
   @Get("statement")
-  statement(@CurrentUser() user: RequestUser) {
+  async statement(@CurrentUser() user: RequestUser) {
+    if (user.role === UserRole.TEAM) return (await this.finance.teamSummary(await teamEventIds(this.prisma, user, TeamPermission.FINANCE))).statement;
     return this.finance.statement(requireTenant(user));
   }
 
   @Post("withdrawals")
+  @Roles(UserRole.ADMIN, UserRole.ORGANIZER)
   requestWithdrawal(@CurrentUser() user: RequestUser, @Body() dto: RequestWithdrawalDto) {
     return this.finance.requestWithdrawal(requireTenant(user), dto);
   }
@@ -40,6 +48,7 @@ export class FinanceController {
   // before, a CUSTOMER with `tenantId: null` fell into the "no filter" branch
   // and received every organization's withdrawals.
   @Get("withdrawals")
+  @Roles(UserRole.ADMIN, UserRole.ORGANIZER)
   listWithdrawals(@CurrentUser() user: RequestUser) {
     const tenantId = user.role === UserRole.ADMIN ? user.tenantId ?? undefined : requireTenant(user);
     return this.finance.listWithdrawals(tenantId);

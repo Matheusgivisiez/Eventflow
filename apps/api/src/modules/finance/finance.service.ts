@@ -1,5 +1,5 @@
 import { BadRequestException, Injectable, NotFoundException } from "@nestjs/common";
-import { WithdrawalStatus } from "@prisma/client";
+import { PaymentStatus, WithdrawalStatus } from "@prisma/client";
 import { PrismaService } from "../../prisma/prisma.service";
 import { AbacatePayGateway } from "../payments/abacate-pay.gateway";
 import { ApproveWithdrawalDto } from "./dto/approve-withdrawal.dto";
@@ -24,6 +24,32 @@ export class FinanceService {
       totalFeesCents: credits._sum.feeCents ?? 0,
       withdrawnCents: withdrawals._sum.amountCents ?? 0,
       statement: entries
+    };
+  }
+
+  /** Consulta por evento para colaboradores; não representa saldo disponível para saque. */
+  async teamSummary(eventIds: string[]) {
+    const where = { eventId: { in: eventIds }, status: PaymentStatus.PAID };
+    const [totals, orders] = await Promise.all([
+      this.prisma.order.aggregate({ where, _sum: { totalCents: true, feeCents: true } }),
+      this.prisma.order.findMany({
+        where,
+        select: { id: true, createdAt: true, totalCents: true, feeCents: true, event: { select: { title: true } } },
+        orderBy: { createdAt: "desc" }, take: 100
+      })
+    ]);
+    return {
+      balanceCents: (totals._sum.totalCents ?? 0) - (totals._sum.feeCents ?? 0),
+      totalFeesCents: totals._sum.feeCents ?? 0,
+      withdrawnCents: 0,
+      readOnly: true,
+      statement: orders.map((order) => ({
+        id: order.id,
+        description: `Venda ${order.event.title}`,
+        amountCents: order.totalCents - order.feeCents,
+        feeCents: order.feeCents,
+        createdAt: order.createdAt
+      }))
     };
   }
 

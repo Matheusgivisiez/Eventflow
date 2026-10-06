@@ -57,6 +57,14 @@ export class TeamService {
     });
   }
 
+  async myPermissions(tenantId: string, userId: string) {
+    const member = await this.prisma.teamMember.findUnique({
+      where: { tenantId_userId: { tenantId, userId } },
+      select: { permissions: true, scopeConfigured: true }
+    });
+    return { permissions: member?.scopeConfigured ? member.permissions : [] };
+  }
+
   async updatePermissions(id: string, tenantId: string, managerId: string, dto: UpdatePermissionsDto) {
     const member = await this.prisma.teamMember.findFirst({ where: { id, tenantId, managerId } });
     if (!member) {

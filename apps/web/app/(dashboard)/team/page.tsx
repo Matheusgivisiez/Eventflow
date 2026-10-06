@@ -42,10 +42,12 @@ type MemberSettings = { permissions: Permission[]; allEvents: boolean; eventIds:
 
 const PERMISSIONS: { key: Permission; label: string; description: string }[] = [
   { key: "CHECK_IN", label: "Check-in", description: "Validar ingressos na entrada" },
-  { key: "EDIT_EVENT", label: "Editar evento", description: "Editar dados e lotes do evento" }
+  { key: "VIEW_SALES", label: "Ver vendas", description: "Consultar e exportar vendas dos eventos atribuídos" },
+  { key: "EDIT_EVENT", label: "Editar evento", description: "Editar dados e lotes do evento" },
+  { key: "FINANCE", label: "Financeiro", description: "Consultar receitas e taxas dos eventos atribuídos; saques ficam com o organizador" }
 ];
 const permissionNames: Record<Permission, string> = {
-  CHECK_IN: "Check-in", EDIT_EVENT: "Editar evento", VIEW_SALES: "Ver vendas (acesso antigo)", FINANCE: "Financeiro (acesso antigo)"
+  CHECK_IN: "Check-in", EDIT_EVENT: "Editar evento", VIEW_SALES: "Ver vendas", FINANCE: "Financeiro"
 };
 
 const addMemberSchema = z.object({

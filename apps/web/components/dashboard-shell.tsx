@@ -16,7 +16,7 @@ import { PageAnimation } from "@/components/page-animation";
 import { useAuthHydration } from "@/hooks/use-auth-hydration";
 import { cn } from "@/lib/utils";
 import { useAuthStore } from "@/stores/auth-store";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/lib/api";
 
 const nav = [
@@ -24,8 +24,8 @@ const nav = [
   { href: "/events", label: "Eventos", icon: CalendarDays, roles: ["ORGANIZER", "ADMIN", "TEAM"] },
   { href: "/participants", label: "Participantes", icon: UserCheck, roles: ["ORGANIZER", "ADMIN", "TEAM"] },
   { href: "/check-in", label: "Check-in", icon: DoorOpen, roles: ["ORGANIZER", "ADMIN", "TEAM", "CHECKIN"] },
-  { href: "/finance", label: "Financeiro", icon: CreditCard, roles: ["ORGANIZER", "ADMIN"] },
-  { href: "/reports", label: "Relatórios", icon: FileBarChart2, roles: ["ORGANIZER", "ADMIN"] },
+  { href: "/finance", label: "Financeiro", icon: CreditCard, roles: ["ORGANIZER", "ADMIN", "TEAM"] },
+  { href: "/reports", label: "Relatórios", icon: FileBarChart2, roles: ["ORGANIZER", "ADMIN", "TEAM"] },
   { href: "/enterprise", label: "Enterprise", icon: Building2, roles: ["ORGANIZER", "ADMIN", "TEAM"] },
   { href: "/promoters", label: "Promoters", icon: Megaphone, roles: ["ORGANIZER", "ADMIN"] },
   { href: "/team", label: "Equipe", icon: Users, roles: ["ORGANIZER", "ADMIN"] },
@@ -78,6 +78,11 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const hasHydrated = useAuthHydration();
   const user = useAuthStore((state) => state.user);
+  const teamAccess = useQuery<{ permissions: string[] }>({
+    queryKey: ["team-me", user?.id],
+    queryFn: () => api("/team/me"),
+    enabled: user?.role === "TEAM"
+  });
   const [mobileOpen, setMobileOpen] = useState(false);
   const [isCollapsed, setIsCollapsed] = useState(false);
 
@@ -92,7 +97,9 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
 
   if (!hasHydrated || !user || user.role === "CUSTOMER") return null;
 
-  const filteredNav = nav.filter((item) => item.roles.includes(user.role));
+  const filteredNav = nav.filter((item) => item.roles.includes(user.role)
+    && (user.role !== "TEAM" || item.href !== "/reports" || teamAccess.data?.permissions.includes("VIEW_SALES"))
+    && (user.role !== "TEAM" || item.href !== "/finance" || teamAccess.data?.permissions.includes("FINANCE")));
   const initials = (user?.name ?? "U").split(" ").map((w: string) => w[0]).slice(0, 2).join("").toUpperCase();
 
   const Sidebar = (

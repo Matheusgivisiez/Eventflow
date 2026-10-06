@@ -28,6 +28,12 @@ export class TeamController {
     return this.team.list(user.tenantId!, user.id);
   }
 
+  @Get("me")
+  @Roles(UserRole.TEAM)
+  myPermissions(@CurrentUser() user: RequestUser) {
+    return this.team.myPermissions(user.tenantId!, user.id);
+  }
+
   @Patch(":id")
   updatePermissions(@CurrentUser() user: RequestUser, @Param("id") id: string, @Body() dto: UpdatePermissionsDto) {
     return this.team.updatePermissions(id, user.tenantId!, user.id, dto);
