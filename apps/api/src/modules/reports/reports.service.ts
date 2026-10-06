@@ -1,4 +1,4 @@
-import { Injectable } from "@nestjs/common";
+import { ForbiddenException, Injectable } from "@nestjs/common";
 import { CheckInStatus, PaymentStatus, Prisma } from "@prisma/client";
 import { CacheService } from "../cache/cache.service";
 import { PrismaReadService } from "../../prisma/prisma-read.service";
@@ -42,13 +42,16 @@ export class ReportsService {
     private readonly cache: CacheService
   ) {}
 
-  async summary(tenantId: string, query: ReportQuery): Promise<ReportSummary> {
-    const cacheKey = `reports:summary:${tenantId}:${JSON.stringify(query)}`;
+  async summary(tenantId: string, query: ReportQuery, allowedEventIds?: string[]): Promise<ReportSummary> {
+    if (allowedEventIds && query.eventId && !allowedEventIds.includes(query.eventId)) {
+      throw new ForbiddenException("Você não foi atribuído a este evento.");
+    }
+    const cacheKey = `reports:summary:${tenantId}:${JSON.stringify(query)}:${JSON.stringify(allowedEventIds)}`;
     const cached = await this.cache.get<ReportSummary>(cacheKey);
     if (cached) return cached;
 
     const dateFilter = this.dateFilter(query);
-    const eventFilter = { tenantId, id: query.eventId || undefined };
+    const eventFilter = { tenantId, id: query.eventId || (allowedEventIds ? { in: allowedEventIds } : undefined) };
     const [orders, checkIns, tickets, participants, visitorSessions] = await Promise.all([
       this.prismaRead.order.findMany({
         where: { event: eventFilter, status: PaymentStatus.PAID, createdAt: dateFilter },
@@ -58,13 +61,13 @@ export class ReportsService {
         where: { status: CheckInStatus.ENTERED, ticket: { event: eventFilter }, createdAt: dateFilter }
       }),
       this.prismaRead.ticket.count({ where: { event: eventFilter, createdAt: dateFilter } }),
-      this.prismaRead.ticket.findMany({
+      allowedEventIds ? Promise.resolve([] as ReportParticipant[]) : this.prismaRead.ticket.findMany({
         where: { event: eventFilter, createdAt: dateFilter },
         include: { event: { select: { title: true } }, ticketType: { select: { name: true, priceCents: true } }, order: { select: { id: true } } },
         take: 5000
       }),
       this.prismaRead.analyticsEvent.findMany({
-        where: { tenantId, eventId: query.eventId || undefined, type: "page_view", createdAt: dateFilter },
+        where: { tenantId, eventId: query.eventId || (allowedEventIds ? { in: allowedEventIds } : undefined), type: "page_view", createdAt: dateFilter },
         select: { sessionId: true },
         distinct: ["sessionId"]
       })
@@ -99,8 +102,9 @@ export class ReportsService {
     return report;
   }
 
-  async export(tenantId: string, query: ReportQuery & { format?: "csv" | "excel" | "pdf"; type?: "sales" | "participants" }) {
-    const report = await this.summary(tenantId, query);
+  async export(tenantId: string, query: ReportQuery & { format?: "csv" | "excel" | "pdf"; type?: "sales" | "participants" }, allowedEventIds?: string[]) {
+    if (allowedEventIds && query.type === "participants") throw new ForbiddenException("Esta permissão permite exportar apenas vendas.");
+    const report = await this.summary(tenantId, query, allowedEventIds);
     const rows =
       query.type === "participants"
         ? report.participants.map((ticket): ExportRow => ({

@@ -17,6 +17,7 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { api } from "@/lib/api";
 import { cn, dateTime, money } from "@/lib/utils";
+import { useAuthStore } from "@/stores/auth-store";
 
 type LedgerEntry = {
   id: string;
@@ -34,6 +35,7 @@ type FinanceSummary = {
 };
 
 export default function FinancePage() {
+  const isTeam = useAuthStore((state) => state.user?.role === "TEAM");
   const qc = useQueryClient();
   const [amount, setAmount] = useState("");
   const [confirmStep, setConfirmStep] = useState(false);
@@ -70,13 +72,13 @@ export default function FinancePage() {
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-extrabold tracking-tight">Financeiro</h1>
-        <p className="text-sm text-muted-foreground mt-1">Saldo, taxas, extrato e solicitação de saque.</p>
+        <p className="text-sm text-muted-foreground mt-1">{isTeam ? "Receitas e taxas dos eventos atribuídos." : "Saldo, taxas, extrato e solicitação de saque."}</p>
       </div>
 
       {/* KPI Cards */}
       <div className="grid gap-4 sm:grid-cols-3">
         <KpiCard
-          label="Saldo disponível"
+          label={isTeam ? "Receita líquida dos eventos" : "Saldo disponível"}
           value={isLoading ? "—" : money(data?.balanceCents ?? 0)}
           icon={<Wallet className="h-5 w-5 text-primary" />}
           highlight="text-primary"
@@ -84,7 +86,7 @@ export default function FinancePage() {
         />
         <KpiCard
           label="Total recebido (bruto)"
-          value={isLoading ? "—" : money((data?.balanceCents ?? 0) + (data?.withdrawnCents ?? 0))}
+          value={isLoading ? "—" : money((data?.balanceCents ?? 0) + (isTeam ? data?.totalFeesCents ?? 0 : data?.withdrawnCents ?? 0))}
           icon={<TrendingUp className="h-5 w-5 text-emerald-500" />}
           highlight="text-emerald-600"
           isLoading={isLoading}
@@ -98,7 +100,7 @@ export default function FinancePage() {
         />
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-[1fr_360px]">
+      <div className={cn("grid gap-6", !isTeam && "lg:grid-cols-[1fr_360px]")}>
         {/* Statement + Chart */}
         <div className="space-y-6">
           {/* Sparkline Chart */}
@@ -174,7 +176,7 @@ export default function FinancePage() {
         </div>
 
         {/* Withdrawal Card */}
-        <div className="space-y-4">
+        {!isTeam && <div className="space-y-4">
           <Card className="shadow-sm border-primary/20 sticky top-6">
             <CardHeader className="pb-4">
               <div className="flex items-center gap-2 mb-1">
@@ -283,7 +285,7 @@ export default function FinancePage() {
               </div>
             </CardContent>
           </Card>
-        </div>
+        </div>}
       </div>
     </div>
   );

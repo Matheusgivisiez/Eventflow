@@ -26,10 +26,12 @@ type Dashboard = {
 
 type ReportSummary = {
   revenueCents: number;
+  feesCents: number;
   paidOrders: number;
   ticketsSold: number;
   visitors: number;
   conversionRate: number;
+  revenueByPeriod: { period: string; totalCents: number }[];
 };
 
 type Finance = {
@@ -40,19 +42,23 @@ type Finance = {
 
 export default function ReportsPage() {
   const token = useAuthStore((state) => state.accessToken);
+  const user = useAuthStore((state) => state.user);
+  const isTeam = user?.role === "TEAM";
   const apiUrl = getApiUrl();
   const [from, setFrom] = useState("");
   const [to, setTo] = useState("");
   const [eventId, setEventId] = useState("");
-  const dashboard = useQuery({ queryKey: ["dashboard"], queryFn: () => api<Dashboard>("/dashboard") });
-  const finance = useQuery({ queryKey: ["finance"], queryFn: () => api<Finance>("/finance/summary") });
+  const dashboard = useQuery({ queryKey: ["dashboard"], queryFn: () => api<Dashboard>("/dashboard"), enabled: !isTeam });
+  const finance = useQuery({ queryKey: ["finance"], queryFn: () => api<Finance>("/finance/summary"), enabled: !isTeam });
   const report = useQuery({
     queryKey: ["report-summary", from, to, eventId],
     queryFn: () => api<ReportSummary>(`/reports?${new URLSearchParams({ ...(from ? { from: new Date(`${from}T00:00:00`).toISOString() } : {}), ...(to ? { to: new Date(`${to}T23:59:59`).toISOString() } : {}), ...(eventId ? { eventId } : {}) }).toString()}`)
   });
-  const events = useQuery({
+  const events = useQuery<EventFlowEvent[]>({
     queryKey: ["events", "report-filter"],
-    queryFn: () => api<Paginated<EventFlowEvent>>("/events?perPage=100")
+    queryFn: async () => isTeam
+      ? api<EventFlowEvent[]>("/reports/events")
+      : (await api<Paginated<EventFlowEvent>>("/events?perPage=100")).data
   });
 
   async function download(format: "csv" | "excel" | "pdf", type: "sales" | "participants" = "sales") {
@@ -97,10 +103,10 @@ export default function ReportsPage() {
             <Download className="h-4 w-4" />
             Excel
           </Button>
-          <Button variant="outline" onClick={() => download("pdf", "participants")}>
+          {!isTeam && <Button variant="outline" onClick={() => download("pdf", "participants")}>
             <Download className="h-4 w-4" />
             PDF participantes
-          </Button>
+          </Button>}
         </div>
       </div>
 
@@ -117,7 +123,7 @@ export default function ReportsPage() {
           <Input type="date" value={to} onChange={(event) => setTo(event.target.value)} />
           <select className="h-10 rounded-md border bg-background px-3 text-sm" value={eventId} onChange={(event) => setEventId(event.target.value)}>
             <option value="">Todos os eventos</option>
-            {events.data?.data.map((event) => (
+            {events.data?.map((event) => (
               <option key={event.id} value={event.id}>{event.title}</option>
             ))}
           </select>
@@ -131,7 +137,7 @@ export default function ReportsPage() {
         <Metric label="Faturamento" value={money(summary?.revenueCents ?? dashboard.data?.totalRevenueCents)} />
         <Metric label="Ingressos vendidos" value={summary?.ticketsSold ?? dashboard.data?.ticketsSold ?? 0} />
         <Metric label="Taxa de conversão" value={summary ? `${summary.conversionRate}%` : "—"} />
-        <Metric label="Saldo disponível" value={money(finance.data?.balanceCents)} />
+        {!isTeam && <Metric label="Saldo disponível" value={money(finance.data?.balanceCents)} />}
       </div>
 
       <div className="grid gap-4 lg:grid-cols-[1fr_360px]">
@@ -142,7 +148,7 @@ export default function ReportsPage() {
           </CardHeader>
           <CardContent className="h-80">
             <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={dashboard.data?.revenueByMonth ?? []}>
+              <AreaChart data={isTeam ? (summary?.revenueByPeriod ?? []).map((row) => ({ month: row.period, totalCents: row.totalCents })) : dashboard.data?.revenueByMonth ?? []}>
                 <CartesianGrid strokeDasharray="3 3" />
                 <XAxis dataKey="month" />
                 <YAxis tickFormatter={(value) => money(Number(value)).replace("R$", "")} />
@@ -164,7 +170,7 @@ export default function ReportsPage() {
             <Row label="Eventos ativos" value={dashboard.data?.activeEvents ?? 0} />
             <Row label="Eventos encerrados" value={dashboard.data?.closedEvents ?? 0} />
             <Row label="Taxas acumuladas" value={money(dashboard.data?.totalFeesCents)} />
-            <Row label="Total sacado" value={money(finance.data?.withdrawnCents)} />
+            {!isTeam && <Row label="Total sacado" value={money(finance.data?.withdrawnCents)} />}
           </CardContent>
         </Card>
       </div>
