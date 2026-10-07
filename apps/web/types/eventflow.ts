@@ -15,6 +15,8 @@ export type TicketType = {
   salesEndQuantity?: number;
   limitPerBuy: number;
   isActive: boolean;
+  /** Quando o lote ficou à venda pela primeira vez; null/ausente = ainda não abriu. */
+  openedAt?: string | null;
 };
 
 export type FaqItem = {

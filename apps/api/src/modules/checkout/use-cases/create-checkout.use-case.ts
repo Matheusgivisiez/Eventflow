@@ -10,6 +10,7 @@ import { isPerfDiagnosticsEnabled, PhaseTimer } from "../../../common/diagnostic
 import { BusinessMetricsService } from "../../observability/business-metrics.service";
 import type { CreateCheckoutDto } from "../dto/create-checkout.dto";
 import { hasReachedSalesEnd } from "../sales-limit";
+import { getVisibleTicketLots, markOpenedLots } from "../ticket-lots";
 
 const PLATFORM_FEE_RATE = 0.08;
 
@@ -197,6 +198,7 @@ export class CreateCheckoutUseCase {
       if (timer) {
         this.logger.log(`checkout.tx order=${createdOrder.id} hotRowWritesLast=${hotRowWritesLast} ${timer.format()}`);
       }
+      await this.markOpenedLots(event);
       return createdOrder;
     } catch (error) {
       if (timer) {
@@ -449,44 +451,21 @@ export class CreateCheckoutUseCase {
   }
 
   private getVisibleTicketLots(ticketTypes: CheckoutEvent["ticketTypes"], now: Date) {
-    const orderedLots = [...ticketTypes]
-      .filter((ticketType) => ticketType.isActive)
-      .sort((a, b) => a.startsAt.getTime() - b.startsAt.getTime() || (a.createdAt?.getTime() ?? 0) - (b.createdAt?.getTime() ?? 0));
+    return getVisibleTicketLots(ticketTypes, now);
+  }
 
-    const visibleLots: Array<{
-      ticketType: CheckoutEvent["ticketTypes"][number];
-      status: "past" | "current";
-      availableQuantity: number;
-    }> = [];
-    let cumulativeQuantity = 0;
-    let cumulativeSold = 0;
-    // O 1º lote só abre no horário programado (startsAt). Os seguintes abrem no próprio
-    // horário ou antes, assim que o lote anterior esgota ou encerra (virada de lote).
-    let previousLotsClosed = false;
-
-    for (const ticketType of orderedLots) {
-      cumulativeQuantity += ticketType.quantity;
-      cumulativeSold += ticketType.sold;
-
-      const availableQuantity = Math.max(0, cumulativeQuantity - cumulativeSold);
-      const hasStarted = now >= ticketType.startsAt;
-      const hasEnded = now > ticketType.endsAt;
-      const soldOut = availableQuantity <= 0 || hasReachedSalesEnd(ticketType.sold, ticketType.salesEndQuantity);
-      const canOpen = (hasStarted || previousLotsClosed) && !hasEnded && !soldOut;
-
-      if (canOpen) {
-        visibleLots.push({ ticketType, status: "current", availableQuantity });
-        break;
-      }
-
-      if (hasStarted || hasEnded || soldOut) {
-        visibleLots.push({ ticketType, status: "past", availableQuantity: 0 });
-      }
-
-      previousLotsClosed = hasEnded || soldOut;
+  /**
+   * Marca os lotes que esta reserva deixou abertos (ver markOpenedLots). Roda depois do
+   * COMMIT, fora da transação, para não segurar o lock do lote e enxergar o estoque já
+   * confirmado. Falha aqui não pode derrubar um pedido que já foi criado.
+   */
+  private async markOpenedLots(event: CheckoutEvent) {
+    if (event.ticketTypes.every((ticketType) => !ticketType.isActive || ticketType.openedAt)) return;
+    try {
+      await markOpenedLots(this.prisma, event.id);
+    } catch (error) {
+      this.logger.warn(`checkout.markOpenedLots failed event=${event.id} error=${(error as Error)?.message}`);
     }
-
-    return visibleLots;
   }
 
   private createOrderAccessToken() {

@@ -65,6 +65,32 @@ function buildLotLabels(orderedNames: string[]): (string | null)[] {
   });
 }
 
+/**
+ * Lote que já esteve à venda. A API grava `openedAt` quando o lote abre; `sold > 0`
+ * cobre lotes anteriores a esse campo, já que só um lote aberto recebe reserva.
+ */
+function wasLotOpened(ticket: TicketType) {
+  return ticket.openedAt != null || ticket.sold > 0;
+}
+
+/**
+ * Quais lotes aparecem na venda e quais estão abertos agora.
+ *
+ * Os lotes abrem em fila: o 1º só no horário programado (startsAt); os seguintes no
+ * próprio horário ou antes, assim que o anterior esgota ou encerra (virada de lote).
+ *
+ * Lote que já abriu não fecha mais por causa de um lote anterior. Se um ingresso
+ * volta ao lote anterior (pedido vencido ou cancelado), os dois ficam à venda juntos:
+ * o anterior com o saldo que voltou e o seguinte como estava. Quando o saldo devolvido
+ * é vendido, o lote anterior volta a esgotado.
+ *
+ * O saldo é acumulado (lote encerrado por data leva o saldo para o seguinte), então
+ * cada lote aberto desconta o que os lotes abertos antes dele já estão oferecendo,
+ * para o mesmo ingresso não ser oferecido em dois lotes.
+ *
+ * Mantenha igual a apps/api/src/modules/checkout/ticket-lots.ts (o checkout valida
+ * com a mesma regra).
+ */
 export function getVisibleTicketLots(ticketTypes: TicketType[], now = new Date()): VisibleTicketLot[] {
   const orderedLots = ticketTypes
     .filter((ticket) => ticket.isActive)
@@ -75,9 +101,9 @@ export function getVisibleTicketLots(ticketTypes: TicketType[], now = new Date()
   const visibleLots: VisibleTicketLot[] = [];
   let cumulativeQuantity = 0;
   let cumulativeSold = 0;
-  // O 1º lote só abre no horário programado (startsAt). Os seguintes abrem no próprio
-  // horário ou antes, assim que o lote anterior esgota ou encerra (virada de lote).
+  let offeredByOpenLots = 0;
   let previousLotsClosed = false;
+  let hasCurrentLot = false;
 
   // lotNumber = posição cronológica (startsAt), nunca a posição no array da API,
   // que pode vir ordenado por preço (empate de preço => ordem aleatória).
@@ -86,23 +112,27 @@ export function getVisibleTicketLots(ticketTypes: TicketType[], now = new Date()
     cumulativeQuantity += ticket.quantity;
     cumulativeSold += ticket.sold;
 
-    const available = Math.max(0, cumulativeQuantity - cumulativeSold);
+    const available = Math.max(0, cumulativeQuantity - cumulativeSold - offeredByOpenLots);
     const hasStarted = now >= new Date(ticket.startsAt);
     const hasEnded = now > new Date(ticket.endsAt);
     const reachedSalesLimit = typeof ticket.salesEndQuantity === "number" && ticket.sold >= ticket.salesEndQuantity;
     const soldOut = available <= 0 || reachedSalesLimit;
-    const canOpen = (hasStarted || previousLotsClosed) && !hasEnded && !soldOut;
+    const closed = hasEnded || soldOut;
+    const alreadyOpened = wasLotOpened(ticket);
+    // Com um lote anterior à venda, só continua aberto quem já tinha aberto;
+    // lote que nunca abriu espera a vez na fila.
+    const opens = hasCurrentLot ? alreadyOpened : hasStarted || previousLotsClosed;
+    const lot = { ticket, lotNumber: position + 1, lotLabel: lotLabels[position] };
 
-    if (canOpen) {
-      visibleLots.push({ ticket, status: "current", available, lotNumber: position + 1, lotLabel: lotLabels[position] });
-      break;
+    if (opens && !closed) {
+      visibleLots.push({ ...lot, status: "current", available });
+      offeredByOpenLots += available;
+      hasCurrentLot = true;
+    } else if (hasCurrentLot ? alreadyOpened : hasStarted || closed) {
+      visibleLots.push({ ...lot, status: "past", available: 0 });
     }
 
-    if (hasStarted || hasEnded || soldOut) {
-      visibleLots.push({ ticket, status: "past", available: 0, lotNumber: position + 1, lotLabel: lotLabels[position] });
-    }
-
-    previousLotsClosed = hasEnded || soldOut;
+    previousLotsClosed = closed;
   }
 
   return visibleLots;

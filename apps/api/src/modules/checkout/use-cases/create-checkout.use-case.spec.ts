@@ -107,6 +107,11 @@ function createService(eventFactory: () => ReturnType<typeof createEvent> = () =
   const prisma = {
     event: tx.event,
     order: tx.order,
+    // Leitura pós-COMMIT que marca os lotes abertos (markOpenedLots).
+    ticketType: {
+      findMany: jest.fn(async () => eventFactory().ticketTypes as any[]),
+      updateMany: jest.fn().mockResolvedValue({ count: 1 }),
+    },
     $transaction: jest.fn((callback) => callback(tx)),
   };
   const coupons = {
@@ -114,7 +119,7 @@ function createService(eventFactory: () => ReturnType<typeof createEvent> = () =
   };
   const service = new CreateCheckoutUseCase(prisma as any, coupons as any);
 
-  return { service, tx, orders, getSold: () => sold };
+  return { service, tx, prisma, orders, getSold: () => sold };
 }
 
 describe("CreateCheckoutUseCase stock reservation (legacy write order, CHECKOUT_HOT_ROW_WRITES_LAST=false)", () => {
@@ -464,6 +469,101 @@ describe("CreateCheckoutUseCase default write order (hot-row writes last)", () =
         }),
       }),
     );
+  });
+
+  describe("ticket returned to a sold-out lot after the next lot opened", () => {
+    const lots = (firstSold: number, secondSold: number, secondOpenedAt: Date | null = null) => {
+      const event = createEvent(0);
+      event.ticketTypes = [
+        {
+          ...event.ticketTypes[0],
+          id: "ticket-type-1",
+          name: "Lote no escuro",
+          quantity: 50,
+          sold: firstSold,
+          startsAt: new Date(Date.now() - 60_000),
+          endsAt: new Date(Date.now() + 120_000),
+        },
+        {
+          ...event.ticketTypes[0],
+          id: "ticket-type-2",
+          name: "1º Lote",
+          quantity: 130,
+          sold: secondSold,
+          priceCents: 15000,
+          startsAt: new Date(Date.now() + 60_000),
+          endsAt: new Date(Date.now() + 120_000),
+          openedAt: secondOpenedAt,
+        } as any,
+      ];
+      return event;
+    };
+    const buy = (service: CreateCheckoutUseCase, ticketTypeId: string, quantity = 1) =>
+      service.execute("eventflow-conf", { ...createDto(), items: [{ ticketTypeId, quantity }] } as any);
+
+    it("keeps selling the next lot", async () => {
+      const { service, tx } = createService(() => lots(49, 5));
+
+      await buy(service, "ticket-type-2");
+
+      expect(tx.order.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({ items: { create: [expect.objectContaining({ ticketTypeId: "ticket-type-2", quantity: 1 })] } }),
+        }),
+      );
+    });
+
+    it("keeps selling the next lot even when it opened but has no sale yet", async () => {
+      const { service, tx } = createService(() => lots(49, 0, new Date(Date.now() - 30_000)));
+
+      await buy(service, "ticket-type-2");
+
+      expect(tx.order.create).toHaveBeenCalledTimes(1);
+    });
+
+    it("sells the returned ticket in the earlier lot at that lot's price", async () => {
+      const { service, tx } = createService(() => lots(49, 5));
+
+      await buy(service, "ticket-type-1");
+
+      expect(tx.order.create).toHaveBeenCalledWith(
+        expect.objectContaining({ data: expect.objectContaining({ subtotalCents: 10000 }) }),
+      );
+    });
+
+    it("does not sell more than what came back to the earlier lot", async () => {
+      const { service, tx } = createService(() => lots(49, 5));
+
+      await expect(buy(service, "ticket-type-1", 2)).rejects.toThrow("Não há ingressos suficientes para Lote no escuro.");
+      expect(tx.order.create).not.toHaveBeenCalled();
+    });
+
+    it("keeps a lot that never opened closed while the earlier lot still has tickets", async () => {
+      const { service } = createService(() => lots(49, 0));
+
+      await expect(buy(service, "ticket-type-2")).rejects.toThrow("Lote de ingresso indisponível.");
+    });
+
+    it("marks the next lot as opened when the checkout sells out the current lot", async () => {
+      const { service, prisma } = createService(() => lots(49, 0));
+      // Estado já confirmado no banco depois desta compra: o lote no escuro esgotou.
+      prisma.ticketType.findMany.mockResolvedValueOnce(lots(50, 0).ticketTypes as any[]);
+
+      await buy(service, "ticket-type-1");
+
+      expect(prisma.ticketType.updateMany).toHaveBeenCalledWith({
+        where: { id: { in: ["ticket-type-2"] }, openedAt: null },
+        data: { openedAt: expect.any(Date) },
+      });
+    });
+
+    it("does not fail the order when marking the opened lots fails", async () => {
+      const { service, prisma, tx } = createService(() => lots(49, 0));
+      prisma.ticketType.findMany.mockRejectedValueOnce(new Error("db down"));
+
+      await expect(buy(service, "ticket-type-1")).resolves.toBeDefined();
+      expect(tx.order.create).toHaveBeenCalledTimes(1);
+    });
   });
 
   it("defers the coupon reservation until after the order is created and still enforces the limit", async () => {

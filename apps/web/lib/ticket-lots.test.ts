@@ -150,3 +150,64 @@ describe("getCurrentLotPriceCents", () => {
     assert.equal(getCurrentLotPriceCents([priced("gratis", "2026-10-07T12:00:00Z", 0, 10, 0)], now), 0);
   });
 });
+
+describe("ingresso que volta para um lote esgotado", () => {
+  const now = new Date("2026-10-07T23:30:00Z");
+  const sized = (id: string, startsAt: string, quantity: number, sold: number, extra: Partial<TicketType> = {}) =>
+    ({ id, name: id, isActive: true, quantity, sold, priceCents: 100, startsAt, endsAt: "2099-01-01T00:00:00Z", limitPerBuy: 5, ...extra }) as unknown as TicketType;
+  const state = (lots: TicketType[]) => getVisibleTicketLots(lots, now).map(({ ticket, status, available }) => [ticket.id, status, available]);
+
+  it("mantém o lote seguinte aberto e oferece o ingresso devolvido no lote anterior", () => {
+    const lots = [sized("escuro", "2026-10-07T18:00:00Z", 50, 49), sized("lote-1", "2026-10-20T12:00:00Z", 130, 5)];
+    assert.deepEqual(state(lots), [
+      ["escuro", "current", 1],
+      ["lote-1", "current", 125]
+    ]);
+  });
+
+  it("volta a esgotado assim que o ingresso devolvido é vendido", () => {
+    const lots = [sized("escuro", "2026-10-07T18:00:00Z", 50, 50), sized("lote-1", "2026-10-20T12:00:00Z", 130, 5)];
+    assert.deepEqual(state(lots), [
+      ["escuro", "past", 0],
+      ["lote-1", "current", 125]
+    ]);
+  });
+
+  it("mantém aberto o lote seguinte que abriu mas ainda não vendeu nada", () => {
+    const opened = sized("lote-1", "2026-10-20T12:00:00Z", 130, 0, { openedAt: "2026-10-07T22:00:00Z" });
+    assert.deepEqual(state([sized("escuro", "2026-10-07T18:00:00Z", 50, 49), opened]), [
+      ["escuro", "current", 1],
+      ["lote-1", "current", 130]
+    ]);
+  });
+
+  it("não abre um lote seguinte que nunca abriu enquanto o anterior tem ingresso", () => {
+    const lots = [sized("escuro", "2026-10-07T18:00:00Z", 50, 49), sized("lote-1", "2026-10-07T18:00:00Z", 130, 0)];
+    assert.deepEqual(state(lots), [["escuro", "current", 1]]);
+  });
+
+  it("mostra esgotado o lote do meio e mantém o último aberto, sem abrir o que ainda não abriu", () => {
+    const lots = [
+      sized("escuro", "2026-10-07T18:00:00Z", 50, 49),
+      sized("lote-1", "2026-10-08T12:00:00Z", 130, 130),
+      sized("lote-2", "2026-10-09T12:00:00Z", 170, 2),
+      sized("lote-3", "2026-10-10T12:00:00Z", 150, 0)
+    ];
+    assert.deepEqual(state(lots), [
+      ["escuro", "current", 1],
+      ["lote-1", "past", 0],
+      ["lote-2", "current", 168]
+    ]);
+  });
+
+  it("nunca oferece mais ingressos do que o saldo total dos lotes", () => {
+    const lots = [sized("escuro", "2026-10-07T18:00:00Z", 50, 47), sized("lote-1", "2026-10-20T12:00:00Z", 130, 130), sized("lote-2", "2026-10-21T12:00:00Z", 170, 10)];
+    const offered = getCurrentTicketLots(lots, now).reduce((sum, { available }) => sum + available, 0);
+    assert.equal(offered, 50 + 130 + 170 - (47 + 130 + 10));
+  });
+
+  it("anuncia o preço do ingresso devolvido enquanto ele está à venda", () => {
+    const lots = [sized("escuro", "2026-10-07T18:00:00Z", 50, 49, { priceCents: 4500 }), sized("lote-1", "2026-10-20T12:00:00Z", 130, 5, { priceCents: 5500 })];
+    assert.equal(getCurrentLotPriceCents(lots, now), 4500);
+  });
+});

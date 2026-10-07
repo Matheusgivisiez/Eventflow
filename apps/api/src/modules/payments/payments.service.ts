@@ -14,6 +14,7 @@ import { NotificationsService } from "../notifications/notifications.service";
 import { GoogleWalletService } from "../wallet/google-wallet.service";
 import { getQrCodeReleaseTime, isQrCodeLocked } from "../../common/utils/qr-code.utils";
 import { isCourtesy } from "../../common/utils/ticket-origin";
+import { markOpenedLots } from "../checkout/ticket-lots";
 
 class LatePaymentWithoutStockError extends Error {}
 
@@ -294,6 +295,7 @@ export class PaymentsService {
       if (outcome === "revived") {
         this.logger.warn(`Pagamento tardio ${paymentId}: pedido vencido reativado e será emitido.`);
         this.metrics?.increment("eventflow_late_payments_total", { result: "revived" });
+        await this.markOpenedLotsAfterRevival(paymentId);
         return true;
       }
       this.logger.warn(`Pagamento tardio ${paymentId} ignorado: pedido não estava vencido (${outcome}).`);
@@ -514,6 +516,20 @@ export class PaymentsService {
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       this.logger.error(`Falha ao notificar a compra aprovada do pedido ${orderId}: ${message}`);
+    }
+  }
+
+  /**
+   * A reativação reserva estoque de novo e pode ser o que esgota o lote e abre o
+   * seguinte: grava a marca de abertura como o checkout faz. Falha aqui não pode
+   * impedir a emissão de um pedido que já foi pago.
+   */
+  private async markOpenedLotsAfterRevival(paymentId: string) {
+    try {
+      const payment = await this.prisma.payment.findUnique({ where: { id: paymentId }, select: { eventId: true } });
+      if (payment) await markOpenedLots(this.prisma, payment.eventId);
+    } catch (error) {
+      this.logger.warn(`Pagamento tardio ${paymentId}: falha ao marcar lotes abertos (${(error as Error)?.message}).`);
     }
   }
 

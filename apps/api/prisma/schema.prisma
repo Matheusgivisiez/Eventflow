@@ -456,6 +456,9 @@ model TicketType {
   salesEndQuantity Int?
   limitPerBuy Int         @default(5)
   isActive    Boolean     @default(true)
+  /// Momento em que o lote ficou à venda pela primeira vez. Lote que já abriu não
+  /// fecha de novo quando um ingresso volta ao lote anterior (ver checkout/ticket-lots.ts).
+  openedAt    DateTime?
   /// Lotes de venda são sempre SALE. Os demais são tipos internos de cortesia:
   /// nunca ficam à venda, não têm estoque e não aparecem como lote.
   origin      TicketOrigin @default(SALE)
