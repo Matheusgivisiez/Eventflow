@@ -9,8 +9,9 @@ jest.mock("sharp", () =>
   }))
 );
 
-import { PaymentStatus, TicketStatus } from "@prisma/client";
+import { PaymentStatus, TicketOrigin, TicketStatus } from "@prisma/client";
 import { BuyerService } from "./buyer.service";
+import { transferTicketDownloadToken } from "../../common/utils/transfer-ticket-download";
 
 const now = new Date("2026-09-04T15:00:00.000Z");
 
@@ -55,9 +56,11 @@ function createService() {
     ticket: {
       findMany: jest.fn(),
       findFirst: jest.fn(),
+      findUnique: jest.fn(),
       updateMany: jest.fn(),
     },
     ticketType: { updateMany: jest.fn() },
+    transfer: { findFirst: jest.fn() },
     seat: { updateMany: jest.fn() },
     seatReservation: { updateMany: jest.fn() },
     $transaction: jest.fn((callback) => callback(prisma)),
@@ -74,6 +77,40 @@ function createService() {
 
   return { service, prisma, cache };
 }
+
+describe("transfer email PDF download", () => {
+  it("serves the ticket only while the email recipient still owns it", async () => {
+    const { service, prisma } = createService();
+    const ticket = createTicket({ ownerId: "receiver-1" });
+    prisma.transfer.findFirst.mockResolvedValue({
+      id: "transfer-1", ticketId: "ticket-1", receiverId: "receiver-1", ticket,
+    });
+    (service as any).config = { get: () => "secret" };
+    const token = transferTicketDownloadToken("secret", "transfer-1", "ticket-1", "receiver-1");
+    const render = jest.spyOn(service, "renderTicketPdfFor").mockResolvedValue(Buffer.from("%PDF-test"));
+
+    await expect(service.transferredTicketPdf("transfer-1", token)).resolves.toEqual(Buffer.from("%PDF-test"));
+    expect(render).toHaveBeenCalledWith(ticket);
+
+    ticket.ownerId = "receiver-2";
+    await expect(service.transferredTicketPdf("transfer-1", token)).rejects.toThrow("Ingresso não encontrado");
+    await expect(service.transferredTicketPdf("transfer-1", "invalid")).rejects.toThrow("Ingresso não encontrado");
+  });
+});
+
+describe("VIP PDF visual routing", () => {
+  it("uses gold only for a platform courtesy on the authenticated download", async () => {
+    const { service, prisma } = createService();
+    const render = jest.spyOn(service as any, "renderTicketPdf").mockResolvedValue(Buffer.from("%PDF"));
+    prisma.ticket.findFirst.mockResolvedValueOnce(createTicket({ origin: TicketOrigin.PLATFORM_COURTESY }));
+    await service.ticketPdf("user-1", "buyer@example.com", "ticket-1");
+    expect(render).toHaveBeenLastCalledWith(expect.objectContaining({ vip: true }));
+
+    prisma.ticket.findFirst.mockResolvedValueOnce(createTicket({ origin: TicketOrigin.ORGANIZER_COURTESY }));
+    await service.ticketPdf("user-1", "buyer@example.com", "ticket-1");
+    expect(render).toHaveBeenLastCalledWith(expect.objectContaining({ vip: false }));
+  });
+});
 
 describe("BuyerService.listTickets", () => {
   beforeEach(() => {
@@ -433,5 +470,21 @@ describe("BuyerService.listTickets", () => {
       where: expect.objectContaining({ id: "ticket-1" }),
       include: { event: true, ticketType: true, order: true },
     }));
+  });
+
+  it("still downloads a PDF with a protected placeholder before QR release", async () => {
+    const { service, prisma } = createService();
+    prisma.ticket.findFirst.mockResolvedValue(createTicket({
+      qrCodeDataUrl: null,
+      event: {
+        title: "Evento futuro",
+        startsAt: new Date("2030-10-22T23:00:00.000Z"),
+        qrCodeReleaseAt: new Date("2030-10-22T22:00:00.000Z"),
+        qrCodeReleaseMinutesBeforeStart: null,
+      },
+    }));
+
+    const pdf = await service.ticketPdf("user-1", "buyer@example.com", "ticket-1");
+    expect(pdf.subarray(0, 5).toString()).toBe("%PDF-");
   });
 });

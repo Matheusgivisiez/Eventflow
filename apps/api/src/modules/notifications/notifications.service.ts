@@ -1,6 +1,7 @@
 import { Injectable, Logger } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
-import { NotificationEvent, NotificationStatus, NotificationType, Prisma } from "@prisma/client";
+import { transferTicketDownloadToken } from "../../common/utils/transfer-ticket-download";
+import { NotificationEvent, NotificationStatus, NotificationType, Prisma, TicketOrigin } from "@prisma/client";
 import { MailAttachment, MailService } from "../../common/services/mail.service";
 import { PrismaService } from "../../prisma/prisma.service";
 import { renderPurchaseConfirmed } from "./templates/purchase-confirmed.template";
@@ -34,6 +35,7 @@ export type PurchaseApprovedInput = {
   qrCodeReleaseAt: Date | null;
   /** Pedido de total zero: o e-mail fala em inscrição, não em pagamento. */
   free?: boolean;
+  origin?: TicketOrigin;
   /** Ingresso de cortesia: o e-mail fala em convite, não em compra nem inscrição. */
   courtesy?: boolean;
   tickets: Array<{
@@ -298,6 +300,7 @@ export class NotificationsService {
       createAccountUrl: this.appUrl("/register"),
       free: input.free,
       courtesy: input.courtesy,
+      vipInvite: input.origin === TicketOrigin.PLATFORM_COURTESY ? { invitedBy: "Event Flow" } : undefined,
       qrCodeLocked: input.qrCodeLocked,
       qrCodeReleaseAt: input.qrCodeReleaseAt,
       logoLightUrl: this.appUrl("/images/eventflow-logo-purple-black.png"),
@@ -324,7 +327,9 @@ export class NotificationsService {
     const email = await this.send({
       userId: input.userId,
       type: NotificationType.EMAIL,
-      event: NotificationEvent.PURCHASE_CONFIRMED,
+      event: input.origin === TicketOrigin.PLATFORM_COURTESY
+        ? NotificationEvent.VIP_TICKET_GRANTED
+        : NotificationEvent.PURCHASE_CONFIRMED,
       recipient: input.email,
       payload,
       dedupeKey: `${PURCHASE_CONFIRMED_DEDUPE_PREFIX}${input.orderId}`,
@@ -377,10 +382,7 @@ export class NotificationsService {
           attendeeName: input.ticket.attendeeName,
           ticketTypeName: input.ticket.ticketTypeName,
           shortCode: input.ticket.shortCode,
-          // Receiver is an authenticated user, not a guest with an
-          // order-access token — send them to their own ticket list
-          // rather than a bare, unauthenticated API download link.
-          pdfUrl: myTicketsUrl,
+          pdfUrl: this.transferTicketPdfUrl(input.transferId, input.ticket.id, input.userId!),
           qrImageSrc: qr.srcByTicketId.get(input.ticket.id)
         }
       ]
@@ -473,4 +475,12 @@ export class NotificationsService {
     const query = params.toString();
     return `${this.apiUrl(`/checkout/order/${orderId}/tickets/${ticketId}/pdf`)}${query ? `?${query}` : ""}`;
   }
+
+  private transferTicketPdfUrl(transferId: string, ticketId: string, receiverId: string) {
+    const secret = this.config.get<string>("QR_CODE_SECRET");
+    if (!secret || !receiverId) throw new Error("Destinatário ou chave de ingresso indisponível.");
+    const token = transferTicketDownloadToken(secret, transferId, ticketId, receiverId);
+    return `${this.apiUrl(`/transfer-ticket-download/${transferId}`)}?token=${token}`;
+  }
+
 }

@@ -65,7 +65,7 @@ export class NotificationRetryService implements OnModuleInit, OnModuleDestroy {
       const stuck = await this.prisma.notificationLog.findMany({
         where: {
           type: NotificationType.EMAIL,
-          event: NotificationEvent.PURCHASE_CONFIRMED,
+          event: { in: [NotificationEvent.PURCHASE_CONFIRMED, NotificationEvent.VIP_TICKET_GRANTED] },
           dedupeKey: { startsWith: PURCHASE_CONFIRMED_DEDUPE_PREFIX },
           sentAt: { gte: ageCutoff },
           // Exhausted rows would otherwise fill every batch forever and starve
@@ -101,7 +101,7 @@ export class NotificationRetryService implements OnModuleInit, OnModuleDestroy {
       }
 
       if (retried) {
-        this.logger.log(`${retried} confirmacao(oes) de compra reprocessada(s).`);
+        this.logger.log(`${retried} notificacao(oes) de ingresso reprocessada(s).`);
       }
 
       return { retried, skipped: false };

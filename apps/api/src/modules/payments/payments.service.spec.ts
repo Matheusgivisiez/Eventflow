@@ -388,11 +388,11 @@ describe("PaymentsService purchase confirmation", () => {
 
     prisma.order.findUnique.mockResolvedValue(createPaidOrder({ origin: "PLATFORM_COURTESY", totalCents: 0 }));
     await service.dispatchPurchaseConfirmed("order-1");
-    expect(notifications.sendPurchaseApproved).toHaveBeenLastCalledWith(expect.objectContaining({ courtesy: true, free: true, orderId: "order-1" }));
+    expect(notifications.sendPurchaseApproved).toHaveBeenLastCalledWith(expect.objectContaining({ courtesy: true, free: true, origin: "PLATFORM_COURTESY", orderId: "order-1" }));
 
     prisma.order.findUnique.mockResolvedValue(createPaidOrder({ origin: "SALE", totalCents: 5500 }));
     await service.dispatchPurchaseConfirmed("order-1");
-    expect(notifications.sendPurchaseApproved).toHaveBeenLastCalledWith(expect.objectContaining({ courtesy: false, free: false }));
+    expect(notifications.sendPurchaseApproved).toHaveBeenLastCalledWith(expect.objectContaining({ courtesy: false, free: false, origin: "SALE" }));
   });
 
   it("still notifies when the payment reaches the funnel already paid", async () => {

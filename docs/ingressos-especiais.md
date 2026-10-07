@@ -9,12 +9,14 @@ Ingressos emitidos sem venda. Existem duas origens, com a mesma mecânica e visi
 | Onde | Painel admin, aba "Convidados VIP" | Página do evento, botão "Cortesias" |
 | Organizador enxerga | Não, em nenhuma tela | Sim, em contagem separada das vendas |
 | Nome padrão no ingresso | Convidado VIP | Cortesia |
+| E-mail e PDF | Convite Premium em preto e dourado discreto | Modelo padrão em roxo |
 
 Todo ingresso vendido tem origem `SALE`.
 
 ## O que vale para as duas origens
 
 - O convidado recebe o ingresso por e-mail, com QR Code. Não precisa de conta: o link do e-mail abre o ingresso.
+- O botão "Baixar PDF" no e-mail baixa diretamente o arquivo pela rota `GET /checkout/order/:orderId/tickets/:ticketId/pdf?accessToken=...`, sem redirecionar para o site. O token limita o acesso ao pedido e expira conforme a regra do checkout.
 - A portaria valida como qualquer ingresso, com uso único.
 - O ingresso é nominal: não pode ser transferido. Para trocar o titular, cancele e emita outro.
 - Não há cobrança: o pedido é de valor zero, sem `Payment` e sem lançamento no extrato. Também não há reembolso.
@@ -74,3 +76,5 @@ Corpo da emissão:
 ## Banco
 
 Migration `20261007170000_ticket_origin_courtesy`: cria o enum `TicketOrigin` e adiciona `origin` (padrão `SALE`) em `TicketType`, `Order` e `Ticket`, além de `Order.issuedById`. Só acrescenta colunas com valor padrão, então o código anterior continua funcionando contra o banco novo.
+
+Migration `20261007171500_vip_ticket_granted_notification`: adiciona `VIP_TICKET_GRANTED` ao enum `NotificationEvent`. O e-mail VIP usa esse evento; vendas e cortesias do organizador continuam usando `PURCHASE_CONFIRMED`. Ambos usam a mesma chave de deduplicação por pedido e entram na rotina de retentativa.

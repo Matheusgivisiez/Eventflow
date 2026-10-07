@@ -43,7 +43,7 @@ describe("NotificationRetryService", () => {
 
     const where = prisma.notificationLog.findMany.mock.calls[0][0].where;
     expect(where.type).toBe(NotificationType.EMAIL);
-    expect(where.event).toBe(NotificationEvent.PURCHASE_CONFIRMED);
+    expect(where.event).toEqual({ in: [NotificationEvent.PURCHASE_CONFIRMED, NotificationEvent.VIP_TICKET_GRANTED] });
     expect(where.OR).toEqual([
       { status: NotificationStatus.FAILED },
       {
@@ -65,6 +65,16 @@ describe("NotificationRetryService", () => {
 
     const where = prisma.notificationLog.findMany.mock.calls[0][0].where;
     expect(where.attempts).toEqual({ lt: 5 });
+  });
+
+  it("retries a VIP invitation through the same delivery funnel", async () => {
+    const { service, prisma, payments } = createService();
+    prisma.notificationLog.findMany.mockResolvedValue([stuckRow({ event: NotificationEvent.VIP_TICKET_GRANTED })]);
+
+    const result = await service.retryStuckNotifications(now);
+
+    expect(payments.dispatchPurchaseConfirmed).toHaveBeenCalledWith("order-1");
+    expect(result.retried).toBe(1);
   });
 
   it("ignores rows older than a week", async () => {
