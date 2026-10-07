@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { getCurrentLotPriceCents, getCurrentTicketLots, getUpcomingTicketLot, getVisibleTicketLots } from "./ticket-lots";
+import { getCurrentLotPriceCents, getCurrentTicketLots, getLotNumberFromName, getUpcomingTicketLot, getVisibleTicketLots } from "./ticket-lots";
 import type { TicketType } from "@/types/eventflow";
 
 const lot = (id: string, startsAt: string, sold = 0) =>
@@ -13,6 +13,66 @@ describe("getVisibleTicketLots", () => {
     const lots = getVisibleTicketLots([lot("lote-2", "2026-09-17T12:00:00Z"), lot("lote-1", "2026-09-16T12:00:00Z")], now);
     assert.equal(lots[0].ticket.id, "lote-1");
     assert.equal(lots[0].lotNumber, 1);
+  });
+});
+
+describe("etiqueta do lote", () => {
+  const now = new Date("2026-10-07T23:00:00Z");
+  const named = (name: string, startsAt: string, sold = 0) => ({ ...lot(name, startsAt, sold), name }) as TicketType;
+  const labels = (lots: TicketType[]) => getVisibleTicketLots(lots, now).map(({ ticket, lotLabel }) => [ticket.name, lotLabel]);
+
+  it("lote surpresa não vira 1º lote e o lote chamado 1° LOTE não vira 2º", () => {
+    const lots = [named("LOTE NO ESCURO", "2026-10-07T18:00:00Z", 100), named("1° LOTE", "2026-10-07T21:00:00Z", 3)];
+    assert.deepEqual(labels(lots), [
+      ["LOTE NO ESCURO", null],
+      ["1° LOTE", "1º Lote"]
+    ]);
+  });
+
+  it("segue o número do nome nos lotes seguintes", () => {
+    const lots = [
+      named("LOTE NO ESCURO", "2026-10-07T18:00:00Z", 100),
+      named("1° LOTE", "2026-10-07T21:00:00Z", 100),
+      named("2° LOTE", "2026-10-08T21:00:00Z", 100),
+      named("Lote 3", "2026-10-09T21:00:00Z")
+    ];
+    assert.deepEqual(labels(lots).map(([, label]) => label), [null, "1º Lote", "2º Lote", "3º Lote"]);
+  });
+
+  it("não numera por conta própria quando o produtor já nomeia os lotes", () => {
+    const lots = [named("Promocional", "2026-10-07T18:00:00Z", 100), named("Lote 1", "2026-10-07T21:00:00Z")];
+    assert.deepEqual(labels(lots), [
+      ["Promocional", null],
+      ["Lote 1", "1º Lote"]
+    ]);
+  });
+
+  it("numera pela ordem cronológica quando nenhum nome fala em lote", () => {
+    const lots = [named("Meia", "2026-10-07T21:00:00Z"), named("Pista", "2026-10-07T18:00:00Z", 100)];
+    assert.deepEqual(labels(lots), [
+      ["Pista", "1º Lote"],
+      ["Meia", "2º Lote"]
+    ]);
+  });
+
+  it("lê o número em qualquer grafia usual", () => {
+    const cases: [string, number | null][] = [
+      ["1° LOTE", 1],
+      ["1º Lote", 1],
+      ["2o lote", 2],
+      ["3 lote", 3],
+      ["Lote 4", 4],
+      ["lote-5", 5],
+      ["Lote nº 6", 6],
+      ["Segundo Lote", 2],
+      ["Sétimo lote", 7],
+      ["10º LOTE - PISTA", 10],
+      ["LOTE NO ESCURO", null],
+      ["Lote promocional", null],
+      ["Pista", null],
+      ["Pacote 2", null]
+    ];
+    for (const [name, expected] of cases) assert.equal(getLotNumberFromName(name), expected, name);
   });
 });
 

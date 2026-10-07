@@ -50,7 +50,7 @@ export function TicketSelector({
       )}
 
       <div className="space-y-3">
-        {visibleLots.map(({ ticket, status, available, lotNumber }) => {
+        {visibleLots.map(({ ticket, status, available, lotLabel }) => {
           const isSoldOut = status !== "current";
           const qty = quantities[ticket.id] ?? 0;
           const needsAttention = attentionRequest > 0 && ticket.id === firstSelectableTicketId && qty === 0;
@@ -71,24 +71,29 @@ export function TicketSelector({
                     : "bg-white dark:bg-card hover:border-primary/30 hover:shadow-sm"
               }`}
             >
-              {/* Lote badge */}
-              <div className="flex items-center justify-between mb-3">
-                <Badge
-                  variant="outline"
-                  className={`text-xs font-semibold ${
-                    isSoldOut
-                      ? "border-destructive/40 text-destructive"
-                      : "border-primary/30 text-primary"
-                  }`}
-                >
-                  {`${lotNumber}º Lote`}
-                </Badge>
-                {isSoldOut && (
-                  <Badge variant="destructive" className="text-xs">
-                    Esgotado
-                  </Badge>
-                )}
-              </div>
+              {/* Etiqueta do lote: segue o nome que o produtor deu (ver buildLotLabels) */}
+              {(lotLabel || isSoldOut) && (
+                <div className="flex items-center justify-between mb-3">
+                  {lotLabel && (
+                    <Badge
+                      variant="outline"
+                      data-testid={`ticket-lot-label-${ticket.id}`}
+                      className={`text-xs font-semibold ${
+                        isSoldOut
+                          ? "border-destructive/40 text-destructive"
+                          : "border-primary/30 text-primary"
+                      }`}
+                    >
+                      {lotLabel}
+                    </Badge>
+                  )}
+                  {isSoldOut && (
+                    <Badge variant="destructive" className="ml-auto text-xs">
+                      Esgotado
+                    </Badge>
+                  )}
+                </div>
+              )}
 
               <div className="flex items-start justify-between gap-4">
                 {/* Info */}
