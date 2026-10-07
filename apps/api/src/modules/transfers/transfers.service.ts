@@ -1,12 +1,13 @@
 import { BadRequestException, ForbiddenException, Injectable, NotFoundException, Optional } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
-import { NotificationEvent, NotificationType, Prisma, TicketStatus, TransferStatus, User, UserRole } from "@prisma/client";
+import { NotificationEvent, NotificationType, Prisma, TicketOrigin, TicketStatus, TransferStatus, User, UserRole } from "@prisma/client";
 import * as QRCode from "qrcode";
 import { createHash, createHmac, randomUUID } from "crypto";
 import { resolveClaimEmail } from "../../common/utils/claim-email.utils";
 import { maskEmail, maskName } from "../../common/utils/mask.utils";
 import { getQrCodeReleaseTime, isQrCodeLocked } from "../../common/utils/qr-code.utils";
 import { RequestUser } from "../../common/types/request-user";
+import { isCourtesy } from "../../common/utils/ticket-origin";
 import { PrismaService } from "../../prisma/prisma.service";
 import { AuditService } from "../audit/audit.service";
 import { CacheService } from "../cache/cache.service";
@@ -464,7 +465,12 @@ export class TransfersService {
     return ticket;
   }
 
-  private ensureTicketCanBeTransferred(ticket: { status: TicketStatus; usedAt: Date | null; event: { startsAt: Date; endsAt: Date | null; allowTicketTransfer: boolean; ticketTransferLockTime: Date | null } }) {
+  private ensureTicketCanBeTransferred(ticket: { status: TicketStatus; usedAt: Date | null; origin?: TicketOrigin | null; event: { startsAt: Date; endsAt: Date | null; allowTicketTransfer: boolean; ticketTransferLockTime: Date | null } }) {
+    // Cortesia é nominal: vale só para quem foi convidado. Para trocar o
+    // titular, quem emitiu cancela e emite outro.
+    if (isCourtesy(ticket.origin)) {
+      throw new BadRequestException("Ingressos de cortesia são nominais e não podem ser transferidos.");
+    }
     if (!ticket.event.allowTicketTransfer) {
       throw new BadRequestException("A transferência de ingressos não está permitida para este evento.");
     }

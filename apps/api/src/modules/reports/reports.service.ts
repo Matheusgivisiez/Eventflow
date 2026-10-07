@@ -1,5 +1,6 @@
 import { ForbiddenException, Injectable } from "@nestjs/common";
 import { CheckInStatus, PaymentStatus, Prisma } from "@prisma/client";
+import { ORGANIZER_VISIBLE, SALE_ONLY } from "../../common/utils/ticket-origin";
 import { CacheService } from "../cache/cache.service";
 import { PrismaReadService } from "../../prisma/prisma-read.service";
 import { PrismaService } from "../../prisma/prisma.service";
@@ -54,15 +55,15 @@ export class ReportsService {
     const eventFilter = { tenantId, id: query.eventId || (allowedEventIds ? { in: allowedEventIds } : undefined) };
     const [orders, checkIns, tickets, participants, visitorSessions] = await Promise.all([
       this.prismaRead.order.findMany({
-        where: { event: eventFilter, status: PaymentStatus.PAID, createdAt: dateFilter },
+        where: { event: eventFilter, ...SALE_ONLY, status: PaymentStatus.PAID, createdAt: dateFilter },
         select: { createdAt: true, discountCents: true, feeCents: true, totalCents: true }
       }),
       this.prismaRead.checkInLog.count({
-        where: { status: CheckInStatus.ENTERED, ticket: { event: eventFilter }, createdAt: dateFilter }
+        where: { status: CheckInStatus.ENTERED, ticket: { event: eventFilter, ...ORGANIZER_VISIBLE }, createdAt: dateFilter }
       }),
-      this.prismaRead.ticket.count({ where: { event: eventFilter, createdAt: dateFilter } }),
+      this.prismaRead.ticket.count({ where: { event: eventFilter, ...SALE_ONLY, createdAt: dateFilter } }),
       allowedEventIds ? Promise.resolve([] as ReportParticipant[]) : this.prismaRead.ticket.findMany({
-        where: { event: eventFilter, createdAt: dateFilter },
+        where: { event: eventFilter, ...ORGANIZER_VISIBLE, createdAt: dateFilter },
         include: { event: { select: { title: true } }, ticketType: { select: { name: true, priceCents: true } }, order: { select: { id: true } } },
         take: 5000
       }),

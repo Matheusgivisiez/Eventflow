@@ -38,4 +38,16 @@ describe("renderPurchaseConfirmed copy", () => {
     expect(`${mail.html}${mail.text}`.toLowerCase()).not.toContain("pagamento");
     expect(mail.html).not.toContain("Sua compra foi aprovada");
   });
+
+  it("speaks of an invitation, never of payment, purchase or sign-up, for a courtesy ticket", () => {
+    const mail = renderPurchaseConfirmed(input({ free: true, courtesy: true, tickets: [{ id: "t1", attendeeName: "Convidada", ticketTypeName: "Convidado VIP", shortCode: "A1B2C3D4E5", pdfUrl: "https://app.example/pdf" }] }));
+
+    expect(mail.html).toContain("Convite confirmado");
+    expect(mail.text).toContain("Seu convite foi confirmado");
+    expect(mail.html).toContain("Convidado VIP");
+    const all = `${mail.html}${mail.text}`.toLowerCase();
+    expect(all).not.toContain("pagamento");
+    expect(all).not.toContain("sua compra");
+    expect(all).not.toContain("inscrição");
+  });
 });

@@ -1,5 +1,6 @@
 import { BadRequestException, Injectable, NotFoundException } from "@nestjs/common";
 import { PaymentStatus, WithdrawalStatus } from "@prisma/client";
+import { SALE_ONLY } from "../../common/utils/ticket-origin";
 import { PrismaService } from "../../prisma/prisma.service";
 import { AbacatePayGateway } from "../payments/abacate-pay.gateway";
 import { ApproveWithdrawalDto } from "./dto/approve-withdrawal.dto";
@@ -29,7 +30,7 @@ export class FinanceService {
 
   /** Consulta por evento para colaboradores; não representa saldo disponível para saque. */
   async teamSummary(eventIds: string[]) {
-    const where = { eventId: { in: eventIds }, status: PaymentStatus.PAID };
+    const where = { eventId: { in: eventIds }, ...SALE_ONLY, status: PaymentStatus.PAID };
     const [totals, orders] = await Promise.all([
       this.prisma.order.aggregate({ where, _sum: { totalCents: true, feeCents: true } }),
       this.prisma.order.findMany({

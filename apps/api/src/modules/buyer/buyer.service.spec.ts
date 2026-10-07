@@ -321,6 +321,36 @@ describe("BuyerService.listTickets", () => {
     expect(result.status).toBe("REFUND_REQUESTED");
   });
 
+  it("refuses refunds for courtesy tickets and never touches a lot's stock", async () => {
+    const { service, prisma } = createService();
+    const base = createTicket();
+    prisma.ticket.findFirst.mockResolvedValue(createTicket({
+      origin: "PLATFORM_COURTESY",
+      event: { ...base.event, startsAt: new Date("2026-09-10T20:00:00.000Z"), allowTicketRefund: true, ticketRefundLockHours: 24 },
+    }));
+
+    await expect(
+      service.requestRefund("user-1", "buyer@example.com", "ticket-1", "CONFIRMAR"),
+    ).rejects.toThrow("Ingressos de cortesia não têm reembolso.");
+    expect(prisma.ticket.updateMany).not.toHaveBeenCalled();
+    expect(prisma.ticketType.updateMany).not.toHaveBeenCalled();
+  });
+
+  it("shows a courtesy ticket in the guest wallet as non-refundable and non-transferable", async () => {
+    const { service, prisma } = createService();
+    const base = createTicket();
+    prisma.ticket.findMany.mockResolvedValue([createTicket({
+      origin: "ORGANIZER_COURTESY",
+      event: { ...base.event, startsAt: new Date("2026-09-10T20:00:00.000Z"), allowTicketRefund: true, ticketRefundLockHours: 24 },
+    })]);
+
+    const [ticket] = await service.listTickets("user-1", "buyer@example.com");
+
+    expect(ticket.refundAvailable).toBe(false);
+    expect(ticket.refundBlockedReason).toBe("Ingressos de cortesia não têm reembolso.");
+    expect(ticket.event.allowTicketTransfer).toBe(false);
+  });
+
   it("refuses refunds when the organizer disabled them for the event", async () => {
     const { service, prisma } = createService();
     const base = createTicket();

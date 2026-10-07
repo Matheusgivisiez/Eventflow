@@ -1,5 +1,6 @@
 import { Injectable } from "@nestjs/common";
-import { CheckInStatus, EventStatus, PaymentStatus } from "@prisma/client";
+import { CheckInStatus, EventStatus, PaymentStatus, TicketOrigin } from "@prisma/client";
+import { ORGANIZER_VISIBLE, SALE_ONLY } from "../../common/utils/ticket-origin";
 import { CacheService } from "../cache/cache.service";
 import { PrismaService } from "../../prisma/prisma.service";
 
@@ -49,64 +50,66 @@ export class DashboardService {
       upcomingEvents,
       // Novos compradores esta semana
       newBuyersThisWeek,
-      newBuyersLastWeek
+      newBuyersLastWeek,
+      // Cortesias emitidas pelo próprio organizador (fora das vendas)
+      courtesyByStatus
     ] = await Promise.all([
       this.prisma.order.aggregate({
-        where: { event: { tenantId }, status: PaymentStatus.PAID },
+        where: { event: { tenantId }, ...SALE_ONLY, status: PaymentStatus.PAID },
         _sum: { totalCents: true, feeCents: true },
         _count: true
       }),
-      this.prisma.ticket.count({ where: { event: { tenantId } } }),
+      this.prisma.ticket.count({ where: { event: { tenantId }, ...SALE_ONLY } }),
       this.prisma.event.count({ where: { tenantId, status: EventStatus.PUBLISHED } }),
       this.prisma.event.count({ where: { tenantId, status: EventStatus.CLOSED } }),
       this.prisma.order.findMany({
-        where: { event: { tenantId }, status: PaymentStatus.PAID },
+        where: { event: { tenantId }, ...SALE_ONLY, status: PaymentStatus.PAID },
         select: { createdAt: true, totalCents: true },
         orderBy: { createdAt: "asc" },
         take: 250
       }),
-      this.prisma.order.count({ where: { event: { tenantId }, status: PaymentStatus.PENDING } }),
-      this.prisma.checkInLog.count({ where: { status: CheckInStatus.ENTERED, ticket: { event: { tenantId } } } }),
+      this.prisma.order.count({ where: { event: { tenantId }, ...SALE_ONLY, status: PaymentStatus.PENDING } }),
+      this.prisma.checkInLog.count({ where: { status: CheckInStatus.ENTERED, ticket: { event: { tenantId }, ...ORGANIZER_VISIBLE } } }),
       this.prisma.event.findMany({
         where: { tenantId },
-        select: { id: true, title: true, _count: { select: { tickets: true } } },
+        select: { id: true, title: true, _count: { select: { tickets: { where: ORGANIZER_VISIBLE } } } },
         take: 10,
         orderBy: { startsAt: "desc" }
       }),
       // Weekly revenue current
       this.prisma.order.aggregate({
-        where: { event: { tenantId }, status: PaymentStatus.PAID, createdAt: { gte: startOfWeek } },
+        where: { event: { tenantId }, ...SALE_ONLY, status: PaymentStatus.PAID, createdAt: { gte: startOfWeek } },
         _sum: { totalCents: true }
       }),
       // Weekly revenue previous
       this.prisma.order.aggregate({
-        where: { event: { tenantId }, status: PaymentStatus.PAID, createdAt: { gte: startOfLastWeek, lt: startOfWeek } },
+        where: { event: { tenantId }, ...SALE_ONLY, status: PaymentStatus.PAID, createdAt: { gte: startOfLastWeek, lt: startOfWeek } },
         _sum: { totalCents: true }
       }),
       // Tickets this week
-      this.prisma.ticket.count({ where: { event: { tenantId }, createdAt: { gte: startOfWeek } } }),
+      this.prisma.ticket.count({ where: { event: { tenantId }, ...SALE_ONLY, createdAt: { gte: startOfWeek } } }),
       // Tickets last week
-      this.prisma.ticket.count({ where: { event: { tenantId }, createdAt: { gte: startOfLastWeek, lt: startOfWeek } } }),
+      this.prisma.ticket.count({ where: { event: { tenantId }, ...SALE_ONLY, createdAt: { gte: startOfLastWeek, lt: startOfWeek } } }),
       // Revenue this month
       this.prisma.order.aggregate({
-        where: { event: { tenantId }, status: PaymentStatus.PAID, createdAt: { gte: startOfMonth } },
+        where: { event: { tenantId }, ...SALE_ONLY, status: PaymentStatus.PAID, createdAt: { gte: startOfMonth } },
         _sum: { totalCents: true }
       }),
       // Revenue last month
       this.prisma.order.aggregate({
-        where: { event: { tenantId }, status: PaymentStatus.PAID, createdAt: { gte: startOfLastMonth, lte: endOfLastMonth } },
+        where: { event: { tenantId }, ...SALE_ONLY, status: PaymentStatus.PAID, createdAt: { gte: startOfLastMonth, lte: endOfLastMonth } },
         _sum: { totalCents: true }
       }),
       // Top events revenue via GroupBy to avoid overfetching
       this.prisma.order.groupBy({
         by: ["eventId"],
-        where: { event: { tenantId }, status: PaymentStatus.PAID },
+        where: { event: { tenantId }, ...SALE_ONLY, status: PaymentStatus.PAID },
         _sum: { totalCents: true }
       }),
       // Top events checkins via GroupBy
       this.prisma.ticket.groupBy({
         by: ["eventId"],
-        where: { event: { tenantId }, status: "USED" },
+        where: { event: { tenantId }, ...ORGANIZER_VISIBLE, status: "USED" },
         _count: true
       }),
       // Top events metadata
@@ -117,7 +120,7 @@ export class DashboardService {
           title: true,
           status: true,
           startsAt: true,
-          _count: { select: { tickets: true } }
+          _count: { select: { tickets: { where: SALE_ONLY } } }
         },
         orderBy: { startsAt: "desc" },
         take: 20
@@ -132,13 +135,18 @@ export class DashboardService {
       // New buyers this week
       this.prisma.order.groupBy({
         by: ["buyerEmail"],
-        where: { event: { tenantId }, status: PaymentStatus.PAID, createdAt: { gte: startOfWeek } },
+        where: { event: { tenantId }, ...SALE_ONLY, status: PaymentStatus.PAID, createdAt: { gte: startOfWeek } },
         _count: true
       }),
       // New buyers last week
       this.prisma.order.groupBy({
         by: ["buyerEmail"],
-        where: { event: { tenantId }, status: PaymentStatus.PAID, createdAt: { gte: startOfLastWeek, lt: startOfWeek } },
+        where: { event: { tenantId }, ...SALE_ONLY, status: PaymentStatus.PAID, createdAt: { gte: startOfLastWeek, lt: startOfWeek } },
+        _count: true
+      }),
+      this.prisma.ticket.groupBy({
+        by: ["status"],
+        where: { event: { tenantId }, origin: TicketOrigin.ORGANIZER_COURTESY, status: { not: "CANCELED" } },
         _count: true
       })
     ]);
@@ -180,6 +188,9 @@ export class DashboardService {
       .sort((a, b) => b.revenueCents - a.revenueCents)
       .slice(0, 5);
 
+    const courtesyTickets = courtesyByStatus.reduce((sum, row) => sum + row._count, 0);
+    const courtesyCheckIns = courtesyByStatus.find((row) => row.status === "USED")?._count ?? 0;
+
     const visitorsEstimate = paid._count + pendingOrders + Math.max(40, Math.round((paid._count + pendingOrders) * 1.6));
 
     const result = {
@@ -187,6 +198,9 @@ export class DashboardService {
       totalRevenueCents: paid._sum.totalCents ?? 0,
       totalFeesCents: paid._sum.feeCents ?? 0,
       ticketsSold,
+      // Cortesias do organizador: contadas à parte, nunca como venda.
+      courtesyTickets,
+      courtesyCheckIns,
       activeEvents,
       closedEvents,
       paidOrders: paid._count,

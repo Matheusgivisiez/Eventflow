@@ -5,6 +5,7 @@ import { createHash } from "node:crypto";
 import { CouponsService } from "../../coupons/coupons.service";
 import { PrismaService } from "../../../prisma/prisma.service";
 import { RequestUser } from "../../../common/types/request-user";
+import { SALE_ONLY } from "../../../common/utils/ticket-origin";
 import { isPerfDiagnosticsEnabled, PhaseTimer } from "../../../common/diagnostics/perf-diagnostics";
 import { BusinessMetricsService } from "../../observability/business-metrics.service";
 import type { CreateCheckoutDto } from "../dto/create-checkout.dto";
@@ -74,7 +75,8 @@ export class CreateCheckoutUseCase {
           ...(dto.inviteToken ? [{ isPrivate: true, inviteTokenHash: createHash("sha256").update(dto.inviteToken).digest("hex") }] : [])
         ]
       },
-      include: { ticketTypes: true }
+      // Só lotes de venda. Os tipos internos de cortesia nunca entram no checkout.
+      include: { ticketTypes: { where: SALE_ONLY } }
     });
     timer?.lap("eventLookup");
 

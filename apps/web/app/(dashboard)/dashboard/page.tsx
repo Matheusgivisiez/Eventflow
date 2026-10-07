@@ -27,6 +27,8 @@ type UpcomingEvent = {
 };
 type Dashboard = {
   totalRevenueCents: number; totalFeesCents: number; ticketsSold: number;
+  /** Cortesias emitidas pelo próprio organizador. Fora das vendas. */
+  courtesyTickets?: number; courtesyCheckIns?: number;
   activeEvents: number; closedEvents: number; paidOrders: number;
   pendingOrders: number; checkIns: number; visitorsEstimate: number; conversionRate: number;
   weeklyRevenueCents: number; weeklyRevenueGrowthPct: number;
@@ -124,7 +126,9 @@ export default function DashboardPage() {
 
   // Memoized: these values only change when `data` itself changes
   const netRevenue = useMemo(() => (data?.totalRevenueCents ?? 0) - (data?.totalFeesCents ?? 0), [data]);
-  const checkInRate = useMemo(() => data?.ticketsSold ? Math.round(((data.checkIns ?? 0) / data.ticketsSold) * 100) : 0, [data]);
+  // Público esperado = vendidos + cortesias do organizador. Os check-ins já incluem os dois.
+  const issuedTickets = (data?.ticketsSold ?? 0) + (data?.courtesyTickets ?? 0);
+  const checkInRate = useMemo(() => issuedTickets ? Math.round(((data?.checkIns ?? 0) / issuedTickets) * 100) : 0, [data, issuedTickets]);
   const chartData = useMemo(() => (data?.revenueByMonth ?? []).slice(-6).map((item) => ({
     month: item.month.slice(5),
     totalCents: item.totalCents
@@ -422,9 +426,10 @@ export default function DashboardPage() {
             </div>
             <div className="w-full space-y-3 mt-2">
               {[
-                { label: "Emitidos", value: data?.ticketsSold ?? 0, cls: "" },
+                { label: "Emitidos", value: issuedTickets, cls: "" },
+                ...(data?.courtesyTickets ? [{ label: "dos quais cortesias", value: data.courtesyTickets, cls: "text-muted-foreground" }] : []),
                 { label: "Check-ins", value: data?.checkIns ?? 0, cls: "text-emerald-600 dark:text-emerald-400" },
-                { label: "Ausentes", value: (data?.ticketsSold ?? 0) - (data?.checkIns ?? 0), cls: "text-muted-foreground" }
+                { label: "Ausentes", value: Math.max(0, issuedTickets - (data?.checkIns ?? 0)), cls: "text-muted-foreground" }
               ].map((r) => (
                 <div key={r.label} className="flex justify-between text-sm rounded-xl bg-white/50 dark:bg-black/20 px-4 py-2.5 border border-border/40">
                   <span className="text-muted-foreground font-medium">{r.label}</span>

@@ -13,6 +13,7 @@ import { BusinessMetricsService } from "../observability/business-metrics.servic
 import { NotificationsService } from "../notifications/notifications.service";
 import { GoogleWalletService } from "../wallet/google-wallet.service";
 import { getQrCodeReleaseTime, isQrCodeLocked } from "../../common/utils/qr-code.utils";
+import { isCourtesy } from "../../common/utils/ticket-origin";
 
 class LatePaymentWithoutStockError extends Error {}
 
@@ -500,6 +501,7 @@ export class PaymentsService {
         qrCodeLocked: isQrCodeLocked(order.event),
         qrCodeReleaseAt: getQrCodeReleaseTime(order.event),
         free: order.totalCents === 0,
+        courtesy: isCourtesy(order.origin),
         tickets: order.tickets.map((ticket) => ({
           id: ticket.id,
           attendeeName: ticket.attendeeName,

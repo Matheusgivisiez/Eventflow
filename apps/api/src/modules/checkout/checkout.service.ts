@@ -5,6 +5,7 @@ import { PaymentStatus, TransferStatus } from "@prisma/client";
 import { isPerfDiagnosticsEnabled, PhaseTimer } from "../../common/diagnostics/perf-diagnostics";
 import { RequestUser } from "../../common/types/request-user";
 import { getQrCodeReleaseTime, isQrCodeLocked } from "../../common/utils/qr-code.utils";
+import { isCourtesy } from "../../common/utils/ticket-origin";
 import { PrismaService } from "../../prisma/prisma.service";
 import { CacheService } from "../cache/cache.service";
 import { NotificationsService } from "../notifications/notifications.service";
@@ -142,6 +143,8 @@ export class CheckoutService {
       buyerName: order.buyerName,
       buyerEmail: order.buyerEmail,
       totalCents: order.totalCents,
+      // Aditivo: a página troca "inscrição/comprador" por "convite/convidado".
+      courtesy: isCourtesy(order.origin),
       status: order.status,
       paymentMethod: order.payment?.method,
       createdAt: order.createdAt,

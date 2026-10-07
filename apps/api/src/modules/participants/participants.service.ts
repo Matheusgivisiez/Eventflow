@@ -1,6 +1,7 @@
 import { Injectable } from "@nestjs/common";
 import { PaymentStatus, Prisma, TicketStatus } from "@prisma/client";
 import { paginate } from "../../common/repositories/base.repository";
+import { ORGANIZER_VISIBLE } from "../../common/utils/ticket-origin";
 import { PrismaService } from "../../prisma/prisma.service";
 
 type ParticipantQuery = {
@@ -22,6 +23,7 @@ export class ParticipantsService {
       event: { tenantId },
       eventId: query.eventId || undefined,
       status: query.status,
+      ...ORGANIZER_VISIBLE,
       order: { status: PaymentStatus.PAID },
       OR: query.search
         ? [
@@ -56,6 +58,7 @@ export class ParticipantsService {
       event: { tenantId },
       eventId: query.eventId,
       status: query.status,
+      ...ORGANIZER_VISIBLE,
       order: { status: PaymentStatus.PAID },
       attendeeName: query.search ? { contains: query.search, mode: "insensitive" } : undefined
     };

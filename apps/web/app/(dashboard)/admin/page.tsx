@@ -4,8 +4,9 @@ import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   Users, Calendar, CreditCard, ShieldAlert, CheckCircle2, Clock,
-  XCircle, Search, Building2, Loader2, ArrowDownToLine, Key
+  XCircle, Search, Building2, Loader2, ArrowDownToLine, Key, Crown
 } from "lucide-react";
+import { AdminVipPanel } from "@/components/courtesy/admin-vip-panel";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -113,7 +114,7 @@ export default function AdminPage() {
 
       {/* Tabs */}
       <Tabs defaultValue="users">
-        <TabsList className="grid w-full grid-cols-4">
+        <TabsList className="grid h-auto w-full grid-cols-2 sm:grid-cols-5">
           <TabsTrigger value="users"><Users className="h-4 w-4 mr-2" /> Usuários</TabsTrigger>
           <TabsTrigger value="events"><Calendar className="h-4 w-4 mr-2" /> Eventos</TabsTrigger>
           <TabsTrigger value="payments"><CreditCard className="h-4 w-4 mr-2" /> Pagamentos</TabsTrigger>
@@ -125,7 +126,13 @@ export default function AdminPage() {
               </span>
             )}
           </TabsTrigger>
+          <TabsTrigger value="vip"><Crown className="h-4 w-4 mr-2" /> Convidados VIP</TabsTrigger>
         </TabsList>
+
+        {/* ── VIP guests Tab ── */}
+        <TabsContent value="vip" className="mt-4">
+          <AdminVipPanel events={events.data ?? []} loading={events.isLoading} />
+        </TabsContent>
 
         {/* ── Users Tab ── */}
         <TabsContent value="users" className="mt-4">

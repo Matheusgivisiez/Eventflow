@@ -56,6 +56,16 @@ enum TicketStatus {
   CANCELED
 }
 
+/// De onde o ingresso veio. Define quem enxerga o ingresso nos números:
+/// SALE entra em vendas; ORGANIZER_COURTESY é cortesia emitida pelo dono do
+/// evento (ele vê, em contador próprio); PLATFORM_COURTESY é convidado da
+/// Eventflow e nunca aparece em nenhuma visão do organizador.
+enum TicketOrigin {
+  SALE
+  ORGANIZER_COURTESY
+  PLATFORM_COURTESY
+}
+
 enum CheckInStatus {
   ENTERED
   REFUSED
@@ -445,6 +455,9 @@ model TicketType {
   salesEndQuantity Int?
   limitPerBuy Int         @default(5)
   isActive    Boolean     @default(true)
+  /// Lotes de venda são sempre SALE. Os demais são tipos internos de cortesia:
+  /// nunca ficam à venda, não têm estoque e não aparecem como lote.
+  origin      TicketOrigin @default(SALE)
   createdAt   DateTime    @default(now())
   updatedAt   DateTime    @updatedAt
   event       Event       @relation(fields: [eventId], references: [id], onDelete: Cascade)
@@ -478,6 +491,9 @@ model Order {
   promoterLinkId String?
   promoterCommissionCents Int @default(0)
   status         PaymentStatus @default(PENDING)
+  origin         TicketOrigin  @default(SALE)
+  /// Quem emitiu a cortesia (admin da plataforma ou dono do evento). Nulo em vendas.
+  issuedById     String?
   orderAccessToken String?    @unique
   stockReservedAt DateTime?
   createdAt      DateTime      @default(now())
@@ -579,6 +595,7 @@ model Ticket {
   qrCodeDataUrl String?
   seatId        String?
   status        TicketStatus @default(AVAILABLE)
+  origin        TicketOrigin @default(SALE)
   usedAt        DateTime?
   createdAt     DateTime     @default(now())
   order         Order        @relation(fields: [orderId], references: [id], onDelete: Cascade)
@@ -595,6 +612,7 @@ model Ticket {
   @@index([uuid, status])
   @@index([attendeeName])
   @@index([attendeeEmail])
+  @@index([eventId, origin])
 }
 
 model Transfer {

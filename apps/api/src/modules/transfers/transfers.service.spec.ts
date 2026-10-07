@@ -181,6 +181,18 @@ describe("TransfersService", () => {
     await expect(service.create(sender, { ticketId: "ticket-1", receiverEmail: receiver.email, confirmation: "CONFIRMAR" })).rejects.toThrow(BadRequestException);
   });
 
+  it("blocks transfers of courtesy tickets from either origin, even when the event allows transfers", async () => {
+    for (const origin of ["PLATFORM_COURTESY", "ORGANIZER_COURTESY"]) {
+      const { service, prisma } = createService();
+      prisma.user.findUnique.mockResolvedValue({ id: receiver.id, name: "Receiver", email: receiver.email, avatarUrl: null });
+      prisma.ticket.findFirst.mockResolvedValue(createTicket({ origin }));
+
+      await expect(service.create(sender, { ticketId: "ticket-1", receiverEmail: receiver.email, confirmation: "CONFIRMAR" }))
+        .rejects.toThrow("Ingressos de cortesia são nominais");
+      expect(prisma.transfer.create).not.toHaveBeenCalled();
+    }
+  });
+
   it("requires the CONFIRMAR phrase before creating a transfer", async () => {
     const { service, prisma } = createService();
 

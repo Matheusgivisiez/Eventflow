@@ -1,4 +1,5 @@
 import { BadRequestException, Injectable, NotFoundException } from "@nestjs/common";
+import { SALE_ONLY } from "../../common/utils/ticket-origin";
 import { PrismaService } from "../../prisma/prisma.service";
 import { EventsService } from "../events/events.service";
 import { CreateTicketTypeDto } from "./dto/create-ticket-type.dto";
@@ -25,11 +26,11 @@ export class TicketsService {
   }
 
   list(eventId: string, tenantId: string) {
-    return this.prisma.ticketType.findMany({ where: { eventId, event: { tenantId } }, orderBy: { priceCents: "asc" } });
+    return this.prisma.ticketType.findMany({ where: { eventId, event: { tenantId }, ...SALE_ONLY }, orderBy: { priceCents: "asc" } });
   }
 
   async update(id: string, tenantId: string, dto: UpdateTicketTypeDto) {
-    const ticket = await this.prisma.ticketType.findFirst({ where: { id, event: { tenantId } } });
+    const ticket = await this.prisma.ticketType.findFirst({ where: { id, event: { tenantId }, ...SALE_ONLY } });
     if (!ticket) {
       throw new NotFoundException("Lote de ingresso não encontrado.");
     }
@@ -51,7 +52,7 @@ export class TicketsService {
   }
 
   async remove(id: string, tenantId: string) {
-    const ticket = await this.prisma.ticketType.findFirst({ where: { id, event: { tenantId } } });
+    const ticket = await this.prisma.ticketType.findFirst({ where: { id, event: { tenantId }, ...SALE_ONLY } });
     if (!ticket) {
       throw new NotFoundException("Lote de ingresso não encontrado.");
     }

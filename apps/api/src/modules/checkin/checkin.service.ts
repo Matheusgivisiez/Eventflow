@@ -1,5 +1,6 @@
 import { Injectable } from "@nestjs/common";
 import { ValidateTicketUseCase } from "./use-cases/validate-ticket.use-case";
+import { ORGANIZER_VISIBLE } from "../../common/utils/ticket-origin";
 import { PrismaService } from "../../prisma/prisma.service";
 
 @Injectable()
@@ -39,6 +40,9 @@ export class CheckInService {
       where: {
         ticket: {
           eventId,
+          // Convidado da plataforma entra pela portaria, mas não fica no
+          // histórico de entradas que a equipe do organizador consulta.
+          ...ORGANIZER_VISIBLE,
           ...(resolvedTenantId ? { event: { tenantId: resolvedTenantId } } : {})
         }
       },

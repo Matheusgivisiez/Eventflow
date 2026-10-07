@@ -383,6 +383,18 @@ describe("PaymentsService purchase confirmation", () => {
     );
   });
 
+  it("delivers a courtesy order with invitation wording and a regular sale without it", async () => {
+    const { service, prisma, notifications } = createService();
+
+    prisma.order.findUnique.mockResolvedValue(createPaidOrder({ origin: "PLATFORM_COURTESY", totalCents: 0 }));
+    await service.dispatchPurchaseConfirmed("order-1");
+    expect(notifications.sendPurchaseApproved).toHaveBeenLastCalledWith(expect.objectContaining({ courtesy: true, free: true, orderId: "order-1" }));
+
+    prisma.order.findUnique.mockResolvedValue(createPaidOrder({ origin: "SALE", totalCents: 5500 }));
+    await service.dispatchPurchaseConfirmed("order-1");
+    expect(notifications.sendPurchaseApproved).toHaveBeenLastCalledWith(expect.objectContaining({ courtesy: false, free: false }));
+  });
+
   it("still notifies when the payment reaches the funnel already paid", async () => {
     // Reconciliation or an administrative reprocessing arriving after the
     // webhook. The dedupe key downstream is what prevents a second message.

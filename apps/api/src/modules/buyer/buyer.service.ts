@@ -10,6 +10,7 @@ import sharp = require("sharp");
 import type { Sharp } from "sharp";
 import { readFileSync } from "fs";
 import { join } from "path";
+import { isCourtesy } from "../../common/utils/ticket-origin";
 import { AuditService } from "../audit/audit.service";
 import { PaymentsService } from "../payments/payments.service";
 import { PrismaService } from "../../prisma/prisma.service";
@@ -25,6 +26,8 @@ import {
 } from "../../common/utils/refund-policy.utils";
 
 const TICKET_FONT_FAMILY = "DejaVu Sans, Arial, Helvetica, sans-serif";
+
+const COURTESY_REFUND_BLOCK = "Ingressos de cortesia não têm reembolso.";
 
 const TICKET_PDF_ASSETS_DIR = join(__dirname, "..", "..", "assets", "ticket-pdf");
 const TICKET_PDF_ASSET_FILES = {
@@ -125,8 +128,11 @@ export class BuyerService {
     return tickets.map(({ transfers, ...ticket }) => {
       const locked = isQrCodeLocked(ticket.event);
       const releaseTime = getQrCodeReleaseTime(ticket.event);
-      const refundBlockedReason =
-        ticket.status === TicketStatus.AVAILABLE
+      // Cortesia não teve cobrança (nada a reembolsar) e é nominal (não transfere).
+      const courtesy = isCourtesy(ticket.origin);
+      const refundBlockedReason = courtesy
+        ? COURTESY_REFUND_BLOCK
+        : ticket.status === TicketStatus.AVAILABLE
           ? getRefundBlockReason(ticket.event, now)
           : null;
 
@@ -140,7 +146,7 @@ export class BuyerService {
         refundAvailable:
           ticket.status === TicketStatus.AVAILABLE && refundBlockedReason === null,
         refundBlockedReason,
-        refundDeadline: ticket.event.allowTicketRefund
+        refundDeadline: ticket.event.allowTicketRefund && !courtesy
           ? getRefundDeadline(ticket.event).toISOString()
           : null,
         pendingTransfer: transfers[0]
@@ -155,7 +161,7 @@ export class BuyerService {
           : null,
         event: {
           ...ticket.event,
-          allowTicketTransfer: ticket.event.allowTicketTransfer,
+          allowTicketTransfer: ticket.event.allowTicketTransfer && !courtesy,
           ticketTransferLockTime:
             ticket.event.ticketTransferLockTime?.toISOString() ?? null,
         },
@@ -203,6 +209,9 @@ export class BuyerService {
   async requestRefund(userId: string, email: string | null, ticketId: string, confirmation: string) {
     this.confirmSensitiveAction(confirmation);
     const ticket = await this.findOwnedTicket(userId, email, ticketId);
+    if (isCourtesy(ticket.origin)) {
+      throw new BadRequestException(COURTESY_REFUND_BLOCK);
+    }
     if (ticket.status !== TicketStatus.AVAILABLE) {
       throw new BadRequestException(
         "Somente ingressos disponíveis podem solicitar reembolso.",

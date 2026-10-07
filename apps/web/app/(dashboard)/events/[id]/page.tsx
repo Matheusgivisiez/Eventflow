@@ -3,7 +3,7 @@
 import { useParams, useRouter } from "next/navigation";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ArrowLeft, Building2, Loader2, Save, Ticket, Trash2, Megaphone, Shield, Lock, QrCode, DoorOpen, RefreshCcw } from "lucide-react";
+import { ArrowLeft, Building2, Gift, Loader2, Save, Ticket, Trash2, Megaphone, Shield, Lock, QrCode, DoorOpen, RefreshCcw } from "lucide-react";
 import Link from "next/link";
 import { useEffect, memo, useState } from "react";
 import { useForm, Controller } from "react-hook-form";
@@ -260,13 +260,19 @@ export default function EditEventPage() {
             <p className="text-sm text-muted-foreground">Edite os dados do evento abaixo.</p>
           </div>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           <Button variant="outline" asChild>
             <Link href={`/events/${id}/tickets`}>
               <Ticket className="h-4 w-4" />
               Lotes de ingresso
             </Link>
           </Button>
+          {event.accessRole === "OWNER" && <Button variant="outline" asChild>
+            <Link href={`/events/${id}/cortesias`}>
+              <Gift className="h-4 w-4" />
+              Cortesias
+            </Link>
+          </Button>}
           {event.accessRole === "OWNER" && <Button variant="outline" asChild>
             <Link href={`/events/${id}/promoters`}>
               <Megaphone className="h-4 w-4 mr-2" />

@@ -22,7 +22,7 @@ describe("FinanceService", () => {
     prisma.order.aggregate.mockResolvedValue({ _sum: { totalCents: 12000, feeCents: 1000 } });
     prisma.order.findMany.mockResolvedValue([{ id: "order-1", totalCents: 12000, feeCents: 1000, createdAt: new Date(), event: { title: "Evento A" } }]);
     const result = await service.teamSummary(["event-a"]);
-    expect(prisma.order.aggregate).toHaveBeenCalledWith({ where: { eventId: { in: ["event-a"] }, status: "PAID" }, _sum: { totalCents: true, feeCents: true } });
+    expect(prisma.order.aggregate).toHaveBeenCalledWith({ where: { eventId: { in: ["event-a"] }, origin: "SALE", status: "PAID" }, _sum: { totalCents: true, feeCents: true } });
     expect(result).toMatchObject({ balanceCents: 11000, totalFeesCents: 1000, readOnly: true });
     expect(result.statement[0]).toMatchObject({ id: "order-1", amountCents: 11000 });
   });

@@ -1,5 +1,6 @@
 import { Injectable } from "@nestjs/common";
 import { PaymentStatus } from "@prisma/client";
+import { SALE_ONLY } from "../../../common/utils/ticket-origin";
 import { PrismaService } from "../../../prisma/prisma.service";
 import { RequestUser } from "../../../common/types/request-user";
 import { AnyRecord, EnterpriseDomainService } from "./enterprise-domain.service";
@@ -24,8 +25,8 @@ export class EnterpriseAiService extends EnterpriseDomainService {
   async createForecast(user: RequestUser, body: AnyRecord) {
     const tenantId = this.requireTenant(user);
     const eventId = this.string(body.eventId);
-    const paidOrders = await this.prisma.order.count({ where: { event: { tenantId }, ...(eventId ? { eventId } : {}), status: PaymentStatus.PAID } });
-    const pendingOrders = await this.prisma.order.count({ where: { event: { tenantId }, ...(eventId ? { eventId } : {}), status: PaymentStatus.PENDING } });
+    const paidOrders = await this.prisma.order.count({ where: { event: { tenantId }, ...(eventId ? { eventId } : {}), ...SALE_ONLY, status: PaymentStatus.PAID } });
+    const pendingOrders = await this.prisma.order.count({ where: { event: { tenantId }, ...(eventId ? { eventId } : {}), ...SALE_ONLY, status: PaymentStatus.PENDING } });
     const velocity = Math.max(1, paidOrders / Math.max(1, Number(body.observedDays ?? 7)));
     const horizonDays = Number(body.horizonDays ?? 30);
     const outputJson = {
@@ -50,7 +51,7 @@ export class EnterpriseAiService extends EnterpriseDomainService {
   async executiveDashboard(user: RequestUser) {
     const tenantId = user.role === "ADMIN" ? undefined : this.requireTenant(user);
     const db = this.db();
-    const where = tenantId ? { event: { tenantId }, status: PaymentStatus.PAID } : { status: PaymentStatus.PAID };
+    const where = tenantId ? { event: { tenantId }, ...SALE_ONLY, status: PaymentStatus.PAID } : { ...SALE_ONLY, status: PaymentStatus.PAID };
     const [orders, organizers, activeSubscriptions, snapshots] = await Promise.all([
       this.prisma.order.aggregate({ where, _sum: { totalCents: true, feeCents: true }, _count: true }),
       this.prisma.tenant.count(),

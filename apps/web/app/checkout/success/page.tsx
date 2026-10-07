@@ -41,6 +41,8 @@ type PublicOrderDetails = {
   buyerName: string;
   buyerEmail: string;
   totalCents: number;
+  /** Ingresso de cortesia: ninguém comprou, a página fala em convite. Ausente em versões antigas da API. */
+  courtesy?: boolean;
   status: "PENDING" | "PAID" | "CANCELED" | "REFUNDED";
   /** Delivery state of the confirmation e-mail. Absent on older API versions. */
   confirmationEmailStatus?: "PENDING" | "SENT" | "FAILED" | "SKIPPED" | null;
@@ -241,7 +243,9 @@ function SuccessContent() {
           </div>
           <CardTitle className="text-2xl">
             {isPaid
-              ? order.totalCents === 0
+              ? order.courtesy
+                ? "Convite Confirmado!"
+                : order.totalCents === 0
                 ? "Inscrição Confirmada!"
                 : "Pagamento Confirmado!"
               : isPending
@@ -320,7 +324,7 @@ function SuccessContent() {
               <span className="font-mono text-xs">{order.id}</span>
             </div>
             <div className="flex justify-between">
-              <span className="text-muted-foreground">Comprador</span>
+              <span className="text-muted-foreground">{order.courtesy ? "Convidado" : "Comprador"}</span>
               <span>
                 {order.buyerName} ({order.buyerEmail})
               </span>
@@ -330,7 +334,7 @@ function SuccessContent() {
                 {order.totalCents === 0 ? "Total" : "Total Pago"}
               </span>
               <span className="font-semibold">
-                {order.totalCents === 0 ? "Gratuito" : money(order.totalCents)}
+                {order.courtesy ? "Cortesia" : order.totalCents === 0 ? "Gratuito" : money(order.totalCents)}
               </span>
             </div>
           </div>
