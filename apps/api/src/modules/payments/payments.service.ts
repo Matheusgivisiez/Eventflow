@@ -502,6 +502,7 @@ export class PaymentsService {
         qrCodeReleaseAt: getQrCodeReleaseTime(order.event),
         free: order.totalCents === 0,
         courtesy: isCourtesy(order.origin),
+        origin: order.origin,
         tickets: order.tickets.map((ticket) => ({
           id: ticket.id,
           attendeeName: ticket.attendeeName,

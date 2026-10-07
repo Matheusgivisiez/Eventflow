@@ -1,0 +1,1 @@
+ALTER TYPE "NotificationEvent" ADD VALUE 'VIP_TICKET_GRANTED';

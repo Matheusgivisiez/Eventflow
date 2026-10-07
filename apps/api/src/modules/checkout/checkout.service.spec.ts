@@ -158,6 +158,20 @@ describe("CheckoutService", () => {
         "Este ingresso foi transferido para outro titular e não está mais disponível neste pedido."
       );
     });
+
+    it("keeps the platform VIP origin on the guest PDF route", async () => {
+      const { service, prisma, buyer } = createService();
+      prisma.order.findUnique.mockResolvedValue({ orderAccessToken: "public-token" });
+      const ticket = {
+        id: "ticket-vip", orderId: "order-1", origin: "PLATFORM_COURTESY",
+        event: {}, ticketType: { name: "Convidado VIP" }, transfers: []
+      };
+      prisma.ticket.findFirst.mockResolvedValue(ticket);
+
+      await service.ticketPdf("order-1", "ticket-vip", "public-token");
+
+      expect(buyer.renderTicketPdfFor).toHaveBeenCalledWith(ticket);
+    });
   });
 
   beforeEach(() => {

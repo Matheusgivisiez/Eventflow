@@ -5,10 +5,11 @@ import { PaymentsModule } from "../payments/payments.module";
 import { WalletModule } from "../wallet/wallet.module";
 import { BuyerController } from "./buyer.controller";
 import { BuyerService } from "./buyer.service";
+import { TransferTicketDownloadController } from "./transfer-ticket-download.controller";
 
 @Module({
   imports: [AuditModule, CacheModule, PaymentsModule, WalletModule],
-  controllers: [BuyerController],
+  controllers: [BuyerController, TransferTicketDownloadController],
   providers: [BuyerService],
   exports: [BuyerService]
 })

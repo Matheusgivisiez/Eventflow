@@ -1,4 +1,4 @@
-import { NotificationEvent, NotificationStatus, NotificationType } from "@prisma/client";
+import { NotificationEvent, NotificationStatus, NotificationType, TicketOrigin } from "@prisma/client";
 import { NotificationsService } from "./notifications.service";
 
 function createService() {
@@ -13,7 +13,7 @@ function createService() {
   };
   const mail = { send: jest.fn().mockResolvedValue({ status: "SENT", recipient: "buyer@example.com" }) };
   const config = {
-    get: jest.fn((key: string): any => (key === "APP_URL" ? "https://app.example" : undefined))
+    get: jest.fn((key: string): any => (key === "APP_URL" ? "https://app.example" : key === "QR_CODE_SECRET" ? "test-qr-secret" : undefined))
   };
   const service = new NotificationsService(prisma as any, mail as any, config as any);
   return { service, prisma, mail };
@@ -490,5 +490,65 @@ describe("NotificationsService purchase confirmation QR", () => {
     expect(sent.attachments).toBeUndefined();
     expect(sent.html).not.toContain("cid:qr-");
     expect(sent.html).toContain("eventflow-ticket-qr-locked.png");
+  });
+});
+
+describe("NotificationsService transfer PDF link", () => {
+  it("puts a recipient-scoped PDF download behind the email button", async () => {
+    const { service, mail } = createService();
+    await service.sendTicketTransferDelivered({
+      userId: "receiver-1",
+      email: "receiver@example.com",
+      transferId: "transfer-1",
+      recipientName: "Destinatária",
+      senderName: "Remetente",
+      orderId: "order-1",
+      eventTitle: "Evento",
+      eventStartsAt: new Date("2026-10-22T23:00:00.000Z"),
+      eventVenue: "Online",
+      qrCodeLocked: false,
+      qrCodeReleaseAt: null,
+      ticket: { id: "ticket-1", attendeeName: "Destinatária", ticketTypeName: "Inteira", shortCode: "1234567890" },
+    });
+    const sent = mail.send.mock.calls[0][0];
+    expect(sent.html).toContain("/api/transfer-ticket-download/transfer-1?token=");
+    expect(sent.text).toContain("Baixar PDF: http://localhost:3001/api/transfer-ticket-download/transfer-1?token=");
+  });
+});
+
+describe("NotificationsService courtesy routing", () => {
+  it("uses the gold invitation and direct guest PDF only for a platform VIP", async () => {
+    const { service, mail, prisma } = createService();
+    await service.sendPurchaseApproved({
+      ...purchase,
+      phone: undefined,
+      ticketCount: 1,
+      tickets: [purchase.tickets[0]],
+      origin: TicketOrigin.PLATFORM_COURTESY,
+      courtesy: true,
+      free: true,
+    });
+    const sent = mail.send.mock.calls[0][0];
+    expect(sent.subject).toContain("convite Premium");
+    expect(sent.html).toContain("vip-bg.png");
+    expect(sent.text).toContain(`/api/checkout/order/${purchase.orderId}/tickets/ticket-1/pdf?accessToken=order-access-token`);
+    expect(prisma.notificationLog.create).toHaveBeenCalledWith(expect.objectContaining({
+      data: expect.objectContaining({ event: NotificationEvent.VIP_TICKET_GRANTED, dedupeKey: `purchase-confirmed:${purchase.orderId}` }),
+    }));
+  });
+
+  it("keeps organizer courtesy in the standard invitation palette", async () => {
+    const { service, mail } = createService();
+    await service.sendPurchaseApproved({
+      ...purchase,
+      phone: undefined,
+      origin: TicketOrigin.ORGANIZER_COURTESY,
+      courtesy: true,
+      free: true,
+    });
+    const sent = mail.send.mock.calls[0][0];
+    expect(sent.html).toContain("ticket-card-bg.png");
+    expect(sent.html).not.toContain("vip-bg.png");
+    expect(sent.text).toContain("Seu convite foi confirmado");
   });
 });
