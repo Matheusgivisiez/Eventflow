@@ -20,6 +20,7 @@ import {
   CheckCircle2,
   XCircle,
   Clock,
+  Crown,
   Send,
   Search,
   Loader2,
@@ -54,6 +55,8 @@ type MyTicket = {
   uuid: string | null;
   attendeeName: string;
   status: "AVAILABLE" | "USED" | "CANCELED";
+  /** Ausente em versões antigas da API. PLATFORM_COURTESY = convidado VIP da Eventflow. */
+  origin?: "SALE" | "ORGANIZER_COURTESY" | "PLATFORM_COURTESY";
   qrCodeDataUrl?: string | null;
   qrCodeLocked?: boolean;
   qrCodeReleaseAt?: string | null;
@@ -357,6 +360,55 @@ type EventTicketCardProps = {
   onRefund: () => void;
 };
 
+/**
+ * Aparência do ingresso. O padrão é o roxo da marca; o convidado VIP da
+ * Eventflow recebe a versão dourada, para ser reconhecido de relance na
+ * carteira e na portaria. As classes ficam por extenso (e não montadas por
+ * interpolação) porque o Tailwind só gera o que encontra escrito no código.
+ */
+const ticketThemes = {
+  standard: {
+    focus: "focus-visible:outline-violet-400/70",
+    fallbackFrame: "border border-violet-400/40 bg-[#17142a]",
+    glow: "drop-shadow-[0_0_22px_rgba(139,92,246,0.18)]",
+    fill: ["#1d1930", "#16131f", "#12101b"],
+    stroke: [{ color: "#a78bfa", opacity: 0.8 }, { color: "#7c3aed", opacity: 0.5 }],
+    coverFallback: "from-violet-900/60 to-[#211c38]",
+    coverIcon: "text-violet-300/70",
+    activeBadge: "border-violet-400/25 bg-violet-500/[0.08] text-violet-300",
+    accentIcon: "text-violet-300",
+    typePill: "border-violet-400/35 bg-violet-500/10",
+    panel: "border-violet-400/25",
+    panelGlow: "bg-[radial-gradient(ellipse_at_50%_45%,rgba(124,58,237,0.22),transparent_60%)]",
+    bar: "bg-violet-500",
+    usedBox: "border-violet-500/30 bg-violet-500/10",
+    usedIcon: "text-violet-400",
+    usedTitle: "text-violet-200",
+    usedCode: "bg-violet-500/20 text-violet-300/80",
+    download: "border-violet-400/40 from-[#8b5cf6] to-[#6d28d9] text-white shadow-[0_10px_30px_rgba(124,58,237,0.35)] hover:text-white",
+  },
+  vip: {
+    focus: "focus-visible:outline-[#f1d27a]/70",
+    fallbackFrame: "border border-[#e2b857]/50 bg-[#1b160c]",
+    glow: "drop-shadow-[0_0_24px_rgba(226,184,87,0.24)]",
+    fill: ["#241c0e", "#18130b", "#110e08"],
+    stroke: [{ color: "#f8e3a0", opacity: 0.95 }, { color: "#b8862b", opacity: 0.7 }],
+    coverFallback: "from-[#6b4e12]/60 to-[#241c0e]",
+    coverIcon: "text-[#f1d27a]/70",
+    activeBadge: "border-[#e2b857]/40 bg-[#e2b857]/[0.12] text-[#f1d27a]",
+    accentIcon: "text-[#f1d27a]",
+    typePill: "border-[#e2b857]/45 bg-[#e2b857]/[0.12]",
+    panel: "border-[#e2b857]/30",
+    panelGlow: "bg-[radial-gradient(ellipse_at_50%_45%,rgba(226,184,87,0.2),transparent_60%)]",
+    bar: "bg-[#e2b857]",
+    usedBox: "border-[#e2b857]/30 bg-[#e2b857]/10",
+    usedIcon: "text-[#e2b857]",
+    usedTitle: "text-[#f6e3a8]",
+    usedCode: "bg-[#e2b857]/20 text-[#f1d27a]/80",
+    download: "border-[#f1d27a]/50 from-[#f6dc8c] to-[#c8952c] text-[#1c1405] shadow-[0_10px_30px_rgba(226,184,87,0.3)] hover:text-[#1c1405]",
+  },
+} as const;
+
 function EventTicketCard({
   ticket,
   expanded,
@@ -374,6 +426,8 @@ function EventTicketCard({
 }: EventTicketCardProps) {
   const cfg = statusConfig[ticket.status];
   const StatusIcon = cfg.icon;
+  const vip = ticket.origin === "PLATFORM_COURTESY";
+  const theme = vip ? ticketThemes.vip : ticketThemes.standard;
   const schedule = eventSchedule(ticket.event.startsAt);
   const qrLocked = ticket.qrCodeLocked === true;
   const stableOnQrRelease = useCallback(onQrRelease, [onQrRelease]);
@@ -393,8 +447,8 @@ function EventTicketCard({
     pendingTransfer?.receiverName ?? pendingTransfer?.receiverEmail ?? "destinatário";
   const bannerUrl = publicAssetUrl(ticket.event.bannerUrl);
   const detailsPanelId = `ticket-details-${ticket.id}`;
-  const topBadgeLabel = `Ingresso ${cfg.label}`;
-  const TopBadgeIcon = ticket.status === "AVAILABLE" ? Sparkles : StatusIcon;
+  const topBadgeLabel = vip ? `VIP ${cfg.label}` : `Ingresso ${cfg.label}`;
+  const TopBadgeIcon = ticket.status === "AVAILABLE" ? (vip ? Crown : Sparkles) : StatusIcon;
   const { ticketRef, stubRef, holderRef, shape } = useTicketShape();
   const [titleMain, titleTag] = splitEventTitle(ticket.event.title);
   const gradientId = `ticket-${useId().replace(/:/g, "")}`;
@@ -415,29 +469,29 @@ function EventTicketCard({
           aria-expanded={expanded}
           aria-label={`${expanded ? "Recolher" : "Abrir"} ingresso de ${ticket.event.title}`}
           onClick={onToggleDetails}
-          className={`relative isolate z-10 grid grid-cols-[104px_minmax(0,1fr)_auto] rounded-[22px] text-left text-[#f7f5ff] transition-[margin,width] duration-300 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-violet-400/70 sm:min-h-[216px] sm:grid-cols-[172px_minmax(0,1fr)_160px] sm:grid-rows-[1fr_auto] ${
+          className={`relative isolate z-10 grid grid-cols-[104px_minmax(0,1fr)_auto] rounded-[22px] text-left text-[#f7f5ff] transition-[margin,width] duration-300 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 ${theme.focus} sm:min-h-[216px] sm:grid-cols-[172px_minmax(0,1fr)_160px] sm:grid-rows-[1fr_auto] ${
             expanded
               ? "mx-2.5 w-[calc(100%-20px)] sm:mx-6 sm:w-[calc(100%-48px)]"
               : "w-full"
-          } ${shape ? "" : "border border-violet-400/40 bg-[#17142a]"}`}
+          } ${shape ? "" : theme.fallbackFrame}`}
         >
           {shape && (
             <svg
               aria-hidden="true"
-              className="pointer-events-none absolute inset-0 -z-10 h-full w-full overflow-visible drop-shadow-[0_0_22px_rgba(139,92,246,0.18)]"
+              className={`pointer-events-none absolute inset-0 -z-10 h-full w-full overflow-visible ${theme.glow}`}
               width={shape.w}
               height={shape.h}
               viewBox={`0 0 ${shape.w} ${shape.h}`}
             >
               <defs>
                 <linearGradient id={`${gradientId}-fill`} x1="0" y1="0" x2="1" y2="1">
-                  <stop offset="0%" stopColor="#1d1930" />
-                  <stop offset="55%" stopColor="#16131f" />
-                  <stop offset="100%" stopColor="#12101b" />
+                  <stop offset="0%" stopColor={theme.fill[0]} />
+                  <stop offset="55%" stopColor={theme.fill[1]} />
+                  <stop offset="100%" stopColor={theme.fill[2]} />
                 </linearGradient>
                 <linearGradient id={`${gradientId}-stroke`} x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor="#a78bfa" stopOpacity="0.8" />
-                  <stop offset="100%" stopColor="#7c3aed" stopOpacity="0.5" />
+                  <stop offset="0%" stopColor={theme.stroke[0].color} stopOpacity={theme.stroke[0].opacity} />
+                  <stop offset="100%" stopColor={theme.stroke[1].color} stopOpacity={theme.stroke[1].opacity} />
                 </linearGradient>
               </defs>
               <path
@@ -481,8 +535,8 @@ function EventTicketCard({
                 className="object-cover transition-transform duration-500 group-hover:scale-[1.03]"
               />
             ) : (
-              <span className="flex h-full w-full items-center justify-center bg-gradient-to-br from-violet-900/60 to-[#211c38]">
-                <Ticket className="h-8 w-8 text-violet-300/70 sm:h-11 sm:w-11" />
+              <span className={`flex h-full w-full items-center justify-center bg-gradient-to-br ${theme.coverFallback}`}>
+                <Ticket className={`h-8 w-8 sm:h-11 sm:w-11 ${theme.coverIcon}`} />
               </span>
             )}
           </span>
@@ -501,7 +555,7 @@ function EventTicketCard({
               <span
                 className={`inline-flex shrink-0 items-center gap-1.5 rounded-full border px-2.5 py-[3px] text-[9px] font-semibold uppercase tracking-[0.14em] sm:px-3 sm:py-1 sm:text-[10px] sm:tracking-[0.16em] ${
                   ticket.status === "AVAILABLE"
-                    ? "border-violet-400/25 bg-violet-500/[0.08] text-violet-300"
+                    ? theme.activeBadge
                     : cfg.color
                 }`}
               >
@@ -523,7 +577,7 @@ function EventTicketCard({
             </h3>
 
             <span className="mt-2 flex min-w-0 items-start gap-1.5 text-[11.5px] leading-snug text-white/60 sm:gap-2 sm:text-[13px]">
-              <MapPin className="mt-px h-3.5 w-3.5 shrink-0 text-violet-300 sm:h-4 sm:w-4" strokeWidth={1.75} />
+              <MapPin className={`mt-px h-3.5 w-3.5 shrink-0 sm:h-4 sm:w-4 ${theme.accentIcon}`} strokeWidth={1.75} />
               <span className="line-clamp-2">{eventLocation(ticket)}</span>
             </span>
 
@@ -550,8 +604,8 @@ function EventTicketCard({
                 </span>
               </span>
               <span className="mt-2 flex flex-wrap items-center gap-1.5 sm:mt-0 sm:shrink-0 sm:flex-nowrap sm:justify-end sm:gap-2">
-                <span className="inline-flex max-w-full items-center gap-1.5 truncate rounded-full border border-violet-400/35 bg-violet-500/10 px-2.5 py-1 text-[11px] font-medium text-white/90 sm:px-3 sm:py-1.5 sm:text-[12px]">
-                  <Ticket className="h-3.5 w-3.5 shrink-0 text-violet-300" strokeWidth={1.75} />
+                <span className={`inline-flex max-w-full items-center gap-1.5 truncate rounded-full border px-2.5 py-1 text-[11px] font-medium text-white/90 sm:px-3 sm:py-1.5 sm:text-[12px] ${theme.typePill}`}>
+                  <Ticket className={`h-3.5 w-3.5 shrink-0 ${theme.accentIcon}`} strokeWidth={1.75} />
                   {ticket.ticketType.name}
                 </span>
               </span>
@@ -599,7 +653,7 @@ function EventTicketCard({
         {expanded && (
           <div
             id={detailsPanelId}
-            className="relative -mt-8 animate-slide-up overflow-hidden rounded-[26px] border border-violet-400/25 bg-[#13101d] shadow-[0_24px_60px_rgba(0,0,0,0.45)] sm:-mt-11 sm:rounded-[30px]"
+            className={`relative -mt-8 animate-slide-up overflow-hidden rounded-[26px] border bg-[#13101d] shadow-[0_24px_60px_rgba(0,0,0,0.45)] sm:-mt-11 sm:rounded-[30px] ${theme.panel}`}
           >
             <div aria-hidden="true" className="pointer-events-none absolute inset-0">
               {bannerUrl && (
@@ -611,7 +665,7 @@ function EventTicketCard({
                   className="scale-110 object-cover opacity-25 blur-md saturate-150"
                 />
               )}
-              <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_50%_45%,rgba(124,58,237,0.22),transparent_60%)]" />
+              <div className={`absolute inset-0 ${theme.panelGlow}`} />
               <div className="absolute inset-0 bg-gradient-to-b from-[#13101d] via-[#13101d]/55 to-[#13101d]" />
             </div>
 
@@ -621,7 +675,7 @@ function EventTicketCard({
                   A música
                   <br />
                   nos conecta
-                  <span className="mt-3 block h-[3px] w-7 rounded-full bg-violet-500" />
+                  <span className={`mt-3 block h-[3px] w-7 rounded-full ${theme.bar}`} />
                 </div>
 
                 <div className="mx-auto flex max-w-sm flex-col items-center text-center">
@@ -649,7 +703,7 @@ function EventTicketCard({
 
                   {ticket.status === "AVAILABLE" && !canOpenQr && (
                     <div className="flex h-40 w-40 flex-col items-center justify-center rounded-[22px] border border-white/10 bg-white/[0.04] px-4 sm:h-44 sm:w-44">
-                      <Lock className="h-10 w-10 text-violet-300" strokeWidth={1.75} />
+                      <Lock className={`h-10 w-10 ${theme.accentIcon}`} strokeWidth={1.75} />
                       <p className="mt-3 text-sm font-semibold text-white">QR Code bloqueado</p>
                       <p className="mt-1 text-xs leading-relaxed text-white/55">
                         {qrHoursRemaining !== null
@@ -660,14 +714,14 @@ function EventTicketCard({
                   )}
 
                   {ticket.status === "USED" && (
-                    <div className="flex w-full flex-col items-center rounded-[22px] border border-violet-500/30 bg-violet-500/10 p-6">
-                      <Clock className="mb-2 h-10 w-10 text-violet-400" />
-                      <h4 className="text-base font-bold text-violet-200">Ingresso utilizado</h4>
+                    <div className={`flex w-full flex-col items-center rounded-[22px] border p-6 ${theme.usedBox}`}>
+                      <Clock className={`mb-2 h-10 w-10 ${theme.usedIcon}`} />
+                      <h4 className={`text-base font-bold ${theme.usedTitle}`}>Ingresso utilizado</h4>
                       <p className="mt-1 text-xs text-white/60">
                         Check-in confirmado na portaria. Este ingresso já foi validado para entrada no evento.
                       </p>
                       {ticket.uuid && (
-                        <span className="mt-3 rounded-full bg-violet-500/20 px-3 py-1 font-mono text-xs text-violet-300/80">
+                        <span className={`mt-3 rounded-full px-3 py-1 font-mono text-xs ${theme.usedCode}`}>
                           #{ticket.uuid.slice(0, 8).toUpperCase()}
                         </span>
                       )}
@@ -689,7 +743,7 @@ function EventTicketCard({
                   Event Flow
                   <br />
                   sempre com você
-                  <span className="mt-3 block h-[3px] w-7 rounded-full bg-violet-500" />
+                  <span className={`mt-3 block h-[3px] w-7 rounded-full ${theme.bar}`} />
                 </div>
               </div>
 
@@ -697,7 +751,7 @@ function EventTicketCard({
                 <div className="flex flex-wrap gap-2.5 sm:flex-nowrap sm:gap-3">
                   <Button
                     variant="outline"
-                    className="h-12 flex-1 basis-full gap-2.5 rounded-xl border border-violet-400/40 bg-gradient-to-r from-[#8b5cf6] to-[#6d28d9] text-sm font-semibold text-white shadow-[0_10px_30px_rgba(124,58,237,0.35)] hover:text-white hover:brightness-110 sm:h-12 sm:basis-0 sm:text-[15px]"
+                    className={`h-12 flex-1 basis-full gap-2.5 rounded-xl border bg-gradient-to-r text-sm font-semibold hover:brightness-110 sm:h-12 sm:basis-0 sm:text-[15px] ${theme.download}`}
                     disabled={ticket.status === "CANCELED" || qrLocked}
                     onClick={onDownload}
                     title={qrLocked ? "QR Code bloqueado — aguarde a liberação" : undefined}
