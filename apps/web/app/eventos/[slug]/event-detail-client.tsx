@@ -5,7 +5,7 @@ import { TicketSelector } from "@/components/event-page/ticket-selector";
 import { FloatingBuyBar } from "@/components/event-page/floating-buy-bar";
 import { ShareButtons } from "@/components/event-page/share-buttons";
 import { EventArtists } from "@/components/event-page/event-artists";
-import { getCurrentTicketLots } from "@/lib/ticket-lots";
+import { getCurrentTicketLots, getUpcomingTicketLot } from "@/lib/ticket-lots";
 import type { EventFlowEvent } from "@/types/eventflow";
 
 type EventDetailClientProps = {
@@ -40,9 +40,25 @@ export function EventDetailClient({
     setQuantities((prev) => ({ ...prev, [ticketId]: quantity }));
   };
 
+  // Relógio da página: avança sozinho no horário de abertura do lote programado,
+  // para quem está esperando na página ver o ingresso liberar sem recarregar.
+  const [now, setNow] = useState(() => new Date());
+  const upcomingLotStartsAt = useMemo(
+    () => getUpcomingTicketLot(event.ticketTypes, now)?.startsAt ?? null,
+    [event.ticketTypes, now],
+  );
+
+  useEffect(() => {
+    if (!upcomingLotStartsAt) return;
+    // setTimeout aceita no máximo ~24,8 dias; acima disso reagenda ao disparar.
+    const delay = Math.min(Math.max(0, new Date(upcomingLotStartsAt).getTime() - Date.now()) + 500, 2_000_000_000);
+    const timer = window.setTimeout(() => setNow(new Date()), delay);
+    return () => window.clearTimeout(timer);
+  }, [upcomingLotStartsAt, now]);
+
   const currentTicketIds = useMemo(
-    () => new Set(getCurrentTicketLots(event.ticketTypes).map(({ ticket }) => ticket.id)),
-    [event.ticketTypes],
+    () => new Set(getCurrentTicketLots(event.ticketTypes, now).map(({ ticket }) => ticket.id)),
+    [event.ticketTypes, now],
   );
   const purchasableQuantities = useMemo(
     () => Object.fromEntries(Object.entries(quantities).filter(([ticketId, quantity]) => currentTicketIds.has(ticketId) && quantity > 0)),
@@ -91,6 +107,7 @@ export function EventDetailClient({
       <ShareButtons title={event.title} slug={event.slug} invite={invite} />
       <TicketSelector
         ticketTypes={event.ticketTypes}
+        now={now}
         quantities={quantities}
         onQuantityChange={handleQuantityChange}
         attentionRequest={ticketAttentionRequest}

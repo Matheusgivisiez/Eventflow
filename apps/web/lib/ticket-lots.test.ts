@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { getCurrentLotPriceCents, getVisibleTicketLots } from "./ticket-lots";
+import { getCurrentLotPriceCents, getCurrentTicketLots, getUpcomingTicketLot, getVisibleTicketLots } from "./ticket-lots";
 import type { TicketType } from "@/types/eventflow";
 
 const lot = (id: string, startsAt: string, sold = 0) =>
@@ -13,6 +13,46 @@ describe("getVisibleTicketLots", () => {
     const lots = getVisibleTicketLots([lot("lote-2", "2026-09-17T12:00:00Z"), lot("lote-1", "2026-09-16T12:00:00Z")], now);
     assert.equal(lots[0].ticket.id, "lote-1");
     assert.equal(lots[0].lotNumber, 1);
+  });
+});
+
+describe("abertura programada do lote", () => {
+  const opensAt = "2026-10-07T21:00:00Z"; // 18h de Brasília
+  const before = new Date("2026-10-07T15:30:00Z");
+  const atOpening = new Date(opensAt);
+
+  it("mantém o 1º lote fechado antes do horário programado", () => {
+    const lots = [lot("promocional", opensAt), lot("lote-1", opensAt)];
+    assert.deepEqual(getVisibleTicketLots(lots, before), []);
+    assert.deepEqual(getCurrentTicketLots(lots, before), []);
+    assert.equal(getCurrentLotPriceCents(lots, before), null);
+    assert.equal(getUpcomingTicketLot(lots, before)?.id, "promocional");
+  });
+
+  it("abre o 1º lote exatamente no horário programado", () => {
+    const lots = [lot("promocional", opensAt), lot("lote-1", opensAt)];
+    const current = getCurrentTicketLots(lots, atOpening);
+    assert.deepEqual(current.map(({ ticket }) => ticket.id), ["promocional"]);
+    assert.equal(getUpcomingTicketLot(lots, atOpening), null);
+  });
+
+  it("vira para o 2º lote antes do horário dele quando o 1º esgota", () => {
+    const lots = [lot("promocional", "2026-10-07T12:00:00Z", 100), lot("lote-1", "2026-10-20T12:00:00Z")];
+    const current = getCurrentTicketLots(lots, before);
+    assert.deepEqual(current.map(({ ticket }) => ticket.id), ["lote-1"]);
+    assert.equal(getUpcomingTicketLot(lots, before), null);
+  });
+
+  it("vira para o 2º lote quando o 1º encerra por data, levando o saldo", () => {
+    const first = { ...lot("promocional", "2026-10-01T12:00:00Z", 30), endsAt: "2026-10-05T00:00:00Z" } as TicketType;
+    const current = getCurrentTicketLots([first, lot("lote-1", "2026-10-20T12:00:00Z")], before);
+    assert.deepEqual(current.map(({ ticket, available }) => [ticket.id, available]), [["lote-1", 170]]);
+  });
+
+  it("não considera lote inativo como programado", () => {
+    const inactive = { ...lot("promocional", opensAt), isActive: false } as TicketType;
+    assert.equal(getUpcomingTicketLot([inactive], before), null);
+    assert.equal(getUpcomingTicketLot([], before), null);
   });
 });
 

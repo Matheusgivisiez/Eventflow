@@ -16,7 +16,9 @@ export function getVisibleTicketLots(ticketTypes: TicketType[], now = new Date()
   const visibleLots: VisibleTicketLot[] = [];
   let cumulativeQuantity = 0;
   let cumulativeSold = 0;
-  let previousLotsClosed = true;
+  // O 1º lote só abre no horário programado (startsAt). Os seguintes abrem no próprio
+  // horário ou antes, assim que o lote anterior esgota ou encerra (virada de lote).
+  let previousLotsClosed = false;
 
   // Número do lote = posição cronológica (startsAt), nunca a posição no array da API,
   // que pode vir ordenado por preço (empate de preço => ordem aleatória).
@@ -46,8 +48,22 @@ export function getVisibleTicketLots(ticketTypes: TicketType[], now = new Date()
   return visibleLots;
 }
 
-export function getCurrentTicketLots(ticketTypes: TicketType[]) {
-  return getVisibleTicketLots(ticketTypes).filter((lot) => lot.status === "current");
+export function getCurrentTicketLots(ticketTypes: TicketType[], now = new Date()) {
+  return getVisibleTicketLots(ticketTypes, now).filter((lot) => lot.status === "current");
+}
+
+/**
+ * Lote programado que ainda não abriu: existe só enquanto nenhum lote está à venda
+ * e o 1º lote ativo ainda não chegou ao horário de início. null nos demais casos.
+ */
+export function getUpcomingTicketLot(ticketTypes: TicketType[], now = new Date()): TicketType | null {
+  if (getVisibleTicketLots(ticketTypes, now).length) return null;
+  const [firstLot] = ticketTypes
+    .filter((ticket) => ticket.isActive)
+    .map((ticket, index) => ({ ticket, index }))
+    .sort((a, b) => new Date(a.ticket.startsAt).getTime() - new Date(b.ticket.startsAt).getTime() || a.index - b.index);
+  if (!firstLot || now >= new Date(firstLot.ticket.startsAt)) return null;
+  return firstLot.ticket;
 }
 
 /**

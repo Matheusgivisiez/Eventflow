@@ -397,6 +397,10 @@ export class CreateCheckoutUseCase {
     return dto.items.map((item) => {
       const visibleLot = availableLots.find((lot) => lot.ticketType.id === item.ticketTypeId);
       if (!visibleLot || visibleLot.status !== "current" || !currentLot) {
+        const requested = event.ticketTypes.find((ticketType) => ticketType.id === item.ticketTypeId);
+        if (!currentLot && requested?.isActive && now < requested.startsAt) {
+          throw new BadRequestException("As vendas deste lote ainda não começaram.");
+        }
         throw new BadRequestException("Lote de ingresso indisponível.");
       }
       const { ticketType } = visibleLot;
@@ -454,7 +458,9 @@ export class CreateCheckoutUseCase {
     }> = [];
     let cumulativeQuantity = 0;
     let cumulativeSold = 0;
-    let previousLotsClosed = true;
+    // O 1º lote só abre no horário programado (startsAt). Os seguintes abrem no próprio
+    // horário ou antes, assim que o lote anterior esgota ou encerra (virada de lote).
+    let previousLotsClosed = false;
 
     for (const ticketType of orderedLots) {
       cumulativeQuantity += ticketType.quantity;

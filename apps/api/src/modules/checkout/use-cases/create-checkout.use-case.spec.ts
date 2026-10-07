@@ -348,6 +348,84 @@ describe("CreateCheckoutUseCase default write order (hot-row writes last)", () =
     ).rejects.toThrow("Lote de ingresso indisponível");
   });
 
+  it("keeps the first lot closed until its scheduled start", async () => {
+    const event = createEvent(0);
+    event.ticketTypes = [
+      {
+        ...event.ticketTypes[0],
+        name: "Promocional",
+        quantity: 50,
+        startsAt: new Date(Date.now() + 60_000),
+        endsAt: new Date(Date.now() + 120_000),
+      },
+    ];
+    const { service, tx, getSold } = createService(() => event);
+
+    await expect(
+      service.execute("eventflow-conf", createDto() as any),
+    ).rejects.toThrow("As vendas deste lote ainda não começaram.");
+
+    expect(tx.order.create).not.toHaveBeenCalled();
+    expect(getSold()).toBe(0);
+  });
+
+  it("opens the first lot once its scheduled start has passed", async () => {
+    const event = createEvent(0);
+    event.ticketTypes = [
+      {
+        ...event.ticketTypes[0],
+        name: "Promocional",
+        quantity: 50,
+        startsAt: new Date(Date.now() - 1_000),
+        endsAt: new Date(Date.now() + 120_000),
+      },
+    ];
+    const { service, getSold } = createService(() => event);
+
+    await service.execute("eventflow-conf", createDto() as any);
+
+    expect(getSold()).toBe(1);
+  });
+
+  it("opens the second lot before its own start when the first lot sells out", async () => {
+    const event = createEvent(0);
+    event.ticketTypes = [
+      {
+        ...event.ticketTypes[0],
+        id: "ticket-type-1",
+        name: "Lote 1",
+        quantity: 50,
+        sold: 50,
+        startsAt: new Date(Date.now() - 60_000),
+        endsAt: new Date(Date.now() + 120_000),
+      },
+      {
+        ...event.ticketTypes[0],
+        id: "ticket-type-2",
+        name: "Lote 2",
+        quantity: 100,
+        sold: 0,
+        priceCents: 15000,
+        startsAt: new Date(Date.now() + 60_000),
+        endsAt: new Date(Date.now() + 120_000),
+      },
+    ];
+    const { service, tx } = createService(() => event);
+
+    await service.execute("eventflow-conf", {
+      ...createDto(),
+      items: [{ ticketTypeId: "ticket-type-2", quantity: 1 }],
+    } as any);
+
+    expect(tx.order.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          items: { create: [expect.objectContaining({ ticketTypeId: "ticket-type-2", quantity: 1 })] },
+        }),
+      }),
+    );
+  });
+
   it("opens the next lot with the unsold capacity from an expired previous lot", async () => {
     const event = createEvent(50);
     event.ticketTypes = [

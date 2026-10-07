@@ -1,14 +1,16 @@
 "use client";
 
-import { Minus, Plus, Tag } from "lucide-react";
+import { Clock, Minus, Plus, Tag } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { getVisibleTicketLots } from "@/lib/ticket-lots";
-import { money } from "@/lib/utils";
+import { getUpcomingTicketLot, getVisibleTicketLots } from "@/lib/ticket-lots";
+import { dateTime, money } from "@/lib/utils";
 import type { TicketType } from "@/types/eventflow";
 
 type TicketSelectorProps = {
   ticketTypes: TicketType[];
+  /** Momento de referência para decidir qual lote está aberto (padrão: agora). */
+  now?: Date;
   quantities: Record<string, number>;
   onQuantityChange: (ticketId: string, quantity: number) => void;
   attentionRequest?: number;
@@ -16,11 +18,13 @@ type TicketSelectorProps = {
 
 export function TicketSelector({
   ticketTypes,
+  now,
   quantities,
   onQuantityChange,
   attentionRequest = 0
 }: TicketSelectorProps) {
-  const visibleLots = getVisibleTicketLots(ticketTypes);
+  const visibleLots = getVisibleTicketLots(ticketTypes, now);
+  const upcomingLot = getUpcomingTicketLot(ticketTypes, now);
   const firstSelectableTicketId = visibleLots.find(({ status }) => status === "current")?.ticket.id;
 
   return (
@@ -29,6 +33,21 @@ export function TicketSelector({
         <Tag className="h-5 w-5 text-primary" />
         <h2 className="text-xl font-bold tracking-tight">Ingressos</h2>
       </div>
+
+      {upcomingLot && (
+        <div
+          data-testid="ticket-sales-upcoming"
+          className="flex items-start gap-3 rounded-2xl border border-primary/30 bg-primary/[0.04] p-5"
+        >
+          <Clock className="mt-0.5 h-5 w-5 shrink-0 text-primary" />
+          <div className="min-w-0">
+            <p className="text-base font-semibold text-foreground">Vendas em breve</p>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Os ingressos serão liberados em <span className="font-medium text-foreground">{dateTime(upcomingLot.startsAt)}</span>.
+            </p>
+          </div>
+        </div>
+      )}
 
       <div className="space-y-3">
         {visibleLots.map(({ ticket, status, available, lotNumber }) => {
