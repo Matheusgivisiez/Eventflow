@@ -101,9 +101,6 @@ export function TicketSelector({
                   )}
                   <div className="mt-2 flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
                     {!isSoldOut && (
-                      <span>{available} disponíveis</span>
-                    )}
-                    {!isSoldOut && (
                       <span>Máx. {ticket.limitPerBuy} por compra</span>
                     )}
                     {isSoldOut && (
