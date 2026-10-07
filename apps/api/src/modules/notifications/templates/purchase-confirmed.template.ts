@@ -87,15 +87,6 @@ type EmailTheme = {
   badgeIconPrefix: string;
   accentIconPrefix: string;
   backgroundFile: string;
-  darkOuter: string;
-  darkSheet: string;
-  darkInfo: string;
-  darkInk: string;
-  darkMuted: string;
-  darkWarning: string;
-  darkWarningTitle: string;
-  darkWarningCopy: string;
-  darkBorder: string;
 };
 
 const STANDARD_THEME: EmailTheme = {
@@ -103,10 +94,7 @@ const STANDARD_THEME: EmailTheme = {
   accentText: ACCENT_TEXT, gradient: PRIMARY_BTN_GRADIENT, ink: INK, muted: MUTED,
   outer: "#f2eef9", sheet: "#ffffff", info: "#f7f5fb", cardLabel: "#b8a9e0",
   cardCaption: "#c9c1de", badgeIconPrefix: "icon-badge", accentIconPrefix: "icon-accent",
-  backgroundFile: "ticket-card-bg.png", darkOuter: "#0d091b", darkSheet: "#171126",
-  darkInfo: "#241c36", darkInk: "#f4f0fa", darkMuted: "#c3bad3",
-  darkWarning: "#382b16", darkWarningTitle: "#ffe5ad", darkWarningCopy: "#e7cf9c",
-  darkBorder: "#382e4a",
+  backgroundFile: "ticket-card-bg.png",
 };
 
 const VIP_THEME: EmailTheme = {
@@ -115,10 +103,7 @@ const VIP_THEME: EmailTheme = {
   ink: "#24211d", muted: "#716b63", outer: "#f1efeb", sheet: "#fffefd",
   info: "#f3f1ed", cardLabel: "#b9a782", cardCaption: "#e2dbce",
   badgeIconPrefix: "vip-icon-badge", accentIconPrefix: "vip-icon-accent",
-  backgroundFile: "vip-bg.png", darkOuter: "#11100f", darkSheet: "#1b1a18",
-  darkInfo: "#292723", darkInk: "#f2efe8", darkMuted: "#c7c0b5",
-  darkWarning: "#2d2922", darkWarningTitle: "#eee7d8", darkWarningCopy: "#c9c0b0",
-  darkBorder: "#3a352e",
+  backgroundFile: "vip-bg.png",
 };
 
 /** "A1B2C3D4E5" -> "A1B2-C3D4-E5" */
@@ -466,35 +451,11 @@ function renderHtml(
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width,initial-scale=1" />
-    <meta name="color-scheme" content="light dark" />
-    <meta name="supported-color-schemes" content="light dark" />
+    <meta name="color-scheme" content="light only" />
+    <meta name="supported-color-schemes" content="light only" />
     <title>${theme.vip ? "Bem-vindo à experiência Premium" : `${escapeHtml(ctx.possessive)} já ${ctx.verb}`}</title>
     <style>
-      @media (prefers-color-scheme: dark) {
-        .ef-outer { background-color:${theme.darkOuter} !important; }
-        .ef-sheet { background-color:${theme.darkSheet} !important; }
-        .ef-info { background-color:${theme.darkInfo} !important; }
-        .ef-ink { color:${theme.darkInk} !important; }
-        .ef-muted { color:${theme.darkMuted} !important; }
-        .ef-warning { background-color:${theme.darkWarning} !important; }
-        .ef-warning-title { color:${theme.darkWarningTitle} !important; }
-        .ef-warning-copy { color:${theme.darkWarningCopy} !important; }
-        .ef-footer { border-top-color:${theme.darkBorder} !important; }
-        .ef-link { color:${theme.vip ? "#cbb68f" : "#cbb1ff"} !important; }
-        .ef-light-logo { display:none !important; }
-        .ef-dark-logo { display:block !important; }
-      }
-      [data-ogsc] .ef-outer { background-color:${theme.darkOuter} !important; }
-      [data-ogsc] .ef-sheet { background-color:${theme.darkSheet} !important; }
-      [data-ogsc] .ef-info { background-color:${theme.darkInfo} !important; }
-      [data-ogsc] .ef-ink { color:${theme.darkInk} !important; }
-      [data-ogsc] .ef-muted { color:${theme.darkMuted} !important; }
-      [data-ogsc] .ef-warning { background-color:${theme.darkWarning} !important; }
-      [data-ogsc] .ef-warning-title { color:${theme.darkWarningTitle} !important; }
-      [data-ogsc] .ef-warning-copy { color:${theme.darkWarningCopy} !important; }
-      [data-ogsc] .ef-footer { border-top-color:${theme.darkBorder} !important; }
-      [data-ogsc] .ef-light-logo { display:none !important; }
-      [data-ogsc] .ef-dark-logo { display:block !important; }
+      :root { color-scheme: light only; supported-color-schemes: light only; }
       @media screen and (max-width:600px) {
         .ef-shell-padding { padding:12px !important; }
         .ef-sheet { width:100% !important; }
@@ -616,7 +577,7 @@ function renderHtml(
                     <td class="ef-footer-brand" valign="middle" align="right">
                       <table role="presentation" cellpadding="0" cellspacing="0" border="0"><tr>
                         <td class="ef-muted" valign="middle" align="right" style="padding-right:10px;font-family:Arial,Helvetica,sans-serif;font-size:10px;color:${theme.muted};line-height:1.3;white-space:nowrap">Mais encontros,<br/>mais hist&oacute;rias.</td>
-                        <td valign="middle"><img class="ef-light-logo" src="${escapeAttr(theme.vip ? asset(input.assetsBaseUrl, "vip-logo-dark.png") : input.logoLightUrl)}" width="92" alt="${BRAND}" style="display:block;border:0" /><img class="ef-dark-logo" src="${escapeAttr(theme.vip ? asset(input.assetsBaseUrl, "vip-logo-white.png") : input.logoDarkUrl)}" width="92" alt="" style="display:none;border:0" /></td>
+                        <td valign="middle"><img src="${escapeAttr(theme.vip ? asset(input.assetsBaseUrl, "vip-logo-dark.png") : input.logoLightUrl)}" width="92" alt="${BRAND}" style="display:block;border:0" /></td>
                       </tr></table>
                     </td>
                   </tr>
