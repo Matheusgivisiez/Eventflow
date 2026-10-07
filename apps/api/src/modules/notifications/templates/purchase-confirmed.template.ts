@@ -261,15 +261,21 @@ function asset(base: string, name: string) {
   return `${base.replace(/\/+$/, "")}/${name}`;
 }
 
+// Gmail iOS inverts text on background images independently of prefers-color-scheme.
+// Scope the paired blend layers to Gmail; other clients retain the normal colors.
+// https://www.hteumeuleu.com/2021/fixing-gmail-dark-mode-css-blend-modes/
+function protectedText(html: string) {
+  return `<div class="ef-gmail-screen"><div class="ef-gmail-difference">${html}</div></div>`;
+}
+
 function infoCell(iconUrl: string, label: string, value: string, theme: EmailTheme) {
   return `
     <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
       <tr>
-        <td width="40" valign="top"><img src="${escapeAttr(iconUrl)}" width="40" height="40" alt="" style="display:block;border:0" /></td>
-        <td width="10"></td>
-        <td valign="middle" style="font-family:Arial,Helvetica,sans-serif">
-          <div class="ef-muted" style="font-size:11px;font-weight:700;letter-spacing:1px;color:${theme.muted};text-transform:uppercase">${label}</div>
-          <div class="ef-ink" style="font-size:15px;font-weight:700;color:${theme.ink};margin-top:2px">${value}</div>
+        <td class="ef-info-icon" width="40" valign="top" style="width:40px;padding-right:10px"><img src="${escapeAttr(iconUrl)}" width="40" height="40" alt="" style="display:block;border:0" /></td>
+        <td valign="top" style="font-family:Arial,Helvetica,sans-serif;overflow-wrap:anywhere;word-break:normal">
+          <div class="ef-muted ef-info-label" style="font-size:11px;font-weight:700;letter-spacing:1px;color:${theme.muted};text-transform:uppercase">${label}</div>
+          <div class="ef-ink ef-info-value" style="line-height:1.35;font-size:15px;font-weight:700;color:${theme.ink};margin-top:2px">${value}</div>
         </td>
       </tr>
     </table>`;
@@ -277,13 +283,13 @@ function infoCell(iconUrl: string, label: string, value: string, theme: EmailThe
 
 function metaPill(iconUrl: string, label: string, value: string, theme: EmailTheme) {
   return `
-    <td class="ef-meta-cell" width="33%" valign="top" style="padding-right:8px">
+    <td class="ef-meta-cell${label === "Setor" ? " ef-meta-sector" : ""}" width="33%" valign="top" style="padding-right:8px">
       <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:rgba(255,255,255,0.07);border:1px solid rgba(255,255,255,0.14);border-radius:12px">
         <tr>
-          <td style="padding:10px 12px;font-family:Arial,Helvetica,sans-serif">
+          <td class="ef-meta-padding" style="padding:10px 12px;font-family:Arial,Helvetica,sans-serif">
             <img src="${escapeAttr(iconUrl)}" width="16" height="16" alt="" style="display:block;border:0" />
-            <div style="font-size:10px;font-weight:700;letter-spacing:1px;color:${theme.vip ? "#b9a782" : "#c9c1de"};text-transform:uppercase;margin-top:7px">${label}</div>
-            <div style="font-size:15px;font-weight:700;color:${theme.vip ? "#f2efe8" : "#ffffff"};margin-top:2px">${value}</div>
+            <div class="ef-meta-label" style="font-size:10px;font-weight:700;letter-spacing:1px;color:${theme.vip ? "#b9a782" : "#c9c1de"};text-transform:uppercase;margin-top:7px">${label}</div>
+            <div class="ef-meta-value" style="font-size:15px;line-height:1.3;font-weight:700;color:#ffffff;margin-top:2px;overflow-wrap:anywhere">${protectedText(value)}</div>
           </td>
         </tr>
       </table>
@@ -300,18 +306,18 @@ function pillButton(opts: {
 }) {
   const isPrimary = opts.variant === "primary";
   const bg = isPrimary
-    ? `background-color:${opts.theme.vip ? "#282420" : "#1c1140"};background:${opts.theme.gradient};${opts.theme.vip ? "border:1px solid #51483a;" : ""}`
+    ? `background-color:${opts.theme.vip ? "#282420" : "#1c1140"};background-image:${opts.theme.vip ? "linear-gradient(#282420,#282420)" : opts.theme.gradient};${opts.theme.vip ? "border:1px solid #51483a;" : ""}`
     : `background-color:${opts.theme.vip ? "#fffefd" : "#ffffff"};border:1px solid ${opts.theme.vip ? "#d9d3c8" : "#e3ddef"};`;
   const color = isPrimary ? "#ffffff" : opts.textColor ?? opts.theme.ink;
   return `
-    <a href="${escapeAttr(opts.href)}" style="display:inline-block;text-decoration:none;border-radius:13px;${bg}box-shadow:0 6px 16px rgba(20,12,45,0.16)">
+    <a class="ef-button" href="${escapeAttr(opts.href)}" style="display:inline-block;text-decoration:none;border-radius:13px;${bg}box-shadow:0 6px 16px rgba(20,12,45,0.16)">
       <table role="presentation" cellpadding="0" cellspacing="0" border="0">
         <tr>
-          <td style="padding:13px 22px 13px 18px">
+          <td class="ef-button-padding" style="padding:13px 22px 13px 18px">
             <table role="presentation" cellpadding="0" cellspacing="0" border="0">
               <tr>
                 <td valign="middle" style="padding-right:9px"><img src="${escapeAttr(opts.iconUrl)}" width="16" height="16" alt="" style="display:block;border:0" /></td>
-                <td valign="middle" style="font-family:Arial,Helvetica,sans-serif;font-size:14px;font-weight:700;color:${color};white-space:nowrap">${escapeHtml(opts.label)}</td>
+                <td class="ef-button-label" valign="middle" style="font-family:Arial,Helvetica,sans-serif;font-size:14px;font-weight:700;color:${color};white-space:nowrap">${isPrimary ? protectedText(escapeHtml(opts.label)) : escapeHtml(opts.label)}</td>
               </tr>
             </table>
           </td>
@@ -352,7 +358,7 @@ function ticketCard(
   // width of the stub; the placeholder is decorative and stays small.
   const qrImage = qrReleased
     ? `<img src="${escapeAttr(ticket.qrImageSrc!)}" width="148" alt="QR Code do ingresso" style="display:block;border:0;width:100%;max-width:148px;height:auto" />`
-    : `<img src="${escapeAttr(ctx.qrLockedImageUrl)}" width="104" height="104" alt="QR Code protegido" style="display:block;border:0;border-radius:8px" />`;
+    : `<img src="${escapeAttr(ctx.qrLockedImageUrl)}" width="104" height="104" alt="QR Code protegido" style="display:block;border:0;border-radius:8px;width:100%;max-width:104px;height:auto" />`;
 
   const iconWhite = (name: string) => asset(ctx.assetsBaseUrl, `icon-white-${name}.png`);
 
@@ -363,21 +369,21 @@ function ticketCard(
       </tr>
     </table>
 
-    <div style="font-family:Arial,Helvetica,sans-serif;font-size:10px;font-weight:700;letter-spacing:2px;color:${ctx.theme.cardLabel};text-transform:uppercase;margin-top:16px">${ctx.theme.vip ? "CONVITE VIP · ACESSO PREMIUM" : escapeHtml(ctx.eventTitle)}</div>
-    <div style="font-family:Arial,Helvetica,sans-serif;font-size:24px;line-height:1.15;font-weight:800;color:${ctx.theme.vip ? "#f2efe8" : "#ffffff"};margin-top:4px">${escapeHtml(ctx.eventTitle)}</div>
+    <div class="ef-ticket-eyebrow" style="font-family:Arial,Helvetica,sans-serif;font-size:10px;font-weight:700;letter-spacing:2px;color:${ctx.theme.cardLabel};text-transform:uppercase;margin-top:16px">${ctx.theme.vip ? "CONVITE VIP · ACESSO PREMIUM" : escapeHtml(ctx.eventTitle)}</div>
+    <div class="ef-ticket-title" style="overflow-wrap:anywhere;font-family:Arial,Helvetica,sans-serif;font-size:24px;line-height:1.15;font-weight:800;color:#ffffff;margin-top:4px">${protectedText(escapeHtml(ctx.eventTitle))}</div>
 
-    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-top:14px">
+    <table class="ef-meta" role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="table-layout:fixed;margin-top:14px">
       <tr>
-        ${metaPill(iconWhite("calendar"), "Data", formatShortDayMonth(ctx.startsAt), ctx.theme)}
+        ${metaPill(iconWhite("calendar"), "Data", formatShortDayMonth(ctx.startsAt).replace(" ", "&nbsp;"), ctx.theme)}
         ${metaPill(iconWhite("clock"), "Hora", formatHourMinute(ctx.startsAt), ctx.theme)}
         ${metaPill(iconWhite("ticket"), "Setor", escapeHtml(ticket.ticketTypeName), ctx.theme)}
       </tr>
     </table>
 
-    <div style="border-top:1px dashed rgba(255,255,255,0.22);margin-top:18px;padding-top:14px">
+    <div class="ef-attendee-divider" style="border-top:1px dashed rgba(255,255,255,0.22);margin-top:18px;padding-top:14px">
       <div style="font-family:Arial,Helvetica,sans-serif;font-size:10px;font-weight:700;letter-spacing:1px;color:${ctx.theme.cardLabel};text-transform:uppercase">${ctx.theme.vip ? "Convidado" : "Participante"}</div>
     </div>
-    <div style="font-family:Arial,Helvetica,sans-serif;font-size:16px;font-weight:800;color:#ffffff;margin-top:3px">${escapeHtml(ticket.attendeeName)}</div>`;
+    <div class="ef-attendee" style="overflow-wrap:anywhere;font-family:Arial,Helvetica,sans-serif;font-size:16px;line-height:1.35;font-weight:800;color:#ffffff;margin-top:3px">${protectedText(escapeHtml(ticket.attendeeName))}</div>`;
 
   // One unified white card (label + QR + code together) - matches the
   // reference mockup, where "SEU INGRESSO" and the QR live inside the same
@@ -385,7 +391,7 @@ function ticketCard(
   const rightBlock = `
     <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="background-color:#ffffff;border-radius:16px;margin:0 auto;width:100%;max-width:176px">
       <tr>
-        <td align="center" style="padding:13px 12px 2px 12px">
+        <td class="ef-qr-heading" align="center" style="padding:13px 12px 2px 12px">
           <table role="presentation" cellpadding="0" cellspacing="0" border="0"><tr>
             <td valign="middle" style="padding-right:5px"><img src="${escapeAttr(asset(ctx.assetsBaseUrl, qrReleased ? "icon-dark-ticket.png" : "icon-dark-lock.png"))}" width="11" height="11" alt="" style="display:block;border:0" /></td>
             <td valign="middle" style="font-family:Arial,Helvetica,sans-serif;font-size:10px;font-weight:800;letter-spacing:1px;color:${ctx.theme.ink};text-transform:uppercase;white-space:nowrap">${ctx.theme.vip ? "Ingresso VIP" : "Seu ingresso"}</td>
@@ -393,19 +399,19 @@ function ticketCard(
         </td>
       </tr>
       <tr>
-        <td align="center" style="padding:8px 14px 14px 14px">
+        <td class="ef-qr-padding" align="center" style="padding:8px 14px 14px 14px">
           ${qrImage}
-          <div style="font-family:Arial,Helvetica,sans-serif;font-size:10px;font-weight:800;letter-spacing:1px;color:${ctx.theme.ink};margin-top:7px">${escapeHtml(formatShortCode(ticket.shortCode))}</div>
+          <div class="ef-qr-code" style="font-family:Arial,Helvetica,sans-serif;font-size:10px;font-weight:800;letter-spacing:1px;color:${ctx.theme.ink};margin-top:7px">${escapeHtml(formatShortCode(ticket.shortCode))}</div>
         </td>
       </tr>
     </table>
-    <div style="font-family:Arial,Helvetica,sans-serif;font-size:10px;color:${ctx.theme.cardCaption};margin-top:9px;line-height:1.4;text-align:center;${ctx.theme.vip ? "background-color:rgba(0,0,0,0.64);padding:6px 4px;border-radius:8px" : ""}">${qrCaption}</div>
+    <div class="ef-qr-caption" style="font-family:Arial,Helvetica,sans-serif;font-size:10px;color:#ffffff;margin-top:9px;line-height:1.4;text-align:center">${protectedText(qrCaption)}</div>
     ${ctx.showInlineDownload
       ? `<div style="text-align:center;margin-top:10px">
            <a href="${escapeAttr(ticket.pdfUrl)}" style="font-family:Arial,Helvetica,sans-serif;font-size:11px;font-weight:700;color:${ctx.theme.cardCaption};text-decoration:underline">Baixar PDF deste ingresso</a>
          </div>`
       : ""}
-    <div style="font-family:Arial,Helvetica,sans-serif;font-size:9px;letter-spacing:1px;color:${ctx.theme.vip ? "#b9a782" : "#8477a3"};text-transform:uppercase;margin-top:14px;text-align:center;border-top:1px solid rgba(255,255,255,0.14);padding-top:10px">${BRAND}<br/>Ingressos que aproximam</div>`;
+    <div class="ef-ticket-brand" style="font-family:Arial,Helvetica,sans-serif;font-size:9px;letter-spacing:1px;color:${ctx.theme.vip ? "#b9a782" : "#8477a3"};text-transform:uppercase;margin-top:14px;text-align:center;border-top:1px solid rgba(255,255,255,0.14);padding-top:10px">${BRAND}<br/>Ingressos que aproximam</div>`;
 
   // Background is the user's own reference art (grid mesh + glow ribbon +
   // rounded glowing border), cropped to the card's aspect and used with
@@ -416,10 +422,10 @@ function ticketCard(
   // centred regardless of height - the source art's own "notch" is just a
   // gap in its glow line, not an actual cutout, so it can't do that alone.
   return `
-  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-bottom:22px">
+  <table class="ef-ticket" role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-bottom:22px;table-layout:fixed">
     <tr>
       <td style="background-color:${ctx.theme.card};background-image:${ctx.theme.vip ? "linear-gradient(rgba(12,11,10,0.52),rgba(12,11,10,0.52))," : ""}url(${escapeAttr(asset(ctx.assetsBaseUrl, ctx.theme.backgroundFile))})${ctx.theme.vip ? "" : `,url(${escapeAttr(asset(ctx.assetsBaseUrl, "ticket-notch-left.png"))}),url(${escapeAttr(asset(ctx.assetsBaseUrl, "ticket-notch-right.png"))})`};background-repeat:no-repeat${ctx.theme.vip ? ",no-repeat" : ",no-repeat,no-repeat"};background-position:center${ctx.theme.vip ? ",center" : ",left center,right center"};background-size:cover${ctx.theme.vip ? ",cover" : ",20px 56px,20px 56px"};border-radius:24px">
-        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="table-layout:fixed">
           <tr>
             <td class="ef-ticket-left" width="62%" valign="top" style="padding:26px 16px 24px 28px">${leftBlock}</td>
             <td class="ef-ticket-right" width="38%" valign="top" style="padding:26px 24px 22px 16px">${rightBlock}</td>
@@ -495,21 +501,65 @@ function renderHtml(
       [data-ogsc] .ef-footer { border-top-color:${theme.darkBorder} !important; }
       [data-ogsc] .ef-light-logo { display:none !important; }
       [data-ogsc] .ef-dark-logo { display:block !important; }
+      body { -webkit-text-size-adjust:100%; -ms-text-size-adjust:100%; }
+      a[x-apple-data-detectors] { color:inherit !important; text-decoration:none !important; }
+      u + .ef-body .ef-gmail-screen { background:#000; mix-blend-mode:screen; }
+      u + .ef-body .ef-gmail-difference { background:#000; mix-blend-mode:difference; }
       @media screen and (max-width:600px) {
-        .ef-shell-padding { padding:12px !important; }
-        .ef-sheet { width:100% !important; }
-        .ef-section { padding-left:20px !important; padding-right:20px !important; }
-        .ef-info-cell { display:block !important; width:auto !important; padding:12px 16px !important; }
-        .ef-ticket-left, .ef-ticket-right { display:block !important; width:auto !important; padding:20px !important; }
-        .ef-ticket-right { padding-top:0 !important; }
-        .ef-meta-cell { padding-right:4px !important; }
-        .ef-cta-cell { display:block !important; padding-right:0 !important; }
-        .ef-footer-copy, .ef-footer-brand { display:block !important; width:auto !important; text-align:left !important; }
-        .ef-footer-brand { padding-top:18px !important; }
+        .ef-shell-padding { padding:6px !important; }
+        .ef-sheet { width:100% !important; table-layout:fixed !important; }
+        .ef-section { padding-left:12px !important; padding-right:12px !important; }
+        .ef-hero { padding:20px 18px !important; }
+        .ef-hero-logo { width:88px !important; }
+        .ef-hero-title { font-size:25px !important; line-height:1.15 !important; }
+        .ef-hero-first { margin-top:18px !important; }
+        .ef-hero-caption { font-size:9px !important; letter-spacing:1.5px !important; margin-top:10px !important; }
+        .ef-intro { padding-top:18px !important; }
+        .ef-greeting { font-size:17px !important; line-height:1.3 !important; }
+        .ef-intro-copy { font-size:12px !important; line-height:1.5 !important; }
+        .ef-info-cell { width:50% !important; padding:10px 8px !important; vertical-align:top !important; }
+        .ef-info-icon { width:24px !important; padding-right:6px !important; }
+        .ef-info-icon img { width:24px !important; height:24px !important; }
+        .ef-info-label { font-size:9px !important; letter-spacing:.6px !important; }
+        .ef-info-value { font-size:11px !important; line-height:1.4 !important; }
+        .ef-ticket-left { width:56% !important; padding:16px 6px 16px 12px !important; }
+        .ef-ticket-right { width:44% !important; padding:16px 10px 16px 4px !important; }
+        .ef-ticket-left img { max-width:70px; height:auto; }
+        .ef-ticket-eyebrow { font-size:8px !important; letter-spacing:1px !important; margin-top:12px !important; }
+        .ef-ticket-title { font-size:18px !important; line-height:1.2 !important; }
+        .ef-meta { margin-top:12px !important; }
+        .ef-meta > tbody > tr { display:block !important; font-size:0 !important; }
+        .ef-meta-cell { display:inline-block !important; width:49% !important; box-sizing:border-box !important; padding-right:3px !important; }
+        .ef-meta-sector { display:block !important; width:100% !important; padding-top:4px !important; }
+        .ef-meta-sector img { display:none !important; }
+        .ef-meta-sector .ef-meta-label { margin-top:0 !important; }
+        .ef-meta-padding { padding:7px 4px !important; }
+        .ef-meta-padding img { width:12px !important; height:12px !important; }
+        .ef-meta-label { font-size:7px !important; letter-spacing:.3px !important; margin-top:5px !important; }
+        .ef-meta-value { font-size:10px !important; }
+        .ef-attendee-divider { margin-top:12px !important; padding-top:10px !important; }
+        .ef-attendee { font-size:12px !important; }
+        .ef-qr-heading { padding:10px 4px 2px !important; }
+        .ef-qr-heading td { font-size:8px !important; letter-spacing:.4px !important; }
+        .ef-qr-heading img { display:none !important; }
+        .ef-qr-padding { padding:6px !important; }
+        .ef-qr-code { font-size:9px !important; letter-spacing:.4px !important; }
+        .ef-qr-caption { font-size:9px !important; }
+        .ef-ticket-brand { font-size:7px !important; letter-spacing:.6px !important; margin-top:10px !important; }
+        .ef-cta-cell { padding-right:4px !important; vertical-align:top !important; }
+        .ef-button { display:block !important; border-radius:10px !important; }
+        .ef-button-padding { padding:11px 6px !important; }
+        .ef-button-label { font-size:11px !important; white-space:normal !important; line-height:1.3 !important; }
+        .ef-button img { display:none !important; }
+        .ef-footer { padding-top:16px !important; padding-bottom:16px !important; }
+        .ef-footer-copy { font-size:10px !important; }
+        .ef-footer-brand { width:78px !important; padding-left:10px !important; }
+        .ef-footer-tagline { display:none !important; }
+        .ef-footer-brand img { width:68px !important; }
       }
     </style>
   </head>
-  <body class="ef-outer" style="margin:0;padding:0;background-color:${theme.outer}">
+  <body class="ef-outer ef-body" style="margin:0;padding:0;background-color:${theme.outer}">
     <div style="display:none;max-height:0;overflow:hidden;opacity:0">${escapeHtml(ctx.preheader)}</div>
     <table class="ef-outer" role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:${theme.outer}">
       <tr>
@@ -518,23 +568,23 @@ function renderHtml(
 
             <!-- Hero -->
             <tr>
-              <td class="ef-section" style="background-color:${theme.hero};background-image:${theme.vip ? "linear-gradient(rgba(12,11,10,0.54),rgba(12,11,10,0.54))," : ""}url(${escapeAttr(asset(input.assetsBaseUrl, theme.vip ? "vip-bg.png" : "hero-bg.png"))});background-size:cover;background-position:center right;background-repeat:no-repeat;padding:32px 32px 28px 32px">
+              <td class="ef-section ef-hero" style="background-color:${theme.hero};background-image:${theme.vip ? "linear-gradient(rgba(12,11,10,0.54),rgba(12,11,10,0.54))," : ""}url(${escapeAttr(asset(input.assetsBaseUrl, theme.vip ? "vip-bg.png" : "hero-bg.png"))});background-size:cover;background-position:center right;background-repeat:no-repeat;padding:32px 32px 28px 32px">
                 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
                   <tr>
-                    <td valign="middle" width="110"><img src="${escapeAttr(theme.vip ? asset(input.assetsBaseUrl, "vip-logo-white.png") : input.logoDarkUrl)}" width="110" alt="${BRAND}" style="display:block;border:0" /></td>
+                    <td valign="middle" width="110"><img class="ef-hero-logo" src="${escapeAttr(theme.vip ? asset(input.assetsBaseUrl, "vip-logo-white.png") : input.logoDarkUrl)}" width="110" alt="${BRAND}" style="display:block;border:0" /></td>
                   </tr>
                 </table>
-                <div style="font-family:Arial,Helvetica,sans-serif;font-size:34px;line-height:1.15;font-weight:800;color:${theme.vip ? "#f2efe8" : "#ffffff"};margin-top:26px">${theme.vip ? "Bem-vindo à" : escapeHtml(ctx.possessive)}</div>
-                <div style="font-family:Arial,Helvetica,sans-serif;font-size:34px;line-height:1.15;font-weight:800;color:${theme.vip ? "#f2efe8" : theme.accent};margin-top:2px">${theme.vip ? "experiência Premium." : `já ${escapeHtml(ctx.verb)}.`}</div>
-                <div style="font-family:Arial,Helvetica,sans-serif;font-size:12px;font-weight:700;letter-spacing:3px;color:${theme.vip ? "#c4b596" : "#c9c1de"};text-transform:uppercase;margin-top:14px">${theme.vip ? "UM CONVITE FEITO PARA VOCÊ" : "Nos vemos no evento!"}</div>
+                <div class="ef-hero-title ef-hero-first" style="font-family:Arial,Helvetica,sans-serif;font-size:34px;line-height:1.15;font-weight:800;color:#ffffff;margin-top:26px">${protectedText(theme.vip ? "Bem-vindo à" : escapeHtml(ctx.possessive))}</div>
+                <div class="ef-hero-title" style="font-family:Arial,Helvetica,sans-serif;font-size:34px;line-height:1.15;font-weight:800;color:#ffffff;margin-top:2px">${protectedText(theme.vip ? "experiência Premium." : `já ${escapeHtml(ctx.verb)}.`)}</div>
+                <div class="ef-hero-caption" style="font-family:Arial,Helvetica,sans-serif;font-size:12px;font-weight:700;letter-spacing:3px;color:${theme.vip ? "#c4b596" : "#c9c1de"};text-transform:uppercase;margin-top:14px">${theme.vip ? "UM CONVITE FEITO PARA VOCÊ" : "Nos vemos no evento!"}</div>
               </td>
             </tr>
 
             <!-- Body -->
             <tr>
-              <td class="ef-section" style="padding:30px 32px 8px 32px;font-family:Arial,Helvetica,sans-serif">
-                <div class="ef-ink" style="font-size:20px;font-weight:800;color:${theme.ink}">Olá, ${escapeHtml(input.buyerName)}!</div>
-                <div class="ef-muted" style="font-size:14px;line-height:1.6;color:${theme.muted};margin-top:8px">
+              <td class="ef-section ef-intro" style="padding:30px 32px 8px 32px;font-family:Arial,Helvetica,sans-serif">
+                <div class="ef-ink ef-greeting" style="font-size:20px;font-weight:800;color:${theme.ink}">Olá, ${escapeHtml(input.buyerName)}!</div>
+                <div class="ef-muted ef-intro-copy" style="font-size:14px;line-height:1.6;color:${theme.muted};margin-top:8px">
                   ${theme.vip
                     ? `Você recebeu ${input.ticketCount === 1 ? "um convite especial" : `${input.ticketCount} convites especiais`} de ${escapeHtml(ctx.inviter)} para ${escapeHtml(input.eventTitle)}. ${input.ticketCount === 1 ? "Seu ingresso VIP foi reservado em seu nome e é pessoal e intransferível" : "Seus ingressos VIP foram reservados em seu nome e são pessoais e intransferíveis"}.`
                     : isTransfer
@@ -552,7 +602,7 @@ function renderHtml(
             <!-- Info grid -->
             <tr>
               <td class="ef-section" style="padding:18px 32px 8px 32px">
-                <table class="ef-info" role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:${theme.info};border-radius:16px">
+                <table class="ef-info" role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="table-layout:fixed;background-color:${theme.info};border-radius:16px">
                   <tr>
                     <td class="ef-info-cell" style="padding:18px 20px 10px 20px" width="50%">${infoCell(iconBadge("calendar"), "Evento", escapeHtml(input.eventTitle), theme)}</td>
                     <td class="ef-info-cell" style="padding:18px 20px 10px 20px" width="50%">${infoCell(iconBadge("clock"), "Quando", formatLongDayMonthTime(input.eventStartsAt), theme)}</td>
@@ -615,8 +665,8 @@ function renderHtml(
                     </td>
                     <td class="ef-footer-brand" valign="middle" align="right">
                       <table role="presentation" cellpadding="0" cellspacing="0" border="0"><tr>
-                        <td class="ef-muted" valign="middle" align="right" style="padding-right:10px;font-family:Arial,Helvetica,sans-serif;font-size:10px;color:${theme.muted};line-height:1.3;white-space:nowrap">Mais encontros,<br/>mais hist&oacute;rias.</td>
-                        <td valign="middle"><img class="ef-light-logo" src="${escapeAttr(theme.vip ? asset(input.assetsBaseUrl, "vip-logo-dark.png") : input.logoLightUrl)}" width="92" alt="${BRAND}" style="display:block;border:0" /><img class="ef-dark-logo" src="${escapeAttr(theme.vip ? asset(input.assetsBaseUrl, "vip-logo-white.png") : input.logoDarkUrl)}" width="92" alt="" style="display:none;border:0" /></td>
+                        <td class="ef-muted ef-footer-tagline" valign="middle" align="right" style="padding-right:10px;font-family:Arial,Helvetica,sans-serif;font-size:10px;color:${theme.muted};line-height:1.3;white-space:nowrap">Mais encontros,<br/>mais hist&oacute;rias.</td>
+                        <td valign="middle"><img src="${escapeAttr(theme.vip ? asset(input.assetsBaseUrl, "vip-logo-white.png") : input.logoDarkUrl)}" width="92" alt="${BRAND}" style="display:block;border:0;padding:6px;border-radius:8px;background-color:#171321;background-image:linear-gradient(#171321,#171321)" /></td>
                       </tr></table>
                     </td>
                   </tr>
