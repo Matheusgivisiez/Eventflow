@@ -246,35 +246,55 @@ function asset(base: string, name: string) {
   return `${base.replace(/\/+$/, "")}/${name}`;
 }
 
+/*
+ * Layout rules (read before touching the HTML below).
+ *
+ * The e-mail is ONE compact layout that holds from ~300px (a phone inside the
+ * Gmail app) up to 600px. Every inline size is the phone size; the single
+ * `min-width` media query only enlarges type and padding on wide screens. So a
+ * client that drops the <style> block still gets the compact layout, never a
+ * broken one, and nothing ever stacks into a long single column.
+ *
+ * Symmetry comes from `table-layout:fixed` plus percentage widths: columns keep
+ * their share no matter how long the text inside is.
+ */
+const FONT = "font-family:Arial,Helvetica,sans-serif";
+
 function infoCell(iconUrl: string, label: string, value: string, theme: EmailTheme) {
   return `
     <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
       <tr>
-        <td width="40" valign="top"><img src="${escapeAttr(iconUrl)}" width="40" height="40" alt="" style="display:block;border:0" /></td>
-        <td width="10"></td>
-        <td valign="middle" style="font-family:Arial,Helvetica,sans-serif">
-          <div class="ef-muted" style="font-size:11px;font-weight:700;letter-spacing:1px;color:${theme.muted};text-transform:uppercase">${label}</div>
-          <div class="ef-ink" style="font-size:15px;font-weight:700;color:${theme.ink};margin-top:2px">${value}</div>
+        <td class="ef-info-icon-cell" width="26" valign="top"><img class="ef-info-icon" src="${escapeAttr(iconUrl)}" width="26" height="26" alt="" style="display:block;border:0;width:26px;height:26px" /></td>
+        <td width="8" style="font-size:0;line-height:0">&nbsp;</td>
+        <td valign="top" style="${FONT}">
+          <div class="ef-muted ef-info-label" style="font-size:9px;line-height:12px;font-weight:700;letter-spacing:1px;color:${theme.muted};text-transform:uppercase">${label}</div>
+          <div class="ef-ink ef-info-value" style="font-size:12px;line-height:16px;font-weight:700;color:${theme.ink};margin-top:1px;word-wrap:break-word">${value}</div>
         </td>
       </tr>
     </table>`;
 }
 
+/** Glass box inside the ticket card: small icon + label on one line, value below. */
 function metaPill(iconUrl: string, label: string, value: string, theme: EmailTheme) {
   return `
-    <td class="ef-meta-cell" width="33%" valign="top" style="padding-right:8px">
-      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:rgba(255,255,255,0.07);border:1px solid rgba(255,255,255,0.14);border-radius:12px">
+      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:rgba(255,255,255,0.07);border:1px solid rgba(255,255,255,0.14);border-radius:10px">
         <tr>
-          <td style="padding:10px 12px;font-family:Arial,Helvetica,sans-serif">
-            <img src="${escapeAttr(iconUrl)}" width="16" height="16" alt="" style="display:block;border:0" />
-            <div style="font-size:10px;font-weight:700;letter-spacing:1px;color:${theme.vip ? "#b9a782" : "#c9c1de"};text-transform:uppercase;margin-top:7px">${label}</div>
-            <div style="font-size:15px;font-weight:700;color:${theme.vip ? "#f2efe8" : "#ffffff"};margin-top:2px">${value}</div>
+          <td class="ef-pill" style="padding:8px 9px;${FONT}">
+            <table role="presentation" cellpadding="0" cellspacing="0" border="0"><tr>
+              <td valign="middle" style="padding-right:5px"><img src="${escapeAttr(iconUrl)}" width="11" height="11" alt="" style="display:block;border:0" /></td>
+              <td class="ef-pill-label" valign="middle" style="${FONT};font-size:8.5px;line-height:11px;font-weight:700;letter-spacing:1px;color:${theme.vip ? "#b9a782" : "#c9c1de"};text-transform:uppercase">${label}</td>
+            </tr></table>
+            <div class="ef-pill-value" style="font-size:13px;line-height:16px;font-weight:700;color:${theme.vip ? "#f2efe8" : "#ffffff"};margin-top:4px;word-wrap:break-word">${value}</div>
           </td>
         </tr>
-      </table>
-    </td>`;
+      </table>`;
 }
 
+/**
+ * One button of the action row. Buttons share the row in equal parts, so the
+ * label must stay short enough for a third of a phone screen (see CTA labels).
+ * The icon only shows on wide screens.
+ */
 function pillButton(opts: {
   href: string;
   iconUrl: string;
@@ -284,34 +304,19 @@ function pillButton(opts: {
   theme: EmailTheme;
 }) {
   const isPrimary = opts.variant === "primary";
+  const primaryColor = opts.theme.vip ? "#282420" : "#1c1140";
   const bg = isPrimary
-    ? `background-color:${opts.theme.vip ? "#282420" : "#1c1140"};background:${opts.theme.gradient};${opts.theme.vip ? "border:1px solid #51483a;" : ""}`
+    ? `background-color:${primaryColor};background:${opts.theme.gradient};border:1px solid ${opts.theme.vip ? "#51483a" : primaryColor};`
     : `background-color:${opts.theme.vip ? "#fffefd" : "#ffffff"};border:1px solid ${opts.theme.vip ? "#d9d3c8" : "#e3ddef"};`;
   const color = isPrimary ? "#ffffff" : opts.textColor ?? opts.theme.ink;
-  return `
-    <a href="${escapeAttr(opts.href)}" style="display:inline-block;text-decoration:none;border-radius:13px;${bg}box-shadow:0 6px 16px rgba(20,12,45,0.16)">
-      <table role="presentation" cellpadding="0" cellspacing="0" border="0">
-        <tr>
-          <td style="padding:13px 22px 13px 18px">
-            <table role="presentation" cellpadding="0" cellspacing="0" border="0">
-              <tr>
-                <td valign="middle" style="padding-right:9px"><img src="${escapeAttr(opts.iconUrl)}" width="16" height="16" alt="" style="display:block;border:0" /></td>
-                <td valign="middle" style="font-family:Arial,Helvetica,sans-serif;font-size:14px;font-weight:700;color:${color};white-space:nowrap">${escapeHtml(opts.label)}</td>
-              </tr>
-            </table>
-          </td>
-        </tr>
-      </table>
-    </a>`;
+  return `<a class="ef-btn" href="${escapeAttr(opts.href)}" style="display:block;text-decoration:none;text-align:center;border-radius:11px;${bg}padding:12px 2px;${FONT};font-size:11px;line-height:14px;font-weight:700;color:${color};white-space:nowrap"><img class="ef-btn-icon" src="${escapeAttr(opts.iconUrl)}" width="15" height="15" alt="" style="display:none;mso-hide:all;border:0;vertical-align:-3px;margin-right:7px" />${escapeHtml(opts.label)}</a>`;
 }
 
 /**
- * Ticket card: a horizontal stub, main info on the left and a QR stub on the
- * right separated by a dashed perforation - matching the reference mockup's
- * ticket shape (not a stacked/repeating card). The two outward notches sit
- * at the card's outer left/right edges via a pair of small background
- * images positioned with `center`, so they stay vertically centred no
- * matter how tall the card ends up (long attendee names, wrapped titles).
+ * Ticket card: a horizontal stub at every width - event, date/time, sector and
+ * holder on the left, the QR on the right. Date and time share a row in equal
+ * halves; the sector gets the full row below because sector names ("LOTE NO
+ * ESCURO", "Convidado VIP") do not fit a third of the column on a phone.
  */
 function ticketCard(
   ticket: PurchaseConfirmedTemplateTicket,
@@ -324,90 +329,85 @@ function ticketCard(
     qrCodeReleaseAt: Date | null;
     startsAt: Date;
     showInlineDownload: boolean;
+    orderUrl: string;
     theme: EmailTheme;
   }
 ) {
+  const vip = ctx.theme.vip;
   const qrReleased = Boolean(ticket.qrImageSrc);
   const qrCaption = qrReleased
     ? "QR Code liberado. Apresente na entrada."
     : ctx.qrCodeLocked && ctx.qrCodeReleaseAt
       ? `Libera em ${formatEventDate(ctx.qrCodeReleaseAt)}.`
       : "Toque em “Abrir ingresso” para ver e usar na entrada.";
-  // The real QR is dense (uuid + order + signature), so it gets the full
-  // width of the stub; the placeholder is decorative and stays small.
+  // Fluid on purpose: the QR takes the whole stub width. Tapping it opens the
+  // ticket page, where the code is shown full size for the door scanner.
   const qrImage = qrReleased
-    ? `<img src="${escapeAttr(ticket.qrImageSrc!)}" width="148" alt="QR Code do ingresso" style="display:block;border:0;width:100%;max-width:148px;height:auto" />`
-    : `<img src="${escapeAttr(ctx.qrLockedImageUrl)}" width="104" height="104" alt="QR Code protegido" style="display:block;border:0;border-radius:8px" />`;
+    ? `<img src="${escapeAttr(ticket.qrImageSrc!)}" width="148" alt="QR Code do ingresso" style="display:block;border:0;width:100%;max-width:148px;height:auto;margin:0 auto" />`
+    : `<img src="${escapeAttr(ctx.qrLockedImageUrl)}" width="104" alt="QR Code protegido" style="display:block;border:0;border-radius:8px;width:100%;max-width:104px;height:auto;margin:0 auto" />`;
 
   const iconWhite = (name: string) => asset(ctx.assetsBaseUrl, `icon-white-${name}.png`);
+  const titleColor = vip ? "#f2efe8" : "#ffffff";
 
   const leftBlock = `
-    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+    <img class="ef-card-logo" src="${escapeAttr(ctx.logoDarkUrl)}" width="66" alt="${BRAND}" style="display:block;border:0;width:66px;height:auto" />
+    ${vip ? `<div class="ef-card-eyebrow" style="${FONT};font-size:8.5px;line-height:11px;font-weight:700;letter-spacing:2px;color:${ctx.theme.cardLabel};text-transform:uppercase;margin-top:12px">Convite VIP</div>` : ""}
+    <div class="ef-card-title" style="${FONT};font-size:17px;line-height:20px;font-weight:800;color:${titleColor};margin-top:${vip ? "3px" : "12px"};word-wrap:break-word">${escapeHtml(ctx.eventTitle)}</div>
+
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-top:12px;table-layout:fixed">
       <tr>
-        <td valign="middle" width="84"><img src="${escapeAttr(ctx.logoDarkUrl)}" width="84" alt="${BRAND}" style="display:block;border:0" /></td>
+        <td width="50%" valign="top" style="padding-right:3px">${metaPill(iconWhite("calendar"), "Data", formatShortDayMonth(ctx.startsAt), ctx.theme)}</td>
+        <td width="50%" valign="top" style="padding-left:3px">${metaPill(iconWhite("clock"), "Hora", formatHourMinute(ctx.startsAt), ctx.theme)}</td>
+      </tr>
+      <tr>
+        <td colspan="2" valign="top" style="padding-top:6px">${metaPill(iconWhite("ticket"), "Setor", escapeHtml(ticket.ticketTypeName), ctx.theme)}</td>
       </tr>
     </table>
 
-    <div style="font-family:Arial,Helvetica,sans-serif;font-size:10px;font-weight:700;letter-spacing:2px;color:${ctx.theme.cardLabel};text-transform:uppercase;margin-top:16px">${ctx.theme.vip ? "CONVITE VIP · ACESSO PREMIUM" : escapeHtml(ctx.eventTitle)}</div>
-    <div style="font-family:Arial,Helvetica,sans-serif;font-size:24px;line-height:1.15;font-weight:800;color:${ctx.theme.vip ? "#f2efe8" : "#ffffff"};margin-top:4px">${escapeHtml(ctx.eventTitle)}</div>
+    <div style="border-top:1px dashed rgba(255,255,255,0.22);margin-top:13px;padding-top:11px;${FONT};font-size:8.5px;line-height:11px;font-weight:700;letter-spacing:1px;color:${ctx.theme.cardLabel};text-transform:uppercase">${vip ? "Convidado" : "Participante"}</div>
+    <div class="ef-card-name" style="${FONT};font-size:14px;line-height:18px;font-weight:800;color:#ffffff;margin-top:2px;word-wrap:break-word">${escapeHtml(ticket.attendeeName)}</div>`;
 
-    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-top:14px">
-      <tr>
-        ${metaPill(iconWhite("calendar"), "Data", formatShortDayMonth(ctx.startsAt), ctx.theme)}
-        ${metaPill(iconWhite("clock"), "Hora", formatHourMinute(ctx.startsAt), ctx.theme)}
-        ${metaPill(iconWhite("ticket"), "Setor", escapeHtml(ticket.ticketTypeName), ctx.theme)}
-      </tr>
-    </table>
-
-    <div style="border-top:1px dashed rgba(255,255,255,0.22);margin-top:18px;padding-top:14px">
-      <div style="font-family:Arial,Helvetica,sans-serif;font-size:10px;font-weight:700;letter-spacing:1px;color:${ctx.theme.cardLabel};text-transform:uppercase">${ctx.theme.vip ? "Convidado" : "Participante"}</div>
-    </div>
-    <div style="font-family:Arial,Helvetica,sans-serif;font-size:16px;font-weight:800;color:#ffffff;margin-top:3px">${escapeHtml(ticket.attendeeName)}</div>`;
-
-  // One unified white card (label + QR + code together) - matches the
-  // reference mockup, where "SEU INGRESSO" and the QR live inside the same
-  // rounded white surface rather than a floating label above a separate box.
+  // One white surface holding label + QR + code, centred in the stub.
   const rightBlock = `
-    <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="background-color:#ffffff;border-radius:16px;margin:0 auto;width:100%;max-width:176px">
+    <table role="presentation" align="center" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:#ffffff;border-radius:14px;width:100%;max-width:176px;margin:0 auto">
       <tr>
-        <td align="center" style="padding:13px 12px 2px 12px">
-          <table role="presentation" cellpadding="0" cellspacing="0" border="0"><tr>
-            <td valign="middle" style="padding-right:5px"><img src="${escapeAttr(asset(ctx.assetsBaseUrl, qrReleased ? "icon-dark-ticket.png" : "icon-dark-lock.png"))}" width="11" height="11" alt="" style="display:block;border:0" /></td>
-            <td valign="middle" style="font-family:Arial,Helvetica,sans-serif;font-size:10px;font-weight:800;letter-spacing:1px;color:${ctx.theme.ink};text-transform:uppercase;white-space:nowrap">${ctx.theme.vip ? "Ingresso VIP" : "Seu ingresso"}</td>
-          </tr></table>
-        </td>
+        <td class="ef-qr-label" align="center" style="padding:9px 4px 0 4px;${FONT};font-size:8.5px;line-height:11px;font-weight:800;letter-spacing:1px;color:${ctx.theme.ink};text-transform:uppercase;white-space:nowrap">${vip ? "Ingresso VIP" : "Seu ingresso"}</td>
       </tr>
       <tr>
-        <td align="center" style="padding:8px 14px 14px 14px">
-          ${qrImage}
-          <div style="font-family:Arial,Helvetica,sans-serif;font-size:10px;font-weight:800;letter-spacing:1px;color:${ctx.theme.ink};margin-top:7px">${escapeHtml(formatShortCode(ticket.shortCode))}</div>
+        <td align="center" style="padding:6px 8px 9px 8px">
+          <a href="${escapeAttr(ctx.orderUrl)}" style="display:block;text-decoration:none">${qrImage}</a>
+          <div class="ef-qr-code" style="${FONT};font-size:9.5px;line-height:12px;font-weight:800;letter-spacing:1px;color:${ctx.theme.ink};margin-top:6px;white-space:nowrap">${escapeHtml(formatShortCode(ticket.shortCode))}</div>
         </td>
       </tr>
     </table>
-    <div style="font-family:Arial,Helvetica,sans-serif;font-size:10px;color:${ctx.theme.cardCaption};margin-top:9px;line-height:1.4;text-align:center;${ctx.theme.vip ? "background-color:rgba(0,0,0,0.64);padding:6px 4px;border-radius:8px" : ""}">${qrCaption}</div>
+    <div class="ef-qr-caption" style="${FONT};font-size:9.5px;line-height:13px;color:${ctx.theme.cardCaption};margin-top:8px;text-align:center;${vip ? "background-color:rgba(0,0,0,0.5);padding:5px 4px;border-radius:8px" : ""}">${qrCaption}</div>
     ${ctx.showInlineDownload
-      ? `<div style="text-align:center;margin-top:10px">
-           <a href="${escapeAttr(ticket.pdfUrl)}" style="font-family:Arial,Helvetica,sans-serif;font-size:11px;font-weight:700;color:${ctx.theme.cardCaption};text-decoration:underline">Baixar PDF deste ingresso</a>
+      ? `<div style="text-align:center;margin-top:7px">
+           <a class="ef-qr-caption" href="${escapeAttr(ticket.pdfUrl)}" style="${FONT};font-size:9.5px;line-height:13px;font-weight:700;color:${ctx.theme.cardCaption};text-decoration:underline">Baixar PDF</a>
          </div>`
-      : ""}
-    <div style="font-family:Arial,Helvetica,sans-serif;font-size:9px;letter-spacing:1px;color:${ctx.theme.vip ? "#b9a782" : "#8477a3"};text-transform:uppercase;margin-top:14px;text-align:center;border-top:1px solid rgba(255,255,255,0.14);padding-top:10px">${BRAND}<br/>Ingressos que aproximam</div>`;
+      : ""}`;
 
-  // Background is the user's own reference art (grid mesh + glow ribbon +
-  // rounded glowing border), cropped to the card's aspect and used with
-  // `cover` so it holds up at any content height. The border glow it bakes
-  // in already reads as the card's edge, so no separate CSS border/shadow
-  // is layered on top. Two small white notch overlays punch true cutouts
-  // through to the page background at the card's outer edges, vertically
-  // centred regardless of height - the source art's own "notch" is just a
-  // gap in its glow line, not an actual cutout, so it can't do that alone.
+  // Background is the brand art (grid mesh + glow ribbon + glowing border)
+  // used with `cover`, so it holds at any content height. On the standard
+  // card two small notch overlays punch cutouts at the outer edges, vertically
+  // centred regardless of height.
+  const background = vip
+    ? `background-image:linear-gradient(rgba(12,11,10,0.52),rgba(12,11,10,0.52)),url(${escapeAttr(asset(ctx.assetsBaseUrl, ctx.theme.backgroundFile))});background-repeat:no-repeat,no-repeat;background-position:center,center;background-size:cover,cover`
+    : `background-image:url(${escapeAttr(asset(ctx.assetsBaseUrl, ctx.theme.backgroundFile))}),url(${escapeAttr(asset(ctx.assetsBaseUrl, "ticket-notch-left.png"))}),url(${escapeAttr(asset(ctx.assetsBaseUrl, "ticket-notch-right.png"))});background-repeat:no-repeat,no-repeat,no-repeat;background-position:center,left center,right center;background-size:cover,12px 34px,12px 34px`;
+
   return `
-  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-bottom:22px">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-bottom:14px">
     <tr>
-      <td style="background-color:${ctx.theme.card};background-image:${ctx.theme.vip ? "linear-gradient(rgba(12,11,10,0.52),rgba(12,11,10,0.52))," : ""}url(${escapeAttr(asset(ctx.assetsBaseUrl, ctx.theme.backgroundFile))})${ctx.theme.vip ? "" : `,url(${escapeAttr(asset(ctx.assetsBaseUrl, "ticket-notch-left.png"))}),url(${escapeAttr(asset(ctx.assetsBaseUrl, "ticket-notch-right.png"))})`};background-repeat:no-repeat${ctx.theme.vip ? ",no-repeat" : ",no-repeat,no-repeat"};background-position:center${ctx.theme.vip ? ",center" : ",left center,right center"};background-size:cover${ctx.theme.vip ? ",cover" : ",20px 56px,20px 56px"};border-radius:24px">
-        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+      <td class="${vip ? "ef-ticket" : "ef-ticket ef-ticket-notched"}" style="background-color:${ctx.theme.card};${background};border-radius:20px">
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="table-layout:fixed">
           <tr>
-            <td class="ef-ticket-left" width="62%" valign="top" style="padding:26px 16px 24px 28px">${leftBlock}</td>
-            <td class="ef-ticket-right" width="38%" valign="top" style="padding:26px 24px 22px 16px">${rightBlock}</td>
+            <td class="ef-ticket-left" width="55%" valign="top" style="padding:18px 6px 16px 18px">${leftBlock}</td>
+            <td class="ef-ticket-right" width="45%" valign="top" style="padding:18px 16px 16px 8px">${rightBlock}</td>
+          </tr>
+          <tr>
+            <td class="ef-ticket-foot" colspan="2" style="padding:0 18px 14px 18px">
+              <div class="ef-ticket-tagline" style="border-top:1px solid rgba(255,255,255,0.14);padding-top:10px;text-align:center;${FONT};font-size:8px;line-height:11px;letter-spacing:1.5px;color:${vip ? "#b9a782" : "#8477a3"};text-transform:uppercase">${BRAND} &middot; Ingressos que aproximam</div>
+            </td>
           </tr>
         </table>
       </td>
@@ -425,6 +425,7 @@ function renderHtml(
   const iconAccent = (name: string) => asset(input.assetsBaseUrl, `${theme.accentIconPrefix}-${name}.png`);
   const iconAmber = (name: string) => asset(input.assetsBaseUrl, `icon-amber-${name}.png`);
   const isTransfer = Boolean(input.transfer);
+  const plural = input.ticketCount !== 1;
 
   const showInlineDownload = input.ticketCount > 1;
   const qrReleased = input.tickets.every((ticket) => ticket.qrImageSrc);
@@ -440,9 +441,32 @@ function renderHtml(
         qrCodeLocked: input.qrCodeLocked,
         qrCodeReleaseAt: input.qrCodeReleaseAt,
         showInlineDownload,
+        orderUrl: input.orderUrl,
         theme,
       })
     )
+    .join("");
+
+  // "06 de novembro, 22h00": the two halves never break inside, so on a phone
+  // it wraps cleanly as date / time instead of leaving a word alone on a line.
+  const [whenDay, whenTime] = formatLongDayMonthTime(input.eventStartsAt).split(", ");
+  const whenHtml = `<span style="white-space:nowrap">${whenDay},</span> <span style="white-space:nowrap">${whenTime}</span>`;
+
+  // Action row: equal-width buttons, so every label has to fit a third of a
+  // phone screen on one line. Keep them at 14 characters or fewer.
+  const buttons = [
+    pillButton({ href: input.orderUrl, iconUrl: iconWhite("ticket-open"), label: theme.vip ? (plural ? "Ver convites" : "Ver convite") : "Abrir ingresso", variant: "primary", theme }),
+    ...(input.ticketCount === 1 && input.tickets[0]
+      ? [pillButton({ href: input.tickets[0].pdfUrl, iconUrl: iconAccent("download"), label: "Baixar PDF", variant: "light", textColor: theme.ink, theme })]
+      : []),
+    pillButton({ href: input.createAccountUrl, iconUrl: iconAccent("person"), label: isTransfer ? "Meus ingressos" : "Criar conta", variant: "light", textColor: theme.accentText, theme }),
+  ];
+  const buttonWidth = `${(100 / buttons.length).toFixed(2)}%`;
+  const buttonCells = buttons
+    .map((button, index) => {
+      const padding = index === 0 ? "0 4px 0 0" : index === buttons.length - 1 ? "0 0 0 4px" : "0 2px";
+      return `<td width="${buttonWidth}" valign="top" style="padding:${padding}">${button}</td>`;
+    })
     .join("");
 
   return `
@@ -456,17 +480,43 @@ function renderHtml(
     <title>${theme.vip ? "Bem-vindo à experiência Premium" : `${escapeHtml(ctx.possessive)} já ${ctx.verb}`}</title>
     <style>
       :root { color-scheme: light only; supported-color-schemes: light only; }
-      @media screen and (max-width:600px) {
-        .ef-shell-padding { padding:12px !important; }
-        .ef-sheet { width:100% !important; }
-        .ef-section { padding-left:20px !important; padding-right:20px !important; }
-        .ef-info-cell { display:block !important; width:auto !important; padding:12px 16px !important; }
-        .ef-ticket-left, .ef-ticket-right { display:block !important; width:auto !important; padding:20px !important; }
-        .ef-ticket-right { padding-top:0 !important; }
-        .ef-meta-cell { padding-right:4px !important; }
-        .ef-cta-cell { display:block !important; padding-right:0 !important; }
-        .ef-footer-copy, .ef-footer-brand { display:block !important; width:auto !important; text-align:left !important; }
-        .ef-footer-brand { padding-top:18px !important; }
+      /* Inline sizes are the phone layout. This only enlarges it on wide screens. */
+      @media screen and (min-width:620px) {
+        .ef-shell-padding { padding:24px 16px !important; }
+        .ef-section { padding-left:32px !important; padding-right:32px !important; }
+        .ef-hero { padding:32px 32px 28px 32px !important; }
+        .ef-hero-logo { width:110px !important; }
+        .ef-hero-title { font-size:34px !important; line-height:39px !important; }
+        .ef-hero-tagline { font-size:12px !important; letter-spacing:3px !important; }
+        .ef-greeting { font-size:20px !important; line-height:26px !important; }
+        .ef-copy { font-size:14px !important; line-height:22px !important; }
+        .ef-info-cell { padding-left:20px !important; padding-right:20px !important; }
+        .ef-info-icon-cell { width:40px !important; }
+        .ef-info-icon { width:40px !important; height:40px !important; }
+        .ef-info-label { font-size:11px !important; line-height:14px !important; }
+        .ef-info-value { font-size:15px !important; line-height:20px !important; }
+        .ef-ticket-notched { background-size:cover,20px 56px,20px 56px !important; }
+        .ef-ticket-left { padding:26px 12px 22px 30px !important; }
+        .ef-ticket-right { padding:26px 26px 22px 12px !important; }
+        .ef-ticket-foot { padding:0 30px 18px 30px !important; }
+        .ef-ticket-tagline { font-size:9px !important; letter-spacing:2px !important; }
+        .ef-card-logo { width:84px !important; }
+        .ef-card-eyebrow { font-size:10px !important; }
+        .ef-card-title { font-size:24px !important; line-height:28px !important; }
+        .ef-card-name { font-size:16px !important; line-height:21px !important; }
+        .ef-pill { padding:10px 12px !important; }
+        .ef-pill-label { font-size:10px !important; line-height:12px !important; }
+        .ef-pill-value { font-size:15px !important; line-height:19px !important; }
+        .ef-qr-label { font-size:10px !important; padding-top:12px !important; }
+        .ef-qr-code { font-size:10.5px !important; }
+        .ef-qr-caption { font-size:10.5px !important; line-height:15px !important; }
+        .ef-btn { font-size:14px !important; line-height:18px !important; padding-top:13px !important; padding-bottom:13px !important; }
+        .ef-btn-icon { display:inline-block !important; }
+        .ef-warning-title { font-size:13px !important; line-height:18px !important; }
+        .ef-warning-copy { font-size:12px !important; line-height:18px !important; }
+        .ef-footer-copy { font-size:12px !important; line-height:18px !important; }
+        .ef-footer-logo { width:92px !important; }
+        .ef-footer-slogan { font-size:10px !important; line-height:13px !important; }
       }
     </style>
   </head>
@@ -474,33 +524,29 @@ function renderHtml(
     <div style="display:none;max-height:0;overflow:hidden;opacity:0">${escapeHtml(ctx.preheader)}</div>
     <table class="ef-outer" role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:${theme.outer}">
       <tr>
-        <td class="ef-shell-padding" align="center" style="padding:24px 16px">
-          <table class="ef-sheet" role="presentation" width="600" cellpadding="0" cellspacing="0" border="0" style="width:600px;max-width:600px;background-color:${theme.sheet};border-radius:22px;overflow:hidden">
+        <td class="ef-shell-padding" align="center" style="padding:8px 0">
+          <table class="ef-sheet" role="presentation" width="600" cellpadding="0" cellspacing="0" border="0" style="width:100%;max-width:600px;background-color:${theme.sheet};border-radius:20px;overflow:hidden">
 
             <!-- Hero -->
             <tr>
-              <td class="ef-section" style="background-color:${theme.hero};background-image:${theme.vip ? "linear-gradient(rgba(12,11,10,0.54),rgba(12,11,10,0.54))," : ""}url(${escapeAttr(asset(input.assetsBaseUrl, theme.vip ? "vip-bg.png" : "hero-bg.png"))});background-size:cover;background-position:center right;background-repeat:no-repeat;padding:32px 32px 28px 32px">
-                <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
-                  <tr>
-                    <td valign="middle" width="110"><img src="${escapeAttr(theme.vip ? asset(input.assetsBaseUrl, "vip-logo-white.png") : input.logoDarkUrl)}" width="110" alt="${BRAND}" style="display:block;border:0" /></td>
-                  </tr>
-                </table>
-                <div style="font-family:Arial,Helvetica,sans-serif;font-size:34px;line-height:1.15;font-weight:800;color:${theme.vip ? "#f2efe8" : "#ffffff"};margin-top:26px">${theme.vip ? "Bem-vindo à" : escapeHtml(ctx.possessive)}</div>
-                <div style="font-family:Arial,Helvetica,sans-serif;font-size:34px;line-height:1.15;font-weight:800;color:${theme.vip ? "#f2efe8" : theme.accent};margin-top:2px">${theme.vip ? "experiência Premium." : `já ${escapeHtml(ctx.verb)}.`}</div>
-                <div style="font-family:Arial,Helvetica,sans-serif;font-size:12px;font-weight:700;letter-spacing:3px;color:${theme.vip ? "#c4b596" : "#c9c1de"};text-transform:uppercase;margin-top:14px">${theme.vip ? "UM CONVITE FEITO PARA VOCÊ" : "Nos vemos no evento!"}</div>
+              <td class="ef-hero" style="background-color:${theme.hero};background-image:${theme.vip ? "linear-gradient(rgba(12,11,10,0.54),rgba(12,11,10,0.54))," : ""}url(${escapeAttr(asset(input.assetsBaseUrl, theme.vip ? "vip-bg.png" : "hero-bg.png"))});background-size:cover;background-position:center right;background-repeat:no-repeat;padding:24px 18px 22px 18px">
+                <img class="ef-hero-logo" src="${escapeAttr(theme.vip ? asset(input.assetsBaseUrl, "vip-logo-white.png") : input.logoDarkUrl)}" width="92" alt="${BRAND}" style="display:block;border:0;width:92px;height:auto" />
+                <div class="ef-hero-title" style="${FONT};font-size:27px;line-height:31px;font-weight:800;color:${theme.vip ? "#f2efe8" : "#ffffff"};margin-top:20px">${theme.vip ? "Bem-vindo à" : escapeHtml(ctx.possessive)}</div>
+                <div class="ef-hero-title" style="${FONT};font-size:27px;line-height:31px;font-weight:800;color:${theme.vip ? "#f2efe8" : theme.accent};margin-top:1px">${theme.vip ? "experiência Premium." : `já ${escapeHtml(ctx.verb)}.`}</div>
+                <div class="ef-hero-tagline" style="${FONT};font-size:10px;line-height:14px;font-weight:700;letter-spacing:2.5px;color:${theme.vip ? "#c4b596" : "#c9c1de"};text-transform:uppercase;margin-top:12px">${theme.vip ? "UM CONVITE FEITO PARA VOCÊ" : "Nos vemos no evento!"}</div>
               </td>
             </tr>
 
             <!-- Body -->
             <tr>
-              <td class="ef-section" style="padding:30px 32px 8px 32px;font-family:Arial,Helvetica,sans-serif">
-                <div class="ef-ink" style="font-size:20px;font-weight:800;color:${theme.ink}">Olá, ${escapeHtml(input.buyerName)}!</div>
-                <div class="ef-muted" style="font-size:14px;line-height:1.6;color:${theme.muted};margin-top:8px">
+              <td class="ef-section" style="padding:22px 12px 0 12px;${FONT}">
+                <div class="ef-ink ef-greeting" style="font-size:18px;line-height:23px;font-weight:800;color:${theme.ink}">Olá, ${escapeHtml(input.buyerName)}!</div>
+                <div class="ef-muted ef-copy" style="font-size:13px;line-height:20px;color:${theme.muted};margin-top:6px">
                   ${theme.vip
                     ? `Você recebeu ${input.ticketCount === 1 ? "um convite especial" : `${input.ticketCount} convites especiais`} de ${escapeHtml(ctx.inviter)} para ${escapeHtml(input.eventTitle)}. ${input.ticketCount === 1 ? "Seu ingresso VIP foi reservado em seu nome e é pessoal e intransferível" : "Seus ingressos VIP foram reservados em seu nome e são pessoais e intransferíveis"}.`
                     : isTransfer
-                    ? `${escapeHtml(input.transfer!.fromName)} transferiu ${escapeHtml(ctx.ticketLine)} para você e já ${input.ticketCount !== 1 ? "estão disponíveis" : "está disponível"} abaixo.`
-                    : `${input.courtesy ? "Seu convite foi confirmado" : input.free ? "Sua inscrição foi confirmada" : "Sua compra foi aprovada"} e ${escapeHtml(ctx.ticketLine)} já ${input.ticketCount !== 1 ? "estão disponíveis" : "está disponível"} abaixo.`}
+                    ? `${escapeHtml(input.transfer!.fromName)} transferiu ${escapeHtml(ctx.ticketLine)} para você e já ${plural ? "estão disponíveis" : "está disponível"} abaixo.`
+                    : `${input.courtesy ? "Seu convite foi confirmado" : input.free ? "Sua inscrição foi confirmada" : "Sua compra foi aprovada"} e ${escapeHtml(ctx.ticketLine)} já ${plural ? "estão disponíveis" : "está disponível"} abaixo.`}
                   ${qrReleased
                     ? "O QR Code de entrada já está liberado: use o que aparece abaixo, o PDF ou o botão para abrir o ingresso."
                     : theme.vip
@@ -510,19 +556,19 @@ function renderHtml(
               </td>
             </tr>
 
-            <!-- Info grid -->
+            <!-- Info grid: 2 x 2, equal columns -->
             <tr>
-              <td class="ef-section" style="padding:18px 32px 8px 32px">
-                <table class="ef-info" role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:${theme.info};border-radius:16px">
+              <td class="ef-section" style="padding:16px 12px 0 12px">
+                <table class="ef-info" role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:${theme.info};border-radius:14px;table-layout:fixed">
                   <tr>
-                    <td class="ef-info-cell" style="padding:18px 20px 10px 20px" width="50%">${infoCell(iconBadge("calendar"), "Evento", escapeHtml(input.eventTitle), theme)}</td>
-                    <td class="ef-info-cell" style="padding:18px 20px 10px 20px" width="50%">${infoCell(iconBadge("clock"), "Quando", formatLongDayMonthTime(input.eventStartsAt), theme)}</td>
+                    <td class="ef-info-cell" width="50%" valign="top" style="padding:14px 6px 7px 10px">${infoCell(iconBadge("calendar"), "Evento", escapeHtml(input.eventTitle), theme)}</td>
+                    <td class="ef-info-cell" width="50%" valign="top" style="padding:14px 10px 7px 6px">${infoCell(iconBadge("clock"), "Quando", whenHtml, theme)}</td>
                   </tr>
                   <tr>
-                    <td class="ef-info-cell" style="padding:6px 20px 18px 20px" width="50%">${infoCell(iconBadge("pin"), "Local", escapeHtml(input.eventVenue), theme)}</td>
-                    <td class="ef-info-cell" style="padding:6px 20px 18px 20px" width="50%">${isTransfer || theme.vip
-                      ? infoCell(iconBadge("ticket"), theme.vip ? "Convite VIP" : "Ingresso", escapeHtml(formatShortCode(input.tickets[0]?.shortCode ?? "")), theme)
-                      : infoCell(iconBadge("ticket"), "Pedido", ctx.code, theme)}</td>
+                    <td class="ef-info-cell" width="50%" valign="top" style="padding:7px 6px 14px 10px">${infoCell(iconBadge("pin"), "Local", escapeHtml(input.eventVenue), theme)}</td>
+                    <td class="ef-info-cell" width="50%" valign="top" style="padding:7px 10px 14px 6px">${isTransfer || theme.vip
+                      ? infoCell(iconBadge("ticket"), theme.vip ? "Convite VIP" : "Ingresso", `<span style="white-space:nowrap">${escapeHtml(formatShortCode(input.tickets[0]?.shortCode ?? ""))}</span>`, theme)
+                      : infoCell(iconBadge("ticket"), "Pedido", `<span style="white-space:nowrap">${ctx.code}</span>`, theme)}</td>
                   </tr>
                 </table>
               </td>
@@ -530,55 +576,47 @@ function renderHtml(
 
             <!-- Ticket card(s) -->
             <tr>
-              <td class="ef-section" style="padding:22px 32px 0 32px">
+              <td class="ef-section" style="padding:16px 12px 0 12px">
                 ${cards}
               </td>
             </tr>
 
-            <!-- CTAs -->
+            <!-- CTAs: equal-width buttons on one row -->
             <tr>
-              <td class="ef-section" style="padding:0 32px 24px 32px">
-                <table role="presentation" cellpadding="0" cellspacing="0" border="0">
-                  <tr>
-                    <td class="ef-cta-cell" style="padding-right:10px;padding-bottom:10px">${pillButton({ href: input.orderUrl, iconUrl: iconWhite("ticket-open"), label: theme.vip ? input.ticketCount === 1 ? "Ver meu convite" : "Ver meus convites" : "Abrir ingresso", variant: "primary", theme })}</td>
-                    ${input.ticketCount === 1 && input.tickets[0]
-                      ? `<td class="ef-cta-cell" style="padding-right:10px;padding-bottom:10px">${pillButton({ href: input.tickets[0].pdfUrl, iconUrl: iconAccent("download"), label: "Baixar PDF", variant: "light", textColor: theme.ink, theme })}</td>`
-                      : ""}
-                    <td class="ef-cta-cell" style="padding-right:10px;padding-bottom:10px">${pillButton({ href: input.createAccountUrl, iconUrl: iconAccent("person"), label: isTransfer ? "Meus ingressos" : "Criar conta / Entrar", variant: "light", textColor: theme.accentText, theme })}</td>
-                  </tr>
+              <td class="ef-section" style="padding:0 12px 16px 12px">
+                <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="table-layout:fixed">
+                  <tr>${buttonCells}</tr>
                 </table>
               </td>
             </tr>
 
             <!-- Warning -->
             <tr>
-              <td class="ef-section" style="padding:0 32px 28px 32px">
+              <td class="ef-section" style="padding:0 12px 20px 12px">
                 <table class="ef-warning" role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:${theme.vip ? "#f3f0e9" : "#fdf3d9"};border-radius:14px">
                   <tr>
-                    <td width="44" valign="top" style="padding:16px 0 16px 18px"><img src="${iconAmber("shield")}" width="26" height="26" alt="" style="display:block;border:0" /></td>
-                    <td style="padding:16px 18px 16px 12px;font-family:Arial,Helvetica,sans-serif">
-                      <div class="ef-warning-title" style="font-size:13px;font-weight:800;color:${theme.vip ? "#514637" : "#6b4e0a"}">${theme.vip ? "Convite VIP nominal e intransferível." : qrReleased ? "Este e-mail é o seu ingresso: o QR Code acima já vale na entrada." : "Este link é pessoal e o QR Code só existe dentro do ingresso."}</div>
-                      <div class="ef-warning-copy" style="font-size:12px;color:${theme.vip ? "#71695c" : "#8a6d1f"};margin-top:4px;line-height:1.5">${theme.vip ? "Apresente um documento com foto na entrada. Não encaminhe este convite nem compartilhe o QR Code; ele só pode ser usado uma vez." : `${qrReleased ? "Não encaminhe nem publique este e-mail: quem apresentar o QR Code primeiro entra." : "Não compartilhe este e-mail."} Cada QR Code é único e só pode ser usado uma vez na entrada.`}</div>
+                    <td width="22" valign="top" style="padding:13px 0 13px 12px"><img src="${iconAmber("shield")}" width="22" height="22" alt="" style="display:block;border:0" /></td>
+                    <td style="padding:13px 12px 13px 8px;${FONT}">
+                      <div class="ef-warning-title" style="font-size:12px;line-height:16px;font-weight:800;color:${theme.vip ? "#514637" : "#6b4e0a"}">${theme.vip ? "Convite VIP nominal e intransferível." : qrReleased ? "Este e-mail é o seu ingresso: o QR Code acima já vale na entrada." : "Este link é pessoal e o QR Code só existe dentro do ingresso."}</div>
+                      <div class="ef-warning-copy" style="font-size:11px;line-height:16px;color:${theme.vip ? "#71695c" : "#8a6d1f"};margin-top:3px">${theme.vip ? "Apresente um documento com foto na entrada. Não encaminhe este convite nem compartilhe o QR Code; ele só pode ser usado uma vez." : `${qrReleased ? "Não encaminhe nem publique este e-mail: quem apresentar o QR Code primeiro entra." : "Não compartilhe este e-mail."} Cada QR Code é único e só pode ser usado uma vez na entrada.`}</div>
                     </td>
                   </tr>
                 </table>
               </td>
             </tr>
 
-            <!-- Footer -->
+            <!-- Footer: copy on the left, brand on the right -->
             <tr>
-              <td class="ef-footer ef-section" style="padding:20px 32px 30px 32px;border-top:1px solid ${theme.vip ? "#e1ddd5" : "#efeaf7"}">
+              <td class="ef-footer ef-section" style="padding:16px 12px 20px 12px;border-top:1px solid ${theme.vip ? "#e1ddd5" : "#efeaf7"}">
                 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
                   <tr>
-                    <td class="ef-muted ef-footer-copy" valign="middle" style="font-family:Arial,Helvetica,sans-serif;font-size:12px;color:${theme.muted};line-height:1.5">
+                    <td class="ef-muted ef-footer-copy" valign="middle" style="${FONT};font-size:11px;line-height:16px;color:${theme.muted};padding-right:12px">
                       ${theme.vip ? `Convite pessoal enviado por ${BRAND}.` : isTransfer ? `Transferência confirmada com segurança pela ${BRAND}.` : `${input.courtesy ? "Convite emitido" : input.free ? "Inscrição processada" : "Compra processada"} com segurança pela ${BRAND}.`}<br />
                       Em caso de dúvidas, <a class="ef-link" href="${escapeAttr(input.createAccountUrl)}" style="color:${theme.vip ? theme.accentText : theme.accent}">fale com nosso time de suporte</a>.
                     </td>
-                    <td class="ef-footer-brand" valign="middle" align="right">
-                      <table role="presentation" cellpadding="0" cellspacing="0" border="0"><tr>
-                        <td class="ef-muted" valign="middle" align="right" style="padding-right:10px;font-family:Arial,Helvetica,sans-serif;font-size:10px;color:${theme.muted};line-height:1.3;white-space:nowrap">Mais encontros,<br/>mais hist&oacute;rias.</td>
-                        <td valign="middle"><img src="${escapeAttr(theme.vip ? asset(input.assetsBaseUrl, "vip-logo-dark.png") : input.logoLightUrl)}" width="92" alt="${BRAND}" style="display:block;border:0" /></td>
-                      </tr></table>
+                    <td valign="middle" align="right" width="96">
+                      <img class="ef-footer-logo" src="${escapeAttr(theme.vip ? asset(input.assetsBaseUrl, "vip-logo-dark.png") : input.logoLightUrl)}" width="76" alt="${BRAND}" style="display:block;border:0;width:76px;height:auto;margin-left:auto" />
+                      <div class="ef-muted ef-footer-slogan" style="${FONT};font-size:8.5px;line-height:11px;color:${theme.muted};margin-top:6px;text-align:right;white-space:nowrap;${theme.vip ? "padding-right:7px" : ""}">Mais encontros,<br />mais hist&oacute;rias.</div>
                     </td>
                   </tr>
                 </table>

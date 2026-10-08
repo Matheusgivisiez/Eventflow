@@ -78,4 +78,47 @@ describe("renderPurchaseConfirmed copy", () => {
     expect(mail.html).not.toContain("vip-bg.png");
     expect(mail.html).toContain("Sua compra foi aprovada");
   });
+
+  describe("layout", () => {
+    const released = { qrCodeLocked: false, tickets: [{ id: "t1", attendeeName: "Buyer Test", ticketTypeName: "LOTE NO ESCURO", shortCode: "A1B2C3D4E5", pdfUrl: "https://app.example/pdf", qrImageSrc: "cid:qr-1" }] };
+
+    it("never stacks the blocks into a single long column on a phone", () => {
+      for (const overrides of [{}, released, { ...released, vipInvite: {} }]) {
+        const { html } = renderPurchaseConfirmed(input(overrides));
+        expect(html).not.toContain("max-width:600px)");
+        expect(html).not.toMatch(/display:\s*block\s*!important/);
+        expect(html).toContain('class="ef-ticket-left" width="55%"');
+        expect(html).toContain('class="ef-ticket-right" width="45%"');
+      }
+    });
+
+    it("keeps the info grid and the action row in equal columns", () => {
+      const { html } = renderPurchaseConfirmed(input());
+      expect(html.match(/class="ef-info-cell" width="50%"/g)).toHaveLength(4);
+      expect(html.match(/<td width="33\.33%"/g)).toHaveLength(3);
+
+      const many = renderPurchaseConfirmed(input({ ticketCount: 2 })).html;
+      expect(many.match(/<td width="50\.00%"/g)).toHaveLength(2);
+    });
+
+    it("uses action labels short enough for a third of a phone screen", () => {
+      const labels = (overrides: Record<string, unknown>) =>
+        [...renderPurchaseConfirmed(input(overrides)).html.matchAll(/class="ef-btn"[^>]*>(?:<img[^>]*>)?([^<]+)<\/a>/g)].map((m) => m[1]);
+
+      expect(labels({})).toEqual(["Abrir ingresso", "Baixar PDF", "Criar conta"]);
+      expect(labels({ vipInvite: {} })).toEqual(["Ver convite", "Baixar PDF", "Criar conta"]);
+      expect(labels({ transfer: { fromName: "Ana" } })).toEqual(["Abrir ingresso", "Baixar PDF", "Meus ingressos"]);
+      for (const set of [labels({}), labels({ vipInvite: {} }), labels({ transfer: { fromName: "Ana" } })]) {
+        for (const label of set) expect(label.length).toBeLessThanOrEqual(14);
+      }
+    });
+
+    it("shows the event title once inside the ticket card and links the QR to the ticket page", () => {
+      const { html } = renderPurchaseConfirmed(input(released));
+      const card = html.slice(html.indexOf('class="ef-ticket '), html.indexOf("<!-- CTAs"));
+      expect(card.split("Event Flow Conf").length - 1).toBe(1);
+      expect(card).toContain('<a href="https://app.example/checkout/success?orderId=order-1" style="display:block;text-decoration:none"><img src="cid:qr-1"');
+      expect(card).toContain("LOTE NO ESCURO");
+    });
+  });
 });
