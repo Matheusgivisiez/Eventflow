@@ -53,6 +53,9 @@ export type PurchaseConfirmedTemplateInput = {
 };
 
 const BRAND = "Event Flow";
+// Bump the version when the art changes: mail clients cache images by URL.
+const VIP_LOGO_WHITE = "vip-logo-white.png?v=2";
+const VIP_LOGO_DARK = "vip-logo-dark.png?v=2";
 const TZ = "America/Sao_Paulo";
 
 // Deep indigo-violet, matching the background art (hero + ticket frame).
@@ -187,16 +190,22 @@ export function renderPurchaseConfirmed(input: PurchaseConfirmedTemplateInput) {
   const verb = plural ? "estão prontos" : "está pronto";
   const transfer = input.transfer;
   const vip = Boolean(input.vipInvite);
-  const inviter = input.vipInvite?.invitedBy?.trim() || BRAND;
+  // Always opens a sentence ("A Event Flow emitiu ..."), hence the article on the default.
+  const invitedBy = input.vipInvite?.invitedBy?.trim();
+  const inviter = !invitedBy || invitedBy === BRAND ? `A ${BRAND}` : invitedBy;
+  const vipTicketLine = vipTicketCount(input.ticketCount);
   const theme = vip ? VIP_THEME : STANDARD_THEME;
+  // VIP wording note: keep it a confirmation of an issued ticket ("emitiu", "confirmado").
+  // Campaign-style wording ("convite Premium", "convite especial", "feito para você")
+  // made Gmail file this e-mail under Promotions instead of the main inbox.
 
   const subject = vip
-    ? `${plural ? "Seus convites Premium" : "Seu convite Premium"} para ${input.eventTitle} ${plural ? "chegaram" : "chegou"}!`
+    ? `${plural ? "Seus ingressos VIP" : "Seu ingresso VIP"} para ${input.eventTitle} ${plural ? "estão confirmados" : "está confirmado"}`
     : transfer
     ? `${possessive} para ${input.eventTitle} chegou!`
     : `${possessive} para ${input.eventTitle} já ${verb}!`;
   const preheader = vip
-    ? `${inviter} convidou você para ${input.eventTitle}. ${plural ? "Seus ingressos VIP nominais estão disponíveis" : "Seu ingresso VIP nominal está disponível"}.`
+    ? `${plural ? "Ingressos VIP confirmados" : "Ingresso VIP confirmado"}. ${inviter} emitiu ${vipTicketLine} em seu nome para ${input.eventTitle}.`
     : transfer
     ? `${transfer.fromName} transferiu ${ticketLine} para você. ${possessive} para ${input.eventTitle} já ${plural ? "estão disponíveis" : "está disponível"}.`
     : `${input.courtesy ? "Convite confirmado" : input.free ? "Inscrição confirmada" : "Pagamento aprovado"}. ${possessive} para ${input.eventTitle} já ${plural ? "estão disponíveis" : "está disponível"}.`;
@@ -205,7 +214,7 @@ export function renderPurchaseConfirmed(input: PurchaseConfirmedTemplateInput) {
     `Olá, ${input.buyerName}.`,
     "",
     vip
-      ? `Você recebeu um convite de ${inviter} para viver a experiência Premium em ${input.eventTitle}. ${possessive} ${plural ? "são nominais" : "é nominal"} e ${plural ? "não podem" : "não pode"} ser transferido${plural ? "s" : ""}.`
+      ? `${plural ? "Seus ingressos VIP estão confirmados" : "Seu ingresso VIP está confirmado"}. ${inviter} emitiu ${vipTicketLine} em seu nome para ${input.eventTitle}. ${plural ? "Eles são nominais e não podem ser transferidos" : "Ele é nominal e não pode ser transferido"}.`
       : transfer
       ? `${transfer.fromName} transferiu ${ticketLine} para ${input.eventTitle} para você, e já ${plural ? "estão disponíveis" : "está disponível"}.`
       : `${input.courtesy ? "Seu convite foi confirmado" : input.free ? "Sua inscrição foi confirmada" : "Seu pagamento foi aprovado"} e ${ticketLine} já ${plural ? "estão disponíveis" : "está disponível"}.`,
@@ -240,6 +249,11 @@ export function renderPurchaseConfirmed(input: PurchaseConfirmedTemplateInput) {
   const html = renderHtml(input, { code, when, ticketLine, possessive, verb, preheader, inviter, theme });
 
   return { subject, text, html };
+}
+
+/** "1 ingresso VIP" / "3 ingressos VIP" */
+function vipTicketCount(count: number) {
+  return count === 1 ? "1 ingresso VIP" : `${count} ingressos VIP`;
 }
 
 function asset(base: string, name: string) {
@@ -435,7 +449,7 @@ function renderHtml(
         eventTitle: input.eventTitle,
         startsAt: input.eventStartsAt,
         assetsBaseUrl: input.assetsBaseUrl,
-        logoDarkUrl: theme.vip ? asset(input.assetsBaseUrl, "vip-logo-white.png") : input.logoDarkUrl,
+        logoDarkUrl: theme.vip ? asset(input.assetsBaseUrl, VIP_LOGO_WHITE) : input.logoDarkUrl,
         qrLockedImageUrl: input.qrLockedImageUrl,
         qrCodeLocked: input.qrCodeLocked,
         qrCodeReleaseAt: input.qrCodeReleaseAt,
@@ -534,10 +548,10 @@ function renderHtml(
             <!-- Hero -->
             <tr>
               <td class="ef-hero" style="background-color:${theme.hero};background-image:${theme.vip ? "linear-gradient(rgba(12,11,10,0.54),rgba(12,11,10,0.54))," : ""}url(${escapeAttr(asset(input.assetsBaseUrl, theme.vip ? "vip-bg.png" : "hero-bg.png"))});background-size:cover;background-position:center right;background-repeat:no-repeat;padding:24px 18px 22px 18px">
-                <img class="ef-hero-logo" src="${escapeAttr(theme.vip ? asset(input.assetsBaseUrl, "vip-logo-white.png") : input.logoDarkUrl)}" width="92" alt="${BRAND}" style="display:block;border:0;width:92px;height:auto" />
+                <img class="ef-hero-logo" src="${escapeAttr(theme.vip ? asset(input.assetsBaseUrl, VIP_LOGO_WHITE) : input.logoDarkUrl)}" width="92" alt="${BRAND}" style="display:block;border:0;width:92px;height:auto" />
                 <div class="ef-hero-title" style="${FONT};font-size:27px;line-height:31px;font-weight:800;color:${theme.vip ? "#f2efe8" : "#ffffff"};margin-top:20px">${theme.vip ? "Bem-vindo à" : escapeHtml(ctx.possessive)}</div>
                 <div class="ef-hero-title" style="${FONT};font-size:27px;line-height:31px;font-weight:800;color:${theme.vip ? "#f2efe8" : theme.accent};margin-top:1px">${theme.vip ? "experiência Premium." : `já ${escapeHtml(ctx.verb)}.`}</div>
-                <div class="ef-hero-tagline" style="${FONT};font-size:10px;line-height:14px;font-weight:700;letter-spacing:2.5px;color:${theme.vip ? "#c4b596" : "#c9c1de"};text-transform:uppercase;margin-top:12px">${theme.vip ? "UM CONVITE FEITO PARA VOCÊ" : "Nos vemos no evento!"}</div>
+                <div class="ef-hero-tagline" style="${FONT};font-size:10px;line-height:14px;font-weight:700;letter-spacing:2.5px;color:${theme.vip ? "#c4b596" : "#c9c1de"};text-transform:uppercase;margin-top:12px">${theme.vip ? (plural ? "Ingressos VIP confirmados" : "Ingresso VIP confirmado") : "Nos vemos no evento!"}</div>
               </td>
             </tr>
 
@@ -547,7 +561,7 @@ function renderHtml(
                 <div class="ef-ink ef-greeting" style="font-size:18px;line-height:23px;font-weight:800;color:${theme.ink}">Olá, ${escapeHtml(input.buyerName)}!</div>
                 <div class="ef-muted ef-copy" style="font-size:13px;line-height:20px;color:${theme.muted};margin-top:6px">
                   ${theme.vip
-                    ? `Você recebeu ${input.ticketCount === 1 ? "um convite especial" : `${input.ticketCount} convites especiais`} de ${escapeHtml(ctx.inviter)} para ${escapeHtml(input.eventTitle)}. ${input.ticketCount === 1 ? "Seu ingresso VIP foi reservado em seu nome e é pessoal e intransferível" : "Seus ingressos VIP foram reservados em seu nome e são pessoais e intransferíveis"}.`
+                    ? `${escapeHtml(ctx.inviter)} emitiu ${vipTicketCount(input.ticketCount)} em seu nome para ${escapeHtml(input.eventTitle)}. ${plural ? "Eles são pessoais e intransferíveis" : "Ele é pessoal e intransferível"}.`
                     : isTransfer
                     ? `${escapeHtml(input.transfer!.fromName)} transferiu ${escapeHtml(ctx.ticketLine)} para você e já ${plural ? "estão disponíveis" : "está disponível"} abaixo.`
                     : `${input.courtesy ? "Seu convite foi confirmado" : input.free ? "Sua inscrição foi confirmada" : "Sua compra foi aprovada"} e ${escapeHtml(ctx.ticketLine)} já ${plural ? "estão disponíveis" : "está disponível"} abaixo.`}
@@ -615,12 +629,12 @@ function renderHtml(
                 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
                   <tr>
                     <td class="ef-muted ef-footer-copy" valign="middle" style="${FONT};font-size:11px;line-height:16px;color:${theme.muted};padding-right:12px">
-                      ${theme.vip ? `Convite pessoal enviado por ${BRAND}.` : isTransfer ? `Transferência confirmada com segurança pela ${BRAND}.` : `${input.courtesy ? "Convite emitido" : input.free ? "Inscrição processada" : "Compra processada"} com segurança pela ${BRAND}.`}<br />
+                      ${theme.vip ? `Ingresso VIP emitido com segurança pela ${BRAND}.` : isTransfer ? `Transferência confirmada com segurança pela ${BRAND}.` : `${input.courtesy ? "Convite emitido" : input.free ? "Inscrição processada" : "Compra processada"} com segurança pela ${BRAND}.`}<br />
                       Em caso de dúvidas, <a class="ef-link" href="${escapeAttr(input.createAccountUrl)}" style="color:${theme.vip ? theme.accentText : theme.accent}">fale com nosso time de suporte</a>.
                     </td>
                     <td valign="middle" align="right" width="96">
-                      <img class="ef-footer-logo" src="${escapeAttr(theme.vip ? asset(input.assetsBaseUrl, "vip-logo-dark.png") : input.logoLightUrl)}" width="76" alt="${BRAND}" style="display:block;border:0;width:76px;height:auto;margin-left:auto" />
-                      <div class="ef-muted ef-footer-slogan" style="${FONT};font-size:8.5px;line-height:11px;color:${theme.muted};margin-top:6px;text-align:right;white-space:nowrap;${theme.vip ? "padding-right:7px" : ""}">Mais encontros,<br />mais hist&oacute;rias.</div>
+                      <img class="ef-footer-logo" src="${escapeAttr(theme.vip ? asset(input.assetsBaseUrl, VIP_LOGO_DARK) : input.logoLightUrl)}" width="76" alt="${BRAND}" style="display:block;border:0;width:76px;height:auto;margin-left:auto" />
+                      <div class="ef-muted ef-footer-slogan" style="${FONT};font-size:8.5px;line-height:11px;color:${theme.muted};margin-top:6px;text-align:right;white-space:nowrap">Mais encontros,<br />mais hist&oacute;rias.</div>
                     </td>
                   </tr>
                 </table>

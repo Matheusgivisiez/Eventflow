@@ -529,7 +529,7 @@ describe("NotificationsService courtesy routing", () => {
       free: true,
     });
     const sent = mail.send.mock.calls[0][0];
-    expect(sent.subject).toContain("convite Premium");
+    expect(sent.subject).toContain("ingresso VIP");
     expect(sent.html).toContain("vip-bg.png");
     expect(sent.text).toContain(`/api/checkout/order/${purchase.orderId}/tickets/ticket-1/pdf?accessToken=order-access-token`);
     expect(prisma.notificationLog.create).toHaveBeenCalledWith(expect.objectContaining({

@@ -60,7 +60,7 @@ describe("renderPurchaseConfirmed copy", () => {
       tickets: [{ id: "t1", attendeeName: "Buyer Test", ticketTypeName: "VIP", shortCode: "A1B2C3D4E5", pdfUrl: "https://app.example/vip.pdf", qrImageSrc: "cid:qr-vip" }],
     }));
 
-    expect(mail.subject).toContain("convite Premium");
+    expect(mail.subject).toBe("Seu ingresso VIP para Event Flow Conf está confirmado");
     expect(mail.html).toContain("Bem-vindo à");
     expect(mail.html).toContain("experiência Premium.");
     expect(mail.html).toContain("vip-bg.png");
@@ -68,6 +68,26 @@ describe("renderPurchaseConfirmed copy", () => {
     expect(mail.html).toContain("Convite VIP nominal e intransferível.");
     expect(mail.text).toContain("Organização do Festival");
     expect(mail.text).not.toMatch(/pagamento|compra|transferiu|Pedido:/i);
+  });
+
+  it("words the VIP e-mail as a ticket confirmation, not as a campaign", () => {
+    const vip = (count: number) => renderPurchaseConfirmed(input({
+      vipInvite: { invitedBy: "Organização do Festival" },
+      ticketCount: count,
+      tickets: Array.from({ length: count }, (_, i) => ({ id: `t${i}`, attendeeName: "Buyer Test", ticketTypeName: "VIP", shortCode: "A1B2C3D4E5", pdfUrl: "https://app.example/vip.pdf" })),
+    }));
+    const one = vip(1);
+    expect(one.html).toContain("Organização do Festival emitiu 1 ingresso VIP em seu nome para Event Flow Conf.");
+    expect(one.html).toContain("Ingresso VIP confirmado");
+    expect(one.text).toContain("Seu ingresso VIP está confirmado.");
+    expect(renderPurchaseConfirmed(input({ vipInvite: { invitedBy: "Event Flow" } })).html).toContain("A Event Flow emitiu 1 ingresso VIP em seu nome");
+    expect(renderPurchaseConfirmed(input({ vipInvite: {} })).text).toContain("A Event Flow emitiu 1 ingresso VIP em seu nome");
+    expect(vip(3).subject).toBe("Seus ingressos VIP para Event Flow Conf estão confirmados");
+    expect(vip(3).html).toContain("emitiu 3 ingressos VIP em seu nome");
+
+    // The title is the only place that keeps the "Premium" wording.
+    const body = `${one.subject}\n${one.text}\n${one.html.replace(/<title>[^<]*<\/title>/, "").replace(/experiência Premium\./, "")}`;
+    expect(body).not.toMatch(/Premium|convite especial|feito para você|chegou!/i);
   });
 
   it("keeps a normally purchased ticket named VIP in the standard design", () => {
