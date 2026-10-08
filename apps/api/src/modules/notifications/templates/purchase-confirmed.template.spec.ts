@@ -107,10 +107,22 @@ describe("renderPurchaseConfirmed copy", () => {
 
       expect(labels({})).toEqual(["Abrir ingresso", "Baixar PDF", "Criar conta"]);
       expect(labels({ vipInvite: {} })).toEqual(["Ver convite", "Baixar PDF", "Criar conta"]);
-      expect(labels({ transfer: { fromName: "Ana" } })).toEqual(["Abrir ingresso", "Baixar PDF", "Meus ingressos"]);
+      expect(labels({ transfer: { fromName: "Ana" } })).toEqual(["Abrir ingresso", "Baixar PDF", "Minha conta"]);
       for (const set of [labels({}), labels({ vipInvite: {} }), labels({ transfer: { fromName: "Ana" } })]) {
         for (const label of set) expect(label.length).toBeLessThanOrEqual(14);
       }
+    });
+
+    it("keeps the icon on every action button, on phones too", () => {
+      for (const overrides of [{}, { vipInvite: {} }, { ticketCount: 2 }]) {
+        const { html } = renderPurchaseConfirmed(input(overrides));
+        const buttons = html.match(/<a class="ef-btn"[^>]*>/g) ?? [];
+        const icons = html.match(/<a class="ef-btn"[^>]*><img class="ef-btn-icon"[^>]*style="display:inline-block;/g) ?? [];
+        expect(buttons.length).toBeGreaterThanOrEqual(2);
+        expect(icons).toHaveLength(buttons.length);
+      }
+      const standard = renderPurchaseConfirmed(input()).html;
+      for (const icon of ["icon-white-ticket-open.png", "icon-accent-download.png", "icon-accent-person.png"]) expect(standard).toContain(icon);
     });
 
     it("shows the event title once inside the ticket card and links the QR to the ticket page", () => {

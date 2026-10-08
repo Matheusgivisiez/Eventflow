@@ -292,8 +292,7 @@ function metaPill(iconUrl: string, label: string, value: string, theme: EmailThe
 
 /**
  * One button of the action row. Buttons share the row in equal parts, so the
- * label must stay short enough for a third of a phone screen (see CTA labels).
- * The icon only shows on wide screens.
+ * icon plus label must fit a third of a phone screen on one line (see CTA labels).
  */
 function pillButton(opts: {
   href: string;
@@ -309,7 +308,7 @@ function pillButton(opts: {
     ? `background-color:${primaryColor};background:${opts.theme.gradient};border:1px solid ${opts.theme.vip ? "#51483a" : primaryColor};`
     : `background-color:${opts.theme.vip ? "#fffefd" : "#ffffff"};border:1px solid ${opts.theme.vip ? "#d9d3c8" : "#e3ddef"};`;
   const color = isPrimary ? "#ffffff" : opts.textColor ?? opts.theme.ink;
-  return `<a class="ef-btn" href="${escapeAttr(opts.href)}" style="display:block;text-decoration:none;text-align:center;border-radius:11px;${bg}padding:12px 2px;${FONT};font-size:11px;line-height:14px;font-weight:700;color:${color};white-space:nowrap"><img class="ef-btn-icon" src="${escapeAttr(opts.iconUrl)}" width="15" height="15" alt="" style="display:none;mso-hide:all;border:0;vertical-align:-3px;margin-right:7px" />${escapeHtml(opts.label)}</a>`;
+  return `<a class="ef-btn" href="${escapeAttr(opts.href)}" style="display:block;text-decoration:none;text-align:center;border-radius:11px;${bg}padding:12px 0;${FONT};font-size:10.5px;line-height:14px;font-weight:700;color:${color};white-space:nowrap"><img class="ef-btn-icon" src="${escapeAttr(opts.iconUrl)}" width="11" height="11" alt="" style="display:inline-block;border:0;width:11px;height:11px;vertical-align:-1px;margin-right:4px" />${escapeHtml(opts.label)}</a>`;
 }
 
 /**
@@ -453,13 +452,14 @@ function renderHtml(
   const whenHtml = `<span style="white-space:nowrap">${whenDay},</span> <span style="white-space:nowrap">${whenTime}</span>`;
 
   // Action row: equal-width buttons, so every label has to fit a third of a
-  // phone screen on one line. Keep them at 14 characters or fewer.
+  // phone screen on one line, icon included. "Abrir ingresso" is the widest
+  // that fits: keep new labels no wider than it.
   const buttons = [
     pillButton({ href: input.orderUrl, iconUrl: iconWhite("ticket-open"), label: theme.vip ? (plural ? "Ver convites" : "Ver convite") : "Abrir ingresso", variant: "primary", theme }),
     ...(input.ticketCount === 1 && input.tickets[0]
       ? [pillButton({ href: input.tickets[0].pdfUrl, iconUrl: iconAccent("download"), label: "Baixar PDF", variant: "light", textColor: theme.ink, theme })]
       : []),
-    pillButton({ href: input.createAccountUrl, iconUrl: iconAccent("person"), label: isTransfer ? "Meus ingressos" : "Criar conta", variant: "light", textColor: theme.accentText, theme }),
+    pillButton({ href: input.createAccountUrl, iconUrl: iconAccent("person"), label: isTransfer ? "Minha conta" : "Criar conta", variant: "light", textColor: theme.accentText, theme }),
   ];
   const buttonWidth = `${(100 / buttons.length).toFixed(2)}%`;
   const buttonCells = buttons
@@ -481,6 +481,10 @@ function renderHtml(
     <style>
       :root { color-scheme: light only; supported-color-schemes: light only; }
       /* Inline sizes are the phone layout. This only enlarges it on wide screens. */
+      /* Phones narrower than any current model: the icon gives way so the label still fits. */
+      @media screen and (max-width:309px) {
+        .ef-btn-icon { display:none !important; }
+      }
       @media screen and (min-width:620px) {
         .ef-shell-padding { padding:24px 16px !important; }
         .ef-section { padding-left:32px !important; padding-right:32px !important; }
@@ -511,7 +515,7 @@ function renderHtml(
         .ef-qr-code { font-size:10.5px !important; }
         .ef-qr-caption { font-size:10.5px !important; line-height:15px !important; }
         .ef-btn { font-size:14px !important; line-height:18px !important; padding-top:13px !important; padding-bottom:13px !important; }
-        .ef-btn-icon { display:inline-block !important; }
+        .ef-btn-icon { width:15px !important; height:15px !important; vertical-align:-3px !important; margin-right:7px !important; }
         .ef-warning-title { font-size:13px !important; line-height:18px !important; }
         .ef-warning-copy { font-size:12px !important; line-height:18px !important; }
         .ef-footer-copy { font-size:12px !important; line-height:18px !important; }
