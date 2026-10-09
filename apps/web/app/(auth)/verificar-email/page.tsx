@@ -6,6 +6,7 @@ import { useSearchParams } from "next/navigation";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { AlertCircle, ArrowRight, CheckCircle2, Loader2, Mail } from "lucide-react";
 import { api } from "@/lib/api";
+import { safeCheckoutReturnPath, withCheckoutReturn } from "@/lib/checkout-return";
 import { useAuthStore } from "@/stores/auth-store";
 
 function AuthCard({ children }: { children: React.ReactNode }) {
@@ -34,6 +35,8 @@ function VerifyEmailContent() {
   const searchParams = useSearchParams();
   const token = searchParams.get("token");
   const sent = searchParams.get("sent");
+  // Conta criada na hora de comprar: depois de confirmar, volta para o checkout.
+  const checkoutNext = safeCheckoutReturnPath(searchParams.get("next"));
   const updateUser = useAuthStore((state) => state.updateUser);
   const sessionRole = useAuthStore((state) => state.user?.role);
   const sessionEmail = useAuthStore((state) => state.user?.email);
@@ -63,7 +66,7 @@ function VerifyEmailContent() {
 
   const resend = useMutation({
     mutationFn: (email: string) =>
-      api<{ message: string }>("/auth/resend-verification", {
+      api<{ message: string }>(withCheckoutReturn("/auth/resend-verification", checkoutNext), {
         method: "POST",
         body: JSON.stringify({ email }),
         auth: false
@@ -84,6 +87,12 @@ function VerifyEmailContent() {
 
   if (verify.isSuccess) {
     const sameSession = sessionEmail?.toLowerCase() === verify.data.email.toLowerCase();
+    const nextHref = checkoutNext
+      ? sameSession ? checkoutNext : withCheckoutReturn("/login", checkoutNext)
+      : !sameSession ? "/login" : sessionRole === "ORGANIZER" || sessionRole === "ADMIN" ? "/dashboard" : "/me/ingressos";
+    const nextLabel = checkoutNext
+      ? sameSession ? "Continuar compra" : "Entrar e continuar a compra"
+      : !sameSession ? "Entrar na conta" : sessionRole === "ORGANIZER" || sessionRole === "ADMIN" ? "Ir ao painel" : "Ver meus ingressos";
     return (
       <AuthCard>
         <div className="text-center mb-7 sm:mb-8">
@@ -94,11 +103,14 @@ function VerifyEmailContent() {
             E-mail confirmado
           </h2>
           <p className="mt-2 text-xs sm:text-sm text-[#A99EC0]">
-            O endereço {verify.data.email} está confirmado. Entre na sua conta para continuar.
+            O endereço {verify.data.email} está confirmado.{" "}
+            {checkoutNext
+              ? sameSession ? "Agora é só finalizar a compra." : "Entre na sua conta para finalizar a compra."
+              : "Entre na sua conta para continuar."}
           </p>
         </div>
-        <PrimaryAuthLink href={!sameSession ? "/login" : sessionRole === "ORGANIZER" || sessionRole === "ADMIN" ? "/dashboard" : "/me/ingressos"}>
-          {!sameSession ? "Entrar na conta" : sessionRole === "ORGANIZER" || sessionRole === "ADMIN" ? "Ir ao painel" : "Ver meus ingressos"}
+        <PrimaryAuthLink href={nextHref}>
+          {nextLabel}
         </PrimaryAuthLink>
       </AuthCard>
     );
@@ -130,7 +142,7 @@ function VerifyEmailContent() {
         </h2>
         <p className="mt-2 text-xs sm:text-sm text-[#A99EC0]">
           {token
-            ? "Este link já foi usado ou passou de 30 minutos. Peça um novo abaixo."
+            ? "Este link já foi usado ou passou de 24 horas. Peça um novo abaixo."
             : sent === "1"
               ? "Enviamos um link para o seu e-mail. Abra a mensagem e confirme sua conta. Se não chegar, peça outro link abaixo."
               : sent === "0"
@@ -192,6 +204,18 @@ function VerifyEmailContent() {
             )}
           </button>
         </form>
+
+      {checkoutNext && !token && (
+        <p className="mt-5 text-center text-xs text-[#A99EC0]">
+          Já confirmou?{" "}
+          <Link
+            href={withCheckoutReturn("/login", checkoutNext)}
+            className="font-semibold text-[#9E7BFF] hover:text-[#BFA4FF] transition-colors hover:underline"
+          >
+            Entrar e continuar a compra
+          </Link>
+        </p>
+      )}
     </AuthCard>
   );
 }

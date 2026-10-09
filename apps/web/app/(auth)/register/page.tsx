@@ -18,6 +18,7 @@ import { Suspense, useState } from "react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { api } from "@/lib/api";
+import { safeCheckoutReturnPath, withCheckoutReturn } from "@/lib/checkout-return";
 import { formatBrazilPhone, formatCpf, normalizeBrazilPhone, onlyDigits } from "@/lib/br-format";
 
 const schema = z.object({
@@ -39,6 +40,8 @@ function RegisterForm() {
   // It proves nothing: past purchases are only linked after the address is
   // confirmed by e-mail.
   const suggestedEmail = searchParams.get("email") ?? "";
+  // Conta criada na hora de comprar: o link de confirmação volta para o checkout.
+  const checkoutNext = safeCheckoutReturnPath(searchParams.get("next"));
 
   const form = useForm<FormData>({
     resolver: zodResolver(schema),
@@ -47,7 +50,7 @@ function RegisterForm() {
 
   const mutation = useMutation({
     mutationFn: (data: FormData) =>
-      api<{ email: string; verificationEmailSent: boolean }>("/auth/register", {
+      api<{ email: string; verificationEmailSent: boolean }>(withCheckoutReturn("/auth/register", checkoutNext), {
         method: "POST",
         body: JSON.stringify({
           ...data,
@@ -58,7 +61,7 @@ function RegisterForm() {
       }),
     onSuccess: (result) => {
       sessionStorage.setItem("eventflow-pending-verification-email", result.email);
-      router.push(`/verificar-email?sent=${result.verificationEmailSent ? "1" : "0"}`);
+      router.push(withCheckoutReturn(`/verificar-email?sent=${result.verificationEmailSent ? "1" : "0"}`, checkoutNext));
     }
   });
 
@@ -70,7 +73,9 @@ function RegisterForm() {
           Crie sua conta
         </h2>
         <p className="mt-1.5 text-xs sm:text-sm text-[#A99EC0]">
-          Comece a comprar e organizar eventos agora mesmo
+          {checkoutNext
+            ? "Crie sua conta para comprar. Depois de confirmar o e-mail, você volta direto para a compra."
+            : "Comece a comprar e organizar eventos agora mesmo"}
         </p>
       </div>
 
@@ -267,7 +272,7 @@ function RegisterForm() {
         <p className="text-xs text-[#A99EC0]">
           Já tem uma conta?{" "}
           <Link
-            href="/login"
+            href={withCheckoutReturn("/login", checkoutNext)}
             className="font-semibold text-[#9E7BFF] hover:text-[#BFA4FF] transition-colors hover:underline"
           >
             Entrar

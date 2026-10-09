@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable, Logger, NotFoundException, Optional } from "@nestjs/common";
+import { BadRequestException, ForbiddenException, Injectable, Logger, NotFoundException, Optional, UnauthorizedException } from "@nestjs/common";
 import { EventStatus, PaymentMethod, PaymentStatus, Prisma } from "@prisma/client";
 import { randomBytes } from "crypto";
 import { createHash } from "node:crypto";
@@ -36,6 +36,18 @@ export class CreateCheckoutUseCase {
   ) {}
 
   async execute(slug: string, dto: CreateCheckoutDto, user?: RequestUser) {
+    // Compra só com conta logada e e-mail confirmado. O e-mail do pedido é
+    // sempre o da conta: assim ninguém compra num endereço e cria a conta em
+    // outro, e os ingressos aparecem na conta pelo userId e pelo e-mail.
+    if (!user) {
+      throw new UnauthorizedException("Entre na sua conta para comprar.");
+    }
+    if (!user.emailVerified) {
+      throw new ForbiddenException("Confirme seu e-mail para comprar.");
+    }
+    const accountUserId = user.id;
+    const accountEmail = user.email.trim().toLowerCase();
+
     if (!dto.items.length) {
       throw new BadRequestException("Selecione pelo menos um ingresso.");
     }
@@ -58,6 +70,7 @@ export class CreateCheckoutUseCase {
 
     const normalizedDto = {
       ...dto,
+      buyerEmail: accountEmail,
       buyerName: normalizedBuyerName,
       buyerDocument: normalizedBuyerDocument,
       buyerPhone: normalizedBuyerPhone,
@@ -131,10 +144,10 @@ export class CreateCheckoutUseCase {
         const order = await tx.order.create({
           data: {
             eventId: event.id,
-            userId: user?.id,
+            userId: accountUserId,
             couponId: couponResult.couponId,
             buyerName: normalizedDto.buyerName,
-            buyerEmail: normalizedDto.buyerEmail.toLowerCase(),
+            buyerEmail: normalizedDto.buyerEmail,
             buyerDocument: normalizedDto.buyerDocument,
             buyerPhone: normalizedDto.buyerPhone,
             affiliateLinkId: affiliateResult.affiliateLinkId,

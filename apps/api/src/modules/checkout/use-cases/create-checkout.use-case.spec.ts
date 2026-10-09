@@ -1,4 +1,4 @@
-import { BadRequestException, NotFoundException } from "@nestjs/common";
+import { BadRequestException, ForbiddenException, NotFoundException, UnauthorizedException } from "@nestjs/common";
 import {
   EventFormat,
   EventStatus,
@@ -54,6 +54,18 @@ function createDto() {
     paymentMethod: PaymentMethod.PIX,
     items: [{ ticketTypeId: "ticket-type-1", quantity: 1 }],
   };
+}
+
+/** Conta logada e confirmada: o único tipo de comprador que o checkout aceita. */
+function createBuyer(overrides: Record<string, unknown> = {}) {
+  return {
+    id: "buyer-user-1",
+    tenantId: null,
+    email: "account@example.com",
+    emailVerified: true,
+    role: "CUSTOMER",
+    ...overrides,
+  } as any;
 }
 
 function createService(eventFactory: () => ReturnType<typeof createEvent> = () => createEvent(0)) {
@@ -118,6 +130,10 @@ function createService(eventFactory: () => ReturnType<typeof createEvent> = () =
     calculateDiscount: jest.fn().mockReturnValue(0),
   };
   const service = new CreateCheckoutUseCase(prisma as any, coupons as any);
+  // Os cenários de estoque/cupom/lote compram com uma conta confirmada. Os
+  // testes de conta chamam o protótipo direto para passar outro comprador.
+  const execute = service.execute.bind(service);
+  service.execute = ((slug: string, dto: any, user = createBuyer()) => execute(slug, dto, user)) as typeof service.execute;
 
   return { service, tx, prisma, orders, getSold: () => sold };
 }
@@ -196,12 +212,7 @@ describe("CreateCheckoutUseCase stock reservation (legacy write order, CHECKOUT_
     await service.execute(
       "eventflow-conf",
       createDto() as any,
-      {
-        id: "buyer-user-1",
-        tenantId: null,
-        email: "account@example.com",
-        role: "CUSTOMER",
-      } as any,
+      createBuyer({ id: "buyer-user-1", email: "account@example.com" }),
     );
 
     expect(tx.order.create).toHaveBeenCalledWith(
@@ -209,6 +220,56 @@ describe("CreateCheckoutUseCase stock reservation (legacy write order, CHECKOUT_
         data: expect.objectContaining({ userId: "buyer-user-1" }),
       }),
     );
+  });
+
+  describe("compra exige conta", () => {
+    const executeAs = (service: CreateCheckoutUseCase, user: unknown) =>
+      CreateCheckoutUseCase.prototype.execute.call(service, "eventflow-conf", createDto() as any, user as any);
+
+    it("rejects a checkout without a logged-in account before touching stock", async () => {
+      const { service, prisma, tx } = createService();
+
+      await expect(executeAs(service, undefined)).rejects.toBeInstanceOf(UnauthorizedException);
+      expect(prisma.event.findFirst).not.toHaveBeenCalled();
+      expect(tx.order.create).not.toHaveBeenCalled();
+    });
+
+    it("rejects an account whose e-mail is not confirmed", async () => {
+      const { service, prisma, tx } = createService();
+
+      await expect(executeAs(service, createBuyer({ emailVerified: false }))).rejects.toBeInstanceOf(ForbiddenException);
+      expect(prisma.event.findFirst).not.toHaveBeenCalled();
+      expect(tx.order.create).not.toHaveBeenCalled();
+    });
+
+    it("always uses the account e-mail, ignoring the one sent in the form", async () => {
+      const { service, tx } = createService();
+
+      await service.execute(
+        "eventflow-conf",
+        { ...createDto(), buyerEmail: "outro-email@example.com" } as any,
+        createBuyer({ email: "  Conta@Example.com " }),
+      );
+
+      expect(tx.order.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({ userId: "buyer-user-1", buyerEmail: "conta@example.com" }),
+        }),
+      );
+    });
+
+    it("works when the form sends no e-mail at all", async () => {
+      const { service, tx } = createService();
+      const { buyerEmail: _omitted, ...dtoWithoutEmail } = createDto();
+
+      await service.execute("eventflow-conf", dtoWithoutEmail as any, createBuyer());
+
+      expect(tx.order.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({ buyerEmail: "account@example.com" }),
+        }),
+      );
+    });
   });
 
   it("atomically reserves the final coupon use before creating the order", async () => {

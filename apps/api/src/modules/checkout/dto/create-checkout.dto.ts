@@ -31,9 +31,10 @@ export class CreateCheckoutDto {
   @IsNotEmpty()
   buyerName!: string;
 
-  @ApiProperty({ description: "E-mail do comprador" })
+  @ApiPropertyOptional({ description: "Ignorado: o pedido usa sempre o e-mail da conta logada. Aceito só por compatibilidade." })
+  @IsOptional()
   @IsEmail()
-  buyerEmail!: string;
+  buyerEmail?: string;
 
   @ApiProperty({ description: "Documento (CPF/CNPJ) do comprador" })
   @IsString()

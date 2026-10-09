@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Post, Req, Res, UnauthorizedException, UseGuards } from "@nestjs/common";
+import { Body, Controller, Get, Post, Query, Req, Res, UnauthorizedException, UseGuards } from "@nestjs/common";
 import { ApiBearerAuth, ApiTags } from "@nestjs/swagger";
 import { Throttle } from "@nestjs/throttler";
 import { Request, Response } from "express";
@@ -23,8 +23,11 @@ export class AuthController {
 
   @Post("register")
   @Throttle({ default: { limit: 5, ttl: 60000 } })
-  register(@Body() dto: RegisterDto) {
-    return this.auth.register(dto);
+  // `next` vem na URL, e não no corpo, de propósito: o ValidationPipe recusa
+  // campos extras no corpo, e assim uma versão antiga da API simplesmente
+  // ignora o parâmetro em vez de recusar o cadastro.
+  register(@Body() dto: RegisterDto, @Query("next") next?: string) {
+    return this.auth.register(dto, next);
   }
 
   @Post("register-organizer")
@@ -80,8 +83,8 @@ export class AuthController {
 
   @Post("resend-verification")
   @Throttle({ auth: { limit: 3, ttl: 60000 } })
-  resendVerification(@Body() dto: ResendVerificationDto) {
-    return this.auth.resendEmailVerification(dto.email);
+  resendVerification(@Body() dto: ResendVerificationDto, @Query("next") next?: string) {
+    return this.auth.resendEmailVerification(dto.email, next);
   }
 
   @Get("me")

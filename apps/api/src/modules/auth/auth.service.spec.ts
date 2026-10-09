@@ -174,6 +174,20 @@ describe("AuthService e-mail verification", () => {
     expect(prisma.emailVerificationToken.create).not.toHaveBeenCalled();
   });
 
+  it("resends a link that brings the buyer back to the checkout", async () => {
+    const { service, prisma, mail } = createService();
+    prisma.user.findUnique.mockResolvedValue({
+      id: "user-1", name: "Buyer", email: "buyer@example.com", emailVerifiedAt: null
+    });
+    prisma.emailVerificationToken.findFirst.mockResolvedValue(null);
+
+    await service.resendEmailVerification("buyer@example.com", "/checkout/hallowparty-vi6WC3?items=lote-1:1");
+
+    const text = mail.send.mock.calls[0][0].text as string;
+    expect(new URL(text.slice(text.indexOf("http"))).searchParams.get("next"))
+      .toBe("/checkout/hallowparty-vi6WC3?items=lote-1:1");
+  });
+
   it("checks cooldown only against active links for the current address", async () => {
     const { service, prisma } = createService();
     prisma.user.findUnique.mockResolvedValue({
