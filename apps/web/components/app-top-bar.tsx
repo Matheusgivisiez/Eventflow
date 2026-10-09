@@ -85,7 +85,7 @@ export function AppTopBar({
             label: hasPanelAccess ? "Painel" : "Ser produtor",
             icon: hasPanelAccess ? LayoutDashboard : UserCheck2,
             active: hasPanelAccess
-              ? ["/dashboard", "/events", "/participants", "/check-in", "/finance", "/reports", "/enterprise", "/promoters", "/team", "/coupons", "/notifications", "/profile", "/admin"].some((route) => pathname === route || pathname.startsWith(`${route}/`))
+              ? ["/dashboard", "/events", "/participants", "/check-in", "/finance", "/reports", "/enterprise", "/promoters", "/team", "/coupons", "/notifications", "/profile", "/admin", "/administracao"].some((route) => pathname === route || pathname.startsWith(`${route}/`))
               : pathname.startsWith("/me/organizador")
           }
         ]

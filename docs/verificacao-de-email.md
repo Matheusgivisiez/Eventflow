@@ -17,11 +17,11 @@ por isso a verificação foi feita antes do envio de e-mail, e não depois.
 ## O que mudou
 
 - `User.emailVerifiedAt` (nullable) e a tabela `EmailVerificationToken`
-  (hash SHA-256 do token, expiração de 30 min, uso único, um link ativo por vez).
+  (hash SHA-256 do token, expiração de 30 min e uso único).
 - `RequestUser.emailVerified` é preenchido pela `JwtStrategy` a partir de `emailVerifiedAt`.
 - `resolveClaimEmail(user)` (`common/utils/claim-email.utils.ts`) é o único ponto que
   autoriza casar dados por e-mail. Retorna `null` para conta não verificada.
-- `EmailVerificationService` (módulo próprio) emite e invalida os links. Fica fora
+- `EmailVerificationService` (módulo próprio) emite os links. Fica fora
   do `AuthService` porque a prova precisa ser destruída em três outros lugares.
 - Os quatro pontos acima passaram a usar `resolveClaimEmail`. Com `null`, as cláusulas
   por `buyerEmail` / `attendeeEmail` simplesmente **não entram** na query.
@@ -38,7 +38,8 @@ vítima e a prova antiga continuaria valendo.
 
 Toda rota que altera `User.email` — `PATCH /users/me`, `PATCH /users/:id` e
 `PATCH /profile` — escreve `emailVerifiedAt: null` na mesma instrução que grava o
-novo endereço, invalida os links pendentes e envia um novo. A comparação ignora
+  novo endereço e envia um novo link. Links do endereço antigo são rejeitados ao
+  confirmar porque o endereço do token não coincide mais com o da conta. A comparação ignora
 caixa e espaços, então salvar o mesmo endereço não derruba a verificação.
 
 O envio acontece **fora** da transação: SMTP não segura lock, e uma falha de
@@ -52,6 +53,12 @@ pede outro em `POST /auth/resend-verification`. O método devolve `boolean` para
 quem quiser registrar o resultado.
 
 ## Compatibilidade com contas existentes
+
+A partir da migração `20261008220000_require_email_for_new_accounts`,
+`emailVerificationRequired` nasce `false` para todas as contas existentes.
+Somente o cadastro novo grava `true`. Cadastros novos não recebem sessão no
+registro; login, refresh e acesso por token ficam bloqueados até a confirmação.
+As contas existentes continuam entrando mesmo se `emailVerifiedAt` for nulo.
 
 A migração `20260913120000_email_verification` faz o backfill:
 
@@ -68,6 +75,13 @@ próprios ingressos. Somente contas criadas a partir do deploy precisam confirma
 `MailService` retorna `SKIPPED` e **nenhum link de verificação é enviado** — contas
 novas ficariam sem caminho para confirmar o e-mail. Configure o SMTP no Render antes
 de subir esta mudança, junto com SPF, DKIM e DMARC do domínio remetente.
+
+O cadastro agora informa quando o envio foi ignorado ou falhou, e o token dessa
+tentativa não impede um novo pedido. O endpoint `/api/health` informa se o SMTP
+está configurado e alcançável; isso verifica a conexão com o servidor, não a
+entrega na caixa do destinatário. Para mensagens aceitas pelo SMTP que não chegam,
+consulte os eventos de entrega, rejeição e bounce do provedor e a autenticação
+SPF/DKIM/DMARC do domínio remetente.
 
 ## Ordem do deploy
 

@@ -135,6 +135,13 @@ export class CheckoutService {
 
     return {
       id: order.id,
+      canResumePayment: this.config.get<boolean>("PENDING_PURCHASES_ENABLED") === true &&
+        order.status === PaymentStatus.PENDING && Boolean(order.payment?.checkoutUrl) &&
+        Boolean(order.stockReservedAt) &&
+        order.stockReservedAt!.getTime() + (this.config.get<number>("ORDER_RESERVATION_TTL_MINUTES") ?? 60) * 60_000 > Date.now(),
+      reservationExpiresAt: order.status === PaymentStatus.PENDING && order.stockReservedAt
+        ? new Date(order.stockReservedAt.getTime() + (this.config.get<number>("ORDER_RESERVATION_TTL_MINUTES") ?? 60) * 60_000).toISOString()
+        : null,
       confirmationEmailStatus: confirmation?.status ?? null,
       eventId: order.eventId,
       eventTitle: order.event.title,

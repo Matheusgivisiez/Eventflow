@@ -49,6 +49,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { dateTime } from "@/lib/utils";
 import { BrandMark } from "@/components/brand-logo";
+import { PendingPurchasesSection } from "@/components/pending-purchases-section";
 
 type MyTicket = {
   id: string;
@@ -1034,6 +1035,7 @@ export default function MyTicketsPage() {
   return (
     <main aria-labelledby="ticket-list-title">
       <div className="mx-auto max-w-5xl">
+        <PendingPurchasesSection userId={user?.id} />
         {user && user.emailVerified === false && !allTickets.some((ticket) => ticket.origin === "PLATFORM_COURTESY") && (
           <div className="mb-5 flex flex-col gap-3 rounded-2xl border border-amber-500/30 bg-amber-500/10 p-4 sm:flex-row sm:items-center sm:justify-between">
             <div className="flex items-start gap-3">

@@ -547,6 +547,7 @@ model Payment {
   status         PaymentStatus @default(PENDING)
   provider       String        @default("mercado_pago")
   providerRef    String?
+  checkoutUrl    String?
   checkoutId     String?
   billId         String?
   transactionId  String?

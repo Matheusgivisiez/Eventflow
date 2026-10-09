@@ -41,6 +41,7 @@ import { TransfersModule } from "./modules/transfers/transfers.module";
 import { ObservabilityModule } from "./modules/observability/observability.module";
 import { ArtistsModule } from "./modules/artists/artists.module";
 import { CourtesyModule } from "./modules/courtesy/courtesy.module";
+import { PendingPurchasesModule } from "./modules/pending-purchases/pending-purchases.module";
 
 @Module({
   imports: [
@@ -109,7 +110,8 @@ import { CourtesyModule } from "./modules/courtesy/courtesy.module";
     PromotersModule,
     TransfersModule,
     ArtistsModule,
-    CourtesyModule
+    CourtesyModule,
+    PendingPurchasesModule
   ],
   controllers: [AppController],
   providers: [

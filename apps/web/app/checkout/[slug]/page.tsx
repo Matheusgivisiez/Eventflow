@@ -99,6 +99,18 @@ function CheckoutForm() {
 
   const [quantities, setQuantities] =
     useState<Record<string, number>>(initialItems);
+  const [recentOrder, setRecentOrder] = useState(false);
+  useEffect(() => {
+    if (process.env.NEXT_PUBLIC_PENDING_PURCHASES_ENABLED !== "true") return;
+    try {
+      const stored = window.localStorage.getItem("eventflow:last-checkout");
+      if (!stored) return;
+      const parsed = JSON.parse(stored) as { slug?: string; orderId?: string; accessToken?: string; createdAt?: number };
+      setRecentOrder(Boolean(parsed.slug === slug && parsed.orderId && parsed.accessToken && parsed.createdAt && Date.now() - parsed.createdAt < 24 * 60 * 60 * 1000));
+    } catch {
+      setRecentOrder(false);
+    }
+  }, [slug]);
 
   // Read promoter code from URL (?p=CODE or ?promoter=CODE) and persist in sessionStorage
   // so attribution survives any navigation within the checkout flow.
@@ -228,6 +240,7 @@ function CheckoutForm() {
           JSON.stringify({
             orderId: data.orderId,
             accessToken: data.orderAccessToken,
+            slug,
             createdAt: Date.now(),
           }),
         );
@@ -358,6 +371,15 @@ function CheckoutForm() {
       </div>
 
       <div className="mx-auto grid max-w-6xl gap-6 px-5 py-8 lg:grid-cols-[1fr_380px]">
+        {recentOrder && (
+          <div className="lg:col-span-2 flex flex-col gap-3 rounded-2xl border border-primary/25 bg-primary/5 p-4 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <p className="font-semibold">Você tem uma compra recente deste evento</p>
+              <p className="text-sm text-muted-foreground">Confira o estado do pedido e continue o pagamento, se a reserva ainda estiver ativa.</p>
+            </div>
+            <Button asChild variant="outline" className="min-h-11 shrink-0 rounded-xl"><Link href="/checkout/success">Ver meu pedido</Link></Button>
+          </div>
+        )}
         <form
           className="space-y-6"
           onSubmit={form.handleSubmit((data) => mutation.mutate(data))}
