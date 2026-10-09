@@ -37,28 +37,29 @@ const ticketSchema = z.object({
 type TicketForm = z.infer<typeof ticketSchema>;
 function brlToCents(brl: number) { return Math.round(brl * 100); }
 
-export default function TicketTypesPage() {
+export default function TicketTypesPage({ adminMode = false, adminBase = "/admin" }: { adminMode?: boolean; adminBase?: string }) {
   const { id: eventId } = useParams<{ id: string }>();
   const queryClient = useQueryClient();
+  const ticketPath = adminMode ? `/admin/events/${eventId}/ticket-types` : `/events/${eventId}/ticket-types`;
   const [editingId, setEditingId] = useState<string | null>(null);
   const [showNewForm, setShowNewForm] = useState(false);
   const [optimisticTickets, setOptimisticTickets] = useState<TicketType[] | null>(null);
 
   const { data: serverTickets, isLoading } = useQuery<TicketType[]>({
-    queryKey: ["ticket-types", eventId],
-    queryFn: () => api<TicketType[]>(`/events/${eventId}/ticket-types`)
+    queryKey: [adminMode ? "admin-ticket-types" : "ticket-types", eventId],
+    queryFn: () => api<TicketType[]>(ticketPath)
   });
 
   const tickets = optimisticTickets ?? serverTickets ?? [];
 
   const invalidate = () => {
-    queryClient.invalidateQueries({ queryKey: ["ticket-types", eventId] });
+    queryClient.invalidateQueries({ queryKey: [adminMode ? "admin-ticket-types" : "ticket-types", eventId] });
     setOptimisticTickets(null);
   };
 
   const createMutation = useMutation({
     mutationFn: (data: TicketForm) =>
-      api(`/events/${eventId}/ticket-types`, {
+      api(ticketPath, {
         method: "POST",
         body: JSON.stringify({
           ...data,
@@ -72,7 +73,7 @@ export default function TicketTypesPage() {
 
   const updateMutation = useMutation({
     mutationFn: ({ ticketId, data }: { ticketId: string; data: TicketForm }) =>
-      api(`/events/${eventId}/ticket-types/${ticketId}`, {
+      api(`${ticketPath}/${ticketId}`, {
         method: "PATCH",
         body: JSON.stringify({
           ...data,
@@ -85,7 +86,7 @@ export default function TicketTypesPage() {
   });
 
   const deleteMutation = useMutation({
-    mutationFn: (ticketId: string) => api(`/events/${eventId}/ticket-types/${ticketId}`, { method: "DELETE" }),
+    mutationFn: (ticketId: string) => api(`${ticketPath}/${ticketId}`, { method: "DELETE" }),
     onSuccess: invalidate
   });
 
@@ -112,7 +113,7 @@ export default function TicketTypesPage() {
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-center gap-3">
           <Button variant="ghost" size="icon" asChild>
-            <Link href={`/events/${eventId}`}><ArrowLeft className="h-4 w-4" /></Link>
+            <Link href={adminMode ? `${adminBase}/events/${eventId}/edit` : `/events/${eventId}`}><ArrowLeft className="h-4 w-4" /></Link>
           </Button>
           <div>
             <h1 className="text-2xl font-extrabold tracking-tight">Lotes de ingresso</h1>

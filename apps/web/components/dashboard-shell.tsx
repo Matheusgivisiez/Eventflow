@@ -32,7 +32,7 @@ const nav = [
   { href: "/coupons", label: "Cupons", icon: Tag, roles: ["ORGANIZER", "ADMIN"] },
   { href: "/notifications", label: "Notificações", icon: Bell, roles: ["ADMIN"] },
   { href: "/profile", label: "Perfil", icon: UserCircle, roles: ["ORGANIZER", "ADMIN", "TEAM", "CHECKIN"] },
-  { href: "/admin", label: "Admin", icon: Shield, roles: ["ADMIN"] }
+  { href: "/administracao", label: "Admin", icon: Shield, roles: ["ADMIN"] }
 ];
 
 function NavItem({ item, active, isCollapsed }: { item: typeof nav[0]; active: boolean; isCollapsed: boolean }) {

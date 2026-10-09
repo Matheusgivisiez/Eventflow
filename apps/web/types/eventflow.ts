@@ -37,7 +37,7 @@ export type EventArtist = { artistId?: string; position: number; artist: Artist 
 export type EventFlowEvent = {
   id: string;
   ownerId?: string;
-  accessRole?: "OWNER" | "GESTOR" | "EDITOR" | "OPERACAO";
+  accessRole?: "OWNER" | "GESTOR" | "EDITOR" | "OPERACAO" | "ADMIN";
   title: string;
   slug: string;
   description: string;
