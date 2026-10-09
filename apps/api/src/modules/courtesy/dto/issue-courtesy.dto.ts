@@ -19,7 +19,16 @@ import {
 export const MAX_GUESTS_PER_REQUEST = 30;
 export const MAX_TICKETS_PER_GUEST = 10;
 
+export class FindVipRecipientDto {
+  @IsEmail()
+  email!: string;
+}
+
 export class CourtesyGuestDto {
+  @IsOptional()
+  @IsString()
+  userId?: string;
+
   @IsString()
   @MinLength(2)
   @MaxLength(120)

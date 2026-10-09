@@ -104,7 +104,8 @@ export function AdminVipPanel({ events, loading }: { events: AdminEventOption[];
           cancelUrl={(ticketId) => `/admin/courtesy/tickets/${ticketId}/cancel`}
           defaultLabel="Convidado VIP"
           issueTitle={`Emitir VIP para ${selected.title}`}
-          issueDescription="Cada convidado recebe o ingresso por e-mail, com QR Code válido na portaria. O ingresso é nominal (não pode ser transferido) e não consome o estoque de nenhum lote do organizador."
+          issueDescription="Busque e selecione uma conta existente para cada convidado. O VIP cai direto na conta e o ingresso é enviado por e-mail, sem aceite ou nova confirmação."
+          requireExistingAccount
         />
       )}
 

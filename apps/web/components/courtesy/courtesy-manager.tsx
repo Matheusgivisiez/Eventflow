@@ -45,11 +45,15 @@ export type CourtesyManagerProps = {
   issueDescription: string;
   /** Só consulta: esconde a emissão e o cancelamento (admin auditando cortesias do organizador). */
   readOnly?: boolean;
+  requireExistingAccount?: boolean;
 };
+
+type VipRecipient = { id: string; name: string; email: string };
+type VipRecipientLookup = { exists: boolean; user: VipRecipient | null };
 
 const emptyGuest = (): GuestDraft => ({ name: "", email: "", quantity: 1 });
 
-export function CourtesyManager({ queryKey, listUrl, issueUrl, cancelUrl, defaultLabel, issueTitle, issueDescription, readOnly = false }: CourtesyManagerProps) {
+export function CourtesyManager({ queryKey, listUrl, issueUrl, cancelUrl, defaultLabel, issueTitle, issueDescription, readOnly = false, requireExistingAccount = false }: CourtesyManagerProps) {
   const queryClient = useQueryClient();
   const [guests, setGuests] = useState<GuestDraft[]>([emptyGuest()]);
   const [label, setLabel] = useState("");
@@ -61,6 +65,16 @@ export function CourtesyManager({ queryKey, listUrl, issueUrl, cancelUrl, defaul
   const [feedback, setFeedback] = useState<string | null>(null);
   const [search, setSearch] = useState("");
   const [copiedId, setCopiedId] = useState<string | null>(null);
+  const [foundRecipient, setFoundRecipient] = useState<{ index: number; email: string; user: VipRecipient | null } | null>(null);
+
+  const findRecipient = useMutation({
+    mutationFn: ({ email }: { index: number; email: string }) => api<VipRecipientLookup>("/admin/courtesy/recipient", {
+      method: "POST",
+      body: JSON.stringify({ email: email.trim().toLowerCase() })
+    }),
+    onSuccess: (result, variables) => setFoundRecipient({ index: variables.index, email: variables.email.trim().toLowerCase(), user: result.user }),
+    onError: () => setFoundRecipient(null)
+  });
 
   const list = useQuery<CourtesyList>({ queryKey, queryFn: () => api<CourtesyList>(listUrl) });
 
@@ -70,13 +84,14 @@ export function CourtesyManager({ queryKey, listUrl, issueUrl, cancelUrl, defaul
     onSuccess: (result) => {
       queryClient.setQueryData(queryKey, { summary: result.summary, tickets: result.tickets });
       setGuests([emptyGuest()]);
+      setFoundRecipient(null);
       setNote("");
       setPasteText("");
       setPasteOpen(false);
       setFormError(null);
       setFeedback(
         `${result.issuedTickets} ${result.issuedTickets === 1 ? "ingresso emitido" : "ingressos emitidos"} para ${result.issuedOrders} ${result.issuedOrders === 1 ? "convidado" : "convidados"}.` +
-        (sendEmail ? " O e-mail com o ingresso já foi enviado." : " Nenhum e-mail foi enviado: copie o link de cada ingresso na lista abaixo.")
+        (sendEmail ? " O envio do e-mail foi solicitado; confira o status na lista abaixo." : " Nenhum e-mail foi enviado: copie o link de cada ingresso na lista abaixo.")
       );
     },
     onError: () => setFeedback(null)
@@ -130,12 +145,16 @@ export function CourtesyManager({ queryKey, listUrl, issueUrl, cancelUrl, defaul
       setFormError(problem);
       return;
     }
+    if (requireExistingAccount && guests.some((guest) => !guest.userId)) {
+      setFormError("Pesquise e selecione uma conta existente para cada convidado VIP.");
+      return;
+    }
     setFormError(null);
     setFeedback(null);
     issue.mutate({
       guests: guests
         .filter((guest) => guest.name.trim() || guest.email.trim())
-        .map((guest) => ({ name: guest.name.trim(), email: guest.email.trim().toLowerCase(), quantity: guest.quantity })),
+        .map((guest) => ({ name: guest.name.trim(), email: guest.email.trim().toLowerCase(), quantity: guest.quantity, userId: guest.userId })),
       label: label.trim() || undefined,
       note: note.trim() || undefined,
       sendEmail
@@ -173,17 +192,48 @@ export function CourtesyManager({ queryKey, listUrl, issueUrl, cancelUrl, defaul
           <form className="space-y-4" onSubmit={submit}>
             <div className="space-y-2">
               {guests.map((guest, index) => (
-                <div key={index} className="grid gap-2 sm:grid-cols-[1fr_1fr_88px_40px]">
-                  <Input aria-label={`Nome do convidado ${index + 1}`} placeholder="Nome completo" value={guest.name}
-                    onChange={(e) => updateGuest(index, { name: e.target.value })} />
-                  <Input aria-label={`E-mail do convidado ${index + 1}`} type="email" placeholder="email@exemplo.com" value={guest.email}
-                    onChange={(e) => updateGuest(index, { email: e.target.value })} />
-                  <Input aria-label={`Quantidade de ingressos do convidado ${index + 1}`} type="number" min={1} max={MAX_TICKETS_PER_GUEST} value={guest.quantity}
-                    onChange={(e) => updateGuest(index, { quantity: Math.max(1, Math.min(MAX_TICKETS_PER_GUEST, Number(e.target.value) || 1)) })} />
-                  <Button type="button" variant="ghost" size="icon" title="Remover convidado" disabled={guests.length === 1}
-                    onClick={() => setGuests((current) => current.filter((_, i) => i !== index))}>
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
+                <div key={index} className="space-y-2">
+                  <div className="grid gap-2 sm:grid-cols-[1fr_1fr_88px_40px]">
+                    <Input aria-label={`Nome do convidado ${index + 1}`} placeholder={requireExistingAccount ? "Selecione uma conta" : "Nome completo"} value={guest.name}
+                      readOnly={requireExistingAccount}
+                      onChange={(e) => updateGuest(index, { name: e.target.value })} />
+                    <div className="flex gap-2">
+                      <Input aria-label={`E-mail do convidado ${index + 1}`} type="email" placeholder="email@exemplo.com" value={guest.email}
+                        onChange={(e) => {
+                          updateGuest(index, { email: e.target.value, name: requireExistingAccount ? "" : guest.name, userId: undefined });
+                          setFoundRecipient(null);
+                        }} />
+                      {requireExistingAccount && (
+                        <Button type="button" variant="outline" size="icon" title="Buscar conta" aria-label={`Buscar conta do convidado ${index + 1}`}
+                          disabled={!guest.email.trim() || findRecipient.isPending}
+                          onClick={() => findRecipient.mutate({ index, email: guest.email })}>
+                          {findRecipient.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
+                        </Button>
+                      )}
+                    </div>
+                    <Input aria-label={`Quantidade de ingressos do convidado ${index + 1}`} type="number" min={1} max={MAX_TICKETS_PER_GUEST} value={guest.quantity}
+                      onChange={(e) => updateGuest(index, { quantity: Math.max(1, Math.min(MAX_TICKETS_PER_GUEST, Number(e.target.value) || 1)) })} />
+                    <Button type="button" variant="ghost" size="icon" title="Remover convidado" disabled={guests.length === 1}
+                      onClick={() => { setGuests((current) => current.filter((_, i) => i !== index)); setFoundRecipient(null); }}>
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </div>
+                  {requireExistingAccount && guest.userId && (
+                    <p className="text-xs text-emerald-600 dark:text-emerald-400">Conta selecionada: {guest.name} ({guest.email})</p>
+                  )}
+                  {requireExistingAccount && foundRecipient?.index === index && foundRecipient.email === guest.email.trim().toLowerCase() && !guest.userId && (
+                    <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border p-3 text-sm">
+                      {foundRecipient.user ? (
+                        <>
+                          <span>Conta encontrada: <strong>{foundRecipient.user.name}</strong> ({foundRecipient.user.email})</span>
+                          <Button type="button" size="sm" onClick={() => {
+                            updateGuest(index, { name: foundRecipient.user!.name, email: foundRecipient.user!.email, userId: foundRecipient.user!.id });
+                            setFoundRecipient(null);
+                          }}>Selecionar esta conta</Button>
+                        </>
+                      ) : <span>Nenhuma conta encontrada. Confira o e-mail antes de emitir o VIP.</span>}
+                    </div>
+                  )}
                 </div>
               ))}
             </div>
@@ -193,9 +243,11 @@ export function CourtesyManager({ queryKey, listUrl, issueUrl, cancelUrl, defaul
                 onClick={() => setGuests((current) => [...current, emptyGuest()])}>
                 <Plus className="h-4 w-4" /> Adicionar convidado
               </Button>
-              <Button type="button" variant="outline" size="sm" onClick={() => setPasteOpen((open) => !open)}>
-                <ListPlus className="h-4 w-4" /> Colar lista
-              </Button>
+              {!requireExistingAccount && (
+                <Button type="button" variant="outline" size="sm" onClick={() => setPasteOpen((open) => !open)}>
+                  <ListPlus className="h-4 w-4" /> Colar lista
+                </Button>
+              )}
             </div>
 
             {pasteOpen && (
@@ -227,6 +279,7 @@ export function CourtesyManager({ queryKey, listUrl, issueUrl, cancelUrl, defaul
             </div>
 
             {(formError || issue.error) && <p className="text-sm text-destructive" role="alert">{formError ?? issue.error?.message}</p>}
+            {findRecipient.error && <p className="text-sm text-destructive" role="alert">Não foi possível buscar a conta. Tente novamente.</p>}
             {feedback && <p className="text-sm text-emerald-600 dark:text-emerald-400" role="status">{feedback}</p>}
 
             <Button type="submit" disabled={issue.isPending}>

@@ -50,6 +50,16 @@ describe("JwtStrategy", () => {
     });
   });
 
+  it("rejects a token for a new account awaiting verification", async () => {
+    const { strategy, prisma } = createStrategy();
+    prisma.user.findUnique.mockResolvedValue({
+      id: "new-user", tokenVersion: 1, emailVerificationRequired: true, emailVerifiedAt: null
+    });
+
+    await expect(strategy.validate({ sub: "new-user", tokenVersion: 1 }))
+      .rejects.toThrow("Confirme seu e-mail");
+  });
+
   it("rejects access tokens issued before a password reset", async () => {
     const { strategy, prisma } = createStrategy();
     prisma.user.findUnique.mockResolvedValue({

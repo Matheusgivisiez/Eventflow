@@ -65,6 +65,14 @@ describe("AuthController refresh cookie security", () => {
     expect(result).not.toHaveProperty("refreshToken");
   });
 
+  it("does not issue a cookie or session at registration", async () => {
+    const { controller, auth } = createController();
+    auth.register.mockResolvedValue({ email: "new@example.com", verificationEmailSent: true });
+
+    await expect(controller.register({ email: "new@example.com" } as any))
+      .resolves.toEqual({ email: "new@example.com", verificationEmailSent: true });
+  });
+
   it("refreshes from the HttpOnly cookie when request body has no refresh token", async () => {
     const { controller, auth } = createController();
     const response = createResponse();

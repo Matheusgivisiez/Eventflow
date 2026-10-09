@@ -32,11 +32,11 @@ describe("EmailVerificationService", () => {
     );
   });
 
-  it("does not throw when the token transaction fails", async () => {
+  it("does not throw when token creation fails", async () => {
     // The caller already wrote the new address. Throwing here would answer 500
     // for a change that did happen, and the user would believe it did not.
     const { service, prisma, mail } = createService();
-    prisma.$transaction.mockRejectedValue(new Error("deadlock"));
+    prisma.emailVerificationToken.create.mockRejectedValue(new Error("deadlock"));
 
     await expect(service.issue(user)).resolves.toBe(false);
     expect(mail.send).not.toHaveBeenCalled();
@@ -51,19 +51,29 @@ describe("EmailVerificationService", () => {
 
   it("does not throw from the e-mail change entry point either", async () => {
     const { service, prisma } = createService();
-    prisma.$transaction.mockRejectedValue(new Error("deadlock"));
+    prisma.emailVerificationToken.create.mockRejectedValue(new Error("deadlock"));
 
     await expect(service.handleEmailChanged(user)).resolves.toBe(false);
   });
 
-  it("invalidates outstanding links exactly once per issue", async () => {
+  it("keeps earlier links active until verification succeeds", async () => {
     const { service, prisma } = createService();
 
     await service.handleEmailChanged(user);
 
-    // The whole invalidate+create pair goes in a single transaction call.
-    expect(prisma.$transaction).toHaveBeenCalledTimes(1);
-    expect(prisma.emailVerificationToken.updateMany).toHaveBeenCalledTimes(1);
+    expect(prisma.emailVerificationToken.create).toHaveBeenCalledTimes(1);
+    expect(prisma.emailVerificationToken.updateMany).not.toHaveBeenCalled();
+  });
+
+  it("marks a skipped e-mail as failed and lets the user request another link", async () => {
+    const { service, prisma, mail } = createService();
+    mail.send.mockResolvedValue({ status: "SKIPPED" });
+
+    await expect(service.issue(user)).resolves.toBe(false);
+    expect(prisma.emailVerificationToken.updateMany).toHaveBeenCalledWith({
+      where: { tokenHash: expect.any(String), usedAt: null },
+      data: { usedAt: expect.any(Date) }
+    });
   });
 
   it("stores only the hash and escapes the name in the message", async () => {

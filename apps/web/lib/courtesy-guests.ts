@@ -2,7 +2,7 @@
 export const MAX_GUESTS_PER_REQUEST = 30;
 export const MAX_TICKETS_PER_GUEST = 10;
 
-export type GuestDraft = { name: string; email: string; quantity: number };
+export type GuestDraft = { name: string; email: string; quantity: number; userId?: string };
 
 export type ParsedGuestList = { guests: GuestDraft[]; errors: string[] };
 

@@ -18,7 +18,7 @@ const LIST_LIMIT = 500;
 
 type Issuer = { id: string };
 
-type NormalizedGuest = { name: string; email: string; quantity: number };
+type NormalizedGuest = { name: string; email: string; quantity: number; userId?: string };
 
 /**
  * Ingressos emitidos sem venda.
@@ -47,6 +47,15 @@ export class CourtesyService {
     @Optional() private readonly googleWallet?: GoogleWalletService
   ) {}
 
+  async findVipRecipient(email: string) {
+    const normalizedEmail = email.trim().toLowerCase();
+    const user = await this.prisma.user.findUnique({
+      where: { email: normalizedEmail },
+      select: { id: true, name: true, email: true }
+    });
+    return { exists: Boolean(user), user };
+  }
+
   async issue(eventId: string, origin: CourtesyOrigin, issuer: Issuer, dto: IssueCourtesyDto) {
     const event = await this.prisma.event.findUnique({
       where: { id: eventId },
@@ -72,9 +81,18 @@ export class CourtesyService {
       const created: { id: string; ticketCount: number }[] = [];
 
       for (const guest of guests) {
+        // O VIP da plataforma pertence imediatamente à conta já cadastrada.
+        // O convite VIP não exige confirmação ou aceite adicional.
+        const recipient = origin === TicketOrigin.PLATFORM_COURTESY
+          ? await tx.user.findUnique({ where: { email: guest.email }, select: { id: true, name: true, email: true } })
+          : null;
+        if (origin === TicketOrigin.PLATFORM_COURTESY && (!recipient || (guest.userId && guest.userId !== recipient.id))) {
+          throw new BadRequestException(`Selecione uma conta existente para ${guest.email}.`);
+        }
         const order = await tx.order.create({
           data: {
             eventId: event.id,
+            userId: recipient?.id,
             buyerName: guest.name,
             buyerEmail: guest.email,
             subtotalCents: 0,
@@ -96,7 +114,7 @@ export class CourtesyService {
         const tickets = await Promise.all(
           Array.from({ length: guest.quantity }, () => this.buildTicket(secret, order.id, event.id, ticketType.id, origin, guest))
         );
-        await tx.ticket.createMany({ data: tickets });
+        await tx.ticket.createMany({ data: tickets.map((ticket) => ({ ...ticket, ownerId: recipient?.id })) });
         created.push({ id: order.id, ticketCount: tickets.length });
       }
       return created;
@@ -271,7 +289,7 @@ export class CourtesyService {
       if (!Number.isInteger(quantity) || quantity < 1 || quantity > MAX_TICKETS_PER_GUEST) {
         throw new BadRequestException(`Cada convidado pode receber de 1 a ${MAX_TICKETS_PER_GUEST} ingressos.`);
       }
-      return { name, email, quantity };
+      return { name, email, quantity, userId: guest.userId };
     });
   }
 

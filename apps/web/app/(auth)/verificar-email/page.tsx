@@ -3,7 +3,7 @@
 import { Suspense, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { AlertCircle, ArrowRight, CheckCircle2, Loader2, Mail } from "lucide-react";
 import { api } from "@/lib/api";
 import { useAuthStore } from "@/stores/auth-store";
@@ -30,12 +30,15 @@ function PrimaryAuthLink({ href, children }: { href: string; children: React.Rea
 }
 
 function VerifyEmailContent() {
+  const queryClient = useQueryClient();
   const searchParams = useSearchParams();
   const token = searchParams.get("token");
+  const sent = searchParams.get("sent");
   const updateUser = useAuthStore((state) => state.updateUser);
+  const sessionRole = useAuthStore((state) => state.user?.role);
   const sessionEmail = useAuthStore((state) => state.user?.email);
   const [resendEmail, setResendEmail] = useState("");
-  const requested = useRef(false);
+  const requested = useRef<string | null>(null);
 
   const verify = useMutation({
     mutationFn: (value: string) =>
@@ -44,7 +47,18 @@ function VerifyEmailContent() {
         body: JSON.stringify({ token: value }),
         auth: false
       }),
-    onSuccess: () => updateUser({ emailVerified: true })
+    onSuccess: (data) => {
+      if (sessionStorage.getItem("eventflow-pending-verification-email")?.toLowerCase() === data.email.toLowerCase()) {
+        sessionStorage.removeItem("eventflow-pending-verification-email");
+      }
+      const current = useAuthStore.getState().user;
+      if (current?.email.toLowerCase() === data.email.toLowerCase()) {
+        updateUser({ emailVerified: true });
+        void queryClient.invalidateQueries({ queryKey: ["my-tickets"] });
+        void queryClient.invalidateQueries({ queryKey: ["received-transfers"] });
+        void queryClient.invalidateQueries({ queryKey: ["pending-purchases"] });
+      }
+    }
   });
 
   const resend = useMutation({
@@ -56,18 +70,20 @@ function VerifyEmailContent() {
       })
   });
 
-  // The link is single use: fire it exactly once, even under React strict mode.
+  // Verify each distinct link once, including when Next.js reuses this page
+  // after the person opens a newer link in the same browser tab.
   useEffect(() => {
-    if (!token || requested.current) return;
-    requested.current = true;
+    if (!token || requested.current === token) return;
+    requested.current = token;
     verify.mutate(token);
   }, [token, verify]);
 
   useEffect(() => {
-    if (sessionEmail) setResendEmail(sessionEmail);
+    setResendEmail(sessionStorage.getItem("eventflow-pending-verification-email") ?? sessionEmail ?? "");
   }, [sessionEmail]);
 
   if (verify.isSuccess) {
+    const sameSession = sessionEmail?.toLowerCase() === verify.data.email.toLowerCase();
     return (
       <AuthCard>
         <div className="text-center mb-7 sm:mb-8">
@@ -78,10 +94,12 @@ function VerifyEmailContent() {
             E-mail confirmado
           </h2>
           <p className="mt-2 text-xs sm:text-sm text-[#A99EC0]">
-            Suas compras feitas com {verify.data.email} já aparecem em Meus Ingressos.
+            O endereço {verify.data.email} está confirmado. Entre na sua conta para continuar.
           </p>
         </div>
-        <PrimaryAuthLink href="/me/ingressos">Ver meus ingressos</PrimaryAuthLink>
+        <PrimaryAuthLink href={!sameSession ? "/login" : sessionRole === "ORGANIZER" || sessionRole === "ADMIN" ? "/dashboard" : "/me/ingressos"}>
+          {!sameSession ? "Entrar na conta" : sessionRole === "ORGANIZER" || sessionRole === "ADMIN" ? "Ir ao painel" : "Ver meus ingressos"}
+        </PrimaryAuthLink>
       </AuthCard>
     );
   }
@@ -108,22 +126,26 @@ function VerifyEmailContent() {
           )}
         </div>
         <h2 className="text-2xl sm:text-[26px] font-bold text-white tracking-tight">
-          {token ? "Link expirado ou inválido" : "Confirme seu e-mail"}
+          {token ? "Link expirado ou inválido" : sent === "0" ? "Não conseguimos enviar o e-mail" : "Confirme seu e-mail"}
         </h2>
         <p className="mt-2 text-xs sm:text-sm text-[#A99EC0]">
           {token
             ? "Este link já foi usado ou passou de 30 minutos. Peça um novo abaixo."
-            : "Informe seu e-mail para receber um novo link de confirmação."}
+            : sent === "1"
+              ? "Enviamos um link para o seu e-mail. Abra a mensagem e confirme sua conta. Se não chegar, peça outro link abaixo."
+              : sent === "0"
+                ? "Sua conta foi criada, mas o envio falhou. Confira o endereço e peça um novo link abaixo."
+                : "Informe seu e-mail para receber um novo link de confirmação."}
         </p>
       </div>
 
-      {resend.isSuccess ? (
+      {resend.isSuccess && (
         <div className="rounded-xl bg-purple-500/10 border border-purple-400/30 p-4 text-center">
-          <p className="text-xs text-[#D4CAE8]">{resend.data.message}</p>
+          <p className="text-xs text-[#D4CAE8]">{resend.data.message} Se não chegar, aguarde um minuto e tente novamente.</p>
         </div>
-      ) : (
+      )}
         <form
-          className="space-y-4"
+          className="mt-4 space-y-4"
           onSubmit={(formEvent) => {
             formEvent.preventDefault();
             if (resendEmail) resend.mutate(resendEmail);
@@ -170,7 +192,6 @@ function VerifyEmailContent() {
             )}
           </button>
         </form>
-      )}
     </AuthCard>
   );
 }

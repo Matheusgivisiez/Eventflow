@@ -1,6 +1,6 @@
 "use client";
 
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { QueryClient, QueryClientProvider, useQueryClient } from "@tanstack/react-query";
 import { ThemeProvider } from "next-themes";
 import { usePathname } from "next/navigation";
 import { ReactNode, useEffect, useState } from "react";
@@ -9,6 +9,7 @@ import { useAuthHydration } from "@/hooks/use-auth-hydration";
 import { useAuthStore } from "@/stores/auth-store";
 
 function AuthSessionBootstrap() {
+  const queryClient = useQueryClient();
   const hydrated = useAuthHydration();
   const pathname = usePathname();
   const user = useAuthStore((state) => state.user);
@@ -26,6 +27,35 @@ function AuthSessionBootstrap() {
       .then((currentUser) => updateUser(currentUser))
       .catch(() => undefined);
   }, [hydrated, pathname, restored, updateUser, user]);
+
+  // Confirmation often opens in the mail app or a second browser tab. Refresh
+  // the original tab when the person returns, then reload data claimed by the
+  // newly verified address. Existing verified sessions do no extra requests.
+  useEffect(() => {
+    if (!hydrated || !user || user.emailVerified !== false) return;
+
+    const refreshVerification = () => {
+      if (document.visibilityState !== "visible") return;
+      void api<typeof user>("/auth/me")
+        .then((currentUser) => {
+          if (currentUser.id !== user.id) return;
+          updateUser(currentUser);
+          if (currentUser.emailVerified) {
+            void queryClient.invalidateQueries({ queryKey: ["my-tickets"] });
+            void queryClient.invalidateQueries({ queryKey: ["received-transfers"] });
+            void queryClient.invalidateQueries({ queryKey: ["pending-purchases"] });
+          }
+        })
+        .catch(() => undefined);
+    };
+
+    window.addEventListener("focus", refreshVerification);
+    document.addEventListener("visibilitychange", refreshVerification);
+    return () => {
+      window.removeEventListener("focus", refreshVerification);
+      document.removeEventListener("visibilitychange", refreshVerification);
+    };
+  }, [hydrated, queryClient, updateUser, user]);
 
   return null;
 }

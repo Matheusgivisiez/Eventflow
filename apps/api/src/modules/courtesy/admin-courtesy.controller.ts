@@ -8,7 +8,7 @@ import { JwtAuthGuard } from "../../common/guards/jwt-auth.guard";
 import { RolesGuard } from "../../common/guards/roles.guard";
 import { RequestUser } from "../../common/types/request-user";
 import { CourtesyService } from "./courtesy.service";
-import { IssueCourtesyDto } from "./dto/issue-courtesy.dto";
+import { FindVipRecipientDto, IssueCourtesyDto } from "./dto/issue-courtesy.dto";
 
 /**
  * Convidados da Eventflow. Só o admin da plataforma chega aqui, e ele emite
@@ -26,6 +26,13 @@ export class AdminCourtesyController {
   @ApiOperation({ summary: "Ingressos especiais por evento (VIP da plataforma e cortesias dos organizadores)" })
   summary() {
     return this.courtesy.countsByEvent();
+  }
+
+  @Post("recipient")
+  @Throttle({ sensitive: { limit: 20, ttl: 60000 } })
+  @ApiOperation({ summary: "Buscar conta existente para emissão de VIP" })
+  recipient(@Body() dto: FindVipRecipientDto) {
+    return this.courtesy.findVipRecipient(dto.email);
   }
 
   @Get("events/:eventId")

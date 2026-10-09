@@ -23,14 +23,14 @@ export class AuthController {
 
   @Post("register")
   @Throttle({ default: { limit: 5, ttl: 60000 } })
-  async register(@Body() dto: RegisterDto, @Res({ passthrough: true }) response: Response) {
-    return this.withRefreshCookie(response, await this.auth.register(dto));
+  register(@Body() dto: RegisterDto) {
+    return this.auth.register(dto);
   }
 
   @Post("register-organizer")
   @Throttle({ default: { limit: 5, ttl: 60000 } })
-  async registerOrganizer(@Body() dto: RegisterOrganizerDto, @Res({ passthrough: true }) response: Response) {
-    return this.withRefreshCookie(response, await this.auth.registerOrganizer(dto));
+  registerOrganizer(@Body() dto: RegisterOrganizerDto) {
+    return this.auth.registerOrganizer(dto);
   }
 
   @Post("login")

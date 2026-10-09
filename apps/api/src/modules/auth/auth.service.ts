@@ -47,6 +47,7 @@ export class AuthService {
             tenantId: tenant.id,
             name: dto.name,
             email: dto.email.toLowerCase(),
+            emailVerificationRequired: true,
             passwordHash,
             phone: dto.phone,
             cpf: dto.cpf,
@@ -54,8 +55,8 @@ export class AuthService {
           }
         });
       });
-      await this.issueEmailVerification(user);
-      return this.issueSession(user);
+      const verificationEmailSent = await this.issueEmailVerification(user);
+      return { email: user.email, verificationEmailSent };
     }
 
     // Default: create as CUSTOMER (no tenant)
@@ -63,6 +64,7 @@ export class AuthService {
       data: {
         name: dto.name,
         email: dto.email.toLowerCase(),
+        emailVerificationRequired: true,
         passwordHash,
         phone: dto.phone,
         cpf: dto.cpf,
@@ -70,8 +72,8 @@ export class AuthService {
       }
     });
 
-    await this.issueEmailVerification(user);
-    return this.issueSession(user);
+    const verificationEmailSent = await this.issueEmailVerification(user);
+    return { email: user.email, verificationEmailSent };
   }
 
   async registerOrganizer(dto: RegisterOrganizerDto) {
@@ -105,6 +107,7 @@ export class AuthService {
           tenantId: tenant.id,
           name: dto.name,
           email: dto.email.toLowerCase(),
+          emailVerificationRequired: true,
           passwordHash,
           phone: dto.phone,
           role: UserRole.ORGANIZER
@@ -112,8 +115,8 @@ export class AuthService {
       });
     });
 
-    await this.issueEmailVerification(user);
-    return this.issueSession(user);
+    const verificationEmailSent = await this.issueEmailVerification(user);
+    return { email: user.email, verificationEmailSent };
   }
 
   async becomeOrganizer(userId: string, dto: BecomeOrganizerDto) {
@@ -161,6 +164,10 @@ export class AuthService {
       throw new UnauthorizedException("E-mail ou senha inválidos.");
     }
 
+    if (user.emailVerificationRequired && !user.emailVerifiedAt) {
+      throw new UnauthorizedException("Confirme seu e-mail antes de entrar. Você pode pedir outro link na página de confirmação.");
+    }
+
     return this.issueSession(user);
   }
 
@@ -177,6 +184,10 @@ export class AuthService {
 
     if (!stored) {
       throw new UnauthorizedException("Refresh token inválido.");
+    }
+
+    if (stored.user.emailVerificationRequired && !stored.user.emailVerifiedAt) {
+      throw new UnauthorizedException("Confirme seu e-mail antes de entrar.");
     }
 
     await this.prisma.refreshToken.update({
@@ -266,19 +277,24 @@ export class AuthService {
     const record = await this.prisma.emailVerificationToken.findFirst({
       where: {
         tokenHash: this.emailVerification.hash(token),
-        usedAt: null,
         expiresAt: { gt: new Date() }
       },
       include: { user: true }
     });
 
-    if (!record) {
+    if (!record || (record.usedAt && !record.user.emailVerifiedAt)) {
       throw new UnauthorizedException("Token expirado ou inválido.");
     }
 
     // The address is only proven if it is still the account's address.
     if (record.email !== record.user.email.toLowerCase()) {
       throw new UnauthorizedException("Token expirado ou inválido.");
+    }
+
+    // A second click (or a retry after the response was lost) must not turn a
+    // successfully verified address back into an apparent failure.
+    if (record.usedAt) {
+      return { message: "E-mail confirmado com sucesso.", email: record.email };
     }
 
     await this.prisma.$transaction([
@@ -308,7 +324,7 @@ export class AuthService {
     }
 
     const lastSent = await this.prisma.emailVerificationToken.findFirst({
-      where: { userId: user.id },
+      where: { userId: user.id, email: user.email.toLowerCase(), usedAt: null, expiresAt: { gt: new Date() } },
       orderBy: { createdAt: "desc" },
       select: { createdAt: true }
     });

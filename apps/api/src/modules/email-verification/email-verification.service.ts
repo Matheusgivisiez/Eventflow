@@ -31,7 +31,8 @@ export class EmailVerificationService {
   }
 
   /**
-   * Invalidates every outstanding link and sends a new one.
+   * Sends a new link. Older links for the same address remain valid until one
+   * is used or expires, so a delayed e-mail cannot replace a working link.
    *
    * Never throws — token creation included, not only the SMTP call. Callers
    * invoke this AFTER the account row is already written, so throwing here
@@ -46,20 +47,14 @@ export class EmailVerificationService {
     const token = randomBytes(32).toString("base64url");
 
     try {
-      await this.prisma.$transaction([
-        this.prisma.emailVerificationToken.updateMany({
-          where: { userId: user.id, usedAt: null },
-          data: { usedAt: new Date() }
-        }),
-        this.prisma.emailVerificationToken.create({
-          data: {
-            userId: user.id,
-            email,
-            tokenHash: this.hash(token),
-            expiresAt: new Date(Date.now() + EMAIL_VERIFICATION_TTL_MS)
-          }
-        })
-      ]);
+      await this.prisma.emailVerificationToken.create({
+        data: {
+          userId: user.id,
+          email,
+          tokenHash: this.hash(token),
+          expiresAt: new Date(Date.now() + EMAIL_VERIFICATION_TTL_MS)
+        }
+      });
     } catch (error) {
       this.logger.error(
         `Falha ao criar o token de verificação do usuário ${user.id}. A conta segue não verificada e pode pedir um novo link.`,
@@ -70,18 +65,35 @@ export class EmailVerificationService {
 
     const url = this.verifyEmailUrl(token);
     try {
-      await this.mail.send({
+      const delivery = await this.mail.send({
         to: email,
         subject: "Confirme seu e-mail Event Flow",
-        text: `Confirme seu e-mail para reunir seus ingressos: ${url}`,
-        html: `<p>Olá, ${this.escapeHtml(user.name)}.</p><p>Confirme seu e-mail para reunir suas compras em Meus Ingressos.</p><p><a href="${url}">Confirmar e-mail</a></p><p>Este link expira em 30 minutos e só pode ser usado uma vez.</p>`
+        text: `Confirme seu e-mail para ativar sua conta Event Flow: ${url}`,
+        html: `<p>Olá, ${this.escapeHtml(user.name)}.</p><p>Confirme seu e-mail para ativar sua conta Event Flow.</p><p><a href="${url}">Confirmar e-mail</a></p><p>Este link expira em 30 minutos e só pode ser usado uma vez.</p>`
       });
+      if (delivery.status !== "SENT") {
+        this.logger.warn(`Verificação de e-mail não enviada para o usuário ${user.id}: ${delivery.status}`);
+        await this.invalidateFailedToken(token);
+        return false;
+      }
     } catch (error) {
       this.logger.error(`Falha ao enviar verificação de e-mail para o usuário ${user.id}`, error as Error);
+      await this.invalidateFailedToken(token);
       return false;
     }
 
     return true;
+  }
+
+  private async invalidateFailedToken(token: string) {
+    try {
+      await this.prisma.emailVerificationToken.updateMany({
+        where: { tokenHash: this.hash(token), usedAt: null },
+        data: { usedAt: new Date() }
+      });
+    } catch (error) {
+      this.logger.error("Falha ao invalidar link de verificação não enviado", error as Error);
+    }
   }
 
   /**
@@ -89,8 +101,8 @@ export class EmailVerificationService {
    *
    * The caller is responsible for writing `emailVerifiedAt: null` in the same
    * statement that writes the new address — see `clearedVerificationData()`.
-   * `issue()` already burns the outstanding links, so this is just the named
-   * entry point for the e-mail-change path. Never throws, like `issue()`.
+   * Old-address links cannot verify the new address: AuthService compares the
+   * address stored on the token with the current address. Never throws.
    */
   handleEmailChanged(user: VerifiableUser): Promise<boolean> {
     return this.issue(user);
