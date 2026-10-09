@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { Check, Copy, MessageCircle, Share2 } from "lucide-react";
+import { useState } from "react";
+import Image from "next/image";
+import { Check, Copy, Share2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 // Círculo glass no mobile (só ícone); a partir do tablet, pílulas com texto que
@@ -17,11 +18,6 @@ type ShareButtonsProps = {
 
 export function ShareButtons({ title, slug, invite }: ShareButtonsProps) {
   const [copied, setCopied] = useState(false);
-  const [canShare, setCanShare] = useState(false);
-
-  useEffect(() => {
-    setCanShare(typeof navigator.share === "function");
-  }, []);
 
   const eventUrl = typeof window !== "undefined"
     ? `${window.location.origin}/eventos/${slug}${invite ? `?invite=${encodeURIComponent(invite)}` : ""}`
@@ -43,7 +39,10 @@ export function ShareButtons({ title, slug, invite }: ShareButtonsProps) {
   };
 
   const handleNativeShare = async () => {
-    if (!navigator.share) return;
+    if (!navigator.share) {
+      await handleCopyLink();
+      return;
+    }
     try {
       await navigator.share({ title, url: eventUrl });
     } catch {
@@ -60,7 +59,7 @@ export function ShareButtons({ title, slug, invite }: ShareButtonsProps) {
         onClick={handleWhatsApp}
         aria-label="Compartilhar no WhatsApp"
       >
-        <MessageCircle className="h-[1.125rem] w-[1.125rem]" strokeWidth={1.75} />
+        <Image src="/icons/whatsapp-green.png" alt="" width={20} height={20} className="h-5 w-5" />
         <span className="hidden sm:inline">WhatsApp</span>
       </Button>
 
@@ -79,18 +78,16 @@ export function ShareButtons({ title, slug, invite }: ShareButtonsProps) {
         <span className="hidden sm:inline">{copied ? "Copiado!" : "Copiar link"}</span>
       </Button>
 
-      {canShare && (
-        <Button
-          variant="outline"
-          size="sm"
-          className={SHARE_BUTTON}
-          onClick={handleNativeShare}
-          aria-label="Compartilhar"
-        >
-          <Share2 className="h-[1.125rem] w-[1.125rem]" strokeWidth={1.75} />
-          <span className="hidden sm:inline">Compartilhar</span>
-        </Button>
-      )}
+      <Button
+        variant="outline"
+        size="sm"
+        className={SHARE_BUTTON}
+        onClick={handleNativeShare}
+        aria-label="Compartilhar"
+      >
+        <Share2 className="h-[1.125rem] w-[1.125rem]" strokeWidth={1.75} />
+        <span className="hidden sm:inline">Compartilhar</span>
+      </Button>
     </div>
   );
 }

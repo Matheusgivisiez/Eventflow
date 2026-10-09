@@ -120,15 +120,12 @@ export function EventDetailClient({
         <div className="min-w-0 space-y-10 sm:space-y-12 lg:col-start-2 lg:row-start-3 lg:mt-12">
           {/* No mobile, o seletor vem logo após a capa e os dados do evento, com os artistas logo abaixo. */}
           <div ref={mobileTicketsRef} className="scroll-mt-24 space-y-6 lg:hidden">
+            <ShareButtons title={event.title} slug={event.slug} invite={invite} />
             {ticketSelector}
             <EventArtists artists={event.artists} compact />
           </div>
 
           {aboutSection}
-
-          <div className="space-y-6 lg:hidden">
-            <ShareButtons title={event.title} slug={event.slug} invite={invite} />
-          </div>
 
           {venueMapSection}
           {gallerySection}

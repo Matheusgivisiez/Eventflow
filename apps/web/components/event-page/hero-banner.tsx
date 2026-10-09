@@ -1,7 +1,6 @@
 import { getImageProps } from "next/image";
 import { CalendarDays, MapPin, Ticket } from "lucide-react";
 import { AppTopBar } from "@/components/app-top-bar";
-import { Badge } from "@/components/ui/badge";
 import { cn, dateTime } from "@/lib/utils";
 import { publicAssetUrl } from "@/lib/public-asset-url";
 import type { EventFlowEvent } from "@/types/eventflow";
@@ -175,13 +174,6 @@ export function HeroBanner({ event, art }: HeroBannerProps) {
             </span>
           </div>
 
-          {event.category && (
-            <div className="animate-slide-up lg:hidden" style={{ animationDelay: "0.15s" }}>
-              <Badge className="bg-primary/10 text-primary border-primary/20 hover:bg-primary/15">
-                {event.category}
-              </Badge>
-            </div>
-          )}
         </div>
       </div>
     </section>
