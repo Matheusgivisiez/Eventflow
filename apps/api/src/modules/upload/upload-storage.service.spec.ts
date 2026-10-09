@@ -6,6 +6,8 @@ import { UploadStorageService } from "./upload-storage.service";
 jest.mock("sharp", () => jest.fn(() => ({
     rotate: jest.fn().mockReturnThis(),
     resize: jest.fn().mockReturnThis(),
+    flatten: jest.fn().mockReturnThis(),
+    jpeg: jest.fn().mockReturnThis(),
     webp: jest.fn().mockReturnThis(),
     toBuffer: jest.fn().mockResolvedValue(Buffer.from("optimized-webp"))
   })));
@@ -101,6 +103,21 @@ describe("UploadStorageService", () => {
         secretAccessKey: "r2-secret-key"
       }
     });
+  });
+
+  it("prepares social covers as public 1200 x 630 JPEGs", async () => {
+    const service = new UploadStorageService(createConfig({
+      NODE_ENV: "production",
+      AWS_S3_ASSETS_BUCKET: "eventflow-assets",
+      AWS_S3_ASSETS_PUBLIC_URL: "https://cdn.example.com"
+    }) as any);
+
+    const result = await service.store(pngFile(), "social");
+
+    expect(PutObjectCommand).toHaveBeenCalledWith(expect.objectContaining({
+      ContentType: "image/jpeg"
+    }));
+    expect(result.url).toMatch(/\.jpg$/);
   });
 
   it("fails closed in production when external storage is not configured", async () => {

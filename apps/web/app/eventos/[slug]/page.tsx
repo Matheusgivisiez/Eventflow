@@ -16,6 +16,16 @@ import type { EventFlowEvent } from "@/types/eventflow";
 
 const siteUrl = "https://eventflowtickets.com.br";
 
+function socialImageUrl(value?: string) {
+  if (!value) return undefined;
+  try {
+    const base = value.startsWith("/uploads/") ? getApiUrl() : siteUrl;
+    return new URL(value, base).toString();
+  } catch {
+    return undefined;
+  }
+}
+
 // Helper function to fetch the event from the API directly.
 // We use fetch since this is a server component.
 async function getEvent(slug: string, invite?: string): Promise<EventFlowEvent | null> {
@@ -52,7 +62,11 @@ export async function generateMetadata(
   }
 
   const title = event.seoTitle || `${event.title} | Event Flow`;
-  const description = event.seoDescription || event.description.substring(0, 160);
+  const description = event.seoDescription || event.description.replace(/\s+/g, " ").trim().substring(0, 160);
+  const imageUrl = socialImageUrl(event.shareImageUrl || event.bannerUrl);
+  const image = imageUrl && (event.shareImageUrl
+    ? { url: imageUrl, width: 1200, height: 630, alt: `Capa de ${event.title}` }
+    : { url: imageUrl, alt: `Banner de ${event.title}` });
 
   return {
     title,
@@ -62,14 +76,17 @@ export async function generateMetadata(
     openGraph: {
       title,
       description,
-      url: `/eventos/${encodeURIComponent(slug)}`,
-      images: event.bannerUrl ? [event.bannerUrl] : []
+      type: "website",
+      locale: "pt_BR",
+      siteName: "Event Flow",
+      ...(!invite ? { url: `/eventos/${encodeURIComponent(slug)}` } : {}),
+      images: image ? [image] : []
     },
     twitter: {
       card: "summary_large_image",
       title,
       description,
-      images: event.bannerUrl ? [event.bannerUrl] : []
+      images: imageUrl ? [imageUrl] : []
     }
   };
 }
@@ -96,6 +113,7 @@ export default async function PublicEventPage({ params, searchParams }: { params
 
   const organizerName = event.tenant?.name;
   const eventUrl = `${siteUrl}/eventos/${encodeURIComponent(slug)}`;
+  const eventImage = socialImageUrl(event.shareImageUrl || event.bannerUrl);
   const currentTicket = getCurrentTicketLots(event.ticketTypes ?? [])[0]?.ticket;
   const heroArt = {
     mobileUrl: publicAssetUrl(event.heroMobileUrl ?? undefined),
@@ -114,7 +132,7 @@ export default async function PublicEventPage({ params, searchParams }: { params
     eventAttendanceMode: event.format === "IN_PERSON"
       ? "https://schema.org/OfflineEventAttendanceMode"
       : "https://schema.org/OnlineEventAttendanceMode",
-    ...(event.bannerUrl ? { image: [event.bannerUrl] } : {}),
+    ...(eventImage ? { image: [eventImage] } : {}),
     location: event.format === "IN_PERSON" ? {
       "@type": "Place",
       name: event.address || event.city || event.title,

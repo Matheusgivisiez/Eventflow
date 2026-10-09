@@ -32,6 +32,7 @@ const schema = z.object({
   startsAt: z.string().min(1, "Informe data e horário."),
   endsAt: z.string().optional(),
   bannerUrl: z.string().optional(),
+  shareImageUrl: z.string().optional(),
   heroMobileUrl: z.string().optional(),
   heroDesktopUrl: z.string().optional(),
   city: z.string().optional(),
@@ -228,6 +229,7 @@ export default function NewEventPage() {
           startsAt: startsAt.toISOString(),
           endsAt: scheduleValueToIso(data.endsAt),
           bannerUrl: data.bannerUrl || undefined,
+          shareImageUrl: data.shareImageUrl || undefined,
           heroMobileUrl: data.heroMobileUrl || undefined,
           heroDesktopUrl: data.heroDesktopUrl || undefined,
           galleryUrls: [],
@@ -356,6 +358,16 @@ export default function NewEventPage() {
                 </div>
                 <Field label="Banner" error={form.formState.errors.bannerUrl?.message}>
                   <ImageUpload aspect={16 / 5} value={form.watch("bannerUrl")} onChange={(url) => form.setValue("bannerUrl", url)} />
+                </Field>
+                <Field label="Capa de compartilhamento (opcional)" error={form.formState.errors.shareImageUrl?.message}>
+                  <ImageUpload
+                    aspect={1200 / 630}
+                    preset="social"
+                    label="Envie uma arte 1200 × 630 px para a prévia do link"
+                    value={form.watch("shareImageUrl")}
+                    onChange={(url) => form.setValue("shareImageUrl", url, { shouldDirty: true })}
+                  />
+                  <p className="mt-1 text-xs text-muted-foreground">Sem esta capa, o link usa o banner do evento. Deixe texto e logo longe das bordas.</p>
                 </Field>
                 {/* Artes opcionais do topo da página pública, uma por tela. */}
                 <div className="grid gap-4 sm:grid-cols-2">

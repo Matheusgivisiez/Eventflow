@@ -43,6 +43,7 @@ export type EventFlowEvent = {
   description: string;
   category: string;
   bannerUrl?: string;
+  shareImageUrl?: string;
   galleryUrls: string[];
   /** Imagem do mapa do evento (setores/camarotes). Opcional. */
   venueMapUrl?: string | null;

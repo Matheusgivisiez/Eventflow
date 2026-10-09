@@ -14,9 +14,11 @@ interface ImageUploadProps {
   aspect?: number;
   /** false envia a imagem inteira, sem recorte (ex.: mapa do evento). */
   crop?: boolean;
+  /** Capa social: o servidor prepara um JPEG de 1200 x 630 px. */
+  preset?: "social";
 }
 
-export function ImageUpload({ value, onChange, label, aspect = 1, crop: cropEnabled = true }: ImageUploadProps) {
+export function ImageUpload({ value, onChange, label, aspect = 1, crop: cropEnabled = true, preset }: ImageUploadProps) {
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string>();
   const [preview, setPreview] = useState(value);
@@ -42,7 +44,7 @@ export function ImageUpload({ value, onChange, label, aspect = 1, crop: cropEnab
       }
       setUploading(true);
       try {
-        const { url } = await uploadFile(file);
+        const { url } = await uploadFile(file, preset);
         const fullUrl = toPublicAssetUrl(url);
         setPreview(fullUrl);
         onChange(fullUrl);
@@ -56,7 +58,7 @@ export function ImageUpload({ value, onChange, label, aspect = 1, crop: cropEnab
     setCrop({ x: 0, y: 0 });
     setZoom(1);
     setImageToCrop(URL.createObjectURL(file));
-  }, [cropEnabled, onChange]);
+  }, [cropEnabled, onChange, preset]);
 
   const finishCrop = useCallback(async () => {
     if (!imageToCrop || !croppedAreaPixels) return;
@@ -64,7 +66,7 @@ export function ImageUpload({ value, onChange, label, aspect = 1, crop: cropEnab
     setError(undefined);
     try {
       const croppedFile = await createCroppedImage(imageToCrop, croppedAreaPixels);
-      const { url } = await uploadFile(croppedFile);
+      const { url } = await uploadFile(croppedFile, preset);
       const fullUrl = toPublicAssetUrl(url);
       setPreview(fullUrl);
       onChange(fullUrl);
@@ -76,7 +78,7 @@ export function ImageUpload({ value, onChange, label, aspect = 1, crop: cropEnab
     } finally {
       setUploading(false);
     }
-  }, [croppedAreaPixels, imageToCrop, onChange]);
+  }, [croppedAreaPixels, imageToCrop, onChange, preset]);
 
   const cancelCrop = useCallback(() => {
     if (imageToCrop) URL.revokeObjectURL(imageToCrop);

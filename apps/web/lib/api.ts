@@ -140,11 +140,11 @@ export async function api<T>(path: string, options: ApiOptions = {}): Promise<T>
   return response.json();
 }
 
-export async function uploadFile(file: File): Promise<{ url: string }> {
+export async function uploadFile(file: File, preset?: "social"): Promise<{ url: string }> {
   const token = useAuthStore.getState().accessToken;
   const form = new FormData();
   form.append("file", file);
-  const response = await fetch(`${API_URL}/upload`, {
+  const response = await fetch(`${API_URL}/upload${preset === "social" ? "?preset=social" : ""}`, {
     method: "POST",
     headers: {
       ...(token ? { Authorization: `Bearer ${token}` } : {})
