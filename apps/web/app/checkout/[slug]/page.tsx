@@ -9,8 +9,10 @@ import {
   CheckCircle2,
   ExternalLink,
   Loader2,
+  Mail,
   ShieldCheck,
   Tag,
+  UserRound,
   X,
 } from "lucide-react";
 import Link from "next/link";
@@ -27,10 +29,13 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
-import { api } from "@/lib/api";
+import { useAuthHydration } from "@/hooks/use-auth-hydration";
+import { api, ApiError } from "@/lib/api";
+import { safeCheckoutReturnPath, withCheckoutReturn } from "@/lib/checkout-return";
 import { formatBrazilPhone, formatCpfOrCnpj, hasFullName, normalizeBrazilPhone, onlyDigits } from "@/lib/br-format";
 import { getCurrentTicketLots } from "@/lib/ticket-lots";
 import { money } from "@/lib/utils";
+import { type AuthUser, useAuthStore } from "@/stores/auth-store";
 import type { EventFlowEvent } from "@/types/eventflow";
 
 type CheckoutResponse = {
@@ -47,7 +52,6 @@ const buyerSchema = z.object({
     .string()
     .min(2, "Informe seu nome.")
     .refine(hasFullName, "Informe nome e sobrenome."),
-  buyerEmail: z.string().email("Informe um e-mail válido."),
   buyerDocument: z
     .string()
     .min(1, "Informe seu CPF ou CNPJ.")
@@ -109,6 +113,25 @@ function CheckoutForm() {
     return sessionStorage.getItem(`promoter_code_${slug}`) ?? undefined;
   }, [searchParams, slug]);
 
+  // Compra só com conta logada e e-mail confirmado: o pedido sai sempre no
+  // e-mail da conta, então compra e conta nunca ficam em endereços diferentes.
+  const authHydrated = useAuthHydration();
+  const user = useAuthStore((state) => state.user);
+  const updateUser = useAuthStore((state) => state.updateUser);
+
+  // Para onde voltar depois de entrar, criar conta ou confirmar o e-mail: este
+  // mesmo checkout, com os ingressos escolhidos e o código do promoter.
+  const [returnPath, setReturnPath] = useState(`/checkout/${slug}`);
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (promoterCode && !params.get("p") && !params.get("promoter")) {
+      params.set("p", promoterCode);
+    }
+    const query = params.toString();
+    const current = `/checkout/${slug}${query ? `?${query}` : ""}`;
+    setReturnPath(safeCheckoutReturnPath(current) ?? `/checkout/${slug}`);
+  }, [promoterCode, searchParams, slug]);
+
   const { data: event, isLoading } = useQuery({
     queryKey: ["checkout-event", slug, invite],
     queryFn: () =>
@@ -166,12 +189,25 @@ function CheckoutForm() {
     defaultValues: { paymentMethod: "PIX" },
   });
 
+  // Conveniência: nome e telefone da conta já vêm preenchidos (podem ser editados).
+  useEffect(() => {
+    if (!user) return;
+    if (!form.getValues("buyerName") && user.name) {
+      form.setValue("buyerName", user.name);
+    }
+    if (!form.getValues("buyerPhone") && user.phone) {
+      form.setValue("buyerPhone", formatBrazilPhone(user.phone));
+    }
+  }, [form, user]);
+
   const mutation = useMutation({
     mutationFn: (data: z.infer<typeof buyerSchema>) =>
       api<CheckoutResponse>(`/checkout/${slug}`, {
         method: "POST",
         body: JSON.stringify({
           ...data,
+          // A API usa sempre o e-mail da conta; enviado só por compatibilidade.
+          buyerEmail: user?.email,
           returnOrigin: window.location.origin,
           inviteToken: invite,
           promoterCode,
@@ -203,6 +239,15 @@ function CheckoutForm() {
         router.push(freeOrderSuccessHref(data));
       }
     },
+    onError: (error) => {
+      // A API recusou por e-mail não confirmado: atualiza a conta para a tela
+      // de confirmação aparecer no lugar do formulário.
+      if (error instanceof ApiError && error.status === 403) {
+        void api<AuthUser>("/auth/me")
+          .then((currentUser) => updateUser(currentUser))
+          .catch(() => undefined);
+      }
+    },
   });
 
   const subtotal = useMemo(() => {
@@ -229,7 +274,15 @@ function CheckoutForm() {
   // Evento gratuito ou cupom de 100%: a API confirma na hora, sem InfinitePay.
   const isFree = hasItems && total === 0;
 
-  if (isLoading) return <Skeleton className="m-6 h-[620px]" />;
+  if (isLoading || !authHydrated) return <Skeleton className="m-6 h-[620px]" />;
+
+  if (!user) {
+    return <CheckoutAccountGate slug={slug} eventTitle={event?.title} returnPath={returnPath} />;
+  }
+
+  if (user.emailVerified === false && !mutation.data) {
+    return <CheckoutVerifyEmailGate slug={slug} eventTitle={event?.title} email={user.email} returnPath={returnPath} />;
+  }
 
   if (mutation.data && mutation.data.status === "PAID" && !mutation.data.checkoutUrl) {
     return (
@@ -376,11 +429,11 @@ function CheckoutForm() {
               >
                 <Input {...form.register("buyerName")} />
               </Field>
-              <Field
-                label="E-mail"
-                error={form.formState.errors.buyerEmail?.message}
-              >
-                <Input type="email" {...form.register("buyerEmail")} />
+              <Field label="E-mail da conta">
+                <Input type="email" value={user.email} readOnly disabled aria-describedby="buyer-email-hint" />
+                <p id="buyer-email-hint" className="text-xs text-muted-foreground">
+                  Os ingressos ficam na sua conta e vão para este e-mail.
+                </p>
               </Field>
               <Field
                 label="CPF/CNPJ"
@@ -530,6 +583,154 @@ function CheckoutForm() {
         </Card>
       </div>
     </main>
+  );
+}
+
+function CheckoutGateShell({
+  slug,
+  children,
+}: {
+  slug: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <main className="min-h-screen bg-background">
+      <div className="sticky top-0 z-30 glass border-b">
+        <div className="mx-auto flex h-14 max-w-6xl items-center gap-4 px-5">
+          <Button
+            asChild
+            variant="ghost"
+            size="sm"
+            className="gap-2 text-muted-foreground hover:text-foreground"
+          >
+            <Link href={`/eventos/${slug}`}>
+              <ArrowLeft className="h-4 w-4" />
+              Voltar ao evento
+            </Link>
+          </Button>
+          <div className="ml-auto flex items-center gap-2 text-xs text-muted-foreground">
+            <ShieldCheck className="h-4 w-4 text-green-600" />
+            Checkout seguro
+          </div>
+        </div>
+      </div>
+      <div className="mx-auto flex max-w-6xl justify-center px-5 py-10">
+        <Card className="w-full max-w-md">{children}</Card>
+      </div>
+    </main>
+  );
+}
+
+/** Sem conta não há compra: entra ou cria a conta e volta para este checkout. */
+function CheckoutAccountGate({
+  slug,
+  eventTitle,
+  returnPath,
+}: {
+  slug: string;
+  eventTitle?: string;
+  returnPath: string;
+}) {
+  return (
+    <CheckoutGateShell slug={slug}>
+      <CardHeader>
+        <UserRound className="h-9 w-9 text-primary" />
+        <CardTitle>Entre na sua conta para comprar</CardTitle>
+        <CardDescription>
+          {eventTitle ? `${eventTitle}: os` : "Os"} ingressos ficam guardados na sua conta.
+          Depois de entrar ou criar a conta, você volta para esta compra com os
+          mesmos ingressos selecionados.
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        <Button asChild className="w-full">
+          <Link href={withCheckoutReturn("/register", returnPath)}>Criar conta</Link>
+        </Button>
+        <Button asChild variant="outline" className="w-full">
+          <Link href={withCheckoutReturn("/login", returnPath)}>Já tenho conta</Link>
+        </Button>
+      </CardContent>
+    </CheckoutGateShell>
+  );
+}
+
+/** Conta logada, mas e-mail ainda não confirmado: confirma e segue a compra aqui. */
+function CheckoutVerifyEmailGate({
+  slug,
+  eventTitle,
+  email,
+  returnPath,
+}: {
+  slug: string;
+  eventTitle?: string;
+  email: string;
+  returnPath: string;
+}) {
+  const updateUser = useAuthStore((state) => state.updateUser);
+  const resend = useMutation({
+    mutationFn: () =>
+      api<{ message: string }>(withCheckoutReturn("/auth/resend-verification", returnPath), {
+        method: "POST",
+        body: JSON.stringify({ email }),
+        auth: false,
+      }),
+  });
+  const check = useMutation({
+    mutationFn: () => api<AuthUser>("/auth/me"),
+    onSuccess: (currentUser) => updateUser(currentUser),
+  });
+  const stillPending = check.isSuccess && check.data.emailVerified === false;
+
+  return (
+    <CheckoutGateShell slug={slug}>
+      <CardHeader>
+        <Mail className="h-9 w-9 text-primary" />
+        <CardTitle>Confirme seu e-mail para comprar</CardTitle>
+        <CardDescription>
+          {eventTitle ? `Para comprar ${eventTitle}, ` : "Para comprar, "}
+          confirme o e-mail {email}. Envie o link, abra a mensagem e toque em
+          confirmar. O link vale por 24 horas.
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        <Button
+          type="button"
+          className="w-full"
+          disabled={resend.isPending}
+          onClick={() => resend.mutate()}
+        >
+          {resend.isPending && <Loader2 className="h-4 w-4 animate-spin" />}
+          {resend.isSuccess ? "Enviar outro link" : "Enviar link de confirmação"}
+        </Button>
+        <Button
+          type="button"
+          variant="outline"
+          className="w-full"
+          disabled={check.isPending}
+          onClick={() => check.mutate()}
+        >
+          {check.isPending && <Loader2 className="h-4 w-4 animate-spin" />}
+          Já confirmei
+        </Button>
+        {resend.isSuccess && (
+          <p className="text-sm text-muted-foreground">
+            Link enviado para {email}. Se não chegar em alguns minutos, confira o
+            spam ou envie outro.
+          </p>
+        )}
+        {resend.error && (
+          <p className="text-sm text-destructive">{resend.error.message}</p>
+        )}
+        {stillPending && (
+          <p className="text-sm text-destructive">
+            O e-mail ainda não está confirmado. Abra o link que enviamos e tente de novo.
+          </p>
+        )}
+        {check.error && (
+          <p className="text-sm text-destructive">{check.error.message}</p>
+        )}
+      </CardContent>
+    </CheckoutGateShell>
   );
 }
 

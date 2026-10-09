@@ -4,10 +4,24 @@ import { createHash, randomBytes } from "crypto";
 import { MailService } from "../../common/services/mail.service";
 import { PrismaService } from "../../prisma/prisma.service";
 
-export const EMAIL_VERIFICATION_TTL_MS = 1000 * 60 * 30;
+export const EMAIL_VERIFICATION_TTL_MS = 1000 * 60 * 60 * 24;
 export const EMAIL_VERIFICATION_RESEND_COOLDOWN_MS = 1000 * 60;
 
 type VerifiableUser = { id: string; email: string; name: string };
+
+/**
+ * Só caminhos de checkout podem voltar no link de confirmação. Qualquer outra
+ * coisa é descartada, para o link do e-mail nunca levar a um endereço externo.
+ */
+const CHECKOUT_RETURN_PATH = /^\/checkout\/[A-Za-z0-9_-]+(\?[A-Za-z0-9_\-.~%&=:,+]*)?$/;
+const CHECKOUT_RETURN_MAX_LENGTH = 500;
+
+export function safeCheckoutReturnPath(value?: string | null): string | undefined {
+  if (typeof value !== "string") return undefined;
+  const path = value.trim();
+  if (!path || path.length > CHECKOUT_RETURN_MAX_LENGTH) return undefined;
+  return CHECKOUT_RETURN_PATH.test(path) ? path : undefined;
+}
 
 /**
  * Owns the proof that an account controls its e-mail address.
@@ -42,7 +56,7 @@ export class EmailVerificationService {
    *
    * @returns whether a link was actually issued, for callers that want to log it
    */
-  async issue(user: VerifiableUser): Promise<boolean> {
+  async issue(user: VerifiableUser, options: { next?: string } = {}): Promise<boolean> {
     const email = user.email.toLowerCase();
     const token = randomBytes(32).toString("base64url");
 
@@ -63,13 +77,13 @@ export class EmailVerificationService {
       return false;
     }
 
-    const url = this.verifyEmailUrl(token);
+    const url = this.verifyEmailUrl(token, safeCheckoutReturnPath(options.next));
     try {
       const delivery = await this.mail.send({
         to: email,
         subject: "Confirme seu e-mail Event Flow",
         text: `Confirme seu e-mail para ativar sua conta Event Flow: ${url}`,
-        html: `<p>Olá, ${this.escapeHtml(user.name)}.</p><p>Confirme seu e-mail para ativar sua conta Event Flow.</p><p><a href="${url}">Confirmar e-mail</a></p><p>Este link expira em 30 minutos e só pode ser usado uma vez.</p>`
+        html: `<p>Olá, ${this.escapeHtml(user.name)}.</p><p>Confirme seu e-mail para ativar sua conta Event Flow.</p><p><a href="${this.escapeHtml(url)}">Confirmar e-mail</a></p><p>Este link expira em 24 horas e só pode ser usado uma vez.</p>`
       });
       if (delivery.status !== "SENT") {
         this.logger.warn(`Verificação de e-mail não enviada para o usuário ${user.id}: ${delivery.status}`);
@@ -132,10 +146,12 @@ export class EmailVerificationService {
       .replace(/'/g, "&#39;");
   }
 
-  private verifyEmailUrl(token: string) {
+  private verifyEmailUrl(token: string, next?: string) {
     const appUrl = (this.config.get<string>("APP_URL") ?? "http://localhost:3000").replace(/\/+$/, "");
     const url = new URL("/verificar-email", appUrl);
     url.searchParams.set("token", token);
+    // Quem criou a conta na hora de comprar volta para o mesmo checkout.
+    if (next) url.searchParams.set("next", next);
     return url.toString();
   }
 }

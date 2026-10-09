@@ -36,6 +36,20 @@ async function main() {
     }
   });
 
+  // Comprador com e-mail confirmado: comprar exige conta logada e confirmada.
+  await prisma.user.upsert({
+    where: { email: "comprador@eventflow.local" },
+    update: {},
+    create: {
+      name: "Comprador Demo",
+      email: "comprador@eventflow.local",
+      emailVerifiedAt: new Date(),
+      passwordHash,
+      phone: "11999999999",
+      role: UserRole.CUSTOMER
+    }
+  });
+
   const organizer = await prisma.user.upsert({
     where: { email: "organizador@eventflow.local" },
     update: {},

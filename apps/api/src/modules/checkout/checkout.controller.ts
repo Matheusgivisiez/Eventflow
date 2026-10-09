@@ -3,7 +3,7 @@ import { ApiBearerAuth, ApiOperation, ApiTags } from "@nestjs/swagger";
 import { Throttle } from "@nestjs/throttler";
 import { Response } from "express";
 import { CurrentUser } from "../../common/decorators/current-user.decorator";
-import { OptionalJwtAuthGuard } from "../../common/guards/optional-jwt-auth.guard";
+import { JwtAuthGuard } from "../../common/guards/jwt-auth.guard";
 import { RequestUser } from "../../common/types/request-user";
 import { CouponsService } from "../coupons/coupons.service";
 import { CheckoutService } from "./checkout.service";
@@ -29,9 +29,11 @@ export class CheckoutController {
   @Post(":slug")
   @Throttle({ default: { limit: 300, ttl: 60000 }, checkout: { limit: 300, ttl: 60000 } })
   @ApiBearerAuth()
-  @UseGuards(OptionalJwtAuthGuard)
-  @ApiOperation({ summary: "Criar um novo pedido (checkout)", description: "Inicia o processo de compra para um evento pelo slug." })
-  create(@Param("slug") slug: string, @Body() dto: CreateCheckoutDto, @CurrentUser() user?: RequestUser) {
+  // Compra exige conta logada: o pedido sai sempre no e-mail da conta, então
+  // compra e conta nunca ficam em endereços diferentes.
+  @UseGuards(JwtAuthGuard)
+  @ApiOperation({ summary: "Criar um novo pedido (checkout)", description: "Inicia o processo de compra para um evento pelo slug. Exige conta logada com e-mail confirmado." })
+  create(@Param("slug") slug: string, @Body() dto: CreateCheckoutDto, @CurrentUser() user: RequestUser) {
     return this.checkout.create(slug, dto, user);
   }
 

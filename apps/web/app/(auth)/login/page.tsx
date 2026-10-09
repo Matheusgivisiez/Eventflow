@@ -12,10 +12,11 @@ import {
   ArrowRight,
   Loader2
 } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { api } from "@/lib/api";
+import { readCheckoutReturnFromLocation, withCheckoutReturn } from "@/lib/checkout-return";
 import { useAuthStore } from "@/stores/auth-store";
 
 const schema = z.object({
@@ -29,6 +30,11 @@ export default function LoginPage() {
   const router = useRouter();
   const setSession = useAuthStore((state) => state.setSession);
   const [showPassword, setShowPassword] = useState(false);
+  // Quem veio do checkout volta para ele depois de entrar.
+  const [checkoutNext, setCheckoutNext] = useState<string>();
+  useEffect(() => {
+    setCheckoutNext(readCheckoutReturnFromLocation());
+  }, []);
 
   const form = useForm<FormData>({
     resolver: zodResolver(schema),
@@ -44,7 +50,10 @@ export default function LoginPage() {
       }),
     onSuccess: (session) => {
       setSession(session);
-      if (session.user?.role === "PROMOTER") {
+      const next = readCheckoutReturnFromLocation();
+      if (next) {
+        router.push(next);
+      } else if (session.user?.role === "PROMOTER") {
         router.push("/portal/dashboard");
       } else if (session.user?.role === "ORGANIZER" || session.user?.role === "ADMIN") {
         router.push("/dashboard");
@@ -62,7 +71,9 @@ export default function LoginPage() {
           Bem-vindo de volta!
         </h2>
         <p className="mt-2 text-xs sm:text-sm text-[#A99EC0]">
-          Entre na sua conta para acessar seus ingressos
+          {checkoutNext
+            ? "Entre na sua conta para finalizar a compra"
+            : "Entre na sua conta para acessar seus ingressos"}
         </p>
       </div>
 
@@ -150,7 +161,7 @@ export default function LoginPage() {
               {mutation.error.message}
             </p>
             {mutation.error.message.startsWith("Confirme seu e-mail") && (
-              <Link href="/verificar-email" className="mt-2 inline-block text-xs font-semibold text-purple-200 underline">
+              <Link href={withCheckoutReturn("/verificar-email", checkoutNext)} className="mt-2 inline-block text-xs font-semibold text-purple-200 underline">
                 Pedir novo link de confirmação
               </Link>
             )}
@@ -191,7 +202,7 @@ export default function LoginPage() {
         <p className="text-center text-xs text-[#A99EC0]">
           Não tem uma conta?{" "}
           <Link
-            href="/register"
+            href={withCheckoutReturn("/register", checkoutNext)}
             className="font-semibold text-[#9E7BFF] hover:text-[#BFA4FF] transition-colors hover:underline"
           >
             Criar conta grátis

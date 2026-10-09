@@ -57,6 +57,23 @@ test.describe("Fluxo de compra", () => {
     await expect(selector.getByText("Clique no + para adicionar")).toHaveCount(0);
   });
 
+  test("pede conta antes de comprar e guarda o caminho de volta ao checkout", async ({ page }) => {
+    await page.goto(`/checkout/${eventSlug}?items=lote-e2e:1&p=PROMOE2E`);
+
+    await expect(page.getByText("Entre na sua conta para comprar")).toBeVisible();
+    await expect(page.getByRole("button", { name: "Confirmar compra" })).toHaveCount(0);
+
+    for (const [name, pathname] of [["Criar conta", "/register"], ["Já tenho conta", "/login"]] as const) {
+      const href = await page.getByRole("link", { name }).getAttribute("href");
+      const target = new URL(href!, "http://localhost");
+      expect(target.pathname).toBe(pathname);
+      const back = new URL(target.searchParams.get("next")!, "http://localhost");
+      expect(back.pathname).toBe(`/checkout/${eventSlug}`);
+      expect(back.searchParams.get("items")).toBe("lote-e2e:1");
+      expect(back.searchParams.get("p")).toBe("PROMOE2E");
+    }
+  });
+
   test("processa compra, webhook, emissão e check-in com duplicidade", async ({ page, request }) => {
     const eventResponse = await request.get(`${apiUrl}/events/public/${eventSlug}`);
     await expectOk(eventResponse);
@@ -68,15 +85,28 @@ test.describe("Fluxo de compra", () => {
     expect(ticketType).toBeTruthy();
 
     const runId = `${Date.now()}-${test.info().workerIndex}`;
+    const checkoutData = {
+      buyerName: "Comprador E2E",
+      buyerEmail: `comprador-e2e-${runId}@example.com`,
+      buyerDocument: "52998224725",
+      buyerPhone: "11999999999",
+      paymentMethod: "PIX",
+      items: [{ ticketTypeId: ticketType!.id, quantity: 1 }]
+    };
+
+    // Comprar exige conta logada: sem login a API recusa.
+    const guestCheckout = await request.post(`${apiUrl}/checkout/${eventSlug}`, { data: checkoutData });
+    expect(guestCheckout.status()).toBe(401);
+
+    const buyerLogin = await request.post(`${apiUrl}/auth/login`, {
+      data: { email: "comprador@eventflow.local", password: "EventFlow@123" }
+    });
+    await expectOk(buyerLogin);
+    const buyerSession = await buyerLogin.json() as { accessToken: string };
+
     const checkoutResponse = await request.post(`${apiUrl}/checkout/${eventSlug}`, {
-      data: {
-        buyerName: "Comprador E2E",
-        buyerEmail: `comprador-e2e-${runId}@example.com`,
-        buyerDocument: "52998224725",
-        buyerPhone: "11999999999",
-        paymentMethod: "PIX",
-        items: [{ ticketTypeId: ticketType!.id, quantity: 1 }]
-      }
+      headers: { Authorization: `Bearer ${buyerSession.accessToken}` },
+      data: checkoutData
     });
     await expectOk(checkoutResponse);
     const checkout = await checkoutResponse.json() as {

@@ -1,4 +1,4 @@
-import { EmailVerificationService } from "./email-verification.service";
+import { EMAIL_VERIFICATION_TTL_MS, EmailVerificationService, safeCheckoutReturnPath } from "./email-verification.service";
 
 function createService() {
   const prisma = {
@@ -89,6 +89,63 @@ describe("EmailVerificationService", () => {
     expect(created.tokenHash).not.toEqual(rawToken);
     expect(created.email).toBe("nova@example.com");
     expect(html).toContain("Comprador &lt;b&gt;");
+  });
+
+  it("keeps the confirmation link valid for 24 hours", async () => {
+    const { service, prisma, mail } = createService();
+    const before = Date.now();
+
+    await service.issue(user);
+
+    const created = prisma.emailVerificationToken.create.mock.calls[0][0].data;
+    expect(EMAIL_VERIFICATION_TTL_MS).toBe(1000 * 60 * 60 * 24);
+    expect(created.expiresAt.getTime()).toBeGreaterThanOrEqual(before + EMAIL_VERIFICATION_TTL_MS);
+    expect(mail.send.mock.calls[0][0].html).toContain("expira em 24 horas");
+  });
+
+  it("sends the person back to the checkout they started", async () => {
+    const { service, mail } = createService();
+
+    await service.issue(user, { next: "/checkout/hallowparty-vi6WC3?items=lote-1:2&p=PROMO1" });
+
+    const text = mail.send.mock.calls[0][0].text as string;
+    const link = new URL(text.slice(text.indexOf("https://")));
+    expect(link.pathname).toBe("/verificar-email");
+    expect(link.searchParams.get("token")).toBeTruthy();
+    expect(link.searchParams.get("next")).toBe("/checkout/hallowparty-vi6WC3?items=lote-1:2&p=PROMO1");
+    expect(mail.send.mock.calls[0][0].html).toContain("&amp;next=");
+  });
+
+  it("drops a return path that is not a checkout", async () => {
+    const { service, mail } = createService();
+
+    await service.issue(user, { next: "https://evil.example/checkout/x" });
+
+    const text = mail.send.mock.calls[0][0].text as string;
+    expect(new URL(text.slice(text.indexOf("https://"))).searchParams.has("next")).toBe(false);
+  });
+
+  describe("safeCheckoutReturnPath", () => {
+    it.each([
+      "/checkout/hallowparty-vi6WC3",
+      "/checkout/hallowparty-vi6WC3?items=abc:1,def:2",
+      "/checkout/evento?p=CODE&invite=tok_en-1",
+    ])("accepts %s", (path) => {
+      expect(safeCheckoutReturnPath(path)).toBe(path);
+    });
+
+    it.each([
+      undefined,
+      "",
+      "https://evil.example/checkout/x",
+      "//evil.example/checkout/x",
+      "/checkout/../admin",
+      "/dashboard",
+      "/checkout/x?a=<script>",
+      `/checkout/x?items=${"a".repeat(600)}`,
+    ])("rejects %s", (path) => {
+      expect(safeCheckoutReturnPath(path as string | undefined)).toBeUndefined();
+    });
   });
 
   describe("isEmailChange", () => {

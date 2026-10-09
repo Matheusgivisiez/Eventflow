@@ -30,7 +30,8 @@ export class AuthService {
     private readonly emailVerification: EmailVerificationService
   ) {}
 
-  async register(dto: RegisterDto) {
+  /** @param next caminho de checkout para onde o link de confirmação devolve a pessoa (opcional). */
+  async register(dto: RegisterDto, next?: string) {
     const exists = await this.prisma.user.findUnique({ where: { email: dto.email.toLowerCase() } });
     if (exists) {
       throw new ConflictException("Já existe uma conta com este e-mail.");
@@ -55,7 +56,7 @@ export class AuthService {
           }
         });
       });
-      const verificationEmailSent = await this.issueEmailVerification(user);
+      const verificationEmailSent = await this.issueEmailVerification(user, next);
       return { email: user.email, verificationEmailSent };
     }
 
@@ -72,7 +73,7 @@ export class AuthService {
       }
     });
 
-    const verificationEmailSent = await this.issueEmailVerification(user);
+    const verificationEmailSent = await this.issueEmailVerification(user, next);
     return { email: user.email, verificationEmailSent };
   }
 
@@ -315,7 +316,7 @@ export class AuthService {
     return { message: "E-mail confirmado com sucesso.", email: record.email };
   }
 
-  async resendEmailVerification(email: string) {
+  async resendEmailVerification(email: string, next?: string) {
     // Neutral response: it must not reveal whether an account exists.
     const neutral = { message: "Se a conta existir e ainda não estiver confirmada, enviaremos um novo link." };
     const user = await this.prisma.user.findUnique({ where: { email: email.toLowerCase() } });
@@ -332,12 +333,12 @@ export class AuthService {
       return neutral;
     }
 
-    await this.issueEmailVerification(user);
+    await this.issueEmailVerification(user, next);
     return neutral;
   }
 
-  private issueEmailVerification(user: { id: string; email: string; name: string }) {
-    return this.emailVerification.issue(user);
+  private issueEmailVerification(user: { id: string; email: string; name: string }, next?: string) {
+    return next ? this.emailVerification.issue(user, { next }) : this.emailVerification.issue(user);
   }
 
   async me(userId: string) {
