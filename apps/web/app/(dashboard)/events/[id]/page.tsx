@@ -79,15 +79,18 @@ const statusLabel: Record<string, string> = {
 
 type QrCodeMode = "immediate" | "default" | "custom_minutes" | "fixed_date";
 
-export default function EditEventPage() {
+export default function EditEventPage({ adminMode = false, adminBase = "/admin" }: { adminMode?: boolean; adminBase?: string }) {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
   const queryClient = useQueryClient();
+  const eventPath = adminMode ? `/admin/events/${id}/manage` : `/events/${id}`;
+  const returnPath = adminMode ? `${adminBase}?tab=events` : "/events";
+  const ticketPath = adminMode ? `${adminBase}/events/${id}/tickets` : `/events/${id}/tickets`;
   const [qrCodeMode, setQrCodeMode] = useState<QrCodeMode>("default");
 
   const { data: event, isLoading } = useQuery<EventFlowEvent>({
-    queryKey: ["event", id],
-    queryFn: () => api<EventFlowEvent>(`/events/${id}`)
+    queryKey: [adminMode ? "admin-managed-event" : "event", id],
+    queryFn: () => api<EventFlowEvent>(eventPath)
   });
   const { data: currentUser } = useQuery<{ id: string }>({ queryKey: ["current-user"], queryFn: () => api("/auth/me") });
 
@@ -181,14 +184,16 @@ export default function EditEventPage() {
 
   const updateMutation = useMutation({
     mutationFn: (data: FormData) =>
-      api(`/events/${id}`, {
+      api(eventPath, {
         method: "PATCH",
         body: JSON.stringify(prepareSubmit(data))
       }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["events"] });
       queryClient.invalidateQueries({ queryKey: ["event", id] });
-      router.push("/events");
+      queryClient.invalidateQueries({ queryKey: ["admin-managed-event", id] });
+      queryClient.invalidateQueries({ queryKey: ["admin-events-page"] });
+      router.push(returnPath);
     }
   });
 
@@ -204,10 +209,10 @@ export default function EditEventPage() {
   const inviteMutation = useMutation({
     mutationFn: async () => {
       if (!event?.isPrivate) {
-        await api(`/events/${id}`, { method: "PATCH", body: JSON.stringify({ isPrivate: true }) });
-        queryClient.invalidateQueries({ queryKey: ["event", id] });
+        await api(eventPath, { method: "PATCH", body: JSON.stringify({ isPrivate: true }) });
+        queryClient.invalidateQueries({ queryKey: [adminMode ? "admin-managed-event" : "event", id] });
       }
-      return api<{ token: string }>(`/events/${id}/invite-link`, { method: "POST" });
+      return api<{ token: string }>(adminMode ? `/admin/events/${id}/invite-link` : `/events/${id}/invite-link`, { method: "POST" });
     },
     onSuccess: ({ token }) => setInviteLink(`${window.location.origin}/eventos/${event!.slug}?invite=${encodeURIComponent(token)}`)
   });
@@ -243,12 +248,14 @@ export default function EditEventPage() {
     </CardContent></Card>;
   }
 
+  const canManagePolicy = event.accessRole === "OWNER" || (adminMode && event.accessRole === "ADMIN");
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div className="flex items-center gap-3">
           <Button variant="ghost" size="icon" asChild>
-            <Link href="/events">
+            <Link href={returnPath}>
               <ArrowLeft className="h-4 w-4" />
             </Link>
           </Button>
@@ -257,29 +264,29 @@ export default function EditEventPage() {
               <h1 className="text-2xl font-semibold tracking-normal">{event.title}</h1>
               <Badge variant={statusVariant[event.status]}>{statusLabel[event.status]}</Badge>
             </div>
-            <p className="text-sm text-muted-foreground">Edite os dados do evento abaixo.</p>
+            <p className="text-sm text-muted-foreground">{adminMode ? "Administração global do evento." : "Edite os dados do evento abaixo."}</p>
           </div>
         </div>
         <div className="flex flex-wrap gap-2">
           <Button variant="outline" asChild>
-            <Link href={`/events/${id}/tickets`}>
+            <Link href={ticketPath}>
               <Ticket className="h-4 w-4" />
               Lotes de ingresso
             </Link>
           </Button>
-          {event.accessRole === "OWNER" && <Button variant="outline" asChild>
+          {!adminMode && event.accessRole === "OWNER" && <Button variant="outline" asChild>
             <Link href={`/events/${id}/cortesias`}>
               <Gift className="h-4 w-4" />
               Cortesias
             </Link>
           </Button>}
-          {event.accessRole === "OWNER" && <Button variant="outline" asChild>
+          {!adminMode && event.accessRole === "OWNER" && <Button variant="outline" asChild>
             <Link href={`/events/${id}/promoters`}>
               <Megaphone className="h-4 w-4 mr-2" />
               Promoters
             </Link>
           </Button>}
-          {event.accessRole === "OWNER" && <Button
+          {!adminMode && event.accessRole === "OWNER" && <Button
             variant="destructive"
             size="icon"
             title="Excluir evento"
@@ -386,8 +393,8 @@ export default function EditEventPage() {
             </CardContent>
           </Card>
 
-          <ArtistManager eventId={id} initialArtists={event.artists} />
-          {event.ownerId && event.ownerId === currentUser?.id && <Card><CardContent className="pt-6 text-sm">Atribua funções e eventos em <Link className="underline" href="/team">Equipe</Link>.</CardContent></Card>}
+          {!adminMode && <ArtistManager eventId={id} initialArtists={event.artists} />}
+          {!adminMode && event.ownerId && event.ownerId === currentUser?.id && <Card><CardContent className="pt-6 text-sm">Atribua funções e eventos em <Link className="underline" href="/team">Equipe</Link>.</CardContent></Card>}
         </div>
 
         <div className="space-y-6">
@@ -408,7 +415,7 @@ export default function EditEventPage() {
               <Field label="Status">
                 <select
                   className="h-10 w-full rounded-md border bg-background px-3 text-sm"
-                  disabled={event.accessRole !== "OWNER"}
+                  disabled={!canManagePolicy}
                   {...form.register("status")}
                 >
                   <option value="DRAFT">Rascunho</option>
@@ -417,10 +424,10 @@ export default function EditEventPage() {
                 </select>
               </Field>
               <label className="flex items-start gap-3 rounded-lg border p-3 text-sm">
-                <input type="checkbox" className="mt-1" disabled={event.accessRole !== "OWNER"} {...form.register("isPrivate")} />
+                <input type="checkbox" className="mt-1" disabled={!canManagePolicy} {...form.register("isPrivate")} />
                 <span><strong className="block">Evento privado</strong><span className="text-muted-foreground">Acesso somente pelo link de convite.</span></span>
               </label>
-              {event.accessRole === "OWNER" && form.watch("isPrivate") && (
+              {canManagePolicy && form.watch("isPrivate") && (
                 <div className="space-y-2 rounded-lg border p-3">
                   <Button type="button" variant="outline" className="w-full" onClick={() => inviteMutation.mutate()} disabled={inviteMutation.isPending}>
                     {inviteMutation.isPending ? "Gerando link…" : "Gerar novo link de convite"}
