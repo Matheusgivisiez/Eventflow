@@ -114,19 +114,20 @@ export function EventDetailClient({
 
   return (
     <>
-      <div className="grid min-w-0 grid-cols-1 gap-10 lg:grid-cols-[minmax(0,1fr)_minmax(0,420px)] lg:gap-12">
+      {/* No desktop as colunas entram no grid da página (ver HERO_SPLIT_PAGE_GRID). */}
+      <div className="grid min-w-0 grid-cols-1 gap-10 lg:contents">
         {/* Coluna esquerda: informações */}
-        <div className="min-w-0 space-y-10 sm:space-y-12">
-          {/* No mobile, o seletor vem logo após a capa e os dados do evento. */}
+        <div className="min-w-0 space-y-10 sm:space-y-12 lg:col-start-2 lg:row-start-3 lg:mt-12">
+          {/* No mobile, o seletor vem logo após a capa e os dados do evento, com os artistas logo abaixo. */}
           <div ref={mobileTicketsRef} className="scroll-mt-24 space-y-6 lg:hidden">
             {ticketSelector}
+            <EventArtists artists={event.artists} compact />
           </div>
 
           {aboutSection}
 
           <div className="space-y-6 lg:hidden">
             <ShareButtons title={event.title} slug={event.slug} invite={invite} />
-            <EventArtists artists={event.artists} compact />
           </div>
 
           {venueMapSection}
@@ -138,7 +139,7 @@ export function EventDetailClient({
         </div>
 
         {/* Coluna direita: sidebar sticky com ingressos (somente desktop) */}
-        <div className="relative hidden min-w-0 lg:block">
+        <div className="relative hidden min-w-0 lg:col-start-4 lg:row-span-2 lg:row-start-2 lg:mt-8 lg:block">
           <div ref={desktopTicketsRef} className="sticky top-20 scroll-mt-24 space-y-6">
             <ShareButtons title={event.title} slug={event.slug} invite={invite} />
             {ticketSelector}

@@ -1,6 +1,6 @@
 import { Metadata } from "next";
 import { notFound } from "next/navigation";
-import { HeroBanner } from "@/components/event-page/hero-banner";
+import { HERO_SPLIT_PAGE_GRID, HeroBanner } from "@/components/event-page/hero-banner";
 import { VenueMap } from "@/components/event-page/venue-map";
 import { PhotoGallery } from "@/components/event-page/photo-gallery";
 import { LocationMap } from "@/components/event-page/location-map";
@@ -10,6 +10,8 @@ import { OrganizerInfo } from "@/components/event-page/organizer-info";
 import { EventDetailClient } from "./event-detail-client";
 import { getApiUrl } from "@/lib/api-url";
 import { getCurrentTicketLots } from "@/lib/ticket-lots";
+import { publicAssetUrl } from "@/lib/public-asset-url";
+import { cn } from "@/lib/utils";
 import type { EventFlowEvent } from "@/types/eventflow";
 
 const siteUrl = "https://eventflowtickets.com.br";
@@ -95,6 +97,10 @@ export default async function PublicEventPage({ params, searchParams }: { params
   const organizerName = event.tenant?.name;
   const eventUrl = `${siteUrl}/eventos/${encodeURIComponent(slug)}`;
   const currentTicket = getCurrentTicketLots(event.ticketTypes ?? [])[0]?.ticket;
+  const heroArt = {
+    mobileUrl: publicAssetUrl(event.heroMobileUrl ?? undefined),
+    desktopUrl: publicAssetUrl(event.heroDesktopUrl ?? undefined)
+  };
 
   const jsonLd = {
     "@context": "https://schema.org",
@@ -137,8 +143,9 @@ export default async function PublicEventPage({ params, searchParams }: { params
     } } : {})
   };
 
+  // No desktop, hero e conteúdo compartilham um grid: ingressos logo abaixo dos dados.
   return (
-    <main className="min-h-screen bg-background pb-32 sm:pb-24">
+    <main className={cn("min-h-screen bg-background pb-32 sm:pb-24", HERO_SPLIT_PAGE_GRID)}>
       <script
         type="application/ld+json"
         // JSON.stringify does not escape "</", so an event title/description
@@ -148,21 +155,23 @@ export default async function PublicEventPage({ params, searchParams }: { params
       />
 
       {/* Hero: nav + banner + título */}
-      <HeroBanner event={event} />
+      <HeroBanner event={event} art={heroArt} />
 
       {/* Conteúdo principal: detalhes + ingressos (client-side cuida da ordem mobile/desktop) */}
-      <div className="mx-auto w-full max-w-7xl px-4 sm:px-5 lg:px-8">
+      <div className="mx-auto w-full max-w-7xl px-4 sm:px-5 lg:contents">
         <EventDetailClient
           event={event}
           invite={invite}
           aboutSection={
             <section className="space-y-4 animate-fade-in">
-              <h2 className="text-xl font-bold tracking-tight">Sobre o Evento</h2>
-              <p className="whitespace-pre-line break-words text-base leading-relaxed text-muted-foreground [overflow-wrap:anywhere]">
-                {event.description}
-              </p>
-              <p className="rounded-lg border bg-muted/30 p-3 text-sm text-muted-foreground">
-                <span className="font-medium text-foreground">Reembolso: </span>
+              <h2 className="text-2xl font-bold tracking-tight">Sobre o Evento</h2>
+              <div className="glass-card rounded-3xl p-5 sm:p-6">
+                <p className="whitespace-pre-line break-words text-base leading-relaxed text-muted-foreground [overflow-wrap:anywhere]">
+                  {event.description}
+                </p>
+              </div>
+              <p className="glass-card rounded-2xl p-4 text-sm leading-relaxed text-muted-foreground sm:p-5">
+                <span className="font-semibold text-foreground">Reembolso: </span>
                 {refundPolicyText(event)}
               </p>
             </section>

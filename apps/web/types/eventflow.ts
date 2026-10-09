@@ -46,6 +46,10 @@ export type EventFlowEvent = {
   galleryUrls: string[];
   /** Imagem do mapa do evento (setores/camarotes). Opcional. */
   venueMapUrl?: string | null;
+  /** Arte do topo da página no celular (vertical 9:16). Sem ela, usa o banner. */
+  heroMobileUrl?: string | null;
+  /** Arte do topo da página no computador (16:10). Sem ela, usa o banner. */
+  heroDesktopUrl?: string | null;
   startsAt: string;
   endsAt?: string;
   city?: string;

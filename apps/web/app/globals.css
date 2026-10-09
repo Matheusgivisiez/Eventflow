@@ -307,6 +307,146 @@ body {
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
 }
 
+/* ─── Hero imersivo da página do evento ────────── */
+/* A própria arte se dissolve na cor da plataforma (máscara de transparência).
+   No mobile a dissolução é a mesma nos dois temas: começa logo acima do título
+   (que fica claro sobre a arte) e termina junto com os chips. No desktop ainda
+   varia com o tema. */
+:root {
+  --hero-top-solid: 4%;
+  --hero-bottom-solid: 42%;
+  /* Antes do fim da seção (~83% da arte), para não sobrar borda no tema claro. */
+  --hero-bottom-clear: 78%;
+}
+
+@media (min-width: 640px) {
+  :root {
+    --hero-top-solid: 16%;
+    --hero-bottom-solid: 36%;
+    --hero-bottom-clear: 84%;
+  }
+
+  .dark {
+    --hero-top-solid: 9%;
+    --hero-bottom-solid: 50%;
+    --hero-bottom-clear: 100%;
+  }
+}
+
+/* Faixa do header sobre a arte: glass sólido no topo que vai perdendo o
+   desfoque e a cor até sumir, sem linha de corte. */
+.hero-header-veil {
+  background-image: linear-gradient(to bottom, hsl(var(--background) / 0.82), hsl(var(--background) / 0.45) 55%, transparent);
+  -webkit-backdrop-filter: blur(16px) saturate(1.1);
+  backdrop-filter: blur(16px) saturate(1.1);
+  -webkit-mask-image: linear-gradient(to bottom, #000 0%, #000 50%, rgb(0 0 0 / 0.5) 75%, transparent 100%);
+  mask-image: linear-gradient(to bottom, #000 0%, #000 50%, rgb(0 0 0 / 0.5) 75%, transparent 100%);
+}
+
+@layer utilities {
+  /* Arte vertical/pôster: sobe por trás do header e desce por trás do título. */
+  .hero-mask-poster {
+    /* Curva smoothstep (suave nas duas pontas): o olho não acha onde a arte
+       começa nem onde termina de sumir, e não aparece faixa de tom intermediário. */
+    --hero-fade-span: calc(var(--hero-bottom-clear) - var(--hero-bottom-solid));
+    --hero-poster-mask: linear-gradient(
+      to bottom,
+      transparent 0%,
+      #000 var(--hero-top-solid),
+      #000 var(--hero-bottom-solid),
+      rgb(0 0 0 / 0.97) calc(var(--hero-bottom-solid) + var(--hero-fade-span) * 0.1),
+      rgb(0 0 0 / 0.9) calc(var(--hero-bottom-solid) + var(--hero-fade-span) * 0.2),
+      rgb(0 0 0 / 0.78) calc(var(--hero-bottom-solid) + var(--hero-fade-span) * 0.3),
+      rgb(0 0 0 / 0.65) calc(var(--hero-bottom-solid) + var(--hero-fade-span) * 0.4),
+      rgb(0 0 0 / 0.5) calc(var(--hero-bottom-solid) + var(--hero-fade-span) * 0.5),
+      rgb(0 0 0 / 0.35) calc(var(--hero-bottom-solid) + var(--hero-fade-span) * 0.6),
+      rgb(0 0 0 / 0.22) calc(var(--hero-bottom-solid) + var(--hero-fade-span) * 0.7),
+      rgb(0 0 0 / 0.1) calc(var(--hero-bottom-solid) + var(--hero-fade-span) * 0.8),
+      rgb(0 0 0 / 0.03) calc(var(--hero-bottom-solid) + var(--hero-fade-span) * 0.9),
+      transparent var(--hero-bottom-clear)
+    );
+    -webkit-mask-image: var(--hero-poster-mask);
+    mask-image: var(--hero-poster-mask);
+  }
+
+  /* Fundo do hero dividido (desktop): cópia da arte que vai sumindo para baixo e
+     para as laterais até a cor da plataforma. */
+  .hero-mask-backdrop {
+    -webkit-mask-image:
+      linear-gradient(to bottom, #000 0%, rgb(0 0 0 / 0.75) 45%, rgb(0 0 0 / 0.3) 75%, transparent 100%),
+      linear-gradient(to right, transparent 0%, #000 12%, #000 88%, transparent 100%);
+    -webkit-mask-composite: source-in;
+    mask-image:
+      linear-gradient(to bottom, #000 0%, rgb(0 0 0 / 0.75) 45%, rgb(0 0 0 / 0.3) 75%, transparent 100%),
+      linear-gradient(to right, transparent 0%, #000 12%, #000 88%, transparent 100%);
+    mask-composite: intersect;
+  }
+
+  /* Banner em faixa (fallback sem arte dedicada): dissolve só embaixo. */
+  .hero-mask-strip {
+    -webkit-mask-image: linear-gradient(to bottom, transparent 0%, #000 6%, #000 76%, rgb(0 0 0 / 0.45) 90%, transparent 100%);
+    mask-image: linear-gradient(to bottom, transparent 0%, #000 6%, #000 76%, rgb(0 0 0 / 0.45) 90%, transparent 100%);
+  }
+
+  /* Faixa em tela larga: as laterais também se dissolvem. */
+  .hero-mask-strip-wide {
+    -webkit-mask-image:
+      linear-gradient(to bottom, transparent 0%, #000 5%, #000 78%, rgb(0 0 0 / 0.45) 91%, transparent 100%),
+      linear-gradient(to right, transparent 0%, #000 9%, #000 91%, transparent 100%);
+    -webkit-mask-composite: source-in;
+    mask-image:
+      linear-gradient(to bottom, transparent 0%, #000 5%, #000 78%, rgb(0 0 0 / 0.45) 91%, transparent 100%),
+      linear-gradient(to right, transparent 0%, #000 9%, #000 91%, transparent 100%);
+    mask-composite: intersect;
+  }
+}
+
+/* ─── Superfície glass (página do evento) ──────── */
+/* Usa background-image: utilitários bg-* continuam valendo como cor de base/hover.
+   Fundo translúcido + borda em gradiente (clara no topo, roxa na base) feita num
+   pseudo-elemento, para funcionar com qualquer raio. Sem backdrop-filter: abaixo
+   do hero o fundo é sólido e o desfoque só custaria desempenho.
+   Fica na camada components (e com :where no .dark) para que utilitários como
+   ring-* e shadow-* — o destaque roxo do lote, por exemplo — continuem vencendo. */
+@layer components {
+  .glass-card {
+    position: relative;
+    isolation: isolate;
+    background-image: linear-gradient(180deg, hsl(var(--card) / 0.86), hsl(var(--card) / 0.6));
+    box-shadow:
+      inset 0 1px 0 hsl(0 0% 100% / 0.5),
+      0 14px 36px -26px hsl(var(--foreground) / 0.35);
+  }
+
+  :where(.dark) .glass-card {
+    background-image: linear-gradient(180deg, hsl(var(--card) / 0.72), hsl(var(--card) / 0.42));
+    box-shadow:
+      inset 0 1px 0 hsl(0 0% 100% / 0.05),
+      0 18px 44px -28px rgb(0 0 0 / 0.7);
+  }
+
+  .glass-card::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    padding: 1px;
+    border-radius: inherit;
+    background: linear-gradient(160deg, hsl(var(--foreground) / 0.14), hsl(var(--foreground) / 0.05) 42%, hsl(var(--primary) / 0.3));
+    -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+    -webkit-mask-composite: xor;
+    mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+    mask-composite: exclude;
+    pointer-events: none;
+  }
+}
+
+/* Só onde há imagem atrás (hero) ou conteúdo rolando por baixo (barra de compra). */
+.glass-blur {
+  -webkit-backdrop-filter: blur(14px) saturate(1.15);
+  backdrop-filter: blur(14px) saturate(1.15);
+}
+
 /* ─── Loading spinner elegante ─────────────────── */
 .spinner-elegant {
   width: 20px;

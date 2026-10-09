@@ -4,6 +4,11 @@ import { useEffect, useState } from "react";
 import { Check, Copy, MessageCircle, Share2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
+// Círculo glass no mobile (só ícone); a partir do tablet, pílulas com texto que
+// dividem a linha em partes iguais (sem quebrar para uma segunda linha).
+const SHARE_BUTTON =
+  "glass-card h-11 w-11 gap-2 rounded-full border-0 bg-transparent p-0 text-foreground/85 transition-colors hover:bg-primary/10 hover:text-primary sm:h-10 sm:w-auto sm:min-w-0 sm:flex-1 sm:px-3";
+
 type ShareButtonsProps = {
   title: string;
   slug: string;
@@ -47,27 +52,29 @@ export function ShareButtons({ title, slug, invite }: ShareButtonsProps) {
   };
 
   return (
-    <div className="flex max-w-full flex-wrap items-center gap-2">
+    <div className="flex max-w-full flex-wrap items-center gap-2.5 sm:flex-nowrap">
       <Button
         variant="outline"
         size="sm"
-        className="gap-2 rounded-full border-border/60 hover:border-primary/50 hover:text-primary transition-colors"
+        className={SHARE_BUTTON}
         onClick={handleWhatsApp}
+        aria-label="Compartilhar no WhatsApp"
       >
-        <MessageCircle className="h-4 w-4" />
+        <MessageCircle className="h-[1.125rem] w-[1.125rem]" strokeWidth={1.75} />
         <span className="hidden sm:inline">WhatsApp</span>
       </Button>
 
       <Button
         variant="outline"
         size="sm"
-        className="gap-2 rounded-full border-border/60 hover:border-primary/50 hover:text-primary transition-colors"
+        className={SHARE_BUTTON}
         onClick={handleCopyLink}
+        aria-label={copied ? "Link copiado" : "Copiar link"}
       >
         {copied ? (
-          <Check className="h-4 w-4 text-green-500" />
+          <Check className="h-[1.125rem] w-[1.125rem] text-green-500" strokeWidth={2} />
         ) : (
-          <Copy className="h-4 w-4" />
+          <Copy className="h-[1.125rem] w-[1.125rem]" strokeWidth={1.75} />
         )}
         <span className="hidden sm:inline">{copied ? "Copiado!" : "Copiar link"}</span>
       </Button>
@@ -76,10 +83,11 @@ export function ShareButtons({ title, slug, invite }: ShareButtonsProps) {
         <Button
           variant="outline"
           size="sm"
-          className="gap-2 rounded-full border-border/60 hover:border-primary/50 hover:text-primary transition-colors"
+          className={SHARE_BUTTON}
           onClick={handleNativeShare}
+          aria-label="Compartilhar"
         >
-          <Share2 className="h-4 w-4" />
+          <Share2 className="h-[1.125rem] w-[1.125rem]" strokeWidth={1.75} />
           <span className="hidden sm:inline">Compartilhar</span>
         </Button>
       )}

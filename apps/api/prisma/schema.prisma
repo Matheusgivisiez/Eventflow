@@ -332,6 +332,10 @@ model Event {
   bannerUrl              String?
   galleryUrls            String[]     @default([])
   venueMapUrl            String?
+  /// Arte do topo da página pública no celular (vertical 9:16). Sem ela, usa o banner.
+  heroMobileUrl          String?
+  /// Arte do topo da página pública no computador (16:10). Sem ela, usa o banner.
+  heroDesktopUrl         String?
   startsAt               DateTime
   endsAt                 DateTime?
   city                   String?

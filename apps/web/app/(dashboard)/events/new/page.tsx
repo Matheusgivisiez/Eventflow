@@ -32,6 +32,8 @@ const schema = z.object({
   startsAt: z.string().min(1, "Informe data e horário."),
   endsAt: z.string().optional(),
   bannerUrl: z.string().optional(),
+  heroMobileUrl: z.string().optional(),
+  heroDesktopUrl: z.string().optional(),
   city: z.string().optional(),
   state: z.string().optional(),
   zipCode: z.string().optional(),
@@ -226,6 +228,8 @@ export default function NewEventPage() {
           startsAt: startsAt.toISOString(),
           endsAt: scheduleValueToIso(data.endsAt),
           bannerUrl: data.bannerUrl || undefined,
+          heroMobileUrl: data.heroMobileUrl || undefined,
+          heroDesktopUrl: data.heroDesktopUrl || undefined,
           galleryUrls: [],
           city: data.format === "IN_PERSON" ? data.city : undefined,
           state: data.format === "IN_PERSON" ? data.state : undefined,
@@ -353,6 +357,17 @@ export default function NewEventPage() {
                 <Field label="Banner" error={form.formState.errors.bannerUrl?.message}>
                   <ImageUpload aspect={16 / 5} value={form.watch("bannerUrl")} onChange={(url) => form.setValue("bannerUrl", url)} />
                 </Field>
+                {/* Artes opcionais do topo da página pública, uma por tela. */}
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <Field label="Arte da página no celular (opcional)">
+                    <p className="mb-2 text-xs text-muted-foreground">Vertical 9:16. Ocupa o topo da página no celular; sem ela, a página usa o banner.</p>
+                    <ImageUpload aspect={9 / 16} value={form.watch("heroMobileUrl")} onChange={(url) => form.setValue("heroMobileUrl", url ?? "")} />
+                  </Field>
+                  <Field label="Arte da página no computador (opcional)">
+                    <p className="mb-2 text-xs text-muted-foreground">Horizontal 16:10. Capa da página no computador; sem ela, a página usa o banner.</p>
+                    <ImageUpload aspect={16 / 10} value={form.watch("heroDesktopUrl")} onChange={(url) => form.setValue("heroDesktopUrl", url ?? "")} />
+                  </Field>
+                </div>
                 <SchedulePicker
                   startsAt={form.watch("startsAt")}
                   endsAt={form.watch("endsAt")}

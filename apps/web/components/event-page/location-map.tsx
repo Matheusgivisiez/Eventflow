@@ -7,10 +7,10 @@ export function LocationMap({ event }: { event: EventFlowEvent }) {
   if (event.format === "ONLINE") {
     return (
       <div className="space-y-4">
-        <h2 className="text-2xl font-semibold tracking-tight">Localização</h2>
-        <div className="flex min-w-0 items-center gap-4 rounded-xl border bg-card p-6 shadow-sm">
-          <div className="flex h-12 w-12 items-center justify-center rounded-full bg-primary/10 text-primary">
-            <MapPin className="h-6 w-6" />
+        <h2 className="text-2xl font-bold tracking-tight">Localização</h2>
+        <div className="glass-card flex min-w-0 items-center gap-4 rounded-3xl p-6">
+          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border border-primary/20 bg-primary/10 text-primary">
+            <MapPin className="h-6 w-6" strokeWidth={1.75} />
           </div>
           <div className="min-w-0">
             <p className="break-words font-medium text-foreground [overflow-wrap:anywhere]">Evento 100% Online</p>
@@ -26,11 +26,11 @@ export function LocationMap({ event }: { event: EventFlowEvent }) {
 
   return (
     <div className="space-y-4">
-      <h2 className="text-2xl font-semibold tracking-tight">Localização</h2>
-      <div className="overflow-hidden rounded-xl border bg-card shadow-sm">
-        <div className="space-y-4 p-6">
+      <h2 className="text-2xl font-bold tracking-tight">Localização</h2>
+      <div className="glass-card overflow-hidden rounded-3xl">
+        <div className="space-y-5 p-5 sm:p-6">
           <div>
-            <p className="break-words font-medium text-foreground [overflow-wrap:anywhere]">{event.address}</p>
+            <p className="break-words text-lg font-bold tracking-tight text-foreground [overflow-wrap:anywhere]">{event.address}</p>
             <p className="break-words text-sm text-muted-foreground [overflow-wrap:anywhere]">
               {event.city}, {event.state} {event.zipCode && `- CEP: ${event.zipCode}`}
             </p>
@@ -49,21 +49,24 @@ export function LocationMap({ event }: { event: EventFlowEvent }) {
           <RideButtons event={event} />
         </div>
 
-        {mapEmbedSrc ? (
-          <iframe
-            src={mapEmbedSrc}
-            title={`Mapa: ${address}`}
-            className="h-64 w-full border-t"
-            style={{ border: 0 }}
-            loading="lazy"
-            referrerPolicy="no-referrer-when-downgrade"
-            allowFullScreen
-          />
-        ) : (
-          <div className="flex h-48 w-full items-center justify-center border-t bg-muted">
-            <MapPin className="h-8 w-8 text-muted-foreground/30" />
-          </div>
-        )}
+        {/* Mapa recuado dentro do card, com cantos próprios. */}
+        <div className="px-3 pb-3 sm:px-4 sm:pb-4">
+          {mapEmbedSrc ? (
+            <iframe
+              src={mapEmbedSrc}
+              title={`Mapa: ${address}`}
+              className="block h-60 w-full rounded-2xl sm:h-64"
+              style={{ border: 0 }}
+              loading="lazy"
+              referrerPolicy="no-referrer-when-downgrade"
+              allowFullScreen
+            />
+          ) : (
+            <div className="flex h-48 w-full items-center justify-center rounded-2xl bg-muted/60">
+              <MapPin className="h-8 w-8 text-muted-foreground/30" strokeWidth={1.75} />
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );
