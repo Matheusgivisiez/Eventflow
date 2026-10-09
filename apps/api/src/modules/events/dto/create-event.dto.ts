@@ -94,6 +94,18 @@ export class CreateEventDto {
   @MaxLength(2048)
   venueMapUrl?: string | null;
 
+  @ApiPropertyOptional({ description: "URL da arte do topo da página no celular (vertical 9:16). null remove; sem ela usa o banner." })
+  @IsOptional()
+  @IsString()
+  @MaxLength(2048)
+  heroMobileUrl?: string | null;
+
+  @ApiPropertyOptional({ description: "URL da arte do topo da página no computador (16:10). null remove; sem ela usa o banner." })
+  @IsOptional()
+  @IsString()
+  @MaxLength(2048)
+  heroDesktopUrl?: string | null;
+
   @ApiPropertyOptional({ description: "Cidade do evento" })
   @IsOptional()
   @IsString()

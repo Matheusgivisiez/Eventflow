@@ -5,10 +5,10 @@ export function PhotoGallery({ urls, title }: { urls: string[]; title: string })
 
   return (
     <div className="space-y-4">
-      <h2 className="text-2xl font-semibold tracking-tight">Galeria de Fotos</h2>
+      <h2 className="text-2xl font-bold tracking-tight">Galeria de Fotos</h2>
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {urls.map((url, index) => (
-          <div key={url} className="group relative aspect-video overflow-hidden rounded-xl bg-muted">
+          <div key={url} className="group relative aspect-video overflow-hidden rounded-2xl bg-muted ring-1 ring-foreground/10">
             <Image 
               src={url} 
               alt={`${title} - Foto ${index + 1}`} 

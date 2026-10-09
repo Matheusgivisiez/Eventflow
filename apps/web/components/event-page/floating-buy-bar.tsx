@@ -34,12 +34,12 @@ export function FloatingBuyBar({
 
   return (
     <div className="fixed bottom-0 inset-x-0 z-50 animate-slide-up">
-      <div className="glass border-t shadow-[0_-4px_24px_rgb(0,0,0,0.08)]">
+      <div className="glass rounded-t-3xl border-t border-foreground/10 shadow-[0_-12px_32px_-12px_rgb(0,0,0,0.35)] sm:rounded-none">
         <div className="mx-auto flex w-full min-w-0 max-w-7xl items-center justify-between gap-3 px-4 py-3 sm:gap-4 sm:px-5 lg:px-8">
           {/* Info de preço */}
           <div className="flex min-w-0 flex-1 items-center gap-3">
-            <div className="hidden sm:flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10">
-              <Ticket className="h-5 w-5 text-primary" />
+            <div className="hidden sm:flex h-10 w-10 items-center justify-center rounded-xl border border-primary/20 bg-primary/10">
+              <Ticket className="h-5 w-5 text-primary" strokeWidth={1.75} />
             </div>
             <div className="min-w-0">
               {totalItems > 0 ? (
@@ -70,7 +70,7 @@ export function FloatingBuyBar({
             asChild
             size="lg"
             onClick={totalItems === 0 ? onEmptySelectionClick : undefined}
-            className="h-12 shrink-0 rounded-xl px-4 text-base font-bold shadow-lg shadow-primary/25 transition-all hover:scale-[1.02] active:scale-95 sm:px-6"
+            className="h-12 shrink-0 rounded-2xl px-5 text-base font-bold shadow-[0_10px_30px_-6px_hsl(var(--primary)/0.6)] transition-all hover:scale-[1.02] active:scale-95 sm:px-6"
           >
             {totalItems > 0 ? (
               <Link href={checkoutUrl}>

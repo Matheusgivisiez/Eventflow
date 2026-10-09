@@ -76,6 +76,46 @@ describe("EventsService", () => {
     expect(tx.event.create).toHaveBeenCalledTimes(2);
   });
 
+  it("saves the per-screen hero art on creation", async () => {
+    const { service, prisma, tx } = createService();
+    prisma.event.findUnique.mockResolvedValue(null);
+    tx.event.create.mockResolvedValue({ id: "event-1" });
+
+    await service.create("tenant-1", "owner-1", createDto({
+      bannerUrl: "https://cdn.example.com/banner.webp",
+      heroMobileUrl: "https://cdn.example.com/hero-mobile.webp"
+    }));
+
+    expect(tx.event.create).toHaveBeenCalledWith(expect.objectContaining({
+      data: expect.objectContaining({
+        bannerUrl: "https://cdn.example.com/banner.webp",
+        heroMobileUrl: "https://cdn.example.com/hero-mobile.webp"
+      })
+    }));
+  });
+
+  it("clears the mobile hero art with null and leaves the banner untouched", async () => {
+    const { service, prisma, repository } = createService();
+    repository.findByIdForTenant.mockResolvedValue({
+      id: "event-1",
+      format: EventFormat.ONLINE,
+      city: null,
+      state: null,
+      zipCode: null,
+      address: null,
+      onlineUrl: "https://stream.example.com",
+      startsAt: new Date(Date.now() + 1000 * 60 * 60),
+      endsAt: null
+    });
+    prisma.event.update.mockResolvedValue({ id: "event-1", slug: "festa" });
+
+    await service.update("event-1", "tenant-1", { heroMobileUrl: null } as any);
+
+    const { data } = prisma.event.update.mock.calls[0][0];
+    expect(data.heroMobileUrl).toBeNull();
+    expect(data.bannerUrl).toBeUndefined();
+  });
+
   it("uses EventStatus.CLOSED when canceling an event", async () => {
     const { service, prisma, repository } = createService();
     repository.findByIdForTenant.mockResolvedValue({ id: "event-1" });

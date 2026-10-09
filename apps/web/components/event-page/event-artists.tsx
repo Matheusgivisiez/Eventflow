@@ -6,11 +6,11 @@ export function EventArtists({ artists = [], compact = false }: { artists?: Even
   if (!artists.length) return null;
   return (
     <section aria-labelledby="event-artists-title" className="space-y-4 animate-fade-in">
-      <div className="flex items-center gap-2">
-        <MicVocal className="h-5 w-5 text-primary" aria-hidden="true" />
-        <h2 id="event-artists-title" className="text-xl font-bold tracking-tight">Artistas</h2>
+      <div className="flex items-center gap-2.5">
+        <MicVocal className="h-6 w-6 text-primary" strokeWidth={1.75} aria-hidden="true" />
+        <h2 id="event-artists-title" className="text-2xl font-bold tracking-tight">Artistas</h2>
       </div>
-      <ul className="overflow-hidden rounded-2xl border bg-card divide-y" aria-label="Artistas confirmados">
+      <ul className="glass-card divide-y divide-foreground/10 overflow-hidden rounded-3xl" aria-label="Artistas confirmados">
         {artists.map(({ artist }) => (
           <li key={artist.id} className={`flex items-center gap-3 px-3 py-3 sm:px-4 ${compact ? "min-h-[4.5rem]" : "min-h-20"}`}>
             {artist.imageUrl ? <img src={artist.imageUrl} alt="" className="h-11 w-11 shrink-0 rounded-full object-cover ring-1 ring-border" /> : <div aria-hidden="true" className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-muted font-semibold text-muted-foreground">{artist.stageName.slice(0, 1).toUpperCase()}</div>}

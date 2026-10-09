@@ -53,16 +53,16 @@ export function VenueMap({ url, title }: { url?: string | null; title: string })
 
   return (
     <section className="space-y-4" aria-label="Mapa do evento">
-      <h2 className="text-2xl font-semibold tracking-tight">Mapa do evento</h2>
-      <div className="overflow-hidden rounded-xl border bg-card shadow-sm">
-        <p className="flex items-center gap-2 border-b px-4 py-3 text-sm text-muted-foreground">
-          <ZoomIn className="h-4 w-4 shrink-0" aria-hidden />
+      <h2 className="text-2xl font-bold tracking-tight">Mapa do evento</h2>
+      <div className="glass-card overflow-hidden rounded-3xl">
+        <p className="flex items-center gap-2 border-b border-foreground/10 px-5 py-3.5 text-sm text-muted-foreground">
+          <ZoomIn className="h-4 w-4 shrink-0 text-primary" strokeWidth={1.75} aria-hidden />
           Toque na imagem ou use os controles para dar zoom.
         </p>
         <div className="p-3 sm:p-4">
           <div
             ref={frameRef}
-            className={`relative aspect-square w-full touch-pan-y select-none overflow-hidden rounded-lg bg-muted/40 sm:aspect-[4/3] ${
+            className={`relative aspect-square w-full touch-pan-y select-none overflow-hidden rounded-2xl bg-muted/40 sm:aspect-[4/3] ${
               zoomed ? (dragging ? "cursor-grabbing touch-none" : "cursor-grab touch-none") : "cursor-zoom-in"
             }`}
             onPointerDown={(event) => {
@@ -105,7 +105,7 @@ export function VenueMap({ url, title }: { url?: string | null; title: string })
             />
 
             <div
-              className="absolute bottom-3 right-3 flex items-center gap-1 rounded-full border bg-background/90 p-1 shadow-md backdrop-blur"
+              className="glass-card glass-blur absolute bottom-3 right-3 flex items-center gap-1 rounded-full p-1"
               onPointerDown={(event) => event.stopPropagation()}
               onPointerUp={(event) => event.stopPropagation()}
             >

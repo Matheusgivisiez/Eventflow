@@ -30,6 +30,8 @@ const schema = z.object({
   startsAt: z.string().min(1, "Informe data e horário."),
   endsAt: z.string().optional(),
   bannerUrl: z.string().optional(),
+  heroMobileUrl: z.string().optional(),
+  heroDesktopUrl: z.string().optional(),
   venueMapUrl: z.string().optional(),
   city: z.string().optional(),
   state: z.string().optional(),
@@ -119,6 +121,8 @@ export default function EditEventPage({ adminMode = false, adminBase = "/admin" 
         startsAt: isoToScheduleValue(event.startsAt),
         endsAt: isoToScheduleValue(event.endsAt),
         bannerUrl: event.bannerUrl ?? "",
+        heroMobileUrl: event.heroMobileUrl ?? "",
+        heroDesktopUrl: event.heroDesktopUrl ?? "",
         venueMapUrl: event.venueMapUrl ?? "",
         city: event.city ?? "",
         state: event.state ?? "",
@@ -148,6 +152,9 @@ export default function EditEventPage({ adminMode = false, adminBase = "/admin" 
       bannerUrl: data.bannerUrl || undefined,
       // null remove o mapa já salvo; a seção some da página pública.
       venueMapUrl: data.venueMapUrl || null,
+      // null remove a arte da tela; a página volta a usar o banner.
+      heroMobileUrl: data.heroMobileUrl || null,
+      heroDesktopUrl: data.heroDesktopUrl || null,
       startsAt: scheduleValueToIso(data.startsAt),
       endsAt: scheduleValueToIso(data.endsAt)
     };
@@ -338,6 +345,23 @@ export default function EditEventPage({ adminMode = false, adminBase = "/admin" 
                     />
                   </Field>
                 </div>
+                {/* Artes opcionais do topo da página pública, uma por tela. */}
+                <Field label="Arte da página no celular (opcional)">
+                  <p className="mb-2 text-xs text-muted-foreground">Vertical 9:16. Ocupa o topo da página no celular; sem ela, a página usa o banner.</p>
+                  <ImageUpload
+                    aspect={9 / 16}
+                    value={form.watch("heroMobileUrl")}
+                    onChange={(url) => form.setValue("heroMobileUrl", url ?? "", { shouldDirty: true })}
+                  />
+                </Field>
+                <Field label="Arte da página no computador (opcional)">
+                  <p className="mb-2 text-xs text-muted-foreground">Horizontal 16:10. Capa da página no computador; sem ela, a página usa o banner.</p>
+                  <ImageUpload
+                    aspect={16 / 10}
+                    value={form.watch("heroDesktopUrl")}
+                    onChange={(url) => form.setValue("heroDesktopUrl", url ?? "", { shouldDirty: true })}
+                  />
+                </Field>
               </div>
               <div className="grid gap-4 sm:grid-cols-2">
                 <Field label="Início" error={form.formState.errors.startsAt?.message}>
