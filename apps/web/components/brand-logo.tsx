@@ -29,13 +29,13 @@ export function BrandLogo({ className, markClassName, iconOnly = false, inverted
   if (iconOnly) return <BrandMark className={cn("h-6 w-6", markClassName, className)} />;
 
   return (
-    <span className={cn("relative block h-9 w-[94px] shrink-0", className)}>
+    <span className={cn("relative block h-9 w-[101px] shrink-0", className)}>
       {!inverted && (
         <Image
           src="/images/eventflow-logo-purple-black.png"
           alt="Event Flow"
-          width={386}
-          height={149}
+          width={844}
+          height={300}
           priority
           className="h-full w-full object-contain dark:hidden"
         />
@@ -43,8 +43,8 @@ export function BrandLogo({ className, markClassName, iconOnly = false, inverted
       <Image
         src="/images/eventflow-logo-purple-white.png"
         alt={inverted ? "Event Flow" : ""}
-        width={376}
-        height={150}
+        width={844}
+        height={300}
         priority
         className={cn("h-full w-full object-contain", inverted ? "block" : "hidden dark:block")}
       />
