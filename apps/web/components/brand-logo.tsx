@@ -1,9 +1,9 @@
+import Image from "next/image";
 import { cn } from "@/lib/utils";
 
 type BrandLogoProps = {
   className?: string;
   markClassName?: string;
-  textClassName?: string;
   iconOnly?: boolean;
   inverted?: boolean;
 };
@@ -25,16 +25,29 @@ export function BrandMark({ className }: { className?: string }) {
   );
 }
 
-export function BrandLogo({ className, markClassName, textClassName, iconOnly = false, inverted = false }: BrandLogoProps) {
+export function BrandLogo({ className, markClassName, iconOnly = false, inverted = false }: BrandLogoProps) {
+  if (iconOnly) return <BrandMark className={cn("h-6 w-6", markClassName, className)} />;
+
   return (
-    <div className={cn("flex items-center gap-3", className)}>
-      <BrandMark className={markClassName} />
-      {!iconOnly && (
-        <div className={cn("leading-[0.86] tracking-normal", inverted ? "text-white" : "text-brand-deep dark:text-white", textClassName)}>
-          <span className="block text-[1.35rem] font-extrabold">event</span>
-          <span className="block text-[1.35rem] font-extrabold">flow</span>
-        </div>
+    <span className={cn("relative block h-9 w-[94px] shrink-0", className)}>
+      {!inverted && (
+        <Image
+          src="/images/eventflow-logo-purple-black.png"
+          alt="Event Flow"
+          width={386}
+          height={149}
+          priority
+          className="h-full w-full object-contain dark:hidden"
+        />
       )}
-    </div>
+      <Image
+        src="/images/eventflow-logo-purple-white.png"
+        alt={inverted ? "Event Flow" : ""}
+        width={376}
+        height={150}
+        priority
+        className={cn("h-full w-full object-contain", inverted ? "block" : "hidden dark:block")}
+      />
+    </span>
   );
 }
