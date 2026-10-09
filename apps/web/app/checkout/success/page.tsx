@@ -2,7 +2,7 @@
 
 import { useEffect, useState, Suspense } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   CheckCircle2,
   Clock,
@@ -34,6 +34,8 @@ import { useAuthStore } from "@/stores/auth-store";
 
 type PublicOrderDetails = {
   id: string;
+  canResumePayment?: boolean;
+  reservationExpiresAt?: string | null;
   eventId: string;
   eventTitle: string;
   eventStartsAt: string;
@@ -150,6 +152,15 @@ function SuccessContent() {
 
   const isPaid = order?.status === "PAID";
   const isPending = order?.status === "PENDING";
+  const resume = useMutation({
+    mutationFn: () => api<{ checkoutUrl: string }>(`/checkout/order/${orderId}/resume`, {
+      method: "POST",
+      auth: false,
+      body: JSON.stringify({ accessToken })
+    }),
+    onSuccess: ({ checkoutUrl }) => window.location.assign(checkoutUrl),
+    onError: () => void queryClient.invalidateQueries({ queryKey: ["public-order", orderId, accessToken] })
+  });
   // Only "SENT" means a message actually left the server. PENDING, FAILED,
   // SKIPPED (no SMTP) and undefined all mean the buyer may have nothing.
   const emailDelivered = order?.confirmationEmailStatus === "SENT";
@@ -261,6 +272,20 @@ function SuccessContent() {
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
+          {isPending && order.canResumePayment && (
+            <div className="rounded-xl border border-primary/25 bg-primary/5 p-4 space-y-3">
+              <p className="text-sm font-semibold">Seu pagamento pode ser retomado</p>
+              <p className="text-sm text-muted-foreground">
+                {order.reservationExpiresAt
+                  ? `Seu ingresso está reservado até ${new Date(order.reservationExpiresAt).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}.`
+                  : "Seu ingresso está reservado por tempo limitado."}
+              </p>
+              <Button type="button" className="min-h-11 w-full" disabled={resume.isPending} onClick={() => resume.mutate()}>
+                {resume.isPending ? "Conferindo pedido..." : "Continuar pagamento"}
+              </Button>
+              {resume.isError && <p role="alert" className="text-sm text-destructive">{(resume.error as Error).message}</p>}
+            </div>
+          )}
           {isPaid && hasHydratedAuth && !isAuthenticated && (
             <div className="rounded-lg border bg-muted/40 p-4 space-y-3">
               {emailDelivered ? (

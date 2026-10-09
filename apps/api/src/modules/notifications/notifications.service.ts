@@ -1,7 +1,8 @@
-import { Injectable, Logger } from "@nestjs/common";
+import { BadRequestException, Injectable, Logger } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { transferTicketDownloadToken } from "../../common/utils/transfer-ticket-download";
 import { NotificationEvent, NotificationStatus, NotificationType, Prisma, TicketOrigin } from "@prisma/client";
+import { vipTicketDownloadToken } from "../../common/utils/vip-ticket-download";
 import { MailAttachment, MailService } from "../../common/services/mail.service";
 import { PrismaService } from "../../prisma/prisma.service";
 import { renderPurchaseConfirmed } from "./templates/purchase-confirmed.template";
@@ -66,6 +67,26 @@ export type TicketTransferDeliveredInput = {
     ticketTypeName: string;
     shortCode: string;
     /** Real QR (PNG data URL). Only embedded in the e-mail when the QR is already released. */
+    qrCodeDataUrl?: string | null;
+  };
+};
+
+export type VipInvitationInput = {
+  userId: string;
+  email: string;
+  recipientName: string;
+  invitedBy?: string;
+  orderId: string;
+  eventTitle: string;
+  eventStartsAt: Date;
+  eventVenue: string;
+  qrCodeLocked: boolean;
+  qrCodeReleaseAt: Date | null;
+  ticket: {
+    id: string;
+    attendeeName: string;
+    ticketTypeName: string;
+    shortCode: string;
     qrCodeDataUrl?: string | null;
   };
 };
@@ -400,6 +421,54 @@ export class NotificationsService {
     });
   }
 
+  /** Call after assigning the ticket to the named user and disabling transfer in the grant flow. */
+  async sendVipInvitation(input: VipInvitationInput) {
+    const assigned = await this.prisma.ticket.findUnique({
+      where: { id: input.ticket.id },
+      select: { ownerId: true, owner: { select: { email: true } } },
+    });
+    if (assigned?.ownerId !== input.userId ||
+        assigned.owner?.email.toLowerCase() !== input.email.trim().toLowerCase()) {
+      throw new BadRequestException("O convite VIP só pode ser enviado ao titular do ingresso.");
+    }
+    const myTicketsUrl = this.appUrl("/me/ingressos");
+    const qr = this.inlineQrCodes(input.qrCodeLocked, [input.ticket]);
+    const rendered = renderPurchaseConfirmed({
+      buyerName: input.recipientName,
+      eventTitle: input.eventTitle,
+      eventStartsAt: input.eventStartsAt,
+      eventVenue: input.eventVenue,
+      orderId: input.orderId,
+      ticketCount: 1,
+      orderUrl: myTicketsUrl,
+      createAccountUrl: myTicketsUrl,
+      qrCodeLocked: input.qrCodeLocked,
+      qrCodeReleaseAt: input.qrCodeReleaseAt,
+      logoLightUrl: this.appUrl("/images/eventflow-logo-purple-black.png"),
+      logoDarkUrl: this.appUrl("/images/eventflow-logo-purple-white.png"),
+      qrLockedImageUrl: this.appUrl("/images/eventflow-ticket-qr-locked.png"),
+      assetsBaseUrl: this.appUrl("/images/email"),
+      vipInvite: { invitedBy: input.invitedBy },
+      tickets: [{
+        id: input.ticket.id,
+        attendeeName: input.ticket.attendeeName,
+        ticketTypeName: input.ticket.ticketTypeName,
+        shortCode: input.ticket.shortCode,
+        pdfUrl: this.vipTicketPdfUrl(input.ticket.id, input.userId),
+        qrImageSrc: qr.srcByTicketId.get(input.ticket.id),
+      }],
+    });
+    return this.send({
+      userId: input.userId,
+      type: NotificationType.EMAIL,
+      event: NotificationEvent.VIP_TICKET_GRANTED,
+      recipient: input.email,
+      payload: { ticketId: input.ticket.id, orderId: input.orderId, eventTitle: input.eventTitle },
+      dedupeKey: `vip-ticket-granted:${input.ticket.id}`,
+      mail: { ...rendered, attachments: qr.attachments },
+    });
+  }
+
   list(query: { userId?: string; event?: NotificationEvent; type?: NotificationType }) {
     return this.prisma.notificationLog.findMany({
       where: { userId: query.userId, event: query.event, type: query.type },
@@ -483,4 +552,10 @@ export class NotificationsService {
     return `${this.apiUrl(`/transfer-ticket-download/${transferId}`)}?token=${token}`;
   }
 
+  private vipTicketPdfUrl(ticketId: string, ownerId: string) {
+    const secret = this.config.get<string>("QR_CODE_SECRET");
+    if (!secret) throw new Error("Chave de ingresso indisponível.");
+    const token = vipTicketDownloadToken(secret, ticketId, ownerId);
+    return `${this.apiUrl(`/vip-ticket-download/${ticketId}`)}?token=${token}`;
+  }
 }

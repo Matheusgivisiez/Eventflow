@@ -26,6 +26,7 @@ import {
   getRefundDeadline,
 } from "../../common/utils/refund-policy.utils";
 import { verifyTransferTicketDownloadToken } from "../../common/utils/transfer-ticket-download";
+import { verifyVipTicketDownloadToken } from "../../common/utils/vip-ticket-download";
 
 const TICKET_FONT_FAMILY = "DejaVu Sans, Arial, Helvetica, sans-serif";
 
@@ -296,6 +297,19 @@ export class BuyerService {
     return this.renderTicketPdfFor(transfer.ticket);
   }
 
+  async vipTicketPdf(ticketId: string, token: string) {
+    const ticket = await this.prisma.ticket.findUnique({
+      where: { id: ticketId },
+      include: { event: true, ticketType: true },
+    });
+    const secret = this.config?.get<string>("QR_CODE_SECRET");
+    if (!ticket?.ownerId || !secret ||
+        !verifyVipTicketDownloadToken(secret, ticket.id, ticket.ownerId, token)) {
+      throw new NotFoundException("Ingresso não encontrado.");
+    }
+    return this.renderTicketPdfFor(ticket, { vip: true });
+  }
+
   /**
    * Renders a ticket's PDF given an already-authorized ticket record.
    * Callers are responsible for proving the requester may see this ticket:
@@ -322,7 +336,7 @@ export class BuyerService {
     signature: string | null;
     qrCodeDataUrl: string | null;
     origin?: TicketOrigin;
-  }) {
+  }, options: { vip?: boolean } = {}) {
     const qrLocked = isQrCodeLocked(ticket.event);
     const qrCodeDataUrl = qrLocked ? null : ticket.qrCodeDataUrl ?? await this.generateQrCodeDataUrl(ticket);
     return this.renderTicketPdf({
@@ -336,7 +350,7 @@ export class BuyerService {
       shortCode: this.shortTicketCode(ticket.uuid),
       qrCodeDataUrl,
       qrLocked,
-      vip: ticket.origin === TicketOrigin.PLATFORM_COURTESY,
+      vip: options.vip ?? ticket.origin === TicketOrigin.PLATFORM_COURTESY,
     });
   }
 

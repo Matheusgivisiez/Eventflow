@@ -12,6 +12,7 @@ jest.mock("sharp", () =>
 import { PaymentStatus, TicketOrigin, TicketStatus } from "@prisma/client";
 import { BuyerService } from "./buyer.service";
 import { transferTicketDownloadToken } from "../../common/utils/transfer-ticket-download";
+import { vipTicketDownloadToken } from "../../common/utils/vip-ticket-download";
 
 const now = new Date("2026-09-04T15:00:00.000Z");
 
@@ -109,6 +110,22 @@ describe("VIP PDF visual routing", () => {
     prisma.ticket.findFirst.mockResolvedValueOnce(createTicket({ origin: TicketOrigin.ORGANIZER_COURTESY }));
     await service.ticketPdf("user-1", "buyer@example.com", "ticket-1");
     expect(render).toHaveBeenLastCalledWith(expect.objectContaining({ vip: false }));
+  });
+});
+
+describe("VIP email PDF download", () => {
+  it("accepts the invitation token only for the current named owner", async () => {
+    const { service, prisma } = createService();
+    const ticket = createTicket({ ownerId: "owner-1" });
+    prisma.ticket.findUnique.mockResolvedValue(ticket);
+    (service as any).config = { get: () => "secret" };
+    const render = jest.spyOn(service, "renderTicketPdfFor").mockResolvedValue(Buffer.from("%PDF-vip"));
+    const token = vipTicketDownloadToken("secret", "ticket-1", "owner-1");
+
+    await expect(service.vipTicketPdf("ticket-1", token)).resolves.toEqual(Buffer.from("%PDF-vip"));
+    expect(render).toHaveBeenCalledWith(ticket, { vip: true });
+    ticket.ownerId = "owner-2";
+    await expect(service.vipTicketPdf("ticket-1", token)).rejects.toThrow("Ingresso não encontrado");
   });
 });
 

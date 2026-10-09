@@ -6,10 +6,11 @@ import { WalletModule } from "../wallet/wallet.module";
 import { BuyerController } from "./buyer.controller";
 import { BuyerService } from "./buyer.service";
 import { TransferTicketDownloadController } from "./transfer-ticket-download.controller";
+import { VipTicketDownloadController } from "./vip-ticket-download.controller";
 
 @Module({
   imports: [AuditModule, CacheModule, PaymentsModule, WalletModule],
-  controllers: [BuyerController, TransferTicketDownloadController],
+  controllers: [BuyerController, TransferTicketDownloadController, VipTicketDownloadController],
   providers: [BuyerService],
   exports: [BuyerService]
 })

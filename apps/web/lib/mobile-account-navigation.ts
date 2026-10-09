@@ -22,7 +22,8 @@ const PRODUCER_ROUTES = [
   "/coupons",
   "/notifications",
   "/profile",
-  "/admin"
+  "/admin",
+  "/administracao"
 ];
 
 function matchesRoute(pathname: string, route: string) {

@@ -101,6 +101,7 @@ export const envSchema = z.object({
   // after the event ends. Logged-in buyers keep access through their account.
   ORDER_ACCESS_TOKEN_TTL_DAYS: z.coerce.number().int().min(1).max(3650).default(30),
   ORDER_RESERVATION_TTL_MINUTES: z.coerce.number().int().min(5).max(24 * 60).default(60),
+  PENDING_PURCHASES_ENABLED: booleanFromEnv(false),
   ABACATE_PUBLIC_KEY: z.string().optional(),
   ABACATEPAY_API_KEY: z.string().optional(),
   ABACATEPAY_WEBHOOK_SECRET: z.string().optional(),

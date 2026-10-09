@@ -96,6 +96,19 @@ export class PaymentsService {
         transactionId: result.transactionId
       }
     });
+    // Optional recovery data: failure here must not discard an already-created checkout.
+    if (this.config.get<boolean>("PENDING_PURCHASES_ENABLED") && result.provider === "infinite_pay") {
+      try {
+        const url = new URL(result.checkoutUrl);
+        if (url.protocol === "https:" && (url.hostname === "infinitepay.io" || url.hostname.endsWith(".infinitepay.io"))) {
+          await this.prisma.payment.update({ where: { orderId }, data: { checkoutUrl: url.toString() } });
+        } else {
+          this.logger.warn(`URL de checkout fora da InfinitePay para o pedido ${orderId}.`);
+        }
+      } catch (error) {
+        this.logger.warn(`Não foi possível salvar a URL de retomada do pedido ${orderId}: ${(error as Error).message}`);
+      }
+    }
     return result;
   }
 

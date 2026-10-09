@@ -3,6 +3,7 @@ import { NotificationsService } from "./notifications.service";
 
 function createService() {
   const prisma = {
+    ticket: { findUnique: jest.fn().mockResolvedValue({ ownerId: "owner-1", owner: { email: "vip@example.com" } }) },
     notificationLog: {
       findUnique: jest.fn().mockResolvedValue(null),
       findMany: jest.fn(),
@@ -550,5 +551,49 @@ describe("NotificationsService courtesy routing", () => {
     expect(sent.html).toContain("ticket-card-bg.png");
     expect(sent.html).not.toContain("vip-bg.png");
     expect(sent.text).toContain("Seu convite foi confirmado");
+  });
+});
+
+describe("NotificationsService VIP invitation", () => {
+  it("sends a gold invitation with a direct recipient-scoped PDF link", async () => {
+    const { service, mail, prisma } = createService();
+    await service.sendVipInvitation({
+      userId: "owner-1",
+      email: "vip@example.com",
+      recipientName: "Convidado VIP",
+      invitedBy: "Organização do Festival",
+      orderId: "order-vip",
+      eventTitle: "Festival",
+      eventStartsAt: new Date("2026-10-22T23:00:00.000Z"),
+      eventVenue: "Ipatinga, MG",
+      qrCodeLocked: false,
+      qrCodeReleaseAt: null,
+      ticket: { id: "vip-ticket-1", attendeeName: "Convidado VIP", ticketTypeName: "Premium", shortCode: "VIP1234567" },
+    });
+    const sent = mail.send.mock.calls[0][0];
+    expect(sent.subject).toContain("ingresso VIP");
+    expect(sent.html).toContain("vip-bg.png");
+    expect(sent.text).toContain("/api/vip-ticket-download/vip-ticket-1?token=");
+    expect(prisma.notificationLog.create).toHaveBeenCalledWith(expect.objectContaining({
+      data: expect.objectContaining({ event: NotificationEvent.VIP_TICKET_GRANTED, dedupeKey: "vip-ticket-granted:vip-ticket-1" }),
+    }));
+  });
+
+  it("rejects an invitation when the ticket belongs to another user", async () => {
+    const { service, prisma, mail } = createService();
+    prisma.ticket.findUnique.mockResolvedValue({ ownerId: "someone-else" });
+    await expect(service.sendVipInvitation({
+      userId: "owner-1",
+      email: "vip@example.com",
+      recipientName: "Convidado VIP",
+      orderId: "order-vip",
+      eventTitle: "Festival",
+      eventStartsAt: new Date("2026-10-22T23:00:00.000Z"),
+      eventVenue: "Ipatinga, MG",
+      qrCodeLocked: false,
+      qrCodeReleaseAt: null,
+      ticket: { id: "vip-ticket-1", attendeeName: "Convidado VIP", ticketTypeName: "Premium", shortCode: "VIP1234567" },
+    })).rejects.toThrow("titular do ingresso");
+    expect(mail.send).not.toHaveBeenCalled();
   });
 });

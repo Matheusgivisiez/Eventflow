@@ -101,6 +101,38 @@ describe("PaymentsService", () => {
     jest.clearAllMocks();
   });
 
+  it("persists a resumable InfinitePay URL only with the feature enabled", async () => {
+    const { prisma, abacatePay, notifications, config } = createService();
+    config.get.mockImplementation((key: string) => key === "PENDING_PURCHASES_ENABLED" ? true : key === "PAYMENT_PROVIDER" ? "infinite_pay" : key === "QR_CODE_SECRET" ? "test-secret" : key === "APP_URL" ? "https://app.example" : undefined);
+    prisma.order.findUnique.mockResolvedValue({
+      id: "order-1", totalCents: 10800, buyerEmail: "buyer@example.com", buyerName: "Buyer",
+      orderAccessToken: "token", event: { title: "Show" }, payment: { method: PaymentMethod.PIX }
+    });
+    const infinitePay = { createCheckout: jest.fn().mockResolvedValue({
+      provider: "infinite_pay", providerRef: "abc", checkoutId: "abc", checkoutUrl: "https://pay.infinitepay.io/abc"
+    }) };
+    const service = new PaymentsService(prisma as any, abacatePay as any, config as any, notifications as any, undefined, infinitePay as any);
+    await service.createProviderPreference("order-1");
+    expect(prisma.payment.update).toHaveBeenNthCalledWith(2, {
+      where: { orderId: "order-1" }, data: { checkoutUrl: "https://pay.infinitepay.io/abc" }
+    });
+  });
+
+  it("keeps the original checkout working if optional URL persistence fails", async () => {
+    const { prisma, abacatePay, notifications, config } = createService();
+    config.get.mockImplementation((key: string) => key === "PENDING_PURCHASES_ENABLED" ? true : key === "PAYMENT_PROVIDER" ? "infinite_pay" : key === "QR_CODE_SECRET" ? "test-secret" : key === "APP_URL" ? "https://app.example" : undefined);
+    prisma.order.findUnique.mockResolvedValue({
+      id: "order-1", totalCents: 10800, buyerEmail: "buyer@example.com", buyerName: "Buyer",
+      orderAccessToken: "token", event: { title: "Show" }, payment: { method: PaymentMethod.PIX }
+    });
+    prisma.payment.update.mockResolvedValueOnce({}).mockRejectedValueOnce(new Error("DB unavailable"));
+    const infinitePay = { createCheckout: jest.fn().mockResolvedValue({
+      provider: "infinite_pay", providerRef: "abc", checkoutId: "abc", checkoutUrl: "https://pay.infinitepay.io/abc"
+    }) };
+    const service = new PaymentsService(prisma as any, abacatePay as any, config as any, notifications as any, undefined, infinitePay as any);
+    await expect(service.createProviderPreference("order-1")).resolves.toEqual(expect.objectContaining({ checkoutUrl: "https://pay.infinitepay.io/abc" }));
+  });
+
   it("returns buyers to their tickets and includes the order access token in the completion URL", async () => {
     const { service, prisma, abacatePay } = createService();
     prisma.order.findUnique.mockResolvedValue({
