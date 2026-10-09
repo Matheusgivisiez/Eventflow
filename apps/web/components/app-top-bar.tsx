@@ -22,6 +22,8 @@ type AppTopBarProps = {
   contentClassName?: string;
   compact?: boolean;
   leadingAddon?: ReactNode;
+  /** Header sobre arte/foto: usa sempre a logo branca, legível em fundo escuro nos dois temas. */
+  invertedLogo?: boolean;
 };
 
 function getInitials(name?: string) {
@@ -45,7 +47,8 @@ export function AppTopBar({
   className,
   contentClassName,
   compact = false,
-  leadingAddon
+  leadingAddon,
+  invertedLogo = false
 }: AppTopBarProps) {
   const router = useRouter();
   const pathname = usePathname();
@@ -121,13 +124,13 @@ export function AppTopBar({
             </Button>
           ) : (
             <Link href="/" className="group shrink-0 transition-opacity hover:opacity-90">
-              <BrandLogo />
+              <BrandLogo inverted={invertedLogo} className={cn(invertedLogo && "drop-shadow-[0_1px_6px_rgba(0,0,0,0.45)]")} />
             </Link>
           )}
 
           {backHref && (
             <Link href="/" className="group shrink-0 transition-opacity hover:opacity-90">
-              <BrandLogo />
+              <BrandLogo inverted={invertedLogo} className={cn(invertedLogo && "drop-shadow-[0_1px_6px_rgba(0,0,0,0.45)]")} />
             </Link>
           )}
         </div>

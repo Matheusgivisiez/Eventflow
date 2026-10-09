@@ -112,7 +112,7 @@ export function HeroBanner({ event, art }: HeroBannerProps) {
       {desktopSrc && <HeroBackdrop src={desktopSrc} />}
       {/* Glass com desfoque progressivo atrás do header: sólido no topo, some para baixo. */}
       <div aria-hidden="true" className="hero-header-veil pointer-events-none absolute inset-x-0 top-0 z-30 h-24" />
-      <AppTopBar backHref="/" className={OVERLAY_TOP_BAR} />
+      <AppTopBar backHref="/" className={OVERLAY_TOP_BAR} invertedLogo />
 
       {/* A arte em si: nítida, sem distorção, dissolvendo na cor da plataforma. */}
       <div
