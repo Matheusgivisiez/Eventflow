@@ -1,11 +1,13 @@
 import { EmailVerificationService } from "../email-verification/email-verification.service";
 import { AuthService } from "./auth.service";
+import * as bcrypt from "bcryptjs";
 
 function createService() {
   const prisma = {
     user: {
       findUnique: jest.fn(),
-      update: jest.fn()
+      update: jest.fn(),
+      create: jest.fn()
     },
     passwordResetToken: {
       create: jest.fn(),
@@ -29,7 +31,7 @@ function createService() {
     get: jest.fn((key: string) => key === "APP_URL" ? "https://app.example" : undefined),
     getOrThrow: jest.fn()
   };
-  const mail = { send: jest.fn() };
+  const mail = { send: jest.fn().mockResolvedValue({ status: "SENT" }) };
   // The real verification service, on the same mocks: the tests below assert
   // on the token row it writes and the mail it sends.
   const emailVerification = new EmailVerificationService(prisma as any, mail as any, config as any);
@@ -172,6 +174,20 @@ describe("AuthService e-mail verification", () => {
     expect(prisma.emailVerificationToken.create).not.toHaveBeenCalled();
   });
 
+  it("checks cooldown only against active links for the current address", async () => {
+    const { service, prisma } = createService();
+    prisma.user.findUnique.mockResolvedValue({
+      id: "user-1", name: "Buyer", email: "buyer@example.com", emailVerifiedAt: null
+    });
+    prisma.emailVerificationToken.findFirst.mockResolvedValue(null);
+
+    await service.resendEmailVerification("buyer@example.com");
+
+    expect(prisma.emailVerificationToken.findFirst).toHaveBeenCalledWith(expect.objectContaining({
+      where: { userId: "user-1", email: "buyer@example.com", usedAt: null, expiresAt: { gt: expect.any(Date) } }
+    }));
+  });
+
   it("stores only the hash of the verification token and never the raw value", async () => {
     const { service, prisma, mail } = createService();
     prisma.user.findUnique.mockResolvedValue({
@@ -216,6 +232,19 @@ describe("AuthService e-mail verification", () => {
     expect(prisma.user.update).not.toHaveBeenCalled();
   });
 
+  it("accepts a second click on a link after the address was verified", async () => {
+    const { service, prisma } = createService();
+    prisma.emailVerificationToken.findFirst.mockResolvedValue({
+      id: "token-1", userId: "user-1", email: "buyer@example.com", usedAt: new Date(),
+      user: { id: "user-1", email: "buyer@example.com", emailVerifiedAt: new Date() }
+    });
+
+    await expect(service.verifyEmail("raw-token")).resolves.toEqual({
+      message: "E-mail confirmado com sucesso.", email: "buyer@example.com"
+    });
+    expect(prisma.user.update).not.toHaveBeenCalled();
+  });
+
   it("does not let a mail outage break the sign-up", async () => {
     const { service, prisma, mail } = createService();
     prisma.user.findUnique.mockResolvedValue({
@@ -228,5 +257,64 @@ describe("AuthService e-mail verification", () => {
     mail.send.mockRejectedValue(new Error("SMTP down"));
 
     await expect(service.resendEmailVerification("buyer@example.com")).resolves.toBeDefined();
+  });
+});
+
+describe("AuthService new-account access", () => {
+  beforeEach(() => jest.clearAllMocks());
+
+  it("creates a pending account without issuing a session", async () => {
+    const { service, prisma, mail } = createService();
+    prisma.user.findUnique.mockResolvedValue(null);
+    prisma.user.create.mockResolvedValue({ id: "new-user", email: "new@example.com", name: "New" });
+
+    await expect(service.register({
+      name: "New", email: "new@example.com", password: "password123", phone: "11999999999", cpf: "12345678909"
+    })).resolves.toEqual({ email: "new@example.com", verificationEmailSent: true });
+
+    expect(prisma.user.create).toHaveBeenCalledWith(expect.objectContaining({
+      data: expect.objectContaining({ emailVerificationRequired: true })
+    }));
+    expect(mail.send).toHaveBeenCalled();
+    expect(prisma.refreshToken.create).not.toHaveBeenCalled();
+  });
+
+  it("blocks login only for a new account awaiting confirmation", async () => {
+    const { service, prisma } = createService();
+    const passwordHash = await bcrypt.hash("password123", 4);
+    prisma.user.findUnique.mockResolvedValue({
+      id: "new-user", email: "new@example.com", passwordHash,
+      emailVerificationRequired: true, emailVerifiedAt: null
+    });
+
+    await expect(service.login({ email: "new@example.com", password: "password123" }))
+      .rejects.toThrow("Confirme seu e-mail");
+    expect(prisma.refreshToken.create).not.toHaveBeenCalled();
+  });
+
+  it("allows a new account to log in after confirmation", async () => {
+    const { service, prisma } = createService();
+    const passwordHash = await bcrypt.hash("password123", 4);
+    prisma.user.findUnique.mockResolvedValue({
+      id: "new-user", email: "new@example.com", passwordHash,
+      emailVerificationRequired: true, emailVerifiedAt: new Date()
+    });
+    (service as any).issueSession = jest.fn().mockResolvedValue({ accessToken: "confirmed-session" });
+
+    await expect(service.login({ email: "new@example.com", password: "password123" }))
+      .resolves.toEqual({ accessToken: "confirmed-session" });
+  });
+
+  it("keeps an existing unverified account able to log in", async () => {
+    const { service, prisma } = createService();
+    const passwordHash = await bcrypt.hash("password123", 4);
+    prisma.user.findUnique.mockResolvedValue({
+      id: "existing-user", email: "existing@example.com", passwordHash,
+      emailVerificationRequired: false, emailVerifiedAt: null
+    });
+    (service as any).issueSession = jest.fn().mockResolvedValue({ accessToken: "existing-session" });
+
+    await expect(service.login({ email: "existing@example.com", password: "password123" }))
+      .resolves.toEqual({ accessToken: "existing-session" });
   });
 });

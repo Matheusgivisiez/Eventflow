@@ -1034,7 +1034,7 @@ export default function MyTicketsPage() {
   return (
     <main aria-labelledby="ticket-list-title">
       <div className="mx-auto max-w-5xl">
-        {user && user.emailVerified === false && (
+        {user && user.emailVerified === false && !allTickets.some((ticket) => ticket.origin === "PLATFORM_COURTESY") && (
           <div className="mb-5 flex flex-col gap-3 rounded-2xl border border-amber-500/30 bg-amber-500/10 p-4 sm:flex-row sm:items-center sm:justify-between">
             <div className="flex items-start gap-3">
               <CircleAlert className="mt-0.5 h-4 w-4 shrink-0 text-amber-400" />

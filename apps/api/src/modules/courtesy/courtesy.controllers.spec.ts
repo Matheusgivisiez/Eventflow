@@ -8,12 +8,19 @@ const owner = { id: "owner-1", tenantId: "tenant-1", email: "o@example.com", ema
 const dto = { guests: [{ name: "Ana", email: "ana@example.com" }] };
 
 function createCourtesy() {
-  return { issue: jest.fn().mockResolvedValue({}), list: jest.fn().mockResolvedValue({}), cancel: jest.fn().mockResolvedValue({}), countsByEvent: jest.fn() };
+  return { issue: jest.fn().mockResolvedValue({}), list: jest.fn().mockResolvedValue({}), cancel: jest.fn().mockResolvedValue({}), countsByEvent: jest.fn(), findVipRecipient: jest.fn().mockResolvedValue({ exists: true }) };
 }
 
 describe("AdminCourtesyController", () => {
   it("é restrito ao admin da plataforma", () => {
     expect(Reflect.getMetadata(ROLES_KEY, AdminCourtesyController)).toEqual([UserRole.ADMIN]);
+  });
+
+  it("permite ao admin buscar a conta antes de emitir", async () => {
+    const courtesy = createCourtesy();
+    const controller = new AdminCourtesyController(courtesy as any);
+    await controller.recipient({ email: "ana@example.com" });
+    expect(courtesy.findVipRecipient).toHaveBeenCalledWith("ana@example.com");
   });
 
   it("emite e cancela sempre como PLATFORM_COURTESY, em qualquer evento", async () => {

@@ -42,7 +42,10 @@ function createService() {
       updateMany: jest.fn().mockResolvedValue({ count: 1 }),
       count: jest.fn().mockResolvedValue(0)
     },
-    user: { findMany: jest.fn().mockResolvedValue([]) },
+    user: {
+      findMany: jest.fn().mockResolvedValue([]),
+      findUnique: jest.fn().mockImplementation(async ({ where }: { where: { email: string } }) => ({ id: `user-${where.email}`, name: "Convidado", email: where.email }))
+    },
     notificationLog: { findMany: jest.fn().mockResolvedValue([]) },
     $transaction: jest.fn((callback) => callback(prisma))
   };
@@ -56,6 +59,41 @@ function createService() {
 }
 
 describe("CourtesyService.issue", () => {
+  it("entrega o VIP diretamente à conta existente, sem aceite ou confirmação do ingresso", async () => {
+    const { service, prisma, payments } = createService();
+    prisma.user.findUnique.mockResolvedValue({ id: "recipient-1" });
+
+    await service.issue("event-1", TicketOrigin.PLATFORM_COURTESY, admin, {
+      guests: [{ name: "Ana", email: "ANA@Example.com", userId: "recipient-1" }]
+    });
+
+    expect(prisma.user.findUnique).toHaveBeenCalledWith({ where: { email: "ana@example.com" }, select: { id: true, name: true, email: true } });
+    expect(prisma.order.create).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ userId: "recipient-1" }) }));
+    expect(prisma.ticket.createMany.mock.calls[0][0].data[0]).toMatchObject({ ownerId: "recipient-1", attendeeEmail: "ana@example.com" });
+    expect(payments.dispatchPurchaseConfirmed).toHaveBeenCalledWith("order-1");
+  });
+
+  it("não emite VIP para e-mail sem conta ou seleção de outra conta", async () => {
+    const missing = createService();
+    missing.prisma.user.findUnique.mockResolvedValue(null);
+    await expect(missing.service.issue("event-1", TicketOrigin.PLATFORM_COURTESY, admin, {
+      guests: [{ name: "Ana", email: "ana@example.com" }]
+    })).rejects.toBeInstanceOf(BadRequestException);
+    expect(missing.prisma.ticket.createMany).not.toHaveBeenCalled();
+
+    const changed = createService();
+    await expect(changed.service.issue("event-1", TicketOrigin.PLATFORM_COURTESY, admin, {
+      guests: [{ name: "Ana", email: "ana@example.com", userId: "another-user" }]
+    })).rejects.toBeInstanceOf(BadRequestException);
+    expect(changed.prisma.ticket.createMany).not.toHaveBeenCalled();
+  });
+
+  it("busca a conta VIP pelo e-mail normalizado", async () => {
+    const { service, prisma } = createService();
+    await expect(service.findVipRecipient(" ANA@Example.com ")).resolves.toMatchObject({ exists: true, user: { email: "ana@example.com" } });
+    expect(prisma.user.findUnique).toHaveBeenCalledWith({ where: { email: "ana@example.com" }, select: { id: true, name: true, email: true } });
+  });
+
   it("emite VIP da plataforma como pedido pago de valor zero, sem pagamento, extrato ou estoque", async () => {
     const { service, prisma } = createService();
 

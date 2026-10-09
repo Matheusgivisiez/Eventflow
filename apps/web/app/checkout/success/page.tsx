@@ -244,7 +244,7 @@ function SuccessContent() {
           <CardTitle className="text-2xl">
             {isPaid
               ? order.courtesy
-                ? "Convite Confirmado!"
+                ? "Convite emitido!"
                 : order.totalCents === 0
                 ? "Inscrição Confirmada!"
                 : "Pagamento Confirmado!"
@@ -300,7 +300,9 @@ function SuccessContent() {
                 </Button>
               </div>
               <p className="text-xs text-muted-foreground">
-                Com uma conta confirmada você reúne todas as suas compras em Meus Ingressos.
+                {order.courtesy
+                  ? "O convite já foi emitido. Quem já tem conta pode entrar para vê-lo, sem aceitar o convite ou confirmar o e-mail novamente."
+                  : "Com uma conta confirmada você reúne todas as suas compras em Meus Ingressos."}
               </p>
             </div>
           )}

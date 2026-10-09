@@ -149,6 +149,11 @@ export default function LoginPage() {
             <p className="text-xs text-rose-300">
               {mutation.error.message}
             </p>
+            {mutation.error.message.startsWith("Confirme seu e-mail") && (
+              <Link href="/verificar-email" className="mt-2 inline-block text-xs font-semibold text-purple-200 underline">
+                Pedir novo link de confirmação
+              </Link>
+            )}
           </div>
         )}
 
@@ -205,5 +210,4 @@ export default function LoginPage() {
     </div>
   );
 }
-
 

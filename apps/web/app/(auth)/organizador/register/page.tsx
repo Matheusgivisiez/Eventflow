@@ -22,7 +22,6 @@ import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { api } from "@/lib/api";
 import { formatBrazilPhone, normalizeBrazilPhone } from "@/lib/br-format";
-import { useAuthStore } from "@/stores/auth-store";
 import { ImageUpload } from "@/components/image-upload";
 
 const UF_LIST = [
@@ -64,7 +63,6 @@ function formatCnpj(value: string) {
 
 export default function RegisterOrganizerPage() {
   const router = useRouter();
-  const setSession = useAuthStore((state) => state.setSession);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
@@ -89,7 +87,7 @@ export default function RegisterOrganizerPage() {
   const mutation = useMutation({
     mutationFn: (data: FormData) => {
       const { confirmPassword: _confirmPassword, ...payload } = data;
-      return api<{ accessToken: string; user: any }>("/auth/register-organizer", {
+      return api<{ email: string; verificationEmailSent: boolean }>("/auth/register-organizer", {
         method: "POST",
         body: JSON.stringify({
           ...payload,
@@ -101,9 +99,9 @@ export default function RegisterOrganizerPage() {
         auth: false
       });
     },
-    onSuccess: (session) => {
-      setSession(session);
-      router.push("/dashboard");
+    onSuccess: (result) => {
+      sessionStorage.setItem("eventflow-pending-verification-email", result.email);
+      router.push(`/verificar-email?sent=${result.verificationEmailSent ? "1" : "0"}`);
     }
   });
 

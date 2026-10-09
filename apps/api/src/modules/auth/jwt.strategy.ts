@@ -26,6 +26,9 @@ export class JwtStrategy extends PassportStrategy(Strategy, "jwt") {
     if (payload.tokenVersion !== user.tokenVersion) {
       throw new UnauthorizedException("Sessão expirada. Entre novamente.");
     }
+    if (user.emailVerificationRequired && !user.emailVerifiedAt) {
+      throw new UnauthorizedException("Confirme seu e-mail antes de entrar.");
+    }
 
     return {
       id: user.id,

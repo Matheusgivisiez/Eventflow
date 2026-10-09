@@ -19,7 +19,6 @@ import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { api } from "@/lib/api";
 import { formatBrazilPhone, formatCpf, normalizeBrazilPhone, onlyDigits } from "@/lib/br-format";
-import { useAuthStore } from "@/stores/auth-store";
 
 const schema = z.object({
   name: z.string().min(2, "Informe seu nome."),
@@ -34,7 +33,6 @@ type FormData = z.infer<typeof schema>;
 function RegisterForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const setSession = useAuthStore((state) => state.setSession);
   const [showPassword, setShowPassword] = useState(false);
 
   // Prefilled only as a convenience for whoever just bought as a guest.
@@ -49,7 +47,7 @@ function RegisterForm() {
 
   const mutation = useMutation({
     mutationFn: (data: FormData) =>
-      api<{ accessToken: string; user: any }>("/auth/register", {
+      api<{ email: string; verificationEmailSent: boolean }>("/auth/register", {
         method: "POST",
         body: JSON.stringify({
           ...data,
@@ -58,9 +56,9 @@ function RegisterForm() {
         }),
         auth: false
       }),
-    onSuccess: (session) => {
-      setSession(session);
-      router.push("/me/ingressos");
+    onSuccess: (result) => {
+      sessionStorage.setItem("eventflow-pending-verification-email", result.email);
+      router.push(`/verificar-email?sent=${result.verificationEmailSent ? "1" : "0"}`);
     }
   });
 
