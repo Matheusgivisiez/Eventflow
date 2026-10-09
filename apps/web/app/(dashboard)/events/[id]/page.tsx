@@ -30,6 +30,7 @@ const schema = z.object({
   startsAt: z.string().min(1, "Informe data e horário."),
   endsAt: z.string().optional(),
   bannerUrl: z.string().optional(),
+  shareImageUrl: z.string().optional(),
   heroMobileUrl: z.string().optional(),
   heroDesktopUrl: z.string().optional(),
   venueMapUrl: z.string().optional(),
@@ -121,6 +122,7 @@ export default function EditEventPage({ adminMode = false, adminBase = "/admin" 
         startsAt: isoToScheduleValue(event.startsAt),
         endsAt: isoToScheduleValue(event.endsAt),
         bannerUrl: event.bannerUrl ?? "",
+        shareImageUrl: event.shareImageUrl ?? "",
         heroMobileUrl: event.heroMobileUrl ?? "",
         heroDesktopUrl: event.heroDesktopUrl ?? "",
         venueMapUrl: event.venueMapUrl ?? "",
@@ -150,6 +152,7 @@ export default function EditEventPage({ adminMode = false, adminBase = "/admin" 
     const payload: Record<string, unknown> = {
       ...data,
       bannerUrl: data.bannerUrl || undefined,
+      shareImageUrl: data.shareImageUrl || null,
       // null remove o mapa já salvo; a seção some da página pública.
       venueMapUrl: data.venueMapUrl || null,
       // null remove a arte da tela; a página volta a usar o banner.
@@ -343,6 +346,16 @@ export default function EditEventPage({ adminMode = false, adminBase = "/admin" 
                       value={form.watch("bannerUrl")}
                       onChange={(url) => form.setValue("bannerUrl", url)}
                     />
+                  </Field>
+                  <Field label="Capa de compartilhamento (opcional)" error={form.formState.errors.shareImageUrl?.message}>
+                    <ImageUpload
+                      aspect={1200 / 630}
+                      preset="social"
+                      label="Envie uma arte 1200 × 630 px para a prévia do link"
+                      value={form.watch("shareImageUrl")}
+                      onChange={(url) => form.setValue("shareImageUrl", url ?? "", { shouldDirty: true })}
+                    />
+                    <p className="mt-1 text-xs text-muted-foreground">Sem esta capa, o link usa o banner do evento. Deixe texto e logo longe das bordas.</p>
                   </Field>
                 </div>
                 {/* Artes opcionais do topo da página pública, uma por tela. */}

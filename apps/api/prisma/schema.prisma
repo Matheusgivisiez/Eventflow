@@ -330,6 +330,7 @@ model Event {
   description            String
   category               String
   bannerUrl              String?
+  shareImageUrl           String?
   galleryUrls            String[]     @default([])
   venueMapUrl            String?
   /// Arte do topo da página pública no celular (vertical 9:16). Sem ela, usa o banner.

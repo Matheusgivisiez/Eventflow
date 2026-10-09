@@ -3,7 +3,8 @@ import {
   Post,
   UseInterceptors,
   UploadedFile,
-  UseGuards
+  UseGuards,
+  Query
 } from "@nestjs/common";
 import { FileInterceptor } from "@nestjs/platform-express";
 import { ApiBearerAuth, ApiTags } from "@nestjs/swagger";
@@ -25,8 +26,8 @@ export class UploadController {
       limits: { fileSize: 5 * 1024 * 1024 }
     })
   )
-  async upload(@UploadedFile() file: Express.Multer.File) {
-    const stored = await this.storage.store(file);
+  async upload(@UploadedFile() file: Express.Multer.File, @Query("preset") preset?: string) {
+    const stored = await this.storage.store(file, preset === "social" ? "social" : undefined);
     return { url: stored.url };
   }
 }

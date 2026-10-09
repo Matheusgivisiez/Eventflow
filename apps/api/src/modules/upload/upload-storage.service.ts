@@ -23,11 +23,12 @@ export class UploadStorageService {
 
   constructor(private readonly config: ConfigService) {}
 
-  async store(file: Express.Multer.File): Promise<StoredUpload> {
+  async store(file: Express.Multer.File, preset?: "social"): Promise<StoredUpload> {
     this.validate(file);
 
-    const optimized = await this.optimize(file.buffer);
-    const key = this.createObjectKey();
+    const optimized = await this.optimize(file.buffer, preset);
+    const key = this.createObjectKey(preset);
+    const contentType = preset === "social" ? "image/jpeg" : "image/webp";
     const bucket = this.config.get<string>("AWS_S3_ASSETS_BUCKET");
     const publicUrl = this.config.get<string>("AWS_S3_ASSETS_PUBLIC_URL");
     const nodeEnv = this.config.get<string>("NODE_ENV") ?? "development";
@@ -37,7 +38,7 @@ export class UploadStorageService {
         Bucket: bucket,
         Key: key,
         Body: optimized,
-        ContentType: "image/webp",
+        ContentType: contentType,
         CacheControl: "public, max-age=31536000, immutable"
       }));
 
@@ -54,7 +55,7 @@ export class UploadStorageService {
 
     await fs.mkdir(LOCAL_UPLOADS_DIR, { recursive: true });
     const localName = key.replace(/\//g, "-");
-    await fs.writeFile(join(LOCAL_UPLOADS_DIR, localName), file.buffer);
+    await fs.writeFile(join(LOCAL_UPLOADS_DIR, localName), optimized);
 
     return {
       url: `/uploads/${localName}`,
@@ -93,15 +94,23 @@ export class UploadStorageService {
     return this.s3;
   }
 
-  private createObjectKey() {
+  private createObjectKey(preset?: "social") {
     const now = new Date();
     const year = now.getUTCFullYear();
     const month = String(now.getUTCMonth() + 1).padStart(2, "0");
-    return `assets/${year}/${month}/${randomBytes(16).toString("hex")}.webp`;
+    return `assets/${year}/${month}/${randomBytes(16).toString("hex")}.${preset === "social" ? "jpg" : "webp"}`;
   }
 
-  private optimize(buffer: Buffer) {
+  private optimize(buffer: Buffer, preset?: "social") {
     const sharpFactory = sharp as unknown as (input: Buffer) => Sharp;
+    if (preset === "social") {
+      return sharpFactory(buffer)
+        .rotate()
+        .resize({ width: 1200, height: 630, fit: "cover", position: "centre" })
+        .flatten({ background: "#ffffff" })
+        .jpeg({ quality: 86, mozjpeg: true })
+        .toBuffer();
+    }
     return sharpFactory(buffer)
       .rotate()
       .resize({ width: 1920, height: 1080, fit: "inside", withoutEnlargement: true })

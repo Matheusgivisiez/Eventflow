@@ -82,6 +82,12 @@ export class CreateEventDto {
   @IsString()
   bannerUrl?: string;
 
+  @ApiPropertyOptional({ description: "URL da capa de compartilhamento do evento (1200 x 630 px)" })
+  @IsOptional()
+  @IsString()
+  @MaxLength(2048)
+  shareImageUrl?: string;
+
   @ApiPropertyOptional({ description: "URLs da galeria de imagens" })
   @IsOptional()
   @IsArray()

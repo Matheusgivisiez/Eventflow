@@ -30,7 +30,16 @@ describe("UploadController", () => {
 
     const result = await controller.upload({ originalname: "file.png" } as Express.Multer.File);
 
-    expect(storage.store).toHaveBeenCalledWith({ originalname: "file.png" });
+    expect(storage.store).toHaveBeenCalledWith({ originalname: "file.png" }, undefined);
     expect(result).toEqual({ url: "https://cdn.example.com/assets/file.png" });
+  });
+
+  it("uses the social image preset when requested", async () => {
+    const storage = { store: jest.fn().mockResolvedValue({ url: "https://cdn.example.com/share.jpg" }) };
+    const controller = new UploadController(storage as any);
+
+    await controller.upload({ originalname: "cover.png" } as Express.Multer.File, "social");
+
+    expect(storage.store).toHaveBeenCalledWith({ originalname: "cover.png" }, "social");
   });
 });
