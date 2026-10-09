@@ -102,18 +102,14 @@ export function EventDetailClient({
     }, 450);
   }
 
-  const ticketsAndArtists = (
-    <>
-      <ShareButtons title={event.title} slug={event.slug} invite={invite} />
-      <TicketSelector
-        ticketTypes={event.ticketTypes}
-        now={now}
-        quantities={quantities}
-        onQuantityChange={handleQuantityChange}
-        attentionRequest={ticketAttentionRequest}
-      />
-      <EventArtists artists={event.artists} compact />
-    </>
+  const ticketSelector = (
+    <TicketSelector
+      ticketTypes={event.ticketTypes}
+      now={now}
+      quantities={quantities}
+      onQuantityChange={handleQuantityChange}
+      attentionRequest={ticketAttentionRequest}
+    />
   );
 
   return (
@@ -121,15 +117,18 @@ export function EventDetailClient({
       <div className="grid min-w-0 grid-cols-1 gap-10 lg:grid-cols-[minmax(0,1fr)_minmax(0,420px)] lg:gap-12">
         {/* Coluna esquerda: informações */}
         <div className="min-w-0 space-y-10 sm:space-y-12">
-          {aboutSection}
-
-          {/* No mobile, ingressos + artistas vêm logo após o resumo do evento,
-              antes de galeria/localização/agenda (no desktop isso vira a sidebar abaixo) */}
+          {/* No mobile, o seletor vem logo após a capa e os dados do evento. */}
           <div ref={mobileTicketsRef} className="scroll-mt-24 space-y-6 lg:hidden">
-            {ticketsAndArtists}
+            {ticketSelector}
           </div>
 
-          {/* Mapa do evento: logo depois dos ingressos no mobile, ao lado deles no desktop */}
+          {aboutSection}
+
+          <div className="space-y-6 lg:hidden">
+            <ShareButtons title={event.title} slug={event.slug} invite={invite} />
+            <EventArtists artists={event.artists} compact />
+          </div>
+
           {venueMapSection}
           {gallerySection}
           {locationSection}
@@ -141,7 +140,9 @@ export function EventDetailClient({
         {/* Coluna direita: sidebar sticky com ingressos (somente desktop) */}
         <div className="relative hidden min-w-0 lg:block">
           <div ref={desktopTicketsRef} className="sticky top-20 scroll-mt-24 space-y-6">
-            {ticketsAndArtists}
+            <ShareButtons title={event.title} slug={event.slug} invite={invite} />
+            {ticketSelector}
+            <EventArtists artists={event.artists} compact />
           </div>
         </div>
       </div>
